@@ -1,0 +1,13 @@
+{
+  "name": "autopets-design-source",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deterministic assembly of the included AutoPets sprite atlas and offline concept HTML",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node build-assets.cjs",
+    "check": "node build-assets.cjs --check",
+    "preview": "node preview-server.cjs"
+  },
+  "dependencies": { "sharp": "0.35.4" }
+}

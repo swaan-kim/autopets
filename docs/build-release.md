@@ -2,6 +2,16 @@
 
 이 소스의 `.github/workflows/windows.yml`은 Windows에서 테스트와 NSIS 설치 파일 생성을 수행한다. 자동 실행은 `main` push와 pull request이며, 수동 실행은 기본적으로 검토용 artifact만 만든다. 실제 GitHub 저장소의 루트에 이 프로젝트와 `.github`를 함께 두어야 한다.
 
+## 확인된 첫 Windows 빌드
+
+2026-09-20, [Actions 실행 35462024271](https://github.com/swaan-kim/autopets/actions/runs/35462024271)이 commit `c89595547d9c95049c85061bb87442a0f385b3f4`에서 성공했다. Node 22개·Rust 31개·화면 검사를 통과하고 NSIS 설치 파일을 생성했다. 다운로드한 설치 파일·companion ZIP·UI 캡처 2개의 SHA-256은 CI manifest와 일치했다. 설치 파일은 3,251,113바이트이며 Authenticode 조회 결과 `NotSigned`다. 설치·실행·실제 Codex 훅 연결은 아직 수행하지 않았다. 공개 릴리스는 발행하지 않았다.
+
+설치 파일 `AutoPets_0.1.0_x64-setup.exe`의 SHA-256:
+
+```text
+0f3822925d90ce7ad670626da361cec7a59bba33ed17ea53d7aa1f4babc4673c
+```
+
 ## 검증 범위
 
 | 단계 | 확인하는 내용 |

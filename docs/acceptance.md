@@ -1,6 +1,6 @@
 # v1 검증 기록
 
-2026-09-20. 실제 Codex 이벤트, 시험 서버, 브라우저 fixture를 구분한다. 이 문서는 최초 CI 실행 전 확인한 결과다. Windows 빌드 결과는 해당 commit의 Actions 실행 기록을 확인한다.
+2026-09-20. 실제 Codex 이벤트, 시험 서버, 브라우저 fixture를 구분한다. Windows CI는 commit `c89595547d9c95049c85061bb87442a0f385b3f4`의 [실행 35462024271](https://github.com/swaan-kim/autopets/actions/runs/35462024271)에서 성공했다. 이후 변경은 소개 이미지·제작 소스·검증 문서다.
 
 ## 확인한 결과
 
@@ -11,12 +11,12 @@
 - [x] 같은 HTML에서 1080×1350 PNG 3장 출력·시각 검수. 목업은 인라인 자산만 사용하고 외부 연결을 CSP로 차단한다.
 - [x] 64×64 투명 PNG 8프레임, 256×128 스프라이트, 정수 배율 표시. 이미지 생성은 제작 시 한 번 수행했으며 실행 중 추가 호출 없음.
 - [x] Rust 포맷과 locked/offline Cargo metadata 검사.
-- [ ] Rust 테스트 31개 작성; 로컬 테스트 본문은 Windows 앱 제어 4551로 실행하지 못함. CI에서 실행한다.
+- [x] Rust 테스트 31개가 hosted Windows에서 모두 통과. 로컬에서는 Windows 앱 제어 4551로 실행하지 않았다.
 - [x] Windows 테스트·NSIS 설치 파일·companion ZIP·SHA-256 생성 workflow 준비.
 
 ## 실제 환경에서 남은 확인
 
-- [ ] GitHub Actions의 해당 commit에서 Rust 테스트·NSIS 빌드 성공 및 artifact 확인.
+- [x] GitHub Actions에서 Rust 테스트·NSIS 빌드·artifact 업로드 성공. 설치 파일을 포함한 4개 파일의 다운로드 SHA-256 일치 확인. 설치 파일의 Authenticode 상태는 `NotSigned`.
 - [ ] 설치·실행·종료·재실행, 서명과 사용자 PC의 실행 허용 여부.
 - [ ] 다른 앱 위에 뜨는 독립 투명 창, 포커스 유지, 이동, 트레이, DPI 100/150/200%, 다중 모니터.
 - [ ] 정상적인 Codex 훅 trust 이후 실제 현재 작업의 이벤트 수신과 스킬 연결.
