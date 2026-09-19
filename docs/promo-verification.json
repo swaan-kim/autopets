@@ -1,35 +1,19 @@
 {
-  "revision": "promotional-v2",
+  "revision": "promotional-v3",
   "checks": [
-    {
-      "check": "feature opens progress demo",
-      "pass": true
-    },
-    {
-      "check": "selected pet returns its own demo task",
-      "pass": true
-    },
-    {
-      "check": "alert feature opens time reminder scenario",
-      "pass": true
-    },
-    {
-      "check": "acknowledgment keeps writing state",
-      "pass": true
-    },
-    {
-      "check": "try demo opens editable start questions",
-      "pass": true
-    },
-    {
-      "check": "demo can return to overview",
-      "pass": true
-    }
+    {"check": "overview shows three user benefits and all four flow steps", "pass": true},
+    {"check": "first benefit opens two-task progress demo", "pass": true},
+    {"check": "selected customer-interview pet opens its own criterion and steps", "pass": true},
+    {"check": "second benefit opens ten-minute reminder with task still writing", "pass": true},
+    {"check": "third benefit opens two identifiable task pets", "pass": true},
+    {"check": "demo returns to overview", "pass": true},
+    {"check": "browser console has no captured errors", "pass": true},
+    {"check": "user preview tab refreshed to v3", "pass": true}
   ],
-  "posterSize": [
-    1080,
-    1350
-  ],
-  "postersVisuallyReviewed": 3,
-  "additionalImagegenCalls": 0
+  "wideSize": [1280, 800],
+  "posterSize": [1080, 1350],
+  "updatedImagesVisuallyReviewed": ["00-overview-wide.png", "01-overview.png", "03-benefits.png"],
+  "unchangedPreviouslyReviewedImage": "02-user-flow.png",
+  "additionalImagegenCalls": 0,
+  "scope": "Promotional HTML and images only. No new native app execution or task-navigation integration claim."
 }
