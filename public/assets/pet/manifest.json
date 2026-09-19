@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "frameSize": 64,
+  "columns": 4,
+  "rows": 2,
+  "animations": {
+    "idle": {
+      "frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "fps": 2
+    },
+    "research": {
+      "frames": [
+        4,
+        5
+      ],
+      "fps": 2
+    },
+    "writing": {
+      "frames": [
+        6,
+        7
+      ],
+      "fps": 3
+    }
+  },
+  "runtimeGeneration": false,
+  "source": "ImageGen, derived from user-shared cream puppy reference",
+  "bytes": 16253,
+  "checks": [
+    {
+      "index": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        40,
+        83,
+        392,
+        419
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        481,
+        83,
+        838,
+        419
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 2,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        925,
+        83,
+        1274,
+        419
+      ],
+      "contentSize": [
+        51,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 3,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        1369,
+        83,
+        1722,
+        419
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 4,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        43,
+        490,
+        395,
+        826
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 5,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        484,
+        489,
+        840,
+        826
+      ],
+      "contentSize": [
+        52,
+        50
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 6,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        928,
+        489,
+        1283,
+        842
+      ],
+      "contentSize": [
+        52,
+        52
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 7,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        1373,
+        489,
+        1727,
+        841
+      ],
+      "contentSize": [
+        52,
+        52
+      ],
+      "baseline": 60
+    }
+  ]
+}

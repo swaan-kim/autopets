@@ -1,0 +1,132 @@
+name: Windows build and review artifacts
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      draft_release:
+        description: Create a draft release after all checks pass
+        type: boolean
+        default: false
+      release_tag:
+        description: Existing vX.Y.Z tag pointing to this exact commit (draft only)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_TERM_COLOR: always
+      AUTOPETS_SCREENSHOT: ${{ github.workspace }}/work/ui-smoke.png
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: '11.19.0'
+          cache: true
+      - name: Install locked frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test adapter and task configuration
+        run: pnpm test
+      - name: Prepare browser verification
+        run: |
+          New-Item -ItemType Directory -Path work -Force | Out-Null
+          pnpm exec playwright install chromium
+          if ($LASTEXITCODE -ne 0) { throw 'Chromium installation failed.' }
+      - name: Test the rendered interface
+        run: node scripts/ci-ui.mjs
+      - name: Build frontend assets for native compilation
+        run: pnpm build
+      - name: Select Rust MSVC toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Rust installation failed.' }
+          rustup default stable
+          if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed.' }
+      - name: Test Rust core and bridge
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Build NSIS installer
+        run: |
+          $taskBundleConfig = Join-Path $env:RUNNER_TEMP 'autopets-tauri-build.json'
+          '{"bundle":{"active":true,"targets":["nsis"],"windows":{"nsis":{"installMode":"currentUser"}}}}' | Set-Content -LiteralPath $taskBundleConfig -Encoding utf8
+          pnpm exec tauri build --bundles nsis --config $taskBundleConfig -- --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri NSIS build failed.' }
+      - name: Stage review artifacts
+        run: |
+          $taskArtifactDir = Join-Path $env:GITHUB_WORKSPACE 'work/artifacts'
+          New-Item -ItemType Directory -Path $taskArtifactDir -Force | Out-Null
+          $taskInstallers = @(Get-ChildItem -LiteralPath 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
+          if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
+          Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
+          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png -Destination $taskArtifactDir
+          Compress-Archive -LiteralPath hooks, skills, scripts, docs -DestinationPath (Join-Path $taskArtifactDir 'AutoPets-companion.zip')
+          $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
+            $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$taskDigest  $($_.Name)"
+          }
+          $taskChecksums | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'SHA256SUMS.txt') -Encoding utf8
+          "Commit: $env:GITHUB_SHA`nChecks: Node, rendered UI, Rust, NSIS build.`nInstaller signature and real Codex Desktop hook roundtrip require separate verification." | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'BUILD.txt') -Encoding utf8
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: AutoPets-windows-review
+          path: work/artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  draft-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.draft_release
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AUTOPETS_RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify existing release tag
+        run: |
+          $taskTag = $env:AUTOPETS_RELEASE_TAG
+          if ($taskTag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'An existing vX.Y.Z tag is required.' }
+          $taskVersion = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          if ($taskTag -ne "v$taskVersion") { throw 'Tag must match package.json version.' }
+          $taskCommit = git rev-parse --verify "refs/tags/$taskTag^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $taskCommit -ne $env:GITHUB_SHA) { throw 'Tag must already point to the exact built commit.' }
+      - name: Download artifacts from this successful run
+        run: gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name AutoPets-windows-review --dir artifacts
+      - name: Create draft only
+        run: |
+          $taskFiles = @(Get-ChildItem -LiteralPath artifacts -File | ForEach-Object FullName)
+          if ($taskFiles.Count -lt 4) { throw 'Incomplete build artifacts.' }
+          $taskNotes = Join-Path $env:RUNNER_TEMP 'autopets-release-notes.md'
+          "Windows review build from commit $env:GITHUB_SHA.`n`nNode, UI and Rust checks passed in this workflow. Review installation, signing, and the actual Codex Desktop hook connection before publishing. Task token usage and automatic task interruption are unavailable." | Set-Content -LiteralPath $taskNotes -Encoding utf8
+          gh release create $env:AUTOPETS_RELEASE_TAG @taskFiles --repo $env:GITHUB_REPOSITORY --verify-tag --draft --title "AutoPets $env:AUTOPETS_RELEASE_TAG" --notes-file $taskNotes
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed; existing releases are not modified.' }

@@ -1,0 +1,30 @@
+{
+  "date": "2026-09-20",
+  "scope": "pre-CI verification snapshot; consult Actions for commit-specific Windows results",
+  "phase": "concept-complete-windows-ci-prepared",
+  "adapterTests": {"passed":22,"failed":0},
+  "browserNativeUiChecks": {"passed":6,"pageErrors":0,"usesFixtures":true},
+  "interactiveConceptChecks": {"passed":8,"failed":0},
+  "conceptImages": {"count":3,"width":1080,"height":1350},
+  "petFrames": {"count":8,"width":64,"height":64,"transparent":true},
+  "frontendTypecheck": "passed",
+  "frontendProductionBuild": "passed",
+  "rustFormatCheck": "passed",
+  "cargoMetadata": "passed",
+  "rustTests": {"written":31,"executedLocally":0,"ciResult":"see Actions"},
+  "nativeBinaryBuiltLocally": false,
+  "nativeAppRunning": false,
+  "desktopObservationVerified": false,
+  "taskReturn": "manual",
+  "taskTokenUsage": "unavailable",
+  "directApproval": "excluded-from-v1",
+  "runtimeModelCallsForPet": 0,
+  "interviewsConducted": 0,
+  "repository": "https://github.com/swaan-kim/autopets",
+  "limitations": [
+    "Local Rust compilation was blocked by Windows application control error 4551; no security policy was changed.",
+    "Real Codex hook trust and task event roundtrip remain unverified.",
+    "Installer signing and permission to execute on the user PC require separate verification.",
+    "The offline concept uses demonstration data; it does not control Codex tasks."
+  ]
+}

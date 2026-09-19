@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Only local AutoPets windows can use app commands and window controls.",
+  "windows": ["main", "pet-0", "pet-1", "pet-2"],
+  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-set-size"]
+}
