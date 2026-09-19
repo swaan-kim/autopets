@@ -1,0 +1,35 @@
+{
+  "revision": "promotional-v2",
+  "checks": [
+    {
+      "check": "feature opens progress demo",
+      "pass": true
+    },
+    {
+      "check": "selected pet returns its own demo task",
+      "pass": true
+    },
+    {
+      "check": "alert feature opens time reminder scenario",
+      "pass": true
+    },
+    {
+      "check": "acknowledgment keeps writing state",
+      "pass": true
+    },
+    {
+      "check": "try demo opens editable start questions",
+      "pass": true
+    },
+    {
+      "check": "demo can return to overview",
+      "pass": true
+    }
+  ],
+  "posterSize": [
+    1080,
+    1350
+  ],
+  "postersVisuallyReviewed": 3,
+  "additionalImagegenCalls": 0
+}

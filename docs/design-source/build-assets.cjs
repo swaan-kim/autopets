@@ -116,7 +116,9 @@ async function main(argv = process.argv.slice(2)) {
   let sharp;
   try { sharp = createRequire(path.join(repoRoot, 'docs/design-source/package.json'))('sharp'); }
   catch { throw new Error('Missing image dependency. Run npm ci --prefix docs/design-source from the repository root.'); }
-  const template = fs.readFileSync(templatePath, 'utf8');
+  const brandPath = path.join(repoRoot, 'public/assets/brand/autopets-mark.svg');
+  const brandMark = fs.readFileSync(brandPath, 'utf8').replace(/role="img" aria-labelledby="title desc"/, 'aria-hidden="true"').replace(/<title[^>]*>.*?<\/title>|<desc[^>]*>.*?<\/desc>/gs, '').replace(/[ \t]+$/gm, '');
+  const template = fs.readFileSync(templatePath, 'utf8').replaceAll('__BRAND_MARK__', brandMark);
   const outputs = await assemble(sharp, source, template);
   const files = [...outputs.frames.map((buffer, index) => [paths.frames[index], buffer]), [paths.sprite, outputs.sprite], [paths.manifest, outputs.manifest], [paths.html, outputs.html]];
   if (options.check) {

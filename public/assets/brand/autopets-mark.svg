@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">AutoPets</title>
+  <desc id="desc">크림색 픽셀 강아지와 라임색 상태 표시등</desc>
+  <g shape-rendering="crispEdges">
+    <path fill="#443251" d="M16 4H28V8H36V12H40V16H44V32H40V36H36V40H32V44H12V40H8V36H4V16H8V12H12V8H16Z"/>
+    <path fill="#E5BD83" d="M8 16H12V32H8ZM36 16H40V32H36Z"/>
+    <path fill="#FFF1D6" d="M16 8H28V12H36V32H32V40H12V36H12V12H16Z"/>
+    <path fill="#FFE2AD" d="M12 32H16V36H32V40H12Z"/>
+    <path fill="#443251" d="M16 20H20V24H16ZM28 20H32V24H28ZM20 28H28V32H20Z"/>
+    <path fill="#F3B7A4" d="M12 28H16V32H12ZM32 28H36V32H32Z"/>
+    <path fill="#443251" d="M36 32H44V36H48V44H44V48H36V44H32V36H36Z"/>
+    <path fill="#C7ED6F" d="M36 36H44V44H36Z"/>
+    <path fill="#F5FFD8" d="M36 36H40V40H36Z"/>
+  </g>
+</svg>
