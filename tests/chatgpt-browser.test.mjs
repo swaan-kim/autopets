@@ -7,7 +7,7 @@ import {CAPABILITIES,HOST_NAME,isChatGPTUrl,chatFromUrl} from '../integrations/c
 const directory=new URL('../integrations/chatgpt/extension/',import.meta.url);
 async function worker({enabled=true,permission=true}={}){
  let listener;const calls=[],event=()=>({addListener(){}}),chrome={runtime:{id:'a'.repeat(32),getURL:p=>'chrome-extension://'+'a'.repeat(32)+'/'+p,onMessage:{addListener(fn){listener=fn;}},onStartup:event(),sendNativeMessage:async(host,body)=>{calls.push({host,body});return{ok:true,connected:true};}},storage:{local:{get:async()=>({connectorEnabled:enabled}),set:async()=>{}}},permissions:{contains:async()=>permission,onRemoved:event()},tabs:{onRemoved:event()}};
- const source=(await readFile(new URL('service-worker.js',directory),'utf8')).replace(/^import .*;\n/,'');
+ const source=(await readFile(new URL('service-worker.js',directory),'utf8')).replace(/^import [^\r\n]*;\r?\n/,'');
  vm.runInNewContext(source,{chrome,CAPABILITIES,HOST_NAME,isChatGPTUrl,chatFromUrl,crypto:webcrypto,URL,Map,Object,Promise});
  return{calls,send:(message,sender)=>new Promise(resolve=>listener(message,sender,resolve))};
 }

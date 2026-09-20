@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, readdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,7 +94,7 @@ test('assistance install is idempotent on disk, preserves existing hooks and emi
   assert.deepEqual(saved.hooks.Stop, original.hooks.Stop); assert.equal(saved.customSetting, 'retain');
   for (const event of events) assert.equal(saved.hooks[event].flatMap(group => group.hooks).filter(hook => hook.statusMessage === STATUS).length, 1);
   assert.deepEqual(JSON.parse(await readFile(f.configFile, 'utf8')), {
-    version: 1, enabled: true, validationMode: true, project: f.project, connection: f.connection,
+    version: 1, enabled: true, validationMode: true, project: await realpath(f.project), connection: f.connection,
   });
   const beforeRepeat = await snapshot(f.root);
   const repeat = await f.run('--connection', f.connection, '--validation', '--apply');
