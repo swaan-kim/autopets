@@ -4,7 +4,7 @@
 
 ![AI는 맡겨두고 내 일에 집중하세요. 다른 앱 위의 두 펫, 세 가지 편리함과 전체 사용 흐름](docs/images/00-overview-wide.png)
 
-[그림 소개·클릭 목업 HTML](docs/demo/index.html) · [기획·사용자 인터뷰 가이드](docs/product-validation.md)
+[공유 링크 · 소개와 체험](https://swaan-kim.github.io/autopets/) · [바로 체험하기](https://swaan-kim.github.io/autopets/?view=demo) · [오프라인 HTML](docs/demo/index.html) · [기획·사용자 인터뷰 가이드](docs/product-validation.md)
 
 화면 공유용 [가로 한눈에 소개](docs/images/00-overview-wide.png)는 1280×800 PNG입니다. 세로 소개 세 장: [한눈에 소개](docs/images/01-overview.png) · [조사부터 결과까지](docs/images/02-user-flow.png) · [사용 기준 확인에서 결과 확인까지](docs/images/03-benefits.png), 그리고 [여덟 가지 모션 상태표](docs/images/04-motion-states.png)는 각각 1080×1350 PNG입니다. HTML은 첫 소개를 가로로 크게 보여주며, **직접 체험하기**나 편리함 카드를 누르면 해당 목업 장면으로 이어집니다.
 
