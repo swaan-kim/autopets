@@ -1,5 +1,11 @@
 # AutoPets
 
+**개발 방향: AI를 잘 쓰는 방법을 몰라도, 펫과 함께.** 알아서 준비 · 하던 일 기억 · 내 방식으로 조절을 구현합니다. [제품 정의](docs/product/direction.md) · [개발 단계](docs/roadmap/implementation.md) · [목표 디렉터리](docs/architecture/layout.md)
+
+**현재 진행:** 정식 개발 기반과 자동 준비 검증 코드를 추가했습니다. 이 PC에서 설치·앱 실행·로컬 브리지 응답을 확인했습니다. 실제 Codex 두 채팅의 자동 전달은 아직 미검증이며, M1을 통과하기 전 후속 기능 확장은 진행하지 않습니다. [실제 검증 기록](docs/testing/m1-evidence.md) · [M1 연결 절차](docs/testing/m1-runbook.md)
+
+아래 소개와 공개 목업은 기존 **진행 표시 콘셉트**입니다. 새 자동 도움 기능의 출시나 동작을 의미하지 않습니다.
+
 여러 Codex 작업이 무엇을 하고 있고, 언제 내가 확인해야 하는지 다른 일을 하면서도 알 수 있는 **Windows 독립 픽셀 펫**입니다. Codex에 리서치·문서 작업을 맡기는 실무자를 위한 로컬 앱입니다.
 
 ![AI는 맡겨두고 내 일에 집중하세요. 다른 앱 위의 두 펫, 세 가지 편리함과 전체 사용 흐름](docs/images/00-overview-wide.png)
@@ -10,7 +16,7 @@
 
 브랜드 파일: 강아지 심볼 [SVG](public/assets/brand/autopets-mark.svg) · [PNG](public/assets/brand/autopets-mark.png), AutoPets 로고 [SVG](public/assets/brand/autopets-logo.svg) · [PNG](public/assets/brand/autopets-logo.png). 로고는 코드로 제작했습니다. 이번 홍보 개편은 기존 8프레임에 ImageGen으로 만든 신규 5모션 각 2프레임을 더해 총 18프레임을 사용합니다. 홍보·목업 전용이며 네이티브 앱의 기존 펫 자산은 유지합니다. 실행 중에는 저장된 이미지를 재생합니다.
 
-**Windows CI 빌드 성공:** [c895955의 테스트·NSIS 설치 파일](https://github.com/swaan-kim/autopets/actions/runs/35462024271). Node 22개·Rust 31개·UI 검사 통과, 다운로드 체크섬 일치. 설치 파일은 서명되지 않은 검토용이며 실제 PC 실행과 Codex 훅 연동은 아직 검증하지 않았습니다. [이미지·목업 재생성 방법](docs/design-source/README-제작.md)
+**Windows CI 빌드 성공:** [c895955의 테스트·NSIS 설치 파일](https://github.com/swaan-kim/autopets/actions/runs/35462024271). 해당 실행에서 Node 22개·Rust 31개·UI 검사 통과, 다운로드 체크섬 일치. 설치 파일은 서명되지 않은 검토용이며 이후 이 PC에서 설치·실행을 확인했습니다. 실제 Codex 훅 연동은 미검증입니다. [이미지·목업 재생성 방법](docs/design-source/README-제작.md)
 
 ## 제공 기능과 현재 상태
 

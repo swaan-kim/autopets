@@ -79,7 +79,7 @@ jobs:
           if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
           Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
           Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png -Destination $taskArtifactDir
-          Compress-Archive -LiteralPath hooks, skills, scripts, docs -DestinationPath (Join-Path $taskArtifactDir 'AutoPets-companion.zip')
+          Compress-Archive -LiteralPath hooks, skills, scripts, integrations, docs -DestinationPath (Join-Path $taskArtifactDir 'AutoPets-companion.zip')
           $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
             $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$taskDigest  $($_.Name)"

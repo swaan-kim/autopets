@@ -1,5 +1,7 @@
 # Windows 빌드와 배포 검증
 
+후속 검증(2026-09-20): 기존 설치 파일을 이 PC에 설치하고 앱 프로세스·창·인증된 로컬 브리지 응답을 확인했다. 서명은 여전히 `NotSigned`다. 아래 첫 CI 기록과 실제 Desktop 연결 검증은 구분하며 최신 상태는 [M1 증거](testing/m1-evidence.md)를 따른다.
+
 이 소스의 `.github/workflows/windows.yml`은 Windows에서 테스트와 NSIS 설치 파일 생성을 수행한다. 자동 실행은 `main` push와 pull request이며, 수동 실행은 기본적으로 검토용 artifact만 만든다. 실제 GitHub 저장소의 루트에 이 프로젝트와 `.github`를 함께 두어야 한다.
 
 ## 확인된 첫 Windows 빌드
@@ -24,7 +26,7 @@
 
 Tauri의 Windows 배포는 NSIS `-setup.exe`를 지원하며, Windows에서 Tauri CLI로 생성한다. WebView2가 없으면 기본 설치 동작에서 부트스트래퍼를 내려받는다. [Tauri Windows installer 문서](https://v2.tauri.app/distribute/windows-installer/)
 
-NSIS 설치만으로 Codex 훅이나 스킬 trust를 변경하지 않는다. companion ZIP에는 `hooks/`, `skills/`, `scripts/`, `docs/`가 들어가며, 네 폴더의 상대 위치를 유지한다. 훅이 스킬 폴더의 공통 transport 모듈을 가져오므로 훅 파일만 따로 복사하지 않는다. Node.js 24 이상은 훅·스킬 실행에 별도로 필요하다.
+NSIS 설치만으로 Codex 훅이나 스킬 trust를 변경하지 않는다. companion ZIP에는 `hooks/`, `skills/`, `scripts/`, `integrations/`, `docs/`가 들어가며 상대 위치를 유지한다. `integrations/codex/probe`는 별도 opt-in한 프로젝트에서만 사용하는 M1 진단이며 앱 설치로 활성화되지 않는다. 훅이 스킬 폴더의 공통 transport 모듈을 가져오므로 훅 파일만 따로 복사하지 않는다. Node.js 24 이상은 훅·스킬 실행에 별도로 필요하다.
 
 ## 소스 배포에 포함할 파일
 
