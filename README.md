@@ -6,9 +6,9 @@
 
 [그림 소개·클릭 목업 HTML](docs/demo/index.html) · [기획·사용자 인터뷰 가이드](docs/product-validation.md)
 
-화면 공유용 [가로 한눈에 소개](docs/images/00-overview-wide.png)는 1280×800 PNG입니다. 세로 소개 세 장: [한눈에 소개](docs/images/01-overview.png) · [4단계 사용 흐름](docs/images/02-user-flow.png) · [세 가지 편리한 점](docs/images/03-benefits.png)은 각각 1080×1350 PNG입니다. HTML은 첫 소개를 가로로 크게 보여주며, **직접 체험하기**나 편리함 카드를 누르면 해당 목업 장면으로 이어집니다.
+화면 공유용 [가로 한눈에 소개](docs/images/00-overview-wide.png)는 1280×800 PNG입니다. 세로 소개 세 장: [한눈에 소개](docs/images/01-overview.png) · [조사부터 결과까지](docs/images/02-user-flow.png) · [사용 기준 확인에서 결과 확인까지](docs/images/03-benefits.png), 그리고 [여덟 가지 모션 상태표](docs/images/04-motion-states.png)는 각각 1080×1350 PNG입니다. HTML은 첫 소개를 가로로 크게 보여주며, **직접 체험하기**나 편리함 카드를 누르면 해당 목업 장면으로 이어집니다.
 
-브랜드 파일: 강아지 심볼 [SVG](public/assets/brand/autopets-mark.svg) · [PNG](public/assets/brand/autopets-mark.png), AutoPets 로고 [SVG](public/assets/brand/autopets-logo.svg) · [PNG](public/assets/brand/autopets-logo.png). 새 로고는 코드로 제작했으며, 소개 개편은 기존 픽셀 펫을 재사용해 추가 AI 이미지 생성 없이 만들었습니다.
+브랜드 파일: 강아지 심볼 [SVG](public/assets/brand/autopets-mark.svg) · [PNG](public/assets/brand/autopets-mark.png), AutoPets 로고 [SVG](public/assets/brand/autopets-logo.svg) · [PNG](public/assets/brand/autopets-logo.png). 로고는 코드로 제작했습니다. 이번 홍보 개편은 기존 8프레임에 ImageGen으로 만든 신규 5모션 각 2프레임을 더해 총 18프레임을 사용합니다. 홍보·목업 전용이며 네이티브 앱의 기존 펫 자산은 유지합니다. 실행 중에는 저장된 이미지를 재생합니다.
 
 **Windows CI 빌드 성공:** [c895955의 테스트·NSIS 설치 파일](https://github.com/swaan-kim/autopets/actions/runs/35462024271). Node 22개·Rust 31개·UI 검사 통과, 다운로드 체크섬 일치. 설치 파일은 서명되지 않은 검토용이며 실제 PC 실행과 Codex 훅 연동은 아직 검증하지 않았습니다. [이미지·목업 재생성 방법](docs/design-source/README-제작.md)
 
@@ -22,7 +22,7 @@
 
 **현재는 네이티브 통합 검증 전 소스 버전입니다.** 작업별 토큰 사용량은 미연결입니다. 특정 Codex 작업 창을 직접 여는 연동은 검증되지 않아 정확한 작업 ID와 찾기 안내를 제공합니다. 직접 승인·거절, 자동 중단, 모델 변경은 제공하지 않습니다. 응답 도착은 목표 달성 판정이 아닙니다.
 
-별도 `AutoPets-promo-v3.zip`에는 오프라인 그림 소개·클릭 목업, 가로 소개 이미지 1장·세로 소개 이미지 3장, 심볼·로고 SVG/PNG, 기획·인터뷰 가이드가 있습니다. **“AI는 맡겨두고, 내 일에 집중하세요.”**를 중심으로 **창을 덜 오가요 · 확인할 때를 알아요 · 여러 작업도 안 헷갈려요**라는 세 가지 편리함을 보여줍니다. 사용 흐름은 **펫 부르기 → 완료 기준 정하기 → 내 일 계속하기 → 필요할 때 확인**입니다. 자동 작업 복귀는 사용 흐름의 마지막 시연 장면에만 표시합니다. 목업 데이터는 앱의 작업 상태 저장소에 들어가지 않습니다.
+별도 `AutoPets-promo-v4.zip`에는 오프라인 그림 소개·클릭 목업, 가로 소개 이미지 1장·세로 소개 이미지 3장·모션 상태표 1장, 심볼·로고 SVG/PNG, 기획·인터뷰 가이드가 있습니다. **“AI는 맡겨두고, 내 일에 집중하세요.”**를 중심으로 **창을 덜 오가요 · 확인할 때를 알아요 · 여러 작업도 안 헷갈려요**라는 세 가지 편리함을 보여줍니다. 작업은 **자료 조사 → 비교 초안 작성 → Notion 정리 → 완료**로 이어집니다. 어지러운 펫의 사용 기준 알림을 확인하고 선택한 작업으로 돌아가, 비교표와 출처가 있는 예시 초안까지 체험합니다. **전체 과정 재생**은 약 20초이며, 사용자가 누르기 전에는 창을 전환하지 않습니다. 토큰 숫자와 결과 완성은 시연 데이터입니다. 실제 작업 복귀·토큰 기능의 검증 상태는 위와 같으며, 목업 데이터는 앱의 작업 상태 저장소에 들어가지 않습니다.
 
 ## 개발·검증
 

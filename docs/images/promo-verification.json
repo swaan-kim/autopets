@@ -1,0 +1,38 @@
+{
+  "revision": "promotional-v4",
+  "date": "2026-09-20",
+  "scope": "Promotional artwork and offline HTML only; native app, hooks, skills and native pet assets unchanged.",
+  "automatedTests": {"passed": 22, "failed": 0, "generatedFilesByteCheck": 31},
+  "browserChecks": [
+    "Scene 3 begins with a dizzy competitor-comparison pet and the other task remains writing.",
+    "Selected detail shows the four fixed task stages, used 10,400 / threshold 10,000 tokens and adjacent demo-data label.",
+    "Acknowledgment clears attention while the Notion tool stage continues; advancing one minute does not duplicate the token alert.",
+    "Returning from the pet opens the same task; the outside next-scene control shows a three-product example table and source area.",
+    "A full automatic replay ends on the Notion desktop with a happy pet; only clicking result confirmation opens the simulated Codex result.",
+    "The interview pet opens its own criterion, stages and simulated task without adopting the competitor result.",
+    "The error example shows its own tool-error explanation; reset restores onboarding and initial model state.",
+    "The user's existing preview tab was refreshed with v4."
+  ],
+  "assetChecks": {
+    "motions": 8,
+    "frames": 18,
+    "frameSize": [64, 64],
+    "atlasSize": [256, 320],
+    "newImagegenCalls": 5,
+    "newSourceImagesHaveAlpha": true,
+    "emptyOrClippedFrames": 0,
+    "pairCropScaleAndBaselineShared": true,
+    "nativeSpriteSha256": "04746ea7c1985acff12abaee2b03559d4a63ee67c65631b066f1d763a94fe31d",
+    "promoSpriteSha256": "c4e317d5734db10b1fc5557a4a883c26cbcca900511a47efa0d5e284f5ef669f"
+  },
+  "imagesVisuallyReviewed": ["00-overview-wide.png", "01-overview.png", "02-user-flow.png", "03-benefits.png", "04-motion-states.png"],
+  "imageSizes": {"wide": [1280, 800], "portrait": [1080, 1350]},
+  "offline": {
+    "allImagesAndConfigurationEmbedded": true,
+    "externalResourceOrTransmissionCallsFound": 0,
+    "connectAndFormRequestsBlockedByCsp": true,
+    "localhostBrowserExecution": "passed",
+    "fileProtocolBrowserExecution": "not verified: browser security policy rejected file:// navigation; no workaround attempted"
+  },
+  "reducedMotion": "Representative still-frame CSS and prefers-reduced-motion path inspected; operating-system preference was not changed."
+}

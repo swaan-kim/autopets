@@ -1,0 +1,485 @@
+{
+  "version": 4,
+  "frameSize": 64,
+  "columns": 4,
+  "rows": 5,
+  "frameCount": 18,
+  "baseline": 60,
+  "bodySize": 52,
+  "animations": {
+    "idle": {
+      "frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "fps": 2,
+      "stillFrame": 0,
+      "label": "대기 중이에요"
+    },
+    "research": {
+      "frames": [
+        4,
+        5
+      ],
+      "fps": 2,
+      "stillFrame": 4,
+      "label": "자료를 조사하고 있어요"
+    },
+    "writing": {
+      "frames": [
+        6,
+        7
+      ],
+      "fps": 3,
+      "stillFrame": 6,
+      "label": "비교 초안을 작성하고 있어요"
+    },
+    "thinking": {
+      "frames": [
+        8,
+        9
+      ],
+      "fps": 2,
+      "stillFrame": 8,
+      "label": "생각을 정리하고 있어요"
+    },
+    "tool": {
+      "frames": [
+        10,
+        11
+      ],
+      "fps": 2,
+      "stillFrame": 10,
+      "label": "도구 사용 · Notion"
+    },
+    "dizzy": {
+      "frames": [
+        12,
+        13
+      ],
+      "fps": 3,
+      "stillFrame": 12,
+      "label": "계속 작업 중이에요. 살펴볼까요?"
+    },
+    "angry": {
+      "frames": [
+        14,
+        15
+      ],
+      "fps": 3,
+      "stillFrame": 14,
+      "label": "도구 오류가 생겼어요"
+    },
+    "celebrate": {
+      "frames": [
+        16,
+        17
+      ],
+      "fps": 3,
+      "stillFrame": 16,
+      "label": "비교 초안이 완성됐어요"
+    }
+  },
+  "runtimeGeneration": false,
+  "source": "ImageGen artwork; deterministic offline assembly",
+  "bytes": 73173,
+  "inputs": [
+    {
+      "motion": "thinking",
+      "source": "motion-sources/thinking.png",
+      "sha256": "5bf8804f37c1f52438057ce1c4aa5dd1cde2deac1e8bb99542337d395df66dc3"
+    },
+    {
+      "motion": "tool",
+      "source": "motion-sources/tool.png",
+      "sha256": "3ecbedaca4013b446f9f1a61e16904498856cfdc9bfa51b24f56ad6e158c23d4"
+    },
+    {
+      "motion": "dizzy",
+      "source": "motion-sources/dizzy.png",
+      "sha256": "d92dd54c385da105bcf82500bb31d7369156050a72a28ca5cd3ae93feb24b1c7"
+    },
+    {
+      "motion": "angry",
+      "source": "motion-sources/angry.png",
+      "sha256": "a7a9f505c9b997bb00ca953c15e23da6e0ff6dbe7a089232ab399b3692321732"
+    },
+    {
+      "motion": "celebrate",
+      "source": "motion-sources/celebrate.png",
+      "sha256": "bd4456b65ef939ac5f6537fd0b15781d483c2c00141996b6890de21752180060"
+    }
+  ],
+  "checks": [
+    {
+      "index": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        40,
+        83,
+        392,
+        419
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        481,
+        83,
+        838,
+        419
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 2,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        925,
+        83,
+        1274,
+        419
+      ],
+      "contentSize": [
+        51,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 3,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        1369,
+        83,
+        1722,
+        419
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 4,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        43,
+        490,
+        395,
+        826
+      ],
+      "contentSize": [
+        52,
+        49
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 5,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        484,
+        489,
+        840,
+        826
+      ],
+      "contentSize": [
+        52,
+        50
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 6,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        928,
+        489,
+        1283,
+        842
+      ],
+      "contentSize": [
+        52,
+        52
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 7,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        1373,
+        489,
+        1727,
+        841
+      ],
+      "contentSize": [
+        52,
+        52
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 8,
+      "motion": "thinking",
+      "sourceHalf": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        164,
+        169,
+        802,
+        797
+      ],
+      "sharedCrop": [
+        90,
+        169,
+        802,
+        797
+      ],
+      "contentSize": [
+        52,
+        46
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 9,
+      "motion": "thinking",
+      "sourceHalf": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        90,
+        169,
+        726,
+        797
+      ],
+      "sharedCrop": [
+        90,
+        169,
+        802,
+        797
+      ],
+      "contentSize": [
+        52,
+        46
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 10,
+      "motion": "tool",
+      "sourceHalf": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        181,
+        185,
+        789,
+        741
+      ],
+      "sharedCrop": [
+        125,
+        185,
+        789,
+        741
+      ],
+      "contentSize": [
+        52,
+        44
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 11,
+      "motion": "tool",
+      "sourceHalf": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        125,
+        185,
+        730,
+        741
+      ],
+      "sharedCrop": [
+        125,
+        185,
+        789,
+        741
+      ],
+      "contentSize": [
+        52,
+        44
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 12,
+      "motion": "dizzy",
+      "sourceHalf": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        111,
+        125,
+        769,
+        799
+      ],
+      "sharedCrop": [
+        111,
+        125,
+        776,
+        799
+      ],
+      "contentSize": [
+        51,
+        52
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 13,
+      "motion": "dizzy",
+      "sourceHalf": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        118,
+        125,
+        776,
+        799
+      ],
+      "sharedCrop": [
+        111,
+        125,
+        776,
+        799
+      ],
+      "contentSize": [
+        51,
+        52
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 14,
+      "motion": "angry",
+      "sourceHalf": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        97,
+        142,
+        832,
+        809
+      ],
+      "sharedCrop": [
+        65,
+        142,
+        832,
+        809
+      ],
+      "contentSize": [
+        52,
+        45
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 15,
+      "motion": "angry",
+      "sourceHalf": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        65,
+        143,
+        796,
+        809
+      ],
+      "sharedCrop": [
+        65,
+        142,
+        832,
+        809
+      ],
+      "contentSize": [
+        52,
+        45
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 16,
+      "motion": "celebrate",
+      "sourceHalf": 0,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        164,
+        185,
+        804,
+        770
+      ],
+      "sharedCrop": [
+        100,
+        185,
+        804,
+        778
+      ],
+      "contentSize": [
+        52,
+        44
+      ],
+      "baseline": 60
+    },
+    {
+      "index": 17,
+      "motion": "celebrate",
+      "sourceHalf": 1,
+      "width": 64,
+      "height": 64,
+      "sourceBounds": [
+        100,
+        209,
+        726,
+        778
+      ],
+      "sharedCrop": [
+        100,
+        185,
+        804,
+        778
+      ],
+      "contentSize": [
+        52,
+        44
+      ],
+      "baseline": 60
+    }
+  ]
+}
