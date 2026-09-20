@@ -1,3 +1,4 @@
+mod assistance;
 mod bridge;
 mod core;
 
@@ -144,12 +145,82 @@ fn snooze_attention(
     })
 }
 #[tauri::command]
-fn show_manager(app: tauri::AppHandle) {
+fn show_manager(app: tauri::AppHandle, section: Option<String>, session_id: Option<String>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+        if section.as_deref() == Some("assistance") {
+            let _ = window.emit(
+                "autopets://open-assistance",
+                serde_json::json!({"sessionId":session_id}),
+            );
+        }
     }
+}
+
+#[tauri::command]
+fn get_assistance(store: tauri::State<SharedStore>) -> Result<assistance::Overview, String> {
+    store
+        .lock()
+        .map_err(|_| "상태를 읽을 수 없습니다.")?
+        .assistance
+        .overview()
+}
+#[tauri::command]
+fn save_preferences(
+    store: tauri::State<SharedStore>,
+    preferences: assistance::Preferences,
+) -> Result<assistance::Preferences, String> {
+    store
+        .lock()
+        .map_err(|_| "상태를 저장할 수 없습니다.")?
+        .assistance
+        .save_preferences(preferences)
+}
+#[tauri::command]
+fn set_chat_assistance(
+    store: tauri::State<SharedStore>,
+    identity: assistance::Identity,
+    enabled: bool,
+) -> Result<assistance::Task, String> {
+    store
+        .lock()
+        .map_err(|_| "상태를 저장할 수 없습니다.")?
+        .assistance
+        .set_enabled(identity, enabled)
+}
+#[tauri::command]
+fn save_task_context(
+    store: tauri::State<SharedStore>,
+    identity: assistance::Identity,
+    context: assistance::Context,
+    expected_revision: u64,
+) -> Result<assistance::Task, String> {
+    store
+        .lock()
+        .map_err(|_| "기록을 저장할 수 없습니다.")?
+        .assistance
+        .save_context(identity, context, expected_revision)
+}
+#[tauri::command]
+fn delete_task_context(
+    store: tauri::State<SharedStore>,
+    identity: assistance::Identity,
+) -> Result<assistance::Task, String> {
+    store
+        .lock()
+        .map_err(|_| "기록을 삭제할 수 없습니다.")?
+        .assistance
+        .delete_context(identity)
+}
+#[tauri::command]
+fn delete_all_contexts(store: tauri::State<SharedStore>) -> Result<(), String> {
+    store
+        .lock()
+        .map_err(|_| "기록을 삭제할 수 없습니다.")?
+        .assistance
+        .delete_all_contexts()
 }
 #[tauri::command]
 fn set_pets_visible(
@@ -284,10 +355,16 @@ fn make_icon() -> tauri::image::Image<'static> {
 pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            show_manager(app.clone())
+            show_manager(app.clone(), None, None)
         }))
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            get_assistance,
+            save_preferences,
+            set_chat_assistance,
+            save_task_context,
+            delete_task_context,
+            delete_all_contexts,
             assign_session,
             unassign_session,
             rename_session,
@@ -366,7 +443,7 @@ pub fn run() {
                 .tooltip("AutoPets · 작은 작업 동료")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "manager" => show_manager(app.clone()),
+                    "manager" => show_manager(app.clone(), None, None),
                     "show" | "hide" => {
                         let visible = event.id.as_ref() == "show";
                         set_pets_visible(app.clone(), app.state(), app.state(), visible);

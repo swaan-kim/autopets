@@ -202,6 +202,7 @@ struct ApprovalRecord {
 
 pub struct Store {
     db: Connection,
+    pub assistance: crate::assistance::AssistanceStore,
     sessions: HashMap<String, SessionRecord>,
     slots: [Option<String>; 3],
     approvals: HashMap<String, ApprovalRecord>,
@@ -273,6 +274,7 @@ impl Store {
             .map_err(db_err)?;
         }
         let mut store = Self {
+            assistance: crate::assistance::AssistanceStore::new(&data_dir)?,
             db,
             sessions: HashMap::new(),
             slots: [None, None, None],
@@ -828,14 +830,67 @@ impl Store {
         {
             return Err("Resolve pending approvals before disconnecting this pet".into());
         }
-        self.db
-            .execute(
-                "INSERT OR REPLACE INTO slots(slot,session_id) VALUES(?1,NULL)",
-                [slot],
+        let tx = self.db.transaction().map_err(db_err)?;
+        if let Some(session_id) = &self.slots[slot] {
+            // A deliberate removal must remain removed even if the first
+            // assistance preparation arrives later or the app restarts.
+            tx.execute(
+                "INSERT OR IGNORE INTO assistance_pet_assignments(session_id) VALUES(?1)",
+                [session_id],
             )
             .map_err(db_err)?;
+        }
+        tx.execute(
+            "INSERT OR REPLACE INTO slots(slot,session_id) VALUES(?1,NULL)",
+            [slot],
+        )
+        .map_err(db_err)?;
+        tx.commit().map_err(db_err)?;
         self.slots[slot] = None;
         Ok(())
+    }
+
+    pub fn assign_first_assistance_pet(
+        &mut self,
+        identity: &crate::assistance::Identity,
+    ) -> Result<bool, String> {
+        if identity.provider != crate::assistance::Provider::Codex
+            || !self.sessions.contains_key(&identity.chat_id)
+            || !self.assistance.has_enabled_preparation(identity)?
+        {
+            return Ok(false);
+        }
+        let slot = if self
+            .slots
+            .iter()
+            .any(|s| s.as_deref() == Some(identity.chat_id.as_str()))
+        {
+            None
+        } else {
+            self.slots.iter().position(Option::is_none)
+        };
+        let tx = self.db.transaction().map_err(db_err)?;
+        let first = tx
+            .execute(
+                "INSERT OR IGNORE INTO assistance_pet_assignments(session_id) VALUES(?1)",
+                [&identity.chat_id],
+            )
+            .map_err(db_err)?;
+        if first == 0 {
+            return Ok(false);
+        }
+        if let Some(slot) = slot {
+            tx.execute(
+                "INSERT OR REPLACE INTO slots(slot,session_id) VALUES(?1,?2)",
+                params![slot, identity.chat_id],
+            )
+            .map_err(db_err)?;
+        }
+        tx.commit().map_err(db_err)?;
+        if let Some(slot) = slot {
+            self.slots[slot] = Some(identity.chat_id.clone());
+        }
+        Ok(slot.is_some())
     }
 
     pub fn rename_session(&mut self, session_id: &str, label: &str) -> Result<(), String> {
@@ -1294,6 +1349,134 @@ mod tests {
         s.assign_session(0, "s1").unwrap();
         s.set_approval_enabled(true).unwrap();
         (dir, s, now)
+    }
+    fn prepare_assistance(s: &mut Store, session_id: &str) -> crate::assistance::Identity {
+        let identity = crate::assistance::Identity {
+            provider: crate::assistance::Provider::Codex,
+            account_id: format!("session:{:x}", Sha256::digest(session_id.as_bytes())),
+            chat_id: session_id.into(),
+        };
+        s.assistance
+            .dispatch(crate::assistance::Request::Read {
+                identity: identity.clone(),
+                binding: None,
+            })
+            .unwrap();
+        let preferences_revision = s.assistance.preferences().unwrap().revision;
+        s.assistance
+            .dispatch(crate::assistance::Request::Prepare {
+                identity: identity.clone(),
+                binding: None,
+                expected_revision: 0,
+                preferences_revision,
+                recipe_id: "general".into(),
+                requested_model: None,
+                reason: "준비".into(),
+                injection_bytes: 100,
+                guidance_hash: "a".repeat(64),
+            })
+            .unwrap();
+        identity
+    }
+    #[test]
+    fn first_preparation_uses_only_empty_slots_and_never_repeats_or_replaces() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::new(dir.path()).unwrap();
+        let n = now_ms();
+        let mut preferences = s.assistance.preferences().unwrap();
+        preferences.enabled = true;
+        s.assistance.save_preferences(preferences).unwrap();
+        for index in 1..=4 {
+            let mut e = event(
+                &format!("assistance-{index}"),
+                "t1",
+                EventKind::TurnStarted,
+                n,
+            );
+            e.session_id = format!("s{index}");
+            s.apply_event_at(e, n).unwrap();
+        }
+        s.configure_session(
+            "s1",
+            "사용자 완료 기준",
+            InterventionMode::Milestones,
+            Some(5),
+        )
+        .unwrap();
+        s.assign_session(2, "s1").unwrap();
+        let first = prepare_assistance(&mut s, "s1");
+        assert!(!s.assign_first_assistance_pet(&first).unwrap());
+        assert_eq!(s.slots[2].as_deref(), Some("s1"));
+        let second = prepare_assistance(&mut s, "s2");
+        assert!(s.assign_first_assistance_pet(&second).unwrap());
+        assert!(!s.assign_first_assistance_pet(&second).unwrap());
+        let third = prepare_assistance(&mut s, "s3");
+        assert!(s.assign_first_assistance_pet(&third).unwrap());
+        let fourth = prepare_assistance(&mut s, "s4");
+        assert!(!s.assign_first_assistance_pet(&fourth).unwrap());
+        assert_eq!(s.assistance.overview().unwrap().tasks.len(), 4);
+        assert_eq!(
+            s.slots,
+            [Some("s2".into()), Some("s3".into()), Some("s1".into())]
+        );
+        let supervision = &s.sessions["s1"].supervision.view;
+        assert_eq!(supervision.completion_criterion, "사용자 완료 기준");
+        assert_eq!(supervision.elapsed_alert_minutes, Some(5));
+        assert!(matches!(
+            supervision.intervention_mode,
+            InterventionMode::Milestones
+        ));
+        s.unassign_session(0).unwrap();
+        assert!(!s.assign_first_assistance_pet(&second).unwrap());
+        assert!(!s.assign_first_assistance_pet(&fourth).unwrap());
+        assert!(s.slots[0].is_none());
+    }
+    #[test]
+    fn manual_removal_before_preparation_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let n = now_ms();
+        {
+            let mut s = Store::new(dir.path()).unwrap();
+            s.apply_event_at(event("first", "t1", EventKind::TurnStarted, n), n)
+                .unwrap();
+            s.assign_session(0, "s1").unwrap();
+            s.unassign_session(0).unwrap();
+        }
+        let mut s = Store::new(dir.path()).unwrap();
+        s.apply_event_at(event("second", "t2", EventKind::TurnStarted, n + 1), n + 1)
+            .unwrap();
+        let mut preferences = s.assistance.preferences().unwrap();
+        preferences.enabled = true;
+        s.assistance.save_preferences(preferences).unwrap();
+        let identity = prepare_assistance(&mut s, "s1");
+        assert!(!s.assign_first_assistance_pet(&identity).unwrap());
+        assert!(s.slots.iter().all(Option::is_none));
+    }
+    #[test]
+    fn failed_first_assignment_rolls_back_attempt_marker_with_slot() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::new(dir.path()).unwrap();
+        let n = now_ms();
+        s.apply_event_at(event("first", "t1", EventKind::TurnStarted, n), n)
+            .unwrap();
+        let mut preferences = s.assistance.preferences().unwrap();
+        preferences.enabled = true;
+        s.assistance.save_preferences(preferences).unwrap();
+        let identity = prepare_assistance(&mut s, "s1");
+        s.db.execute_batch("CREATE TRIGGER failed_pet_assignment BEFORE INSERT ON slots BEGIN SELECT RAISE(ABORT,'injected assignment failure'); END;").unwrap();
+        assert!(s.assign_first_assistance_pet(&identity).is_err());
+        assert!(s.slots.iter().all(Option::is_none));
+        let count: u64 =
+            s.db.query_row(
+                "SELECT count(*) FROM assistance_pet_assignments WHERE session_id='s1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0);
+        s.db.execute_batch("DROP TRIGGER failed_pet_assignment")
+            .unwrap();
+        assert!(s.assign_first_assistance_pet(&identity).unwrap());
     }
     #[test]
     fn observation_default_and_unassigned_passthrough() {

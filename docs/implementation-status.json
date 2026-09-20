@@ -1,81 +1,72 @@
 {
-  "date": "2026-09-20",
-  "scope": "Native build CI remains c895955. M0 documentation and M1 diagnostic changes have separate tests; Desktop automatic delivery is not verified.",
-  "phase": "m0-ready-m1-awaiting-real-desktop-verification",
-  "ci": {
-    "runId": 35462024271,
-    "commit": "c89595547d9c95049c85061bb87442a0f385b3f4",
-    "conclusion": "success",
-    "url": "https://github.com/swaan-kim/autopets/actions/runs/35462024271"
-  },
-  "adapterTests": {
-    "passed": 22,
-    "failed": 0
-  },
-  "browserNativeUiChecks": {
-    "passed": 6,
-    "pageErrors": 0,
-    "usesFixtures": true
-  },
-  "interactiveConceptChecks": {
-    "passed": 8,
-    "failed": 0
-  },
-  "conceptImages": {
-    "count": 3,
-    "width": 1080,
-    "height": 1350
-  },
-  "petFrames": {
-    "count": 8,
-    "width": 64,
-    "height": 64,
-    "transparent": true
-  },
+  "date": "2026-09-21",
+  "scope": "Automatic assistance implementation and fixture verification; no user installation or live service changes.",
+  "phase": "implemented-foundation-awaiting-live-connection-and-quality-evidence",
+  "installedThisChange": false,
+  "liveRoutingEnabled": false,
+  "runtimeModelCallsForPet": 0,
+  "automaticQualityRepairEnabled": false,
   "frontendTypecheck": "passed",
   "frontendProductionBuild": "passed",
   "rustFormatCheck": "passed",
-  "cargoMetadata": "passed",
-  "rustTests": {
-    "written": 31,
-    "executedLocally": 0,
-    "passedInCI": 31,
-    "failedInCI": 0
-  },
-  "nativeBinaryBuiltLocally": false,
-  "windowsNsisInstallerBuiltInCI": true,
-  "downloadedArtifactChecksums": {
-    "matched": 4,
+  "localRustTests": "blocked-before-project-typecheck-by-Windows-policy-4551",
+  "nodeTests": {
+    "passed": 87,
     "failed": 0
   },
-  "installerSignature": "NotSigned",
-  "nativeAppRunning": true,
-  "desktopObservationVerified": false,
-  "taskReturn": "manual",
-  "taskTokenUsage": "unavailable",
-  "directApproval": "excluded-from-v1",
-  "runtimeModelCallsForPet": 0,
-  "interviewsConducted": 0,
-  "repository": "https://github.com/swaan-kim/autopets",
+  "browserNativeUiChecks": {
+    "usesFixtures": true,
+    "passed": 10,
+    "pageErrors": 0
+  },
+  "evaluation": {
+    "liveSavingsMeasured": false,
+    "liveQualityEvaluated": false,
+    "koreanCases": 24,
+    "mode": "local-rules-only"
+  },
+  "currentImplementationCI": {
+    "status": "see-exact-commit-pull-request-checks",
+    "pullRequest": "https://github.com/swaan-kim/autopets/pull/8"
+  },
+  "realConnection": {
+    "codex": "unverified",
+    "modelChange": "unverified-disabled",
+    "twoChatIsolation": "fixture-only",
+    "chatgptChrome": "unverified",
+    "taskTokenUsage": "unavailable"
+  },
+  "previousEvidence": {
+    "m1": {
+      "installerExitCode": 0,
+      "installerSignature": "NotSigned",
+      "appProcessAndWindowObserved": true,
+      "authenticatedLoopbackReachable": true,
+      "nativeVisualQa": "not-performed",
+      "codexSeparateProbe": "access-denied",
+      "hooksConfiguredForDevelopmentProject": true,
+      "hookTrustChanged": false,
+      "actualChatReceipts": 0,
+      "preparationProbeTests": 9,
+      "allNodeTests": 31,
+      "gate": "not-passed",
+      "observedAtUtc": "2026-09-20T13:35:00Z"
+    },
+    "note": "Historical build and installation only; not evidence for new implementation.",
+    "ci": {
+      "runId": 35462024271,
+      "commit": "c89595547d9c95049c85061bb87442a0f385b3f4",
+      "conclusion": "success",
+      "url": "https://github.com/swaan-kim/autopets/actions/runs/35462024271"
+    },
+    "date": "2026-09-20"
+  },
   "limitations": [
-    "Local Rust compilation was previously blocked by Windows application control error 4551; no security policy was changed.",
-    "Real Codex hook trust and two-chat automatic preparation remain unverified; M2-M6 are gated.",
-    "The unsigned c895955 installer ran on this PC; signing and execution on other PCs remain unverified.",
-    "The offline concept uses demonstration data; it does not control Codex tasks."
+    "Production connector capabilities remain false until observed in the actual service.",
+    "No app, hook, trust, extension, registry, or account changes were made in this implementation turn.",
+    "Local Windows application control remains enabled. CI build does not establish PC execution permission or signing.",
+    "Model selection and bounded repair policies are tested locally but not connected to live UI control.",
+    "No real user testing or token savings measurement has been conducted."
   ],
-  "m1": {
-    "installerExitCode": 0,
-    "installerSignature": "NotSigned",
-    "appProcessAndWindowObserved": true,
-    "authenticatedLoopbackReachable": true,
-    "nativeVisualQa": "not-performed",
-    "codexSeparateProbe": "access-denied",
-    "hooksConfiguredForDevelopmentProject": true,
-    "hookTrustChanged": false,
-    "actualChatReceipts": 0,
-    "preparationProbeTests": 9,
-    "allNodeTests": 31,
-    "gate": "not-passed",
-    "observedAtUtc": "2026-09-20T13:35:00Z"
-  }
+  "repository": "https://github.com/swaan-kim/autopets"
 }

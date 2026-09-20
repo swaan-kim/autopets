@@ -1,8 +1,10 @@
 # AutoPets
 
-**개발 방향: AI를 잘 쓰는 방법을 몰라도, 펫과 함께.** 알아서 준비 · 하던 일 기억 · 내 방식으로 조절을 구현합니다. [제품 정의](docs/product/direction.md) · [개발 단계](docs/roadmap/implementation.md) · [목표 디렉터리](docs/architecture/layout.md)
+**AI 설정을 몰라도, 매번 고르기 귀찮아도.** 기존 AI 채팅창에서 요청하고 펫에서 도움을 조절합니다. 일에 맞게 준비 · 알맞게 맡기기 · 조건 지키고 마무리. [제품 정의](docs/product/direction.md) · [개발 단계](docs/roadmap/implementation.md) · [구조](docs/architecture/layout.md)
 
-**현재 진행:** 정식 개발 기반과 자동 준비 검증 코드를 추가했습니다. 이 PC에서 설치·앱 실행·로컬 브리지 응답을 확인했습니다. 실제 Codex 두 채팅의 자동 전달은 아직 미검증이며, M1을 통과하기 전 후속 기능 확장은 진행하지 않습니다. [실제 검증 기록](docs/testing/m1-evidence.md) · [M1 연결 절차](docs/testing/m1-runbook.md)
+**현재 소스:** 자동 도움 설정창, 채팅별 짧은 기록·끄기·삭제, 펫 숨기기·종료 메뉴, 네 가지 작업 규칙, 평가 기반 라우팅 정책, 형식 점검, Codex 준비 연결과 Chrome 연결 검증 패키지를 추가했습니다. 실제 ChatGPT·Codex 자동 적용과 모델 변경은 미검증이며 꺼져 있습니다. [구현·검수 상태](docs/testing/assistance-implementation.md) · [새 Codex 검증 연결](integrations/codex/assistance/README.md) · [ChatGPT 검증 패키지](integrations/chatgpt/README.md)
+
+기존 설치 앱은 자동으로 업데이트하지 않았습니다. 이 변경은 설치·훅 신뢰·브라우저 프로필·실제 채팅을 변경하지 않습니다. 연결과 정책 평가를 통과한 기능만 정식 활성화합니다.
 
 아래 소개와 공개 목업은 기존 **진행 표시 콘셉트**입니다. 새 자동 도움 기능의 출시나 동작을 의미하지 않습니다.
 
@@ -21,7 +23,7 @@
 ## 제공 기능과 현재 상태
 
 - 투명 최상단 펫 창, 작업당 펫 하나·최대 세 개, 트레이 숨기기·종료, 위치 저장.
-- 채팅에서 `$autopets`로 완료 기준과 개입 시점 설정. 같은 작업은 재사용하고 첫 빈 슬롯에 연결합니다.
+- 기존 `$autopets` 수동 연결 유지. 수동 UI 연결의 완료 기준은 선택사항이며 기존 기준은 보존합니다. 새 자동 도움 연결은 별도 검증 중입니다.
 - 실제 계획·도구 이벤트에 맞춘 8프레임 PNG 재생. 실행 중 이미지 생성이나 상태 분류용 모델 호출은 없습니다.
 - 관측 시작 후 기본 10분 알림. 변경·끄기·확인·다시 알림을 지원하며 작업을 자동 중단하지 않습니다.
 - `milestones` 선택 시 실제 전달된 계획의 단계 완료를 알려줍니다. 일반 질문은 훅에서 관측하지 못할 수 있습니다.
@@ -38,6 +40,8 @@ Node.js 24, pnpm, Rust MSVC, Microsoft C++ Build Tools·Windows SDK, WebView2가
 pnpm install --frozen-lockfile
 pnpm test
 pnpm build
+pnpm evaluate:assistance
+pnpm package:chatgpt
 pnpm exec playwright install chromium
 node scripts/ci-ui.mjs
 ```
@@ -89,11 +93,11 @@ $autopets 경쟁사 3곳의 차이와 출처를 담은 비교 초안을 만들�
 
 ### 사용 중
 
-펫을 클릭하면 완료 기준·최근 활동·전달된 계획·관측 시간·알림이 나옵니다. 현재 ‘Codex 작업 찾기’는 정확한 작업 ID와 경로를 제공하며 자동 창 복귀는 미지원입니다.
+펫을 클릭하면 자동 도움 설정창이 열립니다. 펫 메뉴의 작업 카드에서 최근 활동·계획·알림을 볼 수 있습니다. 현재 ‘Codex 작업 찾기’는 정확한 작업 ID와 경로를 제공하며 자동 창 복귀는 미지원입니다.
 
 시간 알림은 한 번 발생하고 확인 후 반복되지 않습니다. 다시 알림은 사용자가 선택한 경우에만 발생합니다. 권한 요청은 Codex에서 처리합니다. 작업별 토큰 데이터가 없으면 숫자나 과소비를 추정하지 않습니다.
 
-관리 창 닫기는 트레이 숨김입니다. 트레이의 AutoPets 종료로 앱과 브리지를 종료합니다.
+관리 창 닫기는 트레이 숨김입니다. 펫 메뉴·관리 화면·트레이의 **AutoPets 종료**로 앱과 브리지를 종료합니다.
 
 훅 해제:
 

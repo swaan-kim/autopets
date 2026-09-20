@@ -36,7 +36,8 @@ export async function readConnection(connectionPath) {
   return { token: connection.token, baseUrl: url.origin };
 }
 
-export async function requestJson(connection, path, body, timeoutMs = 1400) {
+export async function requestJson(connection, path, body, timeoutMs = 1400, maxResponseBytes = 4096) {
+  if (!Number.isInteger(maxResponseBytes) || maxResponseBytes < 1 || maxResponseBytes > 65536) throw new BridgeError('response-limit');
   const encoded = body === undefined ? undefined : JSON.stringify(body);
   if (encoded && Buffer.byteLength(encoded) > MAX_BODY) throw new BridgeError('request-size');
   if (!path.startsWith('/v1/')) throw new BridgeError('request-path');
@@ -62,7 +63,7 @@ export async function requestJson(connection, path, body, timeoutMs = 1400) {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 4096) { await reader.cancel(); throw new BridgeError('response-size'); }
+      if (size > maxResponseBytes) { await reader.cancel(); throw new BridgeError('response-size'); }
       chunks.push(value);
     }
     const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));

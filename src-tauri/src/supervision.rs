@@ -260,13 +260,24 @@ impl Store {
         mode: InterventionMode,
         minutes: Option<u32>,
     ) -> Result<(), String> {
-        validate_configuration(criterion, minutes)?;
+        // The local manager may configure a pet without inventing a completion
+        // condition. An empty field preserves a previously observed condition.
+        validate_configuration(
+            if criterion.trim().is_empty() {
+                "optional"
+            } else {
+                criterion
+            },
+            minutes,
+        )?;
         self.with_session_transaction(session_id, |store| {
             let rec = store
                 .sessions
                 .get_mut(session_id)
                 .ok_or("관측된 작업만 설정할 수 있습니다.")?;
-            rec.supervision.view.completion_criterion = criterion.trim().to_owned();
+            if !criterion.trim().is_empty() {
+                rec.supervision.view.completion_criterion = criterion.trim().to_owned();
+            }
             rec.supervision.view.intervention_mode = mode;
             rec.supervision.view.elapsed_alert_minutes = minutes;
             for alert in &mut rec.supervision.records {
@@ -633,6 +644,39 @@ mod tests {
             intervention_mode: InterventionMode::WhenNeeded,
             elapsed_alert_minutes: Some(10),
         }
+    }
+
+    #[test]
+    fn local_configuration_can_omit_criterion_without_clearing_prior_condition() {
+        let (_dir, mut store, _) = ready();
+        store
+            .configure_session("s1", "", InterventionMode::WhenNeeded, None)
+            .unwrap();
+        assert!(store.snapshot().sessions[0]
+            .supervision
+            .completion_criterion
+            .is_empty());
+        store
+            .configure_session("s1", "완료 조건", InterventionMode::WhenNeeded, Some(10))
+            .unwrap();
+        store
+            .configure_session("s1", "  ", InterventionMode::Milestones, Some(5))
+            .unwrap();
+        assert_eq!(
+            store.snapshot().sessions[0]
+                .supervision
+                .completion_criterion,
+            "완료 조건"
+        );
+        assert_eq!(
+            store.snapshot().sessions[0]
+                .supervision
+                .elapsed_alert_minutes,
+            Some(5)
+        );
+        let mut input = configuration("strict-criterion", "s1", "t1");
+        input.completion_criterion.clear();
+        assert!(store.configure_task(input).is_err());
     }
 
     #[test]

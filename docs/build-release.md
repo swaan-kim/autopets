@@ -1,5 +1,7 @@
 # Windows 빌드와 배포 검증
 
+2026-09-21 자동 도움 변경은 [구현 검수](testing/assistance-implementation.md)를 따른다. 새 빌드는 별도 CI에서 검증하며 이번 작업에서 사용자 PC에 설치하지 않는다. 기존 설치 성공은 새 기능의 연결 증거가 아니다.
+
 후속 검증(2026-09-20): 기존 설치 파일을 이 PC에 설치하고 앱 프로세스·창·인증된 로컬 브리지 응답을 확인했다. 서명은 여전히 `NotSigned`다. 아래 첫 CI 기록과 실제 Desktop 연결 검증은 구분하며 최신 상태는 [M1 증거](testing/m1-evidence.md)를 따른다.
 
 이 소스의 `.github/workflows/windows.yml`은 Windows에서 테스트와 NSIS 설치 파일 생성을 수행한다. 자동 실행은 `main` push와 pull request이며, 수동 실행은 기본적으로 검토용 artifact만 만든다. 실제 GitHub 저장소의 루트에 이 프로젝트와 `.github`를 함께 두어야 한다.
@@ -26,11 +28,13 @@
 
 Tauri의 Windows 배포는 NSIS `-setup.exe`를 지원하며, Windows에서 Tauri CLI로 생성한다. WebView2가 없으면 기본 설치 동작에서 부트스트래퍼를 내려받는다. [Tauri Windows installer 문서](https://v2.tauri.app/distribute/windows-installer/)
 
-NSIS 설치만으로 Codex 훅이나 스킬 trust를 변경하지 않는다. companion ZIP에는 `hooks/`, `skills/`, `scripts/`, `integrations/`, `docs/`가 들어가며 상대 위치를 유지한다. `integrations/codex/probe`는 별도 opt-in한 프로젝트에서만 사용하는 M1 진단이며 앱 설치로 활성화되지 않는다. 훅이 스킬 폴더의 공통 transport 모듈을 가져오므로 훅 파일만 따로 복사하지 않는다. Node.js 24 이상은 훅·스킬 실행에 별도로 필요하다.
+NSIS 설치만으로 Codex 훅이나 스킬 trust를 변경하지 않는다. companion ZIP에는 `hooks/`, `skills/`, `scripts/`, `integrations/`, `packages/`, `docs/`가 들어가며 상대 위치를 유지한다. `integrations/codex/probe`는 별도 opt-in한 프로젝트에서만 사용하는 M1 진단이며 앱 설치로 활성화되지 않는다. 새 `integrations/codex/assistance/setup.mjs`도 기본은 dry run이다. 훅이 공통 모듈을 가져오므로 파일 하나만 따로 복사하지 않는다. Codex 훅·스킬에는 Node.js 24 이상이 별도로 필요하다.
+
+Chrome 연결은 확장 ZIP과 companion ZIP으로 분리한다. CI companion에는 해당 버전의 Node 실행 파일과 공식 LICENSE를 포함하며, 확장은 `chatgpt.com` 선택 권한과 정확한 extension origin만 사용한다. 로컬 패키징에서 Node 경로·라이선스를 제공하지 않으면 `package-status.json`에 runtime 미포함으로 기록한다. 패키징은 설치가 아니며 실제 입력·모델 변경 기능을 활성화하지 않는다. 초심자용 확장 배포·첫 연결·제거 경험은 알파 전 검증 대상이다.
 
 ## 소스 배포에 포함할 파일
 
-`.github/`, `src/`, `src-tauri/src/` 전체, `src-tauri/icons/`, `src-tauri/capabilities/`, Tauri 설정·`build.rs`·Cargo manifest와 lockfile, `hooks/`, `skills/`, `scripts/`, `tests/`, `docs/`, 프런트엔드 설정·manifest·lockfile·README를 포함한다. `src-tauri/src/supervision.rs`도 필수다.
+`.github/`, `src/`, `src-tauri/src/` 전체, `src-tauri/icons/`, `src-tauri/capabilities/`, Tauri 설정·`build.rs`·Cargo manifest와 lockfile, `hooks/`, `skills/`, `scripts/`, `integrations/`, `packages/`, `tests/`, `docs/`, 프런트엔드 설정·manifest·lockfile·README를 포함한다.
 
 `node_modules/`, Rust `target/`, `work/`, `.local/`, `release/.local/`, 실제 `connection.json`, SQLite 데이터, 개인 `.codex/hooks.json`, 로컬 credential 파일은 배포하지 않는다. 소스 ZIP에는 숨김 폴더인 `.github/`가 실제로 포함됐는지 확인한다.
 

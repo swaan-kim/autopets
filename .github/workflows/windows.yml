@@ -57,6 +57,16 @@ jobs:
         run: node scripts/ci-ui.mjs
       - name: Build frontend assets for native compilation
         run: pnpm build
+      - name: Evaluate bounded local rules and package Chrome connection
+        run: |
+          node scripts/evaluate-assistance.mjs --out work/assistance-evaluation.json
+          if ($LASTEXITCODE -ne 0) { throw 'Local rule evaluation failed.' }
+          $taskNodePath = (Get-Command node).Source
+          $taskNodeVersion = node -p process.version
+          $taskNodeLicense = Join-Path $env:GITHUB_WORKSPACE 'work/NODE-LICENSE.txt'
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nodejs/node/$taskNodeVersion/LICENSE" -OutFile $taskNodeLicense
+          node scripts/package-chatgpt.mjs --node $taskNodePath --node-license $taskNodeLicense
+          if ($LASTEXITCODE -ne 0) { throw 'Chrome connection packaging failed.' }
       - name: Select Rust MSVC toolchain
         run: |
           rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
@@ -78,8 +88,9 @@ jobs:
           $taskInstallers = @(Get-ChildItem -LiteralPath 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
           if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
           Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
-          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png -Destination $taskArtifactDir
-          Compress-Archive -LiteralPath hooks, skills, scripts, integrations, docs -DestinationPath (Join-Path $taskArtifactDir 'AutoPets-companion.zip')
+          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/assistance-evaluation.json -Destination $taskArtifactDir
+          Copy-Item -LiteralPath release/chatgpt/AutoPets-chatgpt-extension.zip, release/chatgpt/AutoPets-chatgpt-companion.zip, release/chatgpt/package-status.json -Destination $taskArtifactDir
+          Compress-Archive -LiteralPath hooks, skills, scripts, integrations, packages, docs -DestinationPath (Join-Path $taskArtifactDir 'AutoPets-companion.zip')
           $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
             $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$taskDigest  $($_.Name)"

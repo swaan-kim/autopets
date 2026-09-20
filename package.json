@@ -10,7 +10,9 @@
     "test:ui": "node tests/ui-smoke.cjs",
     "desktop": "tauri dev",
     "desktop:build": "tauri build --no-bundle",
-    "hooks:check": "node scripts/check-hooks.mjs"
+    "hooks:check": "node scripts/check-hooks.mjs",
+    "evaluate:assistance": "node scripts/evaluate-assistance.mjs",
+    "package:chatgpt": "node scripts/package-chatgpt.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.0",
