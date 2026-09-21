@@ -36,7 +36,7 @@ async function opaqueBounds(png) {
 
 test('native eight-frame atlas and manifest stay byte-identical', async () => {
   const native = await assemble(sharp, path.join(__dirname, 'sprite-source.png'));
-  const nativeDir = path.resolve(__dirname, '../../public/assets/pet');
+  const nativeDir = path.resolve(__dirname, '../../apps/desktop/public/assets/pet');
   assert.equal(createHash('sha256').update(native.sprite).digest('hex'), '04746ea7c1985acff12abaee2b03559d4a63ee67c65631b066f1d763a94fe31d');
   assert.deepEqual(native.manifest, fs.readFileSync(path.join(nativeDir, 'manifest.json')));
   for (let index = 0; index < 8; index++) assert.deepEqual(native.frames[index], fs.readFileSync(path.join(nativeDir, `frame-${index}.png`)));

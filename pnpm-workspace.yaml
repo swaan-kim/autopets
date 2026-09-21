@@ -1,2 +1,6 @@
+packages:
+  - apps/*
+  - packages/*
+  - docs/design-source
 allowBuilds:
   esbuild: true

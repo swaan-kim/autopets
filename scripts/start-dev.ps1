@@ -7,7 +7,8 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) { throw 'Rust MSVC t
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     throw 'MSVC is not ready. Start from Developer PowerShell for Visual Studio, or complete the Build Tools installation described in README.md.'
 }
-Set-Location -LiteralPath $taskProject
+$taskApp = Join-Path $taskProject 'apps\desktop'
+Set-Location -LiteralPath $taskApp
 # Native AppData default applies unless the caller explicitly set AUTOPETS_DATA_DIR.
 & node 'node_modules/@tauri-apps/cli/tauri.js' dev
 exit $LASTEXITCODE

@@ -4,27 +4,20 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
-    "test": "node --test tests/*.test.mjs",
-    "test:ui": "node tests/ui-smoke.cjs",
-    "desktop": "tauri dev",
-    "desktop:build": "tauri build --no-bundle",
+    "dev": "pnpm --filter @autopets/desktop dev",
+    "build": "pnpm --filter @autopets/desktop build",
+    "test": "node scripts/run-tests.mjs",
+    "test:ui": "node scripts/ci-ui.mjs",
+    "desktop": "pnpm --filter @autopets/desktop desktop",
+    "desktop:build": "pnpm --filter @autopets/desktop desktop:build",
     "hooks:check": "node scripts/check-hooks.mjs",
     "evaluate:assistance": "node scripts/evaluate-assistance.mjs",
-    "package:chatgpt": "node scripts/package-chatgpt.mjs"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.10.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "package:chatgpt": "node scripts/package-chatgpt.mjs",
+    "test:rust": "cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "verify:layout": "node scripts/verify-layout.mjs && node scripts/check-doc-links.mjs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.10.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "playwright": "1.62.1",
-    "typescript": "~5.9.3",
-    "vite": "^7.3.0"
-  }
+    "playwright": "1.62.1"
+  },
+  "packageManager": "pnpm@11.19.0"
 }

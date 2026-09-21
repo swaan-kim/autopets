@@ -47,7 +47,7 @@ function parseArguments(argv) {
 }
 
 function outputPaths(repoRoot) {
-  const petDirectory = path.join(repoRoot, 'public/assets/pet');
+  const petDirectory = path.join(repoRoot, 'apps/desktop/public/assets/pet');
   const promoDirectory = path.join(repoRoot, 'docs/demo/assets');
   return {
     petDirectory,
@@ -209,8 +209,8 @@ async function main(argv = process.argv.slice(2)) {
   }
   let sharp;
   try { sharp = createRequire(path.join(repoRoot, 'docs/design-source/package.json'))('sharp'); }
-  catch { throw new Error('Missing image dependency. Run npm ci --prefix docs/design-source from the repository root.'); }
-  const brandPath = path.join(repoRoot, 'public/assets/brand/autopets-mark.svg');
+  catch { throw new Error('Missing image dependency. Run pnpm install --frozen-lockfile from the repository root.'); }
+  const brandPath = path.join(repoRoot, 'apps/desktop/public/assets/brand/autopets-mark.svg');
   const brandMark = fs.readFileSync(brandPath, 'utf8').replace(/role="img" aria-labelledby="title desc"/, 'aria-hidden="true"').replace(/<title[^>]*>.*?<\/title>|<desc[^>]*>.*?<\/desc>/gs, '').replace(/[ \t]+$/gm, '');
   const template = fs.readFileSync(templatePath, 'utf8').replaceAll('__BRAND_MARK__', brandMark);
   const native = await assemble(sharp, source);

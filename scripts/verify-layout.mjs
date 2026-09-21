@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const json=p=>JSON.parse(fs.readFileSync(path.join(root,p),'utf8'));
+const required=['apps/desktop/src/main.tsx','apps/desktop/src-tauri/Cargo.toml','apps/desktop/public/assets/motions/manifest.json','apps/desktop/tests/ui-smoke.cjs','integrations/codex/hooks/codex-hook.mjs','integrations/codex/skills/autopets/SKILL.md','integrations/chatgpt/extension/manifest.json','packages/contracts/index.mjs','packages/guidance/index.mjs','docs/demo/index.html','hooks/codex-hook.mjs','skills/autopets/scripts/connect.mjs'];
+for(const file of required) if(!fs.existsSync(path.join(root,file)))throw Error('Required entrypoint missing: '+file);
+const app=json('apps/desktop/package.json'),tauri=json('apps/desktop/src-tauri/tauri.conf.json');
+if(tauri.identifier!=='local.autopets.desktop')throw Error('App data identity changed');
+if(app.version!==tauri.version)throw Error('App and Tauri versions differ');
+if(json('apps/desktop/public/assets/motions/manifest.json').animations.dizzy.frames.length!==1)throw Error('Confused pose should remain still');
+for(const command of ['dev','build','test','test:ui','desktop'])if(!json('package.json').scripts[command])throw Error('Missing root command '+command);
+for(const file of ['package-lock.json','docs/design-source/package-lock.json'])if(fs.existsSync(path.join(root,file)))throw Error('Use the single pnpm lockfile: '+file);
+console.log('Layout, root commands, app identity, package versions and still pet verified.');
