@@ -114,7 +114,7 @@ export async function start({ packageDir, root = homeFor(), env = process.env, d
         if (await fs.readFile(destination).then(data => digest(data) !== item.sha256).catch(() => true)) await fs.copyFile(inside(packageDir, item.path), destination);
         ownedFiles.push({ path: `connector/${item.path}`, sha256: item.sha256 });
       }
-      installed = { version: 1, owner: 'autopets', installedVersion: supplied.appVersion, packageDigest: digest(await fs.readFile(path.join(packageDir, 'manifest.json'))),
+      installed = { ...installed, version: 1, owner: 'autopets', installedVersion: supplied.appVersion, packageDigest: digest(await fs.readFile(path.join(packageDir, 'manifest.json'))),
         appDirectory: appDir, appDigest: digest(await fs.readFile(executable)),
         completedSteps: ['app', 'runtime'], ownedFiles, hookIds: installed?.hookIds || [], skillPath: installed?.skillPath || null, updatedAt: Date.now() };
       await atomicJson(manifestPath, installed);

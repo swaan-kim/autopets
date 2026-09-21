@@ -8,6 +8,9 @@ import { digest, atomicJson, lock } from '../bootstrap/files.mjs';
 import { mergeHooks, handlers } from '../bootstrap/connection.mjs';
 import { chatConfig } from '../bootstrap/user-hook.mjs';
 import { runHookOnce } from '../bootstrap/deduplicate.mjs';
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 
 async function fixture(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-setup-한글 '));
@@ -46,7 +49,7 @@ test('first start and repeat preserve unrelated hooks and do not reinstall or cl
 test('repair copies damaged helper only; a newer package never upgrades implicitly', async t => {
   const f = await fixture(t); await f.run();
   await fs.writeFile(path.join(f.root, 'connector/runtime/LICENSE'), 'damaged');
-  await f.run(); assert.equal(f.calls.filter(c => c === 'install').length, 1);
+  assert.equal((await f.run()).skillConflict, false); assert.equal(f.calls.filter(c => c === 'install').length, 1);
   const file = path.join(f.pkg, 'manifest.json'), m = JSON.parse(await fs.readFile(file, 'utf8')); m.appVersion = '0.2.0'; await atomicJson(file, m);
   const result = await f.run(); assert.equal(result.updateAvailable, '0.2.0');
   assert.equal(f.calls.filter(c => c === 'install').length, 1);
@@ -97,4 +100,51 @@ test('two chats use separate records and same chat cannot move projects', async 
 });
 test('malformed existing hooks are never rewritten', () => {
   assert.throws(() => mergeHooks({ hooks: { Stop: {} } }, handlers('node', 'runner')), /hooks-format/);
+});
+test('compatible pre-existing app is adopted without a second native installation', async t => {
+  const f = await fixture(t), directory = path.join(f.directory, '기존 앱');
+  await fs.mkdir(directory); await fs.writeFile(path.join(directory, 'AutoPets.exe'), 'previous-app');
+  const driver = { ...f.driver, discover: async () => ({ directory, version: '0.1.0' }) };
+  await f.run({ driver }); assert.equal(f.calls.filter(c => c === 'install').length, 0);
+  assert.equal(JSON.parse(await fs.readFile(path.join(f.root, 'install-manifest.json'), 'utf8')).appDirectory, directory);
+});
+test('modified owned skill and changed owned hook survive disconnect', async t => {
+  const f = await fixture(t); await f.run();
+  const skill = path.join(f.env.CODEX_HOME, 'skills/autopets/SKILL.md');
+  await fs.appendFile(skill, '\nMy modification');
+  const file = path.join(f.env.CODEX_HOME, 'hooks.json'), hooks = JSON.parse(await fs.readFile(file, 'utf8'));
+  hooks.hooks.Stop[0].hooks[0].command = 'user-change'; await atomicJson(file, hooks);
+  await disconnect({ root: f.root, env: f.env });
+  assert.match(await fs.readFile(skill, 'utf8'), /My modification/);
+  assert.match(await fs.readFile(file, 'utf8'), /user-change/);
+});
+test('real user runner binds its chat config, deduplicates observation and fails open after disconnect', async t => {
+  const f = await fixture(t), events = [];
+  await atomicJson(path.join(f.root, 'state/connection-settings.json'), { version: 1, enabled: true });
+  const server = createServer(async (req, res) => {
+    const parts = []; for await (const part of req) parts.push(part);
+    const body = JSON.parse(Buffer.concat(parts).toString('utf8') || '{}');
+    if (req.url === '/v1/events') { events.push(body); res.end('{"ok":true}'); }
+    else { res.statusCode = 503; res.end('{}'); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const connection = path.join(f.directory, 'connection.json');
+  await atomicJson(connection, { version: 1, baseUrl: `http://127.0.0.1:${server.address().port}`, token: 'a'.repeat(64) });
+  const script = fileURLToPath(new URL('../bootstrap/user-hook.mjs', import.meta.url));
+  const input = { session_id: 'real-a', turn_id: 'turn-a', cwd: f.directory, hook_event_name: 'UserPromptSubmit', prompt: '비교해줘', model: 'gpt-5.6-terra' };
+  const run = role => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [script, role, '--autopets-user-v1'], { env: { ...process.env, ...f.env, AUTOPETS_CONNECTION_FILE: connection }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '', stderr = ''; const timeout = setTimeout(() => { child.kill(); reject(Error('timeout')); }, 8000);
+    child.stdout.on('data', data => stdout += data); child.stderr.on('data', data => stderr += data);
+    child.on('error', reject); child.on('exit', code => { clearTimeout(timeout); assert.equal(code, 0); assert.equal(stderr, ''); resolve(JSON.parse(stdout)); });
+    child.stdin.end(JSON.stringify(input));
+  });
+  assert.deepEqual(await run('observe'), {}); assert.deepEqual(await run('observe'), {});
+  assert.equal(events.length, 1); assert.equal(events[0].sessionId, 'real-a');
+  assert.deepEqual(await run('prepare'), {});
+  const config = JSON.parse(await fs.readFile(path.join(f.root, 'state/chats', digest('real-a'), 'config.json'), 'utf8'));
+  assert.equal(config.version, 2); assert.equal(config.validationMode, false);
+  await atomicJson(path.join(f.root, 'state/connection-settings.json'), { enabled: false });
+  const before = events.length; assert.deepEqual(await run('observe'), {}); assert.equal(events.length, before);
 });
