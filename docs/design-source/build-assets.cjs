@@ -106,7 +106,7 @@ function validateMotionConfig(config) {
   if (config.version !== 4 || config.frameSize !== 64 || config.columns !== 4 || config.rows !== 5 || config.frameCount !== 18 || config.baseline !== 60 || config.bodySize !== 52 || config.runtimeGeneration !== false) {
     throw new Error('The promo config must describe 18 fixed 64px frames on a 4 by 5 grid (52px body, baseline 60).');
   }
-  const expected = { idle: [0, 1, 2, 3], research: [4, 5], writing: [6, 7], thinking: [8, 9], tool: [10, 11], dizzy: [12, 13], angry: [14, 15], celebrate: [16, 17] };
+  const expected = { idle: [0, 1, 2, 3], research: [4, 5], writing: [6, 7], thinking: [8, 9], tool: [10, 11], dizzy: [12], angry: [14, 15], celebrate: [16, 17] };
   if (Object.keys(config.animations || {}).length !== Object.keys(expected).length) throw new Error('Unexpected promo animation count.');
   for (const [name, frames] of Object.entries(expected)) {
     const animation = config.animations[name];

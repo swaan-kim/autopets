@@ -29,7 +29,7 @@ export function Pet({ index = 0, activity = 'idle', motion, small = false, pause
   }, []);
   useEffect(() => {
     setTick(0);
-    if (paused || reduced || assetState !== 'ready') return;
+    if (paused || reduced || animation.frames.length < 2 || assetState !== 'ready') return;
     const timer = setInterval(() => setTick(value => (value + 1) % animation.frames.length), 1000 / animation.fps);
     return () => clearInterval(timer);
   }, [selected, paused, reduced, assetState]);
