@@ -82,8 +82,9 @@ export async function start({ packageDir, root = homeFor(), env = process.env, d
     let installed = await readJson(manifestPath).catch(e => { if (e.code === 'ENOENT') return null; throw e; });
     if (installed && (installed.version !== 1 || installed.owner !== 'autopets')) throw Error('installation-conflict');
     const supplied = packageDir ? await verifyPackage(packageDir) : null;
+    const suppliedDigest = supplied ? digest(await fs.readFile(path.join(packageDir, 'manifest.json'))) : null;
     let updateAvailable = null;
-    if (installed && supplied && installed.installedVersion !== supplied.appVersion) {
+    if (installed && supplied && (installed.installedVersion !== supplied.appVersion || installed.packageDigest !== suppliedDigest)) {
       // Never replace a running installation implicitly; use its registered runner.
       updateAvailable = supplied.appVersion;
     }
@@ -95,7 +96,7 @@ export async function start({ packageDir, root = homeFor(), env = process.env, d
       const file = inside(root, item.path); await regular(file); return digest(await fs.readFile(file)) === item.sha256;
     })).then(async values => values.every(Boolean) && digest(await fs.readFile(executable)) === installed.appDigest).catch(() => false);
     if (!intact) {
-      if (!supplied || (installed && supplied.appVersion !== installed.installedVersion)) throw Error('matching-package-required');
+      if (!supplied || (installed && (supplied.appVersion !== installed.installedVersion || installed.packageDigest !== suppliedDigest))) throw Error('matching-package-required');
       // Check native installer before copying any runtime helpers.
       await safeDirectory(appDir);
       const appIntact = installed?.appDigest && await fs.readFile(executable).then(data => digest(data) === installed.appDigest).catch(() => false);
@@ -114,7 +115,7 @@ export async function start({ packageDir, root = homeFor(), env = process.env, d
         if (await fs.readFile(destination).then(data => digest(data) !== item.sha256).catch(() => true)) await fs.copyFile(inside(packageDir, item.path), destination);
         ownedFiles.push({ path: `connector/${item.path}`, sha256: item.sha256 });
       }
-      installed = { ...installed, version: 1, owner: 'autopets', installedVersion: supplied.appVersion, packageDigest: digest(await fs.readFile(path.join(packageDir, 'manifest.json'))),
+      installed = { ...installed, version: 1, owner: 'autopets', installedVersion: supplied.appVersion, packageDigest: suppliedDigest,
         appDirectory: appDir, appDigest: digest(await fs.readFile(executable)),
         completedSteps: ['app', 'runtime'], ownedFiles, hookIds: installed?.hookIds || [], skillPath: installed?.skillPath || null, updatedAt: Date.now() };
       await atomicJson(manifestPath, installed);

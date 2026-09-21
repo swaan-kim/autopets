@@ -21,6 +21,7 @@ export async function packageBootstrap({ root, installer, node, license, out }) 
     }
   }
   for (const directory of ['integrations/codex/bootstrap', 'integrations/codex/hooks', 'integrations/codex/assistance', 'integrations/codex/skills', 'packages/contracts', 'packages/guidance']) await walk(directory);
+  for (const file of ['docs/releases/start.md', 'docs/releases/channel.json', 'docs/testing/one-call-setup.md']) await add(file, path.join(root, file));
   await add('runtime/node.exe', node); await add('runtime/LICENSE', license);
   const installerName = `app/AutoPets_${appVersion}_x64-setup.exe`;
   await add(installerName, installer);

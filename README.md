@@ -34,6 +34,7 @@
 [최신 앱 검수 화면과 방법](docs/testing/assistance-implementation.md) · [제품 방향](docs/product/direction.md)
 
 새 기능의 구현 화면(합성 데이터): [시작 설정 카드](docs/images/app-workflow-presets.png) · [계획 확인과 설정 불일치](docs/images/app-workflow-task.png).
+설치·연결을 구분한 [시작 화면](docs/images/app-setup.png)도 확인할 수 있습니다.
 
 [공개 소개·체험 목업](https://swaan-kim.github.io/autopets/)은 **시연 데이터로 만든 진행 확인 콘셉트**이며 실제 앱 연결을 의미하지 않습니다. [홍보 이미지](docs/images/00-overview-wide.png) · [오프라인 목업](docs/demo/index.html) · [제작 방법](docs/design-source/README-제작.md)
 
