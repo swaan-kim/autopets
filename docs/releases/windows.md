@@ -28,6 +28,19 @@
 
 Tauri의 Windows 배포는 NSIS `-setup.exe`를 지원하며, Windows에서 Tauri CLI로 생성한다. WebView2가 없으면 기본 설치 동작에서 부트스트래퍼를 내려받는다. [Tauri Windows installer 문서](https://v2.tauri.app/distribute/windows-installer/)
 
+### 로컬 PowerShell 빌드 도구
+
+`scripts/build.ps1`과 `scripts/start-dev.ps1`은 현재 PATH의 Cargo와 MSVC를 사용한다. Rust와 Node 의존성을 준비한 Developer PowerShell에서 실행하거나, 개발자가 관리하는 환경 초기화 `.ps1`을 명시할 수 있다. 저장소 주변의 개인 툴체인 경로를 자동 탐색하지 않는다.
+
+```powershell
+.\scripts\build.ps1
+.\scripts\build.ps1 -ToolchainPath 'C:\DevTools\enable-toolchain.ps1'
+$env:AUTOPETS_TOOLCHAIN_PATH = 'C:\DevTools\enable-toolchain.ps1'
+.\scripts\start-dev.ps1
+```
+
+위 `C:\DevTools` 경로는 예시이며 실제 초기화 스크립트 경로로 바꾼다. `-ToolchainPath` 인수가 환경변수보다 우선하고, 상대 경로는 호출한 PowerShell의 현재 디렉터리를 기준으로 해석한다. 지정한 파일이 없거나 `.ps1` 파일이 아니면 빌드·앱 실행 전에 오류로 종료한다. 초기화 후에도 Cargo 또는 MSVC를 찾을 수 없으면 중단한다. 도우미 자체는 도구를 설치하거나 실행 정책·시스템 PATH를 변경하지 않는다.
+
 NSIS 설치만으로 Codex 훅이나 스킬 trust를 변경하지 않는다. companion ZIP에는 `hooks/`, `skills/`, `scripts/`, `integrations/`, `packages/`, `docs/`가 들어가며 상대 위치를 유지한다. `integrations/codex/probe`는 별도 opt-in한 프로젝트에서만 사용하는 M1 진단이며 앱 설치로 활성화되지 않는다. 새 `integrations/codex/assistance/setup.mjs`도 기본은 dry run이다. 훅이 공통 모듈을 가져오므로 파일 하나만 따로 복사하지 않는다. Codex 훅·스킬에는 Node.js 24 이상이 별도로 필요하다.
 
 Chrome 연결은 확장 ZIP과 companion ZIP으로 분리한다. CI companion에는 해당 버전의 Node 실행 파일과 공식 LICENSE를 포함하며, 확장은 `chatgpt.com` 선택 권한과 정확한 extension origin만 사용한다. 로컬 패키징에서 Node 경로·라이선스를 제공하지 않으면 `package-status.json`에 runtime 미포함으로 기록한다. 패키징은 설치가 아니며 실제 입력·모델 변경 기능을 활성화하지 않는다. 초심자용 확장 배포·첫 연결·제거 경험은 알파 전 검증 대상이다.

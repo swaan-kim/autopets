@@ -15,10 +15,10 @@
 
 ## 패키지 만들기
 
-저장소 루트에서 Node.js 22 이상으로 실행합니다.
+저장소 루트에서 Node.js 24 이상으로 실행합니다.
 
 ~~~sh
-node --test tests/chatgpt-*.test.mjs
+node --test integrations/chatgpt/tests/*.test.mjs
 node scripts/package-chatgpt.mjs
 ~~~
 

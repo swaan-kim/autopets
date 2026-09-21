@@ -20,7 +20,7 @@
 | 03 저장·앱 | apps/desktop/src-tauri/src | 설정·기록·1회 되돌리기·창 제어 | 이관·CAS·삭제·계정/채팅 격리, Windows CI |
 | 04 Codex | integrations/codex | 준비·관측 분리, 변경 시 전달 | 02/03 이후 두 채팅 fixture; 실제 전달은 별도 승인 후 |
 | 05 ChatGPT | integrations/chatgpt | 브라우저/로컬 계약, 감지 실패 시 원문 보존 | 새 설정 호환; 실제 모델 변경은 미지원 유지 |
-| 06 시각 경험 | apps/desktop/src/features/pets와 public/assets/motions | 18프레임, reduced motion, 상태 문구 | 01과 역할 합의, 응답 도착 ≠ 목표 달성 |
+| 06 시각 경험 | apps/desktop/src/features/pets와 apps/desktop/public/assets/motions | 18프레임, reduced motion, 상태 문구 | 01과 역할 합의, 응답 도착 ≠ 목표 달성 |
 | 07 QA | 각 소유 패키지의 tests, docs/testing | 기능/회귀/접근성, 실증 체크리스트 | 통합 후 증거 수준별 결과 기록 |
 
 ## 역할별 다음 요청
