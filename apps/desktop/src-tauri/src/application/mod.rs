@@ -3,3 +3,4 @@ mod events;
 pub mod store;
 mod supervision;
 pub mod updates;
+pub mod workflow;

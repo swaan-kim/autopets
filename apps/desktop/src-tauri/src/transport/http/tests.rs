@@ -1,6 +1,142 @@
 use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
+#[tokio::test]
+async fn workflow_preflight_is_authenticated_cwd_bound_and_never_invents_started_turns() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(
+        crate::application::store::Store::new(dir.path()).unwrap(),
+    ));
+    store
+        .lock()
+        .unwrap()
+        .workflow
+        .save_preferences(crate::domain::workflow::Preferences {
+            enabled: true,
+            ..Default::default()
+        })
+        .unwrap();
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo =
+        serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let identity = serde_json::json!({"provider":"codex","accountId":format!("session:{:x}",Sha256::digest(b"flow")),"chatId":"flow"});
+    let binding = serde_json::json!({"sessionId":"flow","cwd":"C:/workflow","turnId":"first"});
+    let read = serde_json::json!({"operation":"read","identity":identity,"binding":binding});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", "", read.clone())
+            .await
+            .0,
+        401
+    );
+    assert_eq!(
+        json_http(
+            &bridge.base_url,
+            "POST",
+            "/v1/workflow",
+            &format!("{auth}Origin: https://chatgpt.com\r\n"),
+            read.clone()
+        )
+        .await
+        .0,
+        403
+    );
+    let result = json_http(
+        &bridge.base_url,
+        "POST",
+        "/v1/workflow",
+        &auth,
+        read.clone(),
+    )
+    .await;
+    assert_eq!(result.0, 200);
+    assert_eq!(result.1["task"]["enabled"], true);
+    assert_eq!(result.1["capabilities"]["modelObservation"], false);
+    let mut wrong = read.clone();
+    wrong["binding"]["cwd"] = serde_json::json!("C:/other");
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, wrong)
+            .await
+            .0,
+        409
+    );
+    let mut scope = read.clone();
+    scope["identity"]["accountId"] = serde_json::json!("arbitrary-account");
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, scope)
+            .await
+            .0,
+        409
+    );
+    let preflight = serde_json::json!({"operation":"preflight","identity":identity,"binding":binding,
+        "expectedSettingsRevision":0,"expectedPlanRevision":0,"submissionId":"first","requestFingerprint":"a".repeat(64),"intent":"new-work",
+        "observation":{"model":"gpt-6-astra","reasoning":null,"mode":null,"source":"hook","observedAt":crate::domain::activity::now_ms(),"submissionId":"first"}});
+    let result = json_http(
+        &bridge.base_url,
+        "POST",
+        "/v1/workflow",
+        &auth,
+        preflight.clone(),
+    )
+    .await;
+    assert_eq!(result.0, 200);
+    assert_eq!(result.1["decision"], "passthrough");
+    assert!(result.1["task"]["observation"].is_null());
+    let mut elevated = preflight.clone();
+    elevated["capabilities"] =
+        serde_json::json!({"verification":"verified","modelObservation":true});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, elevated)
+            .await
+            .0,
+        422
+    );
+    let mut missing_turn = preflight;
+    missing_turn["binding"]
+        .as_object_mut()
+        .unwrap()
+        .remove("turnId");
+    assert_eq!(
+        json_http(
+            &bridge.base_url,
+            "POST",
+            "/v1/workflow",
+            &auth,
+            missing_turn
+        )
+        .await
+        .0,
+        400
+    );
+    // The existing endpoint still demands a genuinely observed active turn.
+    assert_eq!(
+        assistance_http(&bridge.base_url, &auth, read.clone())
+            .await
+            .0,
+        409
+    );
+    let record = serde_json::json!({"operation":"recordPlan","identity":identity,"binding":binding,"expectedSettingsRevision":0,"expectedPlanRevision":0,
+        "plan":{"summary":"관측하지 않은 계획","steps":[],"completionCriteria":[]}});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, record)
+            .await
+            .0,
+        409
+    );
+    {
+        let store = store.lock().unwrap();
+        assert!(store.snapshot().sessions.is_empty());
+        assert!(store
+            .snapshot()
+            .slots
+            .iter()
+            .all(|s| s.session_id.is_none()));
+        assert!(store.assistance.overview().unwrap().tasks.is_empty());
+        assert!(!store.assistance.preferences().unwrap().enabled);
+    }
+    bridge.shutdown();
+}
+
 async fn http(base_url: &str, method: &str, path: &str, headers: &str, body: &str) -> u16 {
     let address = base_url.strip_prefix("http://").unwrap();
     let mut socket = tokio::net::TcpStream::connect(address).await.unwrap();

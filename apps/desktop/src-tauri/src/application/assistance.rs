@@ -63,9 +63,13 @@ impl AssistanceStore {
         })
     }
 
-    pub fn has_enabled_preparation(&self, identity: &Identity) -> Result<bool, String> {
+    pub fn has_enabled_preparation(
+        &self,
+        identity: &Identity,
+        workflow_enabled: bool,
+    ) -> Result<bool, String> {
         let record = self.load(identity)?;
-        Ok(self.preferences()?.enabled
+        Ok((self.preferences()?.enabled || workflow_enabled)
             && record.task.enabled
             && matches!(
                 record.task.assistance.status,
@@ -186,7 +190,16 @@ impl AssistanceStore {
     }
 
     pub fn dispatch(&mut self, request: Request) -> Result<serde_json::Value, String> {
-        let preferences = self.preferences()?;
+        self.dispatch_with_workflow(request, false)
+    }
+    pub(crate) fn dispatch_with_workflow(
+        &mut self,
+        request: Request,
+        workflow_enabled: bool,
+    ) -> Result<serde_json::Value, String> {
+        let mut preferences = self.preferences()?;
+        // The server derives this chat-only opt-in. No caller field can enable it.
+        preferences.enabled |= workflow_enabled;
         let (identity, _) = request.identity_binding();
         identity.key()?;
         if let Request::Read { identity, .. } = &request {
@@ -212,6 +225,7 @@ impl AssistanceStore {
                 guidance_hash,
                 context_partial,
                 included_context_keys,
+                workflow_binding,
                 ..
             } => {
                 check_revision(&record, expected_revision)?;
@@ -254,6 +268,11 @@ impl AssistanceStore {
                 }
                 if record.receipt.as_ref().is_some_and(|r| {
                     r.hash == guidance_hash
+                        && match (&r.workflow_binding, &workflow_binding) {
+                            (None, None) => true,
+                            (Some(previous), Some(current)) => previous.same_policy(current),
+                            _ => false,
+                        }
                         && r.preferences_revision == preferences.revision
                         && r.context_revision == record.task.revision
                         && (r.delivered || r.binding == binding)
@@ -272,6 +291,7 @@ impl AssistanceStore {
                     delivered: false,
                     context_written: false,
                     quality_written: false,
+                    workflow_binding,
                 });
                 record.task.assistance = AssistanceState {
                     status: Status::Prepared,

@@ -12,6 +12,7 @@ pub type SharedStore = Arc<Mutex<Store>>;
 pub struct Store {
     pub(crate) db: Connection,
     pub assistance: crate::application::assistance::AssistanceStore,
+    pub workflow: crate::application::workflow::WorkflowStore,
     pub(crate) sessions: HashMap<String, SessionRecord>,
     pub(crate) slots: [Option<String>; 3],
     pub(crate) approvals: HashMap<String, ApprovalRecord>,
@@ -118,7 +119,9 @@ impl Store {
     ) -> Result<bool, String> {
         if identity.provider != crate::application::assistance::Provider::Codex
             || !self.sessions.contains_key(&identity.chat_id)
-            || !self.assistance.has_enabled_preparation(identity)?
+            || !self
+                .assistance
+                .has_enabled_preparation(identity, self.workflow.enabled(identity)?)?
         {
             return Ok(false);
         }

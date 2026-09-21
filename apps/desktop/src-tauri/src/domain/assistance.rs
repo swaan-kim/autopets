@@ -250,6 +250,8 @@ pub enum Request {
         context_partial: bool,
         #[serde(default, rename = "includedContextKeys")]
         included_context_keys: Vec<String>,
+        #[serde(default, rename = "workflowBinding")]
+        workflow_binding: Option<crate::domain::workflow::GuidanceBinding>,
     },
     Delivered {
         identity: Identity,
@@ -312,6 +314,8 @@ pub(crate) struct Receipt {
     pub(crate) delivered: bool,
     pub(crate) context_written: bool,
     pub(crate) quality_written: bool,
+    #[serde(default)]
+    pub(crate) workflow_binding: Option<crate::domain::workflow::GuidanceBinding>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Record {

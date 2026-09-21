@@ -113,11 +113,8 @@ pub(crate) fn save_preferences(
     store: tauri::State<SharedStore>,
     preferences: assistance::Preferences,
 ) -> Result<assistance::Preferences, String> {
-    store
-        .lock()
-        .map_err(|_| "상태를 저장할 수 없습니다.")?
-        .assistance
-        .save_preferences(preferences)
+    let mut store = store.lock().map_err(|_| "상태를 저장할 수 없습니다.")?;
+    store.save_assistance_preferences_control(preferences)
 }
 #[tauri::command]
 pub(crate) fn set_chat_assistance(
@@ -125,11 +122,12 @@ pub(crate) fn set_chat_assistance(
     identity: assistance::Identity,
     enabled: bool,
 ) -> Result<assistance::Task, String> {
-    store
-        .lock()
-        .map_err(|_| "상태를 저장할 수 없습니다.")?
-        .assistance
-        .set_enabled(identity, enabled)
+    let mut store = store.lock().map_err(|_| "상태를 저장할 수 없습니다.")?;
+    let task = store.assistance.set_enabled(identity.clone(), enabled)?;
+    if !enabled {
+        store.workflow.disable_chat(&identity)?;
+    }
+    Ok(task)
 }
 #[tauri::command]
 pub(crate) fn save_task_context(
@@ -138,11 +136,17 @@ pub(crate) fn save_task_context(
     context: assistance::Context,
     expected_revision: u64,
 ) -> Result<assistance::Task, String> {
-    store
-        .lock()
-        .map_err(|_| "기록을 저장할 수 없습니다.")?
+    let mut store = store.lock().map_err(|_| "기록을 저장할 수 없습니다.")?;
+    let old = store.assistance.load(&identity)?;
+    let affects_plan =
+        crate::application::workflow::context_affects_plan(&old.task.context, &context);
+    let task = store
         .assistance
-        .save_context(identity, context, expected_revision)
+        .save_context(identity.clone(), context, expected_revision)?;
+    if affects_plan && task.revision != expected_revision {
+        store.workflow.invalidate_plan(&identity)?;
+    }
+    Ok(task)
 }
 #[tauri::command]
 pub(crate) fn set_task_work_style(
@@ -163,30 +167,32 @@ pub(crate) fn undo_task_context(
     identity: assistance::Identity,
     expected_revision: u64,
 ) -> Result<assistance::Task, String> {
-    store
-        .lock()
-        .map_err(|_| "기록을 되돌릴 수 없습니다.")?
+    let mut store = store.lock().map_err(|_| "기록을 되돌릴 수 없습니다.")?;
+    let task = store
         .assistance
-        .undo_context(identity, expected_revision)
+        .undo_context(identity.clone(), expected_revision)?;
+    store.workflow.invalidate_plan(&identity)?;
+    Ok(task)
 }
 #[tauri::command]
 pub(crate) fn delete_task_context(
     store: tauri::State<SharedStore>,
     identity: assistance::Identity,
-) -> Result<assistance::Task, String> {
-    store
-        .lock()
-        .map_err(|_| "기록을 삭제할 수 없습니다.")?
-        .assistance
-        .delete_context(identity)
+) -> Result<Option<assistance::Task>, String> {
+    let mut store = store.lock().map_err(|_| "기록을 삭제할 수 없습니다.")?;
+    // Workflow-only chats have no legacy assistance context to delete.
+    store.workflow.erase(Some(&identity))?;
+    match store.assistance.load(&identity) {
+        Ok(_) => store.assistance.delete_context(identity).map(Some),
+        Err(e) if e == "Unknown assistance chat" => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 #[tauri::command]
 pub(crate) fn delete_all_contexts(store: tauri::State<SharedStore>) -> Result<(), String> {
-    store
-        .lock()
-        .map_err(|_| "기록을 삭제할 수 없습니다.")?
-        .assistance
-        .delete_all_contexts()
+    let mut store = store.lock().map_err(|_| "기록을 삭제할 수 없습니다.")?;
+    store.workflow.erase(None)?;
+    store.assistance.delete_all_contexts()
 }
 #[tauri::command]
 pub(crate) fn set_pets_visible(

@@ -1,7 +1,7 @@
 {
   "date": "2026-09-21",
-  "scope": "Repository and module restructuring; existing app identity, data and external contracts preserved.",
-  "phase": "implemented-foundation-awaiting-live-connection-and-quality-evidence",
+  "scope": "Planning/execution presets, chat-bound plan confirmation, submission protection infrastructure and manual guidance. No installation or live activation.",
+  "phase": "implemented-presets-awaiting-live-protection-verification",
   "installedThisChange": false,
   "liveRoutingEnabled": false,
   "runtimeModelCallsForPet": 0,
@@ -11,13 +11,13 @@
   "rustFormatCheck": "passed",
   "localRustTests": "blocked-before-project-check-by-time-macros-E0463",
   "nodeTests": {
-    "passed": 102,
+    "passed": 114,
     "failed": 0,
-    "evidence": "Windows CI and fresh checkout"
+    "evidence": "Local complete suite; final branch counts and native checks are recorded in the current PR."
   },
   "browserNativeUiChecks": {
     "usesFixtures": true,
-    "passed": 14,
+    "passed": 23,
     "pageErrors": 0
   },
   "evaluation": {
@@ -27,30 +27,10 @@
     "mode": "local-rules-only"
   },
   "currentImplementationCI": {
-    "status": "success",
-    "commit": "1315d19c5cbbfe82cbf5eb7a4716310575a35ff8",
-    "runId": 35594357064,
-    "url": "https://github.com/swaan-kim/autopets/actions/runs/35594357064",
-    "pullRequest": "https://github.com/swaan-kim/autopets/pull/8",
-    "nodeTests": {
-      "passed": 102,
-      "failed": 0
-    },
-    "uiChecks": {
-      "passed": 14,
-      "pageErrors": 0
-    },
-    "rustTests": {
-      "passed": 52,
-      "failed": 0
-    },
-    "promoTests": {
-      "passed": 22,
-      "failed": 0
-    },
-    "nsisBuild": "passed",
-    "companionPackaging": "passed",
-    "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
+    "status": "tracked-in-current-branch-checks",
+    "branch": "feat/planning-execution-presets",
+    "url": "https://github.com/swaan-kim/autopets/actions/workflows/windows.yml",
+    "note": "Use the current PR check and its exact commit for Rust/installer evidence. Historical success is retained under previousEvidence.restructuringCI."
   },
   "realConnection": {
     "codex": "unverified",
@@ -82,7 +62,33 @@
       "conclusion": "success",
       "url": "https://github.com/swaan-kim/autopets/actions/runs/35462024271"
     },
-    "date": "2026-09-20"
+    "date": "2026-09-20",
+    "restructuringCI": {
+      "status": "success",
+      "commit": "1315d19c5cbbfe82cbf5eb7a4716310575a35ff8",
+      "runId": 35594357064,
+      "url": "https://github.com/swaan-kim/autopets/actions/runs/35594357064",
+      "pullRequest": "https://github.com/swaan-kim/autopets/pull/8",
+      "nodeTests": {
+        "passed": 102,
+        "failed": 0
+      },
+      "uiChecks": {
+        "passed": 14,
+        "pageErrors": 0
+      },
+      "rustTests": {
+        "passed": 52,
+        "failed": 0
+      },
+      "promoTests": {
+        "passed": 22,
+        "failed": 0
+      },
+      "nsisBuild": "passed",
+      "companionPackaging": "passed",
+      "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
+    }
   },
   "limitations": [
     "Production connector capabilities remain false until observed in the actual service.",
@@ -127,12 +133,36 @@
     "existingRustTestsPreserved": 52,
     "uniqueSqlStatementsUnchanged": 26,
     "appDataIdentityUnchanged": true,
-    "newDatabaseMigration": false,
+    "newDatabaseMigration": "additive-workflow-v1-tables-only",
     "liveWindowPositionRestore": "not-tested"
   },
   "localBuildHelpers": {
     "powerShellParseChecks": 3,
     "explicitToolchainPathChecks": 10,
     "systemSettingsChanged": false
+  },
+  "planningExecution": {
+    "presets": [
+      "light",
+      "balanced",
+      "complex"
+    ],
+    "defaultOptIn": false,
+    "localSettingsAndConfirmation": "implemented",
+    "stageGuidanceLimitBytes": 3072,
+    "independentModelReasoningModeEvidence": true,
+    "productionSubmissionHold": false,
+    "productionRequestIdentity": false,
+    "productionAutomaticSwitching": false,
+    "preservedLegacyPreferenceJson": true,
+    "scope": "Implementation and isolated fixtures only",
+    "actualCodexVerification": "not-performed",
+    "attachmentIdentity": "unavailable-in-documented-hook",
+    "uiChecks": 23,
+    "stageGuidanceBytesWithoutContextOrHelper": {
+      "review": 635,
+      "planning": 721,
+      "execution": 934
+    }
   }
 }

@@ -63,6 +63,7 @@ fn prepare_assistance(s: &mut Store, session_id: &str) -> crate::application::as
             guidance_hash: "a".repeat(64),
             context_partial: false,
             included_context_keys: vec![],
+            workflow_binding: None,
         })
         .unwrap();
     identity

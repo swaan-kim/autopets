@@ -98,7 +98,7 @@ jobs:
           $taskInstallers = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
           if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
           Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
-          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/assistance-evaluation.json -Destination $taskArtifactDir
+          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/native-ui-workflow-presets.png, work/native-ui-workflow-task.png, work/assistance-evaluation.json -Destination $taskArtifactDir
           Copy-Item -LiteralPath release/chatgpt/AutoPets-chatgpt-extension.zip, release/chatgpt/AutoPets-chatgpt-companion.zip, release/chatgpt/package-status.json -Destination $taskArtifactDir
           node scripts/package-companion.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Codex companion packaging failed.' }

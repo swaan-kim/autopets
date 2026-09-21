@@ -21,6 +21,12 @@ async function fixture(t) {
     calls.push({ url, body });
     if (url.startsWith('/v1/task-context?')) return { sessionId: new URL(url, 'http://localhost').searchParams.get('sessionId'), turnId, cwd: project };
     if (url === '/v1/events') { turnId = body.turnId; return { ok: true }; }
+    if (url === '/v1/workflow') {
+      const task = { enabled: false, planFirst: true, phase: 'unknown', settingsRevision: 0, planRevision: 0,
+        planning: { model: 'gpt-5.6-sol', reasoning: 'medium' }, execution: { model: 'gpt-5.6-terra', reasoning: 'medium' } };
+      return body.operation === 'read' ? { task, capabilities: { verification: 'unverified' } }
+        : { ok: true, decision: 'passthrough', reason: '보호 확인 불가', task, duplicate: false, target: null };
+    }
     const key = JSON.stringify(body.identity);
     let task = records.get(key);
     if (!task) { task = { identity: body.identity, enabled: true, revision: 0, workStyleOverride: null, settingsRevision: 0, context: emptyContext() }; records.set(key, task); }

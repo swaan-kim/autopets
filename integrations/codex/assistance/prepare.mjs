@@ -5,13 +5,14 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readConnection, requestJson, validString, isObject } from '../skills/autopets/scripts/bridge-client.mjs';
-import { validateContext, resolvePreferences, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
-import { classifyTask, buildGuidanceMetadata } from '../../../packages/guidance/index.mjs';
+import { validateContext, validateWorkflowPlan, validWorkflowTask, resolvePreferences, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
+import { classifyTask, buildGuidanceMetadata, buildWorkflowGuidance } from '../../../packages/guidance/index.mjs';
+import { identityFor, preflightSubmission } from './workflow.mjs';
+export { identityFor } from './workflow.mjs';
 
 const entry = fileURLToPath(import.meta.url);
 const hash = text => createHash('sha256').update(text).digest('hex');
 const samePath = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
-export const identityFor = sessionId => ({ provider: 'codex', accountId: `session:${hash(sessionId)}`, chatId: sessionId });
 async function json(file, limit = 16384) {
   if ((await stat(file)).size > limit) throw new Error('file-limit');
   const bytes = await readFile(file);
@@ -48,6 +49,10 @@ function helperText(config) {
   const args = JSON.stringify([entry, 'inspect', '--config', config.file]);
   return `\n목표·조건·결정·남은 일이 의미 있게 바뀔 때만 현재 실행에서 기록하세요. 별도 요약 모델을 호출하지 마세요. Node 인수 ${args}로 현재 채팅 개정번호를 읽고, {expectedRevision,context:{goal,outputFormat,constraints:[],decisions:[],remaining:[]}} JSON을 .local/autopets-assistance/records/ 안에 작성한 뒤 같은 스크립트의 record --config <위 설정 경로> --record <JSON 절대 경로>를 실행하세요. 3KB 이하 기록만 허용하며 현재 모드에서 파일·도구 쓰기가 금지되면 생략하세요. 실패해도 원래 요청을 계속하세요.`;
 }
+function planHelperText(config) {
+  const args = JSON.stringify([entry, 'plan-inspect', '--config', config.file]);
+  return `\n실제로 제시한 계획만 현재 실행에서 기록하세요. Node 인수 ${args}로 개정번호를 읽고 {expectedSettingsRevision,expectedPlanRevision,plan:{summary,steps:[],completionCriteria:[]}}를 .local/autopets-assistance/records/의 임시 JSON에 쓰세요. 같은 스크립트 plan-record --config <위 설정 경로> --record <절대 경로>로 저장하세요. plan은 3KB 이하. 기록은 사용자 확인이 아닙니다. 현재 권한상 읽기·쓰기가 안 되면 생략하고 원래 채팅에서 계획을 확인하세요. 별도 모델 호출 금지.`;
+}
 
 // Consume only one regular, unlinked temporary record. Never follow links or
 // remove a replacement file if another writer changed the path while syncing.
@@ -81,24 +86,37 @@ export async function prepare(config, input, request = transport(config)) {
   if (input.hook_event_name !== 'UserPromptSubmit') { await restoreKey(config, input.session_id, true); return { output: {} }; }
   if (!validString(input.turn_id) || typeof input.prompt !== 'string' || utf8Bytes(input.prompt) > 128 * 1024) return { output: {} };
   const identity = identityFor(input.session_id), binding = { sessionId: input.session_id, turnId: input.turn_id, cwd: input.cwd };
+  const workflow = await preflightSubmission(input, request);
+  if (workflow.decision === 'hold') return { output: { decision: 'block', reason: workflow.reason } };
   await request('/v1/events', { eventId: randomUUID(), kind: 'turn_started', ...binding, timestamp: Date.now() });
+  if (workflow.error) return { output: {} };
   const data = await assistance(request, 'read', identity, binding);
   const capability = data.capabilities?.codex ?? data.capabilities;
   if (!data.preferences?.enabled || !data.task?.enabled || (!config.validationMode && capability?.inputAssistance !== true)) return { output: {} };
   const recipe = classifyTask(input.prompt);
   const preferences = resolvePreferences({ preferences: data.preferences, task: data.task });
   const settingsRevision = data.task.settingsRevision ?? 0;
-  const helper = helperText(config);
-  const guidance = buildGuidanceMetadata({ recipe, preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) });
+  const workflowEnabled = workflow.available && workflow.task.enabled;
+  const helper = workflowEnabled ? planHelperText(config) : helperText(config);
+  const guidance = workflowEnabled
+    ? buildWorkflowGuidance({ task: workflow.task, intent: workflow.intent, preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) })
+    : buildGuidanceMetadata({ recipe, preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) });
   const additionalContext = guidance.text + helper;
   if (utf8Bytes(additionalContext) > MAX_INJECTION_BYTES) throw new Error('injection-limit');
   // Hash prompt only on explicit revision requests; never persist or transmit raw prompt.
   const change = /(조건.*(바꿔|변경|수정)|대신|앞으로는|이제부터|아까.*(취소|변경)|목표.*(변경|수정))/u.test(input.prompt) ? hash(input.prompt) : '';
-  const effectiveSettings = JSON.stringify({ preferences, settingsRevision, contextRevision: data.task.revision });
+  const effectiveSettings = JSON.stringify({ preferences, settingsRevision, contextRevision: data.task.revision,
+    ...(workflowEnabled ? { workflow: { phase: workflow.task.phase, settingsRevision: workflow.task.settingsRevision,
+      planRevision: workflow.task.planRevision, approval: workflow.task.approval, stage: guidance.stage,
+      planPartial: guidance.planPartial, includedPlanKeys: guidance.includedPlanKeys } } : {}) });
   const guidanceHash = hash(`${additionalContext}\0${effectiveSettings}\0${await restoreKey(config, input.session_id)}\0${change}`);
   const prepared = await assistance(request, 'prepare', identity, binding, { expectedRevision: data.task.revision, preferencesRevision: data.preferences.revision,
     settingsRevision, contextPartial: guidance.contextPartial, includedContextKeys: guidance.includedContextKeys,
-    recipeId: recipe.id, requestedModel: null, reason: config.validationMode ? '연결 검증용 지침 준비 · 실제 모델 유지' : '요청에 필요한 짧은 작업 지침 준비', injectionBytes: utf8Bytes(additionalContext), guidanceHash });
+    ...(workflowEnabled ? { workflowBinding: { settingsRevision: workflow.task.settingsRevision, planRevision: workflow.task.planRevision,
+      phase: workflow.task.phase, approval: workflow.task.approval, submissionId: workflow.submissionId } } : {}),
+    recipeId: recipe.id, requestedModel: null, reason: workflowEnabled
+      ? `단계:${guidance.stage}; planPartial:${guidance.planPartial}; includedPlanKeys:${guidance.includedPlanKeys.join(',')}; ${utf8Bytes(workflow.reason) <= 256 ? workflow.reason : '보호 확인 불가'}`
+      : config.validationMode ? '연결 검증용 지침 준비 · 실제 모델 유지' : '요청에 필요한 짧은 작업 지침 준비', injectionBytes: utf8Bytes(additionalContext), guidanceHash });
   if (prepared.duplicate) return { output: {} };
   if (!validString(prepared.nonce)) throw new Error('receipt-missing');
   return { output: { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext } }, receipt: { identity, binding, nonce: prepared.nonce } };
@@ -109,6 +127,21 @@ export async function record(config, operation, recordPath, sessionId = process.
   const observed = await request(`/v1/task-context?sessionId=${encodeURIComponent(sessionId)}&cwd=${encodeURIComponent(cwd)}`);
   if (observed.sessionId !== sessionId || !validString(observed.turnId) || !samePath(await realpath(observed.cwd), config.project)) throw new Error('record-turn');
   const identity = identityFor(sessionId), binding = { sessionId, turnId: observed.turnId, cwd };
+  if (['plan-inspect', 'plan-record'].includes(operation)) {
+    const workflow = await request('/v1/workflow', { operation: 'read', identity, binding });
+    if (!validWorkflowTask(workflow.task) || !workflow.task.enabled) throw new Error('plan-disabled');
+    if (operation === 'plan-inspect') return { settingsRevision: workflow.task.settingsRevision, planRevision: workflow.task.planRevision,
+      plan: workflow.task.plan, phase: workflow.task.phase, approval: workflow.task.approval, deliveryVerified: false };
+    if (!path.isAbsolute(recordPath ?? '')) throw new Error('record-path');
+    return consumeRecord(config, recordPath, async value => {
+      if (!isObject(value) || Object.keys(value).some(key => !['expectedSettingsRevision', 'expectedPlanRevision', 'plan'].includes(key))
+        || !['expectedSettingsRevision', 'expectedPlanRevision'].every(key => Number.isSafeInteger(value[key]) && value[key] >= 0)) throw new Error('plan-record-shape');
+      const plan = validateWorkflowPlan(value.plan);
+      const saved = await request('/v1/workflow', { operation: 'recordPlan', identity, binding,
+        expectedSettingsRevision: value.expectedSettingsRevision, expectedPlanRevision: value.expectedPlanRevision, plan });
+      return { ok: saved.ok === true, planSaved: saved.ok === true, planRevision: saved.task?.planRevision, deliveryVerified: false };
+    });
+  }
   const data = await assistance(request, 'read', identity, binding);
   const capability = data.capabilities?.codex ?? data.capabilities;
   if (!data.preferences.enabled || !data.task.enabled || (!config.validationMode && capability?.contextSync !== true)) throw new Error('record-disabled');

@@ -6,6 +6,7 @@ mod storage;
 mod transport;
 
 use transport::commands;
+use transport::workflow_commands;
 
 pub fn run() {
     let application = tauri::Builder::default()
@@ -14,6 +15,11 @@ pub fn run() {
         }))
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            workflow_commands::workflow_snapshot,
+            workflow_commands::save_workflow_preferences,
+            workflow_commands::configure_workflow_task,
+            workflow_commands::approve_workflow_plan,
+            workflow_commands::allow_workflow_once,
             commands::get_assistance,
             commands::save_preferences,
             commands::set_chat_assistance,
