@@ -1,7 +1,7 @@
 {
-  "date": "2026-09-21",
-  "scope": "Planning/execution presets, chat-bound plan confirmation, submission protection infrastructure and manual guidance. No installation or live activation.",
-  "phase": "implemented-presets-awaiting-live-protection-verification",
+  "date": "2026-09-22",
+  "scope": "One-call bootstrap, bundled Node runtime, user-scope hooks, repair/disconnect and separate app/chat/guidance/protection evidence. No installation on the user PC.",
+  "phase": "implemented-bootstrap-awaiting-live-codex-verification",
   "installedThisChange": false,
   "liveRoutingEnabled": false,
   "runtimeModelCallsForPet": 0,
@@ -11,13 +11,13 @@
   "rustFormatCheck": "passed",
   "localRustTests": "blocked-before-project-check-by-time-macros-E0463",
   "nodeTests": {
-    "passed": 114,
+    "passed": 127,
     "failed": 0,
-    "evidence": "Local complete suite; final branch counts and native checks are recorded in the current PR."
+    "evidence": "Local complete suite including standalone ZIP and real child user-hook fixtures."
   },
   "browserNativeUiChecks": {
     "usesFixtures": true,
-    "passed": 23,
+    "passed": 25,
     "pageErrors": 0
   },
   "evaluation": {
@@ -28,9 +28,9 @@
   },
   "currentImplementationCI": {
     "status": "tracked-in-current-branch-checks",
-    "branch": "feat/planning-execution-presets",
+    "branch": "feat/one-call-setup",
     "url": "https://github.com/swaan-kim/autopets/actions/workflows/windows.yml",
-    "note": "Use the current PR check and its exact commit for Rust/installer evidence. Historical success is retained under previousEvidence.restructuringCI."
+    "note": "PR #15 checks record Rust, NSIS, packaged first start and repeat on an isolated Windows runner. Live Codex trust/delivery and user Windows policy remain unverified."
   },
   "realConnection": {
     "codex": "unverified",
@@ -164,5 +164,13 @@
       "planning": 721,
       "execution": 934
     }
+  },
+  "oneCallSetup": {
+    "publicRelease": null,
+    "publicOneCallVerified": false,
+    "bundledRuntime": "Node 24 with LICENSE",
+    "userProfileChanged": false,
+    "isolatedNativeInstall": "tracked-in-current-CI",
+    "screen": "docs/images/app-setup.png"
   }
 }

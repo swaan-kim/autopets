@@ -31,6 +31,7 @@ export interface Session {
 }
 export interface Slot { index: number; sessionId: string | null }
 export interface Snapshot {
+  setup?: import('./setup').SetupState | null;
   sessions: Session[];
   slots: Slot[];
   connectionPath: string;

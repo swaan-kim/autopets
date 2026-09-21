@@ -5,6 +5,7 @@ import { isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { MAX_BODY, isObject, validString, readConnection, requestJson as request } from '../skills/autopets/scripts/bridge-client.mjs';
 import { preflightSubmission } from '../assistance/workflow.mjs';
+import { runHookOnce } from '../bootstrap/deduplicate.mjs';
 
 const EVENTS = Object.freeze({
   SessionStart: 'session_started', UserPromptSubmit: 'turn_started',
@@ -107,7 +108,7 @@ try {
   const base = baseEvent(input);
   if (base && Object.hasOwn(EVENTS, input.hook_event_name)) {
     const connection = await connectionFromArgs();
-    await observe(input, base, connection);
+    await runHookOnce(input, 'observe', async () => { await observe(input, base, connection); return { output: {} }; });
   }
 } catch { /* Exit successfully with no decision or added model context. */ }
 // v1 is observation-only, including permission attention. No control reply.

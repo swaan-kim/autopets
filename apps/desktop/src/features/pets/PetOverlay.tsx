@@ -28,7 +28,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const helpTask = assistance.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const workflowTask = workflow.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
-  const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결 확인 필요' : '작업 연결 전' };
+  const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결 확인 필요' : snapshot.setup?.phase === 'connecting' ? '채팅 연결 대기' : '작업 연결 전' };
   const attention = session ? dueAttention(session, snapshot.now) : null;
   useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {

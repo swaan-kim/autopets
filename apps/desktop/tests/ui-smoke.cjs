@@ -169,7 +169,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.equal(await empty.getByRole('button', { name: '＋ 작업 연결' }).first().isEnabled(), false);
     await empty.getByText('브라우저 미리보기 · 연결 없음', { exact: true }).waitFor();
     await empty.getByRole('button', { name: '연결 안내 →' }).click();
-    await empty.getByRole('heading', { name: 'Codex와 연결하기' }).waitFor();
+    await empty.getByRole('heading', { name: /한 번 연결하고/ }).waitFor();
     assert.equal(await empty.locator('input[type=checkbox]').count(), 0);
     assert.equal(await empty.getByRole('button', { name: /허용|거절|승인/ }).count(), 0);
     await empty.getByRole('button', { name: '자동 도움', exact: true }).click();
@@ -433,6 +433,33 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.ok(smallBounds.width <= 300 && smallBounds.height <= 460 && smallBounds.scrollWidth <= 300);
     await pet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
     checks.push('quick card stays within a smaller viewport while details remain reachable by scrolling');
+
+    const setupPage = await newPage({ width: 1120, height: 1040 });
+    const setupFixture = { ...structuredClone(fixture), setup: { version: 1, installedVersion: '0.1.0', phase: 'connecting', appReady: true, chatConnected: false, guidanceDelivered: false, protection: { model: false, reasoning: false, submission: false }, retryable: true, nextAction: 'review-hooks' } };
+    await mockBridge(setupPage, setupFixture);
+    await setupPage.goto(origin);
+    await setupPage.getByRole('button', { name: '연결 설정', exact: true }).click();
+    await setupPage.getByRole('heading', { name: '앱 준비 완료', exact: true }).waitFor();
+    await setupPage.getByRole('heading', { name: '채팅 연결 대기', exact: true }).waitFor();
+    await setupPage.getByText('적용 범위 보기', { exact: true }).click();
+    await setupPage.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
+    await setupPage.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 시연 데이터 · 실제 연결 미검증'; });
+    await setupPage.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-setup.png'), fullPage: true });
+    await setupPage.evaluate(() => { window.__uiTest.state.setup.chatConnected = true; window.__uiTest.state.setup.phase = 'ready'; });
+    await setupPage.getByRole('heading', { name: '채팅 연결 확인', exact: true }).waitFor();
+    await setupPage.getByRole('heading', { name: '자동 도움 전달 미확인', exact: true }).waitFor();
+    checks.push('setup distinguishes app readiness, observed chat, guidance receipt and unverified protection');
+
+    const waitingPet = await newPage({ width: 220, height: 250 });
+    await mockBridge(waitingPet, { ...setupFixture, sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+    await waitingPet.goto(`${origin}/?pet=0`);
+    await waitingPet.getByText('채팅 연결 대기', { exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).click();
+    assert.ok(await waitingPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
+    checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
 

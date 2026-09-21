@@ -20,6 +20,38 @@ fn enable(store: &mut AssistanceStore) {
     prefs.enabled = true;
     store.save_preferences(prefs).unwrap();
 }
+
+#[test]
+fn legacy_and_user_helpers_cannot_prepare_twice_for_the_same_bound_turn() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = AssistanceStore::new(dir.path()).unwrap();
+    enable(&mut store);
+    let id = Identity {
+        provider: Provider::Codex,
+        account_id: "fixture".into(),
+        chat_id: "same-chat".into(),
+    };
+    read(&mut store, &id);
+    let request = |hash: &str, turn: &str| {
+        serde_json::from_value::<Request>(serde_json::json!({
+        "operation":"prepare", "identity":id, "binding":{"sessionId":"same-chat","turnId":turn,"cwd":"C:/fixture"},
+        "expectedRevision":0,"preferencesRevision":1,"settingsRevision":0,"recipeId":"research", "requestedModel":null,
+        "reason":"비교 기준", "injectionBytes":200,"guidanceHash":hash.repeat(64),"contextPartial":false,"includedContextKeys":[]
+    })).unwrap()
+    };
+    assert_eq!(
+        store.dispatch(request("a", "turn-1")).unwrap()["duplicate"],
+        false
+    );
+    assert_eq!(
+        store.dispatch(request("b", "turn-1")).unwrap()["duplicate"],
+        true
+    );
+    assert_eq!(
+        store.dispatch(request("b", "turn-2")).unwrap()["duplicate"],
+        false
+    );
+}
 fn prepare(store: &mut AssistanceStore, id: &Identity, revision: u64) -> serde_json::Value {
     store
         .dispatch(Request::Prepare {

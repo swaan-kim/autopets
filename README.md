@@ -8,6 +8,7 @@
 
 | 구현 | 상태 |
 |---|---|
+| 한 번 호출로 설치·실행·연결 복구 | 시작 도구·통합 패키지 구현 · 공개 설치/실제 Codex 검증 전 |
 | 펫 빠른 카드·상세 설정 3탭·작업 목록과 필터 | 구현·화면 fixture 검수 |
 | 채팅별 작업 방식·공통 답변 길이와 형식 | 저장·충돌 검사 구현 |
 | 채팅별 조건·수정·1회 되돌리기·삭제 | 로컬 저장 구현 |
@@ -22,7 +23,9 @@
 
 ## 사용 흐름
 
-**시작 설정 선택 → 평소처럼 요청 → 채팅의 계획 확인 → 이대로 진행 → 실행 설정 확인 → 결과 점검.**
+**처음 한 번 연결 → 균형 설정으로 시작 → 평소처럼 요청 → 계획 확인 → 실행 설정 확인 → 결과 점검.**
+
+설치 도구는 앱·런타임·스킬·연결을 함께 준비합니다. 다음에는 “AutoPets 켜줘”로 기존 설치를 재사용합니다. [시작 안내와 현재 배포 상태](docs/releases/start.md)
 
 가볍게 끝내기(Sol → Luna), 균형 있게(Sol → Terra), 어려운 일 풀기(Astra High → Medium) 중 고릅니다. 이 조합은 평가 후보이며 절감률을 보장하지 않습니다. 짧은 번역·맞춤법·단순 수정은 계획을 생략합니다. [설정과 보호의 약속](docs/product/planning-execution.md)
 
@@ -31,6 +34,7 @@
 [최신 앱 검수 화면과 방법](docs/testing/assistance-implementation.md) · [제품 방향](docs/product/direction.md)
 
 새 기능의 구현 화면(합성 데이터): [시작 설정 카드](docs/images/app-workflow-presets.png) · [계획 확인과 설정 불일치](docs/images/app-workflow-task.png).
+설치·연결을 구분한 [시작 화면](docs/images/app-setup.png)도 확인할 수 있습니다.
 
 [공개 소개·체험 목업](https://swaan-kim.github.io/autopets/)은 **시연 데이터로 만든 진행 확인 콘셉트**이며 실제 앱 연결을 의미하지 않습니다. [홍보 이미지](docs/images/00-overview-wide.png) · [오프라인 목업](docs/demo/index.html) · [제작 방법](docs/design-source/README-제작.md)
 

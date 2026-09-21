@@ -65,6 +65,7 @@ impl Store {
             approval_enabled: self.approval_enabled,
             connection_path: self.connection_path.clone(),
             now,
+            setup: self.setup_status().ok(),
             capabilities: Capabilities {
                 token_usage: "unavailable",
                 task_return: "manual",

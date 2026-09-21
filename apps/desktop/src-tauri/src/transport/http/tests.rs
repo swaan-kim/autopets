@@ -2,6 +2,31 @@ use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 #[tokio::test]
+async fn setup_is_authenticated_and_does_not_fabricate_sessions() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(
+        crate::application::store::Store::new(dir.path()).unwrap(),
+    ));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo =
+        serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":"setup-chat","cwd":dir.path().to_string_lossy()});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/setup", "", body.clone())
+            .await
+            .0,
+        401
+    );
+    let result = json_http(&bridge.base_url, "POST", "/v1/setup", &auth, body).await;
+    assert_eq!(result.0, 200);
+    assert_eq!(result.1["phase"], "connecting");
+    assert_eq!(result.1["protection"]["model"], false);
+    assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    bridge.shutdown();
+}
+
+#[tokio::test]
 async fn workflow_preflight_is_authenticated_cwd_bound_and_never_invents_started_turns() {
     let dir = tempfile::tempdir().unwrap();
     let store = Arc::new(std::sync::Mutex::new(

@@ -98,22 +98,31 @@ jobs:
           $taskInstallers = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
           if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
           Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
+          Copy-Item -LiteralPath scripts/fetch-bootstrap.ps1 -Destination $taskArtifactDir
           Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/native-ui-workflow-presets.png, work/native-ui-workflow-task.png, work/assistance-evaluation.json -Destination $taskArtifactDir
           Copy-Item -LiteralPath release/chatgpt/AutoPets-chatgpt-extension.zip, release/chatgpt/AutoPets-chatgpt-companion.zip, release/chatgpt/package-status.json -Destination $taskArtifactDir
           node scripts/package-companion.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Codex companion packaging failed.' }
           Copy-Item -LiteralPath release/AutoPets-companion.zip -Destination $taskArtifactDir
+          node scripts/package-bootstrap.mjs --installer $taskInstallers[0].FullName --node (Get-Command node).Source --license work/NODE-LICENSE.txt --out (Join-Path $taskArtifactDir 'AutoPets-windows-x64.zip')
+          if ($LASTEXITCODE -ne 0) { throw 'One-call package failed.' }
           $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
             $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$taskDigest  $($_.Name)"
           }
           $taskChecksums | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'SHA256SUMS.txt') -Encoding utf8
           "Commit: $env:GITHUB_SHA`nChecks: Node, rendered UI, Rust, NSIS build.`nInstaller signature and real Codex Desktop hook roundtrip require separate verification." | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'BUILD.txt') -Encoding utf8
+      - name: Verify isolated native first start and repeat
+        run: |
+          ./scripts/test-bootstrap-windows.ps1 -Package work/artifacts/AutoPets-windows-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Native bootstrap verification failed.' }
+          Copy-Item -LiteralPath work/bootstrap-windows-evidence.json, work/native-ui-setup.png -Destination work/artifacts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
         with:
           name: AutoPets-windows-review
           path: work/artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   draft-release:

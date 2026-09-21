@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "platform": "win32-x64",
+  "publicRelease": null,
+  "verifiedCodexVersions": [],
+  "publicOneCallVerified": false,
+  "note": "Public release requires signed/disclosed artifacts and real Windows/Codex evidence. CI artifacts are review-only."
+}

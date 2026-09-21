@@ -20,6 +20,7 @@ pub struct Snapshot {
     pub connection_path: String,
     pub now: u64,
     pub capabilities: Capabilities,
+    pub setup: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Serialize)]

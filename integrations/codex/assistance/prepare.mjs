@@ -8,6 +8,8 @@ import { readConnection, requestJson, validString, isObject } from '../skills/au
 import { validateContext, validateWorkflowPlan, validWorkflowTask, resolvePreferences, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
 import { classifyTask, buildGuidanceMetadata, buildWorkflowGuidance } from '../../../packages/guidance/index.mjs';
 import { identityFor, preflightSubmission } from './workflow.mjs';
+import { homeFor, digest } from '../bootstrap/files.mjs';
+import { runHookOnce } from '../bootstrap/deduplicate.mjs';
 export { identityFor } from './workflow.mjs';
 
 const entry = fileURLToPath(import.meta.url);
@@ -22,10 +24,14 @@ async function json(file, limit = 16384) {
 export async function loadConfig(file) {
   if (!path.isAbsolute(file ?? '')) throw new Error('config-path');
   const config = await json(file, 4096);
-  if (config.version !== 1 || typeof config.enabled !== 'boolean' || typeof config.validationMode !== 'boolean'
+  if (![1, 2].includes(config.version) || typeof config.enabled !== 'boolean' || typeof config.validationMode !== 'boolean'
     || !path.isAbsolute(config.project ?? '') || !path.isAbsolute(config.connection ?? '')) throw new Error('config-shape');
   const project = await realpath(config.project), dataDir = await realpath(path.dirname(file));
-  if (!samePath(dataDir, path.join(project, '.local', 'autopets-assistance')) || path.basename(file) !== 'config.json'
+  const expected = config.version === 2
+    ? path.join(homeFor(), 'state/chats', digest(config.sessionId || ''))
+    : path.join(project, '.local', 'autopets-assistance');
+  if (config.version === 2 && (!validString(config.sessionId) || config.validationMode)) throw new Error('user-config-shape');
+  if (!samePath(dataDir, expected) || path.basename(file) !== 'config.json'
     || !samePath(await realpath(file), path.join(dataDir, 'config.json'))) throw new Error('config-location');
   return { ...config, project, dataDir, file: path.join(dataDir, 'config.json') };
 }
@@ -47,11 +53,11 @@ async function restoreKey(config, sessionId, reset = false) {
 }
 function helperText(config) {
   const args = JSON.stringify([entry, 'inspect', '--config', config.file]);
-  return `\n목표·조건·결정·남은 일이 의미 있게 바뀔 때만 현재 실행에서 기록하세요. 별도 요약 모델을 호출하지 마세요. Node 인수 ${args}로 현재 채팅 개정번호를 읽고, {expectedRevision,context:{goal,outputFormat,constraints:[],decisions:[],remaining:[]}} JSON을 .local/autopets-assistance/records/ 안에 작성한 뒤 같은 스크립트의 record --config <위 설정 경로> --record <JSON 절대 경로>를 실행하세요. 3KB 이하 기록만 허용하며 현재 모드에서 파일·도구 쓰기가 금지되면 생략하세요. 실패해도 원래 요청을 계속하세요.`;
+  return `\n목표·조건·결정·남은 일이 의미 있게 바뀔 때만 현재 실행에서 기록하세요. 별도 요약 모델을 호출하지 마세요. Node 인수 ${args}로 현재 채팅 개정번호를 읽고, {expectedRevision,context:{goal,outputFormat,constraints:[],decisions:[],remaining:[]}} JSON을 ${JSON.stringify(path.join(config.dataDir, 'records'))} 안에 작성한 뒤 같은 스크립트의 record --config <위 설정 경로> --record <JSON 절대 경로>를 실행하세요. 3KB 이하 기록만 허용하며 현재 모드에서 파일·도구 쓰기가 금지되면 생략하세요. 실패해도 원래 요청을 계속하세요.`;
 }
 function planHelperText(config) {
   const args = JSON.stringify([entry, 'plan-inspect', '--config', config.file]);
-  return `\n실제로 제시한 계획만 현재 실행에서 기록하세요. Node 인수 ${args}로 개정번호를 읽고 {expectedSettingsRevision,expectedPlanRevision,plan:{summary,steps:[],completionCriteria:[]}}를 .local/autopets-assistance/records/의 임시 JSON에 쓰세요. 같은 스크립트 plan-record --config <위 설정 경로> --record <절대 경로>로 저장하세요. plan은 3KB 이하. 기록은 사용자 확인이 아닙니다. 현재 권한상 읽기·쓰기가 안 되면 생략하고 원래 채팅에서 계획을 확인하세요. 별도 모델 호출 금지.`;
+  return `\n실제로 제시한 계획만 현재 실행에서 기록하세요. Node 인수 ${args}로 개정번호를 읽고 {expectedSettingsRevision,expectedPlanRevision,plan:{summary,steps:[],completionCriteria:[]}}를 ${JSON.stringify(path.join(config.dataDir, 'records'))}의 임시 JSON에 쓰세요. 같은 스크립트 plan-record --config <위 설정 경로> --record <절대 경로>로 저장하세요. plan은 3KB 이하. 기록은 사용자 확인이 아닙니다. 현재 권한상 읽기·쓰기가 안 되면 생략하고 원래 채팅에서 계획을 확인하세요. 별도 모델 호출 금지.`;
 }
 
 // Consume only one regular, unlinked temporary record. Never follow links or
@@ -82,6 +88,7 @@ async function consumeRecord(config, recordPath, consume) {
 export async function prepare(config, input, request = transport(config)) {
   if (!config.enabled || !isObject(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
     || !['UserPromptSubmit', 'SessionStart', 'PostCompact'].includes(input.hook_event_name)
+    || (config.version === 2 && input.session_id !== config.sessionId)
     || !samePath(await realpath(input.cwd), config.project)) return { output: {} };
   if (input.hook_event_name !== 'UserPromptSubmit') { await restoreKey(config, input.session_id, true); return { output: {} }; }
   if (!validString(input.turn_id) || typeof input.prompt !== 'string' || utf8Bytes(input.prompt) > 128 * 1024) return { output: {} };
@@ -123,7 +130,7 @@ export async function prepare(config, input, request = transport(config)) {
 }
 
 export async function record(config, operation, recordPath, sessionId = process.env.CODEX_THREAD_ID, cwd = process.cwd(), request = transport(config)) {
-  if (!config.enabled || !validString(sessionId) || !samePath(await realpath(cwd), config.project)) throw new Error('record-identity');
+  if (!config.enabled || !validString(sessionId) || (config.version === 2 && sessionId !== config.sessionId) || !samePath(await realpath(cwd), config.project)) throw new Error('record-identity');
   const observed = await request(`/v1/task-context?sessionId=${encodeURIComponent(sessionId)}&cwd=${encodeURIComponent(cwd)}`);
   if (observed.sessionId !== sessionId || !validString(observed.turnId) || !samePath(await realpath(observed.cwd), config.project)) throw new Error('record-turn');
   const identity = identityFor(sessionId), binding = { sessionId, turnId: observed.turnId, cwd };
@@ -167,7 +174,8 @@ async function main() {
     while (args.length) { const flag = args.shift(); if (!['--config', '--record'].includes(flag) || !args.length || options[flag]) throw new Error('arguments'); options[flag] = args.shift(); }
     const config = await loadConfig(options['--config']);
     if (operation === 'hook') {
-      const request = transport(config), result = await prepare(config, await readInput(), request);
+      const request = transport(config), input = await readInput();
+      const result = await runHookOnce(input, 'prepare', () => prepare(config, input, request));
       await new Promise(resolve => process.stdout.write(`${JSON.stringify(result.output)}\n`, resolve));
       if (result.receipt) { try { const { identity, binding, nonce } = result.receipt; await assistance(request, 'delivered', identity, binding, { nonce, evidence: 'sent' }); } catch { /* sent to stdout is not model-confirmed */ } }
     } else console.log(JSON.stringify(await record(config, operation, options['--record'])));
