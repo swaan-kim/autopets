@@ -73,6 +73,27 @@ mod tests {
         assert_eq!(store.setup_status().unwrap()["protection"]["model"], false);
         assert!(store.workflow.preferences().unwrap().enabled);
     }
+    #[test]
+    fn first_real_tool_event_attaches_pending_pet_without_fabricating_a_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_string_lossy().to_string();
+        let mut store = Store::new(dir.path()).unwrap();
+        store.begin_setup(request("pending", &cwd)).unwrap();
+        store.apply_event(serde_json::from_value(serde_json::json!({"eventId":"real-tool","sessionId":"pending","turnId":"turn-1","kind":"tool_started","toolName":"read_file","toolCallId":"tool-1","cwd":cwd,"timestamp":crate::domain::activity::now_ms()})).unwrap()).unwrap();
+        assert!(store
+            .slots
+            .iter()
+            .any(|slot| slot.as_deref() == Some("pending")));
+        assert!(store
+            .sessions
+            .get("pending")
+            .unwrap()
+            .view
+            .supervision
+            .turn_started_at
+            .is_none());
+        assert_eq!(store.setup_status().unwrap()["chatConnected"], true);
+    }
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
