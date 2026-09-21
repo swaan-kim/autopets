@@ -1,6 +1,6 @@
 {
   "date": "2026-09-21",
-  "scope": "Automatic assistance implementation and fixture verification; no user installation or live service changes.",
+  "scope": "Repository and module restructuring; existing app identity, data and external contracts preserved.",
   "phase": "implemented-foundation-awaiting-live-connection-and-quality-evidence",
   "installedThisChange": false,
   "liveRoutingEnabled": false,
@@ -9,14 +9,15 @@
   "frontendTypecheck": "passed",
   "frontendProductionBuild": "passed",
   "rustFormatCheck": "passed",
-  "localRustTests": "blocked-before-project-typecheck-by-Windows-policy-4551",
+  "localRustTests": "blocked-before-project-check-by-time-macros-E0463",
   "nodeTests": {
-    "passed": 87,
-    "failed": 0
+    "passed": 102,
+    "failed": 0,
+    "evidence": "Local relocated and compatibility tests"
   },
   "browserNativeUiChecks": {
     "usesFixtures": true,
-    "passed": 10,
+    "passed": 14,
     "pageErrors": 0
   },
   "evaluation": {
@@ -26,7 +27,7 @@
     "mode": "local-rules-only"
   },
   "currentImplementationCI": {
-    "status": "see-exact-commit-pull-request-checks",
+    "status": "pending-restructure-validation",
     "pullRequest": "https://github.com/swaan-kim/autopets/pull/8"
   },
   "realConnection": {
@@ -68,5 +69,16 @@
     "Model selection and bounded repair policies are tested locally but not connected to live UI control.",
     "No real user testing or token savings measurement has been conducted."
   ],
-  "repository": "https://github.com/swaan-kim/autopets"
+  "repository": "https://github.com/swaan-kim/autopets",
+  "promoTests": {
+    "passed": 22,
+    "failed": 0
+  },
+  "layout": {
+    "desktop": "apps/desktop",
+    "connections": "integrations",
+    "contracts": "packages/contracts",
+    "guidance": "packages/guidance",
+    "runtimeDataMigrated": false
+  }
 }

@@ -1,6 +1,6 @@
 # 자동 도움의 데이터와 실행 경계
 
-기존 React/Tauri/Rust/SQLite, 앱 ID와 데이터 위치, 공개 demo URL은 유지한다. UI는 src/Assistance.tsx, 로컬 저장/통신은 Rust assistance 모듈, 공유 규칙은 packages/guidance와 packages/contracts에 둔다. 초기 변경에서 전체 앱을 이동하지 않는다.
+기존 React/Tauri/Rust/SQLite, 앱 ID와 데이터 위치, 공개 demo URL은 유지한다. UI는 apps/desktop/src/features/assistance, 로컬 저장/통신은 Rust assistance 모듈, 공유 규칙은 packages/guidance와 packages/contracts에 둔다. 앱 코드는 apps/desktop으로 이동했고 외부 통신 계약과 저장 위치는 유지한다.
 
 ## 데이터
 
@@ -45,4 +45,4 @@
 - 지침이 3KB를 넘으면 문맥 필드를 통째로 제외하고 contextPartial/includedContextKeys와 inspect 안내를 남긴다. 일부 조건을 몰래 잘라 전달하지 않는다.
 - 품질 규칙의 checks는 코드 검사/모델 자체 보고/미지원 구분을 제공한다. 현재 저장 API는 요약 품질 결과만 저장한다. 세부 검사 이력 UI와 실제 추가 보완 실행은 다음 단계다.
 - 펫 클릭은 작은 카드, 상세 선택은 설정창이다. 개별 숨김은 해당 슬롯에만 적용하며 전체 표시로 복구된다. 3개를 넘는 작업도 목록에 남는다.
-- 18프레임은 public/assets/motions/manifest.json으로 관리한다. 축하 모션은 관측된 미확인 응답 도착이며 목표 달성 자동 판정이 아니다. 실제 고민 상태는 관측 근거가 없으면 연결하지 않는다.
+- 18프레임은 apps/desktop/public/assets/motions/manifest.json으로 관리한다. 축하 모션은 관측된 미확인 응답 도착이며 목표 달성 자동 판정이 아니다. 실제 고민 상태는 관측 근거가 없으면 연결하지 않는다.

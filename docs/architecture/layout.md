@@ -1,58 +1,53 @@
-# 구조와 이관 순서
+# 실제 저장소 구조
 
-정식 체크아웃: `%USERPROFILE%\Documents\Codex\AutoPets`.
-기존 체크아웃과 공개 데모는 보존한다. 아래는 장기 목표 구조이며 프로덕션 파일을 이동하지 않았다. 2026-09-21에는 기능을 기존 경로에 추가하고 공통 계약·guidance를 분리했다. 현재 데이터 흐름과 API는 [자동 도움 구조](assistance.md)를 따른다.
+앱은 apps/desktop, 서비스 연결은 integrations, 공통 계약과 작업 규칙은 packages에 둔다. 이 문서는 목표 폴더가 아닌 현재 소스 구조를 설명한다.
 
-```text
+~~~text
 AutoPets/
   apps/desktop/
     src/
-      app/
-      features/{pets,tasks,assistance,context,onboarding,settings}/
-      bridge/
-    src-tauri/
-      src/{domain,application,transport,storage,platform}/
-      capabilities/
-      icons/
-    public/assets/
-    tests/
+      app/                 진입·관리창·공통 UI
+      bridge/              앱 명령·상태 구독
+      features/
+        pets/              펫·모션·빠른 카드
+        tasks/             목록·필터·단계·알림·복귀
+        assistance/        현재 도움·채팅별 조절
+        context/           기록 편집·변경 비교·되돌리기
+        onboarding/        연결 안내
+        settings/          공통 선호·데이터 관리
+    src-tauri/src/
+      domain/              타입·검증
+      application/         작업·도움 처리
+      transport/           HTTP·Tauri 명령
+      storage/             SQLite
+      platform/            Windows 창·트레이·위치
+      legacy/              비활성 승인 실험
+    public/assets/         펫·브랜드
+    tests/                 화면 검사
   integrations/
-    codex/{hooks,scripts,skills/autopets,tests/fixtures}/
-    codex/probe/                 # M1 한정 진단, production과 분리
-    chatgpt/compatibility/
+    codex/                 hooks·scripts·skills·assistance·probe·tests
+    chatgpt/               extension·native·compatibility·tests
   packages/
-    contracts/{schemas,types,fixtures}/
-    guidance/{rules,catalog,tests}/
-  docs/{product,architecture,roadmap,testing,releases,archive,demo,images,design-source}/
-  scripts/
-  .github/{workflows,ISSUE_TEMPLATE}/
-  AGENTS.md
-  README.md
-  package.json
-  pnpm-workspace.yaml
-```
+    contracts/             데이터 형식·검증·공통 TS 타입·tests
+    guidance/              절차·지침·선택·점검·평가·tests
+  docs/                    제품·설계·개발 순서·검수·배포·과거 기록·홍보물
+  scripts/                 루트 명령·CI·패키징
+  hooks/ · skills/          이전 설치 경로의 얇은 호환 진입점
+  .github/                 Windows 검사·Pages·Issue 양식
+~~~
 
-React 화면은 기능별로, Rust는 도메인·처리 흐름·통신·저장·Windows 기능별로 분리한다. 계약 패키지는 UI와 연결 코드가 공유하는 형식·검증 사례를 관리한다. guidance는 짧은 지침과 정적 문구·규칙을 관리하며 별도 추론 서비스를 포함하지 않는다.
+## 의존 방향
+UI 진입점은 app을 구성하고 app은 features를 조합한다. features는 공통 UI·bridge·contracts를 사용한다. 공통 TS 계약은 화면을 import하지 않는다.
 
-## 이관 시 유지할 동작
+Rust는 domain의 타입·검증, application의 처리, storage의 SQL, transport의 인증·입출력, platform의 Windows 기능을 구분한다. 트랜잭션과 잠금 범위를 유지하며 인터페이스의 이름·직렬화 형식은 바꾸지 않는다. legacy 모듈은 기존 비활성 실험의 보존용이며 새 제품 흐름에서 활성화하지 않는다.
 
-- 앱 식별자 `local.autopets.desktop`, `%LOCALAPPDATA%/local.autopets.desktop`, `AUTOPETS_DATA_DIR`, SQLite·펫 위치를 유지한다. DB 변경은 버전별 이관과 기존 데이터 fixture로 검증한다.
-- 루트 명령은 작업공간 명령으로 연결하고 Tauri 상대 경로·잠금 파일·CI·패키징·테스트 import를 함께 갱신한다.
-- 홍보 제작기는 루트 package 이름을 검사하고 고정 출력 경로를 사용한다. 이동 시 이를 함께 검증하며 `docs/demo/index.html`과 Pages 주소는 유지한다.
-- 기존 승인 실험은 production 라우팅에서 분리하고 기록을 archive로 옮긴다. 이전 DB를 삭제해 분리하지 않는다.
+관측 훅과 준비 훅은 별개다. Codex와 ChatGPT는 공통 규칙을 사용하되 capability를 각자 검증한다. SDK나 실제 서비스 연결 기능을 추가한 구조 변경은 아니다.
 
-## 추가할 계약과 데이터 흐름
+## 명령·호환
+루트 package는 실행을 위임하고 앱 의존성은 desktop 패키지에 둔다. JavaScript 작업공간과 홍보 제작기는 루트 pnpm-lock.yaml 하나로 잠근다. Rust는 desktop의 Cargo.lock을 유지한다.
 
-`UserPreferences`: 사용자가 선택한 공통 선호와 자동 도움 기본값.
+기존 pnpm dev/build/test/test:ui/desktop 명령을 유지한다. 이전 hooks/skills/scripts 경로는 호환 진입점이며 실제 코드를 복제하지 않는다. 새 스킬 배포본은 integrations/codex/skills/autopets다.
 
-`TaskContext`: 제공 환경+채팅 ID, 목표·결과 형식·조건·결정·남은 일, 개정 번호·갱신 시각.
+앱 ID local.autopets.desktop, AppData·AUTOPETS_DATA_DIR·SQLite·펫 배치는 그대로다. 기존 데이터 이동·삭제·새 스키마 이관은 하지 않았다. 루트 work와 release는 무시된 산출물 디렉터리다. 공개 목업 docs/demo/index.html과 Pages 주소를 유지한다.
 
-`AssistanceState`: 적용 요청, 훅 출력, 전달 확인, 기록 저장, 연결 불가를 구분한다. stdout 생성만으로 모델 적용을 확정하지 않는다.
-
-`Capabilities`: 자동 지침 전달·맥락 동기화·계획 관측·복귀·실제 토큰을 환경별로 표시한다.
-
-메시지 제출 → opt-in/채팅 식별 → 필요한 짧은 지침만 전달 → 기존 모델의 정상 작업 → 의미 있는 변경 시 로컬 기록 갱신 → 펫 표시.
-
-관측 훅과 준비 훅은 분리한다. 최초 연결·선호 변경·재개/압축 후 복구 시만 주입하고 UTF-8 3KB 이하로 제한한다. 최신 사용자 요청이 저장된 기본값보다 우선한다. 요약 내용은 데이터로 표시하고 실행 권한이나 상위 지침으로 승격하지 않는다. 모든 로컬 조회·갱신은 기존 인증과 채팅/턴 바인딩을 유지한다.
-
-PostCompact는 복구 필요 표시만 남기고 다음 UserPromptSubmit에서 문맥을 전달한다. 지원하지 않는 훅 출력 형식을 가정하지 않는다. [공식 훅 문서](https://learn.chatgpt.com/docs/hooks)
+[실행 계약](assistance.md) · [검수](../testing/assistance-implementation.md) · [병렬 개발 인계](../roadmap/parallel-development.md)

@@ -20,7 +20,7 @@ node scripts/package-chatgpt.mjs
 
 Node 검사는 계정·채팅 격리, 조건 수정, off/delete, 과대 입력, fail-open, 지침 중복/복구, 모델 고정/미지원/버전 만료, IME·첨부·입력 변경·rollback, message frame·origin·replay를 다룬다. UI 검사는 fixture만 사용한다. 실제 Windows 창/서비스 연동 검증이 아니다.
 
-Windows CI에서 Rust 저장/인증/개정 충돌/receipt 취소/중복/실제 HTTP, UI, NSIS 빌드를 실행한다. 로컬 Rust 테스트는 의존성 build script가 Windows 앱 제어 오류4551로 차단됐다. 보안 설정을 변경하지 않았다. 최신 CI 결과는 PR 검사에서 확인하며, 이전 성공을 새 코드 검증으로 사용하지 않는다.
+Windows CI에서 Rust 저장/인증/개정 충돌/receipt 취소/중복/실제 HTTP, UI, NSIS 빌드를 실행한다. 로컬 Rust 검사는 이전에 Windows 앱 제어 오류4551로 차단됐고, 구조 변경 이후에는 프로젝트 검사 전에 time_macros 의존성 오류 E0463로 중단됐다. 보안 설정을 변경하지 않았다. 최신 CI 결과는 PR 검사에서 확인하며, 이전 성공을 새 코드 검증으로 사용하지 않는다.
 
 ## 실제 연결 관문
 
@@ -48,3 +48,13 @@ packages/guidance/evaluation-cases.mjs에는 한국어 합성 요청24건(요약
 작은 카드에서 작업별 방식 변경, 상세 3탭, 전역 답변 길이·형식, 이전 기록 한 번 되돌리기, 개별 펫 숨김을 추가했다. 18프레임을 기존 자료에서 재사용하며 실행 중 생성하지 않는다. 단순 텍스트 포함/형식 검사와 사실 검증은 구분한다.
 
 추가 검사: 구형 설정 기본값, 설정 개정 충돌, 다른 채팅 영향 없음, 수정·되돌리기·전체 삭제 뒤 이전 receipt 거부, 3KB 부분 기록 공개, 4번째 이후 작업 목록, 빠른 카드 키보드 닫기·작은 화면·움직임 줄이기. 실제 모니터·창 포커스와 모델 적용은 여전히 실환경 검수 대상이다.
+
+## 현재 앱 화면
+
+다음은 실제 서비스 연결이 아닌 fixture 데이터로 검수한 구현 화면이다. 소개 목업과 구분한다.
+
+[작은 펫 카드](../images/app-pet-card.png) · [기본 설정](../images/app-settings.png)
+
+## 구조 정리 검수
+
+화면과 연결 코드를 소유 폴더로 옮겼고 기존 검사 사례를 유지했다. 이전 훅·CLI 동작 동등성과 저장소 밖 ChatGPT ZIP 실행을 추가로 확인한다. 최종 결과와 커밋은 [상태 파일](../implementation-status.json)에 기록한다. 역할별 작업은 M2 하위 Issue #9~#13에서 추적한다.

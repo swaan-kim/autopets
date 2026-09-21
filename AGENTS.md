@@ -15,4 +15,4 @@ Read `docs/roadmap/implementation.md` before choosing the next milestone. The 20
 - For hook/bridge changes run `pnpm test`; run frontend build/UI checks for frontend changes and Rust tests in the Windows workflow for Rust changes.
 - Keep current capabilities separate from proposed behavior in product copy. The public demo is concept data.
 
-The requested directory layout is documented in `docs/architecture/layout.md`. Add functional modules in place; do not create empty scaffolding or move existing production/data paths as part of assistance implementation. No installer, hook trust, browser profile or account mutation is authorized by this implementation task.
+The requested directory layout is documented in `docs/architecture/layout.md`. The approved directory refactor moves source into apps/desktop and integrations while preserving runtime data paths. Keep modules within their documented responsibility; do not add empty scaffolding. No installer, hook trust, browser profile or account mutation is authorized by this implementation task.
