@@ -56,10 +56,86 @@ pub(super) async fn assistance(
     } else {
         None
     };
+    let workflow_enabled = store
+        .workflow
+        .enabled(identity)
+        .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    match &input {
+        crate::application::assistance::Request::Prepare {
+            workflow_binding,
+            binding,
+            ..
+        } => {
+            if workflow_enabled && workflow_binding.is_none() {
+                return Err(error(
+                    StatusCode::CONFLICT,
+                    "Current workflow binding is required",
+                ));
+            }
+            if let Some(expected) = workflow_binding {
+                store
+                    .workflow
+                    .validate_guidance(
+                        identity,
+                        expected,
+                        binding.as_ref().map(|value| value.turn_id.as_str()),
+                    )
+                    .map_err(|e| error(StatusCode::CONFLICT, e))?;
+            }
+        }
+        crate::application::assistance::Request::Delivered { binding, .. }
+        | crate::application::assistance::Request::Context { binding, .. }
+        | crate::application::assistance::Request::Quality { binding, .. } => {
+            let record = store
+                .assistance
+                .load(identity)
+                .map_err(|e| error(StatusCode::CONFLICT, e))?;
+            if let Some(expected) = record
+                .receipt
+                .as_ref()
+                .and_then(|receipt| receipt.workflow_binding.as_ref())
+            {
+                store
+                    .workflow
+                    .validate_guidance(
+                        identity,
+                        expected,
+                        binding.as_ref().map(|value| value.turn_id.as_str()),
+                    )
+                    .map_err(|e| error(StatusCode::CONFLICT, e))?;
+            }
+        }
+        _ => {}
+    }
+    let context_change = match &input {
+        crate::application::assistance::Request::Sync {
+            identity, context, ..
+        }
+        | crate::application::assistance::Request::Context {
+            identity, context, ..
+        } => {
+            let old = store
+                .assistance
+                .load(identity)
+                .map_err(|e| error(StatusCode::CONFLICT, e))?;
+            if crate::application::workflow::context_affects_plan(&old.task.context, context) {
+                Some(identity.clone())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
     let result = store
         .assistance
-        .dispatch(input)
+        .dispatch_with_workflow(input, workflow_enabled)
         .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    if let Some(identity) = context_change {
+        store
+            .workflow
+            .invalidate_plan(&identity)
+            .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    }
     let snapshot = if let Some(identity) = assign_identity {
         if store
             .assign_first_assistance_pet(&identity)

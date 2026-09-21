@@ -39,7 +39,25 @@ impl Store {
 
     pub(crate) fn apply_event_at(&mut self, event: EventInput, now: u64) -> Result<(), String> {
         let session_id = event.session_id.clone();
-        self.with_session_transaction(&session_id, |store| store.apply_event_inner(event, now))
+        let observed = event.clone();
+        self.with_session_transaction(&session_id, |store| store.apply_event_inner(event, now))?;
+        // Update the separate connection only after the session transaction commits.
+        if let Some(turn_id) = &observed.turn_id {
+            if matches!(
+                observed.kind,
+                EventKind::TurnStarted | EventKind::TurnFinished
+            ) && self.sessions.get(&session_id).is_some_and(|session| {
+                session.active_turn.as_ref() == Some(turn_id)
+                    && session.last_activity_timestamp == observed.timestamp
+            }) {
+                self.workflow.observe_turn(
+                    &session_id,
+                    turn_id,
+                    matches!(observed.kind, EventKind::TurnFinished),
+                )?;
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn apply_event_inner(&mut self, event: EventInput, now: u64) -> Result<(), String> {

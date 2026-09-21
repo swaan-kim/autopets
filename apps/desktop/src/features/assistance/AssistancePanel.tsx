@@ -6,8 +6,10 @@ import { identityKey } from './identity';
 import { CurrentTaskPanel } from './CurrentTaskPanel';
 import { PreferencesPanel } from '../settings/PreferencesPanel';
 import { ConnectionDataPanel } from '../settings/ConnectionDataPanel';
+import type { useWorkflow } from '../../bridge/useWorkflow';
+import { uniqueIdentities } from './identity';
 
-export function AssistancePanel({ snapshot, sessions, initialSessionId, error, loaded, refresh }: { snapshot: AssistanceSnapshot; sessions: { id: string; label: string }[]; initialSessionId?: string | null; error: string; loaded: boolean; refresh: () => Promise<void> }) {
+export function AssistancePanel({ snapshot, sessions, initialSessionId, error, loaded, refresh, workflow }: { snapshot: AssistanceSnapshot; sessions: { id: string; label: string }[]; initialSessionId?: string | null; error: string; loaded: boolean; refresh: () => Promise<void>; workflow: ReturnType<typeof useWorkflow> }) {
   const [draft, setDraft] = useState<UserPreferences>(snapshot.preferences);
   const [dirty, setDirty] = useState(false);
   const [selected, setSelected] = useState('');
@@ -24,11 +26,11 @@ export function AssistancePanel({ snapshot, sessions, initialSessionId, error, l
       setSelected('');
       if (initialSessionId) setTab('current');
     }
-    if (initialSelection.current.applied || !initialSessionId || !loaded) return;
-    const matches = snapshot.tasks.filter(task => task.identity.provider === 'codex' && task.identity.chatId === initialSessionId);
-    setSelected(matches.length === 1 ? identityKey(matches[0].identity) : '');
+    if (initialSelection.current.applied || !initialSessionId || !loaded || (!workflow.loaded && !workflow.error)) return;
+    const matches = uniqueIdentities(snapshot.tasks, workflow.snapshot.tasks).filter(identity => identity.provider === 'codex' && identity.chatId === initialSessionId);
+    setSelected(matches.length === 1 ? identityKey(matches[0]) : '');
     initialSelection.current.applied = true;
-  }, [initialSessionId, loaded, snapshot.tasks]);
+  }, [initialSessionId, loaded, snapshot.tasks, workflow.loaded, workflow.error, workflow.snapshot.tasks]);
   const selectedTask = snapshot.tasks.find(task => identityKey(task.identity) === selected);
   const panelOrder = ['current', 'defaults', 'connection'] as const;
   const disabled = !isDesktop || !loaded || !!error || busy;
@@ -36,7 +38,7 @@ export function AssistancePanel({ snapshot, sessions, initialSessionId, error, l
   const run = async (name: string, args: Record<string, unknown>, message: string) => {
     if (working.current || disabled) return false;
     working.current = true; setBusy(true); setActionError(''); setNotice('');
-    try { await command(name, args); await refresh(); setNotice(message); return true; }
+    try { await command(name, args); await Promise.all([refresh(), workflow.refresh()]); setNotice(message); return true; }
     catch (cause) { setActionError(String(cause)); return false; }
     finally { working.current = false; setBusy(false); }
   };
@@ -55,8 +57,8 @@ export function AssistancePanel({ snapshot, sessions, initialSessionId, error, l
       const next = panelOrder[nextIndex]; setTab(next); document.getElementById(`assistance-tab-${next}`)?.focus();
     }}>{([['current', '현재 작업'], ['defaults', '기본 설정'], ['connection', '연결·데이터']] as const).map(([value, text]) => <button key={value} id={`assistance-tab-${value}`} role="tab" tabIndex={tab === value ? 0 : -1} aria-selected={tab === value} aria-controls={`assistance-panel-${value}`} onClick={() => setTab(value)}>{text}</button>)}</div>
 
-    <CurrentTaskPanel snapshot={snapshot} sessions={sessions} selected={selected} selectedTask={selectedTask} disabled={disabled} hidden={tab !== 'current'} setSelected={setSelected} setNotice={setNotice} run={run} />
-    <PreferencesPanel snapshot={snapshot} draft={draft} dirty={dirty} disabled={disabled} hidden={tab !== 'defaults'} onUpdate={update} onSave={savePreferences} onReset={() => { setDraft(snapshot.preferences); setDirty(false); }} />
+    <CurrentTaskPanel snapshot={snapshot} sessions={sessions} selected={selected} selectedTask={selectedTask} disabled={disabled} hidden={tab !== 'current'} setSelected={setSelected} setNotice={setNotice} run={run} workflow={{ ...workflow, refresh: async () => { await Promise.all([refresh(), workflow.refresh()]); } }} />
+    <PreferencesPanel snapshot={snapshot} draft={draft} dirty={dirty} disabled={disabled} hidden={tab !== 'defaults'} onUpdate={update} onSave={savePreferences} onReset={() => { setDraft(snapshot.preferences); setDirty(false); }} workflow={workflow} />
     <ConnectionDataPanel snapshot={snapshot} disabled={disabled} hidden={tab !== 'connection'} run={run} />
   </section>;
 }

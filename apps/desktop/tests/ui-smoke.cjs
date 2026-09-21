@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { emptyWorkflow, runWorkflowChecks } = require('./workflow-ui.cjs');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -38,12 +39,13 @@ const assistanceFixture = {
   })),
 };
 
-async function mockBridge(page, initial, initialAssistance = assistanceFixture) {
-  await page.addInitScript(({ initial, initialAssistance }) => {
+async function mockBridge(page, initial, initialAssistance = assistanceFixture, initialWorkflow = emptyWorkflow) {
+  await page.addInitScript(({ initial, initialAssistance, initialWorkflow }) => {
     const state = structuredClone(initial);
     const assistance = structuredClone(initialAssistance);
+    const workflow = structuredClone(initialWorkflow);
     const calls = [];
-    window.__uiTest = { state, assistance, calls, clipboard: '', petVisibility: [true, true, true] };
+    window.__uiTest = { state, assistance, workflow, calls, clipboard: '', petVisibility: [true, true, true] };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__uiTest.clipboard = text; } } });
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = {
@@ -52,11 +54,35 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
       invoke: async (name, args) => {
         if (name === 'get_snapshot') return { ...structuredClone(state), now: Date.now() };
         if (name === 'get_assistance') return structuredClone(assistance);
+        if (name === 'workflow_snapshot') return structuredClone(workflow);
         if (name === 'plugin:event|listen') return 1;
         if (name.startsWith('plugin:event|')) return null;
         calls.push({ name, args });
         const session = state.sessions.find(session => session.id === args?.sessionId);
         const task = assistance.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
+        const workflowTask = workflow.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
+        if (name === 'save_workflow_preferences') {
+          if (workflow.preferences.revision !== args.preferences.revision) throw Error('workflow preference conflict');
+          workflow.preferences = { ...structuredClone(args.preferences), revision: workflow.preferences.revision + 1 };
+        }
+        if (name === 'configure_workflow_task') {
+          if (!workflowTask || workflowTask.settingsRevision !== args.expectedRevision) throw Error('workflow task conflict');
+          Object.assign(workflowTask, structuredClone(args.configuration), { settingsRevision: workflowTask.settingsRevision + 1, approval: null, observation: null, onceAvailable: false });
+          workflowTask.guard = { status: 'pending', reason: '', submissionId: null, requestFingerprint: null, checkedAt: null };
+          workflowTask.phase = workflowTask.planFirst ? 'planning' : 'unknown';
+          if (!args.configuration.enabled && task) task.enabled = false;
+        }
+        if (name === 'approve_workflow_plan') {
+          if (!workflowTask || !workflowTask.enabled || !['planning', 'ready'].includes(workflowTask.phase) || workflowTask.planRevision !== args.expectedPlanRevision || workflowTask.settingsRevision !== args.expectedSettingsRevision) throw Error('workflow approval conflict');
+          workflowTask.approval = { planRevision: args.expectedPlanRevision, settingsRevision: args.expectedSettingsRevision, approvedAt: Date.now() };
+          workflowTask.phase = 'ready';
+          workflowTask.guard = { status: 'pending', reason: '', submissionId: null, requestFingerprint: null, checkedAt: null };
+          workflowTask.observation = null; workflowTask.onceAvailable = false;
+        }
+        if (name === 'allow_workflow_once') {
+          if (!workflowTask || workflowTask.guard.status !== 'held' || workflowTask.onceAvailable || workflowTask.guard.submissionId !== args.submissionId || workflowTask.planRevision !== args.expectedPlanRevision || workflowTask.settingsRevision !== args.expectedSettingsRevision) throw Error('invalid workflow exception');
+          workflowTask.onceAvailable = true;
+        }
         if (name === 'save_preferences') {
           if (args.preferences.revision !== assistance.preferences.revision) throw Error('preferences revision conflict');
           Object.assign(assistance.preferences, args.preferences, { revision: assistance.preferences.revision + 1 });
@@ -65,6 +91,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
         if (name === 'set_chat_assistance') {
           if (!task) throw Error('unknown identity');
           task.enabled = args.enabled;
+          if (!args.enabled && workflowTask) workflowTask.enabled = false;
           task.assistance.status = args.enabled ? 'pending' : 'off';
         }
         if (name === 'save_task_context') {
@@ -117,11 +144,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
           else session.attention.snoozedUntil = Date.now() + args.minutes * 60000;
         }
         if (name === 'acknowledge') session.unread = false;
+        if (['configure_workflow_task', 'approve_workflow_plan', 'allow_workflow_once'].includes(name)) return structuredClone(workflowTask);
         if (/approval|pause|stop|open_task/.test(name)) throw Error('unsupported operation called');
         return null;
       },
     };
-  }, { initial, initialAssistance });
+  }, { initial, initialAssistance, initialWorkflow });
 }
 
 (async () => {
@@ -406,6 +434,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     await pet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
     checks.push('quick card stays within a smaller viewport while details remain reachable by scrolling');
 
+    const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+
     const compact = await newPage({ width: 1120, height: 1120 });
     const compactAssistance = structuredClone(assistanceFixture);
     compactAssistance.preferences.enabled = true;
@@ -421,6 +451,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     });
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png')], checks, pageErrors: errors }, null, 2));
+    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...workflowScreenshots], checks, pageErrors: errors }, null, 2));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

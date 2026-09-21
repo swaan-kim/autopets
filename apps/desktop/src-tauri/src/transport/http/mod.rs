@@ -19,6 +19,8 @@ use tokio::{
 
 mod auth;
 mod handlers;
+mod workflow;
+use workflow::workflow;
 use crate::legacy::http::{abandon, approvals, returned, wait};
 use auth::*;
 use handlers::*;
@@ -110,6 +112,7 @@ pub async fn start(
         .route("/v1/task-config", post(task_config))
         .route("/v1/assistance", post(assistance))
         .route("/v1/assistance-status", get(assistance_status))
+        .route("/v1/workflow", post(workflow))
         .route("/v1/approvals", post(approvals))
         .route("/v1/approvals/{request_id}/wait", get(wait))
         .route("/v1/approvals/{request_id}/returned", post(returned))

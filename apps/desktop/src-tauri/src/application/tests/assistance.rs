@@ -35,6 +35,7 @@ fn prepare(store: &mut AssistanceStore, id: &Identity, revision: u64) -> serde_j
             guidance_hash: "a".repeat(64),
             context_partial: false,
             included_context_keys: vec![],
+            workflow_binding: None,
         })
         .unwrap()
 }

@@ -1,11 +1,15 @@
 import type { AssistanceSnapshot, UserPreferences } from '@autopets/contracts/types';
 import { WORK_STYLES as styles } from './workStyles';
+import type { useWorkflow } from '../../bridge/useWorkflow';
+import { WorkflowPreferences } from '../workflow/WorkflowPreferences';
 
-export function PreferencesPanel({ snapshot, draft, dirty, disabled, hidden, onUpdate, onSave, onReset }: {
+export function PreferencesPanel({ snapshot, draft, dirty, disabled, hidden, onUpdate, onSave, onReset, workflow }: {
   snapshot: AssistanceSnapshot; draft: UserPreferences; dirty: boolean; disabled: boolean; hidden: boolean;
   onUpdate: (value: UserPreferences) => void; onSave: (value: UserPreferences) => Promise<void>; onReset: () => void;
+  workflow: ReturnType<typeof useWorkflow>;
 }) {
   return <section id="assistance-panel-defaults" role="tabpanel" aria-labelledby="assistance-tab-defaults" className="assistance-card" hidden={hidden}>
+      <WorkflowPreferences workflow={workflow} />
       <div className="block-heading"><div><h2>나를 위한 기본 설정</h2><p className="small-note">선호만 공유하고, 업무 내용은 채팅별로 보관해요.</p></div><span className={`status-badge ${snapshot.preferences.enabled ? 'working' : 'empty'}`}>{snapshot.preferences.enabled ? '자동 도움 켜짐' : '자동 도움 꺼짐'}</span></div>
       {!snapshot.preferences.enabled && <button className="button primary" disabled={disabled} onClick={() => void onSave({ ...snapshot.preferences, enabled: true, workStyle: 'auto', answerLength: 'concise', outputFormat: 'adaptive', routingMode: 'auto', fixedModel: null, allowedModels: [], allowEscalation: false })}>추천 설정으로 켜기</button>}
       <form onSubmit={event => { event.preventDefault(); void onSave(draft); }}>
