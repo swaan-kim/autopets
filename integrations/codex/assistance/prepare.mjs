@@ -5,8 +5,8 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readConnection, requestJson, validString, isObject } from '../../../skills/autopets/scripts/bridge-client.mjs';
-import { validateContext, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
-import { classifyTask, buildGuidance } from '../../../packages/guidance/index.mjs';
+import { validateContext, resolvePreferences, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
+import { classifyTask, buildGuidanceMetadata } from '../../../packages/guidance/index.mjs';
 
 const entry = fileURLToPath(import.meta.url);
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -86,13 +86,18 @@ export async function prepare(config, input, request = transport(config)) {
   const capability = data.capabilities?.codex ?? data.capabilities;
   if (!data.preferences?.enabled || !data.task?.enabled || (!config.validationMode && capability?.inputAssistance !== true)) return { output: {} };
   const recipe = classifyTask(input.prompt);
+  const preferences = resolvePreferences({ preferences: data.preferences, task: data.task });
+  const settingsRevision = data.task.settingsRevision ?? 0;
   const helper = helperText(config);
-  const additionalContext = buildGuidance({ recipe, preferences: data.preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) }) + helper;
+  const guidance = buildGuidanceMetadata({ recipe, preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) });
+  const additionalContext = guidance.text + helper;
   if (utf8Bytes(additionalContext) > MAX_INJECTION_BYTES) throw new Error('injection-limit');
   // Hash prompt only on explicit revision requests; never persist or transmit raw prompt.
   const change = /(조건.*(바꿔|변경|수정)|대신|앞으로는|이제부터|아까.*(취소|변경)|목표.*(변경|수정))/u.test(input.prompt) ? hash(input.prompt) : '';
-  const guidanceHash = hash(`${additionalContext}\0${await restoreKey(config, input.session_id)}\0${change}`);
+  const effectiveSettings = JSON.stringify({ preferences, settingsRevision, contextRevision: data.task.revision });
+  const guidanceHash = hash(`${additionalContext}\0${effectiveSettings}\0${await restoreKey(config, input.session_id)}\0${change}`);
   const prepared = await assistance(request, 'prepare', identity, binding, { expectedRevision: data.task.revision, preferencesRevision: data.preferences.revision,
+    settingsRevision, contextPartial: guidance.contextPartial, includedContextKeys: guidance.includedContextKeys,
     recipeId: recipe.id, requestedModel: null, reason: config.validationMode ? '연결 검증용 지침 준비 · 실제 모델 유지' : '요청에 필요한 짧은 작업 지침 준비', injectionBytes: utf8Bytes(additionalContext), guidanceHash });
   if (prepared.duplicate) return { output: {} };
   if (!validString(prepared.nonce)) throw new Error('receipt-missing');

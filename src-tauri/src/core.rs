@@ -1369,11 +1369,14 @@ mod tests {
                 binding: None,
                 expected_revision: 0,
                 preferences_revision,
+                settings_revision: 0,
                 recipe_id: "general".into(),
                 requested_model: None,
                 reason: "준비".into(),
                 injection_bytes: 100,
                 guidance_hash: "a".repeat(64),
+                context_partial: false,
+                included_context_keys: vec![],
             })
             .unwrap();
         identity

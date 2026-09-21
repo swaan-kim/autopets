@@ -45,11 +45,32 @@ pub enum RoutingMode {
     Auto,
     Fixed,
 }
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AnswerLength {
+    #[default]
+    Concise,
+    Normal,
+    Detailed,
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputFormat {
+    #[default]
+    Adaptive,
+    Table,
+    List,
+    Document,
+}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     pub enabled: bool,
     pub work_style: WorkStyle,
+    #[serde(default)]
+    pub answer_length: AnswerLength,
+    #[serde(default)]
+    pub output_format: OutputFormat,
     pub routing_mode: RoutingMode,
     pub fixed_model: Option<String>,
     pub allowed_models: Vec<String>,
@@ -61,6 +82,8 @@ impl Default for Preferences {
         Self {
             enabled: false,
             work_style: WorkStyle::Auto,
+            answer_length: AnswerLength::Concise,
+            output_format: OutputFormat::Adaptive,
             routing_mode: RoutingMode::Auto,
             fixed_model: None,
             allowed_models: vec![],
@@ -109,6 +132,10 @@ pub struct AssistanceState {
     pub applied_model: Option<String>,
     pub reason: String,
     pub injection_bytes: usize,
+    #[serde(default)]
+    pub context_partial: bool,
+    #[serde(default)]
+    pub included_context_keys: Vec<String>,
     pub updated_at: u64,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,6 +167,14 @@ pub struct Task {
     pub identity: Identity,
     pub enabled: bool,
     pub context: Context,
+    #[serde(default)]
+    pub previous_context: Option<Context>,
+    #[serde(default)]
+    pub change_summary: String,
+    #[serde(default)]
+    pub work_style_override: Option<WorkStyle>,
+    #[serde(default)]
+    pub settings_revision: u64,
     pub revision: u64,
     pub updated_at: u64,
     pub assistance: AssistanceState,
@@ -203,6 +238,8 @@ pub enum Request {
         expected_revision: u64,
         #[serde(rename = "preferencesRevision")]
         preferences_revision: u64,
+        #[serde(default, rename = "settingsRevision")]
+        settings_revision: u64,
         #[serde(rename = "recipeId")]
         recipe_id: String,
         #[serde(rename = "requestedModel")]
@@ -212,6 +249,10 @@ pub enum Request {
         injection_bytes: usize,
         #[serde(rename = "guidanceHash")]
         guidance_hash: String,
+        #[serde(default, rename = "contextPartial")]
+        context_partial: bool,
+        #[serde(default, rename = "includedContextKeys")]
+        included_context_keys: Vec<String>,
     },
     Delivered {
         identity: Identity,
@@ -378,6 +419,10 @@ impl AssistanceStore {
                         identity: identity.clone(),
                         enabled: true,
                         context: Context::default(),
+                        previous_context: None,
+                        change_summary: String::new(),
+                        work_style_override: None,
+                        settings_revision: 0,
                         revision: 0,
                         updated_at: now,
                         assistance: AssistanceState {
@@ -389,12 +434,14 @@ impl AssistanceStore {
                             requested_model: None,
                             applied_model: None,
                             reason: if enabled {
-                                "다음 메시지부터 적용"
+                                "전달 대기"
                             } else {
                                 "자동 도움이 꺼져 있어요"
                             }
                             .into(),
                             injection_bytes: 0,
+                            context_partial: false,
+                            included_context_keys: vec![],
                             updated_at: now,
                         },
                         recipe_id: None,
@@ -471,6 +518,25 @@ impl AssistanceStore {
         }
         Ok(record.task)
     }
+    pub fn set_work_style(
+        &mut self,
+        identity: Identity,
+        work_style: Option<WorkStyle>,
+        expected_revision: u64,
+    ) -> Result<Task, String> {
+        let mut record = self.load(&identity)?;
+        if record.task.settings_revision != expected_revision {
+            return Err("Task settings revision is stale".into());
+        }
+        if record.task.work_style_override != work_style {
+            record.task.work_style_override = work_style;
+            record.task.settings_revision += 1;
+            record.task.updated_at = now_ms();
+            reset_pending(&mut record, self.preferences()?.enabled);
+            self.put(&record)?;
+        }
+        Ok(record.task)
+    }
     pub fn save_context(
         &mut self,
         identity: Identity,
@@ -481,12 +547,31 @@ impl AssistanceStore {
         let mut record = self.load(&identity)?;
         check_revision(&record, expected_revision)?;
         if record.task.context != context {
-            record.task.context = context;
-            record.task.revision += 1;
-            record.task.updated_at = now_ms();
+            replace_context(&mut record, context);
             reset_pending(&mut record, self.preferences()?.enabled);
             self.put(&record)?;
         }
+        Ok(record.task)
+    }
+    pub fn undo_context(
+        &mut self,
+        identity: Identity,
+        expected_revision: u64,
+    ) -> Result<Task, String> {
+        let mut record = self.load(&identity)?;
+        check_revision(&record, expected_revision)?;
+        let previous = record
+            .task
+            .previous_context
+            .take()
+            .ok_or("No previous context to restore")?;
+        record.task.context = previous;
+        record.task.revision += 1;
+        record.task.updated_at = now_ms();
+        record.task.change_summary = "이전 기록으로 되돌렸어요".into();
+        record.task.quality = Quality::default();
+        reset_pending(&mut record, self.preferences()?.enabled);
+        self.put(&record)?;
         Ok(record.task)
     }
     pub fn delete_context(&mut self, identity: Identity) -> Result<Task, String> {
@@ -533,16 +618,37 @@ impl AssistanceStore {
                 binding,
                 expected_revision,
                 preferences_revision,
+                settings_revision,
                 recipe_id,
                 requested_model,
                 reason,
                 injection_bytes,
                 guidance_hash,
+                context_partial,
+                included_context_keys,
                 ..
             } => {
                 check_revision(&record, expected_revision)?;
                 if preferences_revision != preferences.revision {
                     return Err("Preferences revision is stale".into());
+                }
+                if settings_revision != record.task.settings_revision {
+                    return Err("Task settings revision is stale".into());
+                }
+                if included_context_keys.len() > 5
+                    || included_context_keys.iter().enumerate().any(|(i, key)| {
+                        ![
+                            "goal",
+                            "outputFormat",
+                            "constraints",
+                            "decisions",
+                            "remaining",
+                        ]
+                        .contains(&key.as_str())
+                            || included_context_keys[..i].contains(key)
+                    })
+                {
+                    return Err("Invalid included context keys".into());
                 }
                 if !["simple", "research", "document", "planning", "general"]
                     .contains(&recipe_id.as_str())
@@ -567,7 +673,7 @@ impl AssistanceStore {
                         && (r.delivered || r.binding == binding)
                 }) {
                     return Ok(
-                        serde_json::json!({"ok":true,"duplicate":true,"nonce":null,"preferencesRevision":preferences.revision,"contextRevision":record.task.revision,"task":record.task}),
+                        serde_json::json!({"ok":true,"duplicate":true,"nonce":null,"preferencesRevision":preferences.revision,"settingsRevision":record.task.settings_revision,"contextRevision":record.task.revision,"task":record.task}),
                     );
                 }
                 let nonce = uuid::Uuid::new_v4().to_string();
@@ -587,13 +693,15 @@ impl AssistanceStore {
                     applied_model: None,
                     reason,
                     injection_bytes,
+                    context_partial,
+                    included_context_keys,
                     updated_at: now_ms(),
                 };
                 record.task.recipe_id = Some(recipe_id);
                 record.task.quality = Quality::default();
                 self.put(&record)?;
                 return Ok(
-                    serde_json::json!({"ok":true,"duplicate":false,"nonce":nonce,"preferencesRevision":preferences.revision,"contextRevision":record.task.revision,"task":record.task}),
+                    serde_json::json!({"ok":true,"duplicate":false,"nonce":nonce,"preferencesRevision":preferences.revision,"settingsRevision":record.task.settings_revision,"contextRevision":record.task.revision,"task":record.task}),
                 );
             }
             Request::Delivered {
@@ -625,9 +733,7 @@ impl AssistanceStore {
                 }
                 receipt.context_written = true;
                 if record.task.context != context {
-                    record.task.context = context;
-                    record.task.revision += 1;
-                    record.task.updated_at = now_ms();
+                    replace_context(&mut record, context);
                 }
             }
             Request::Sync {
@@ -703,22 +809,51 @@ fn reset_pending(record: &mut Record, global_enabled: bool) {
         requested_model: None,
         applied_model: None,
         reason: if global_enabled && record.task.enabled {
-            "다음 메시지부터 적용"
+            "전달 대기"
         } else {
             "자동 도움이 꺼져 있어요"
         }
         .into(),
         injection_bytes: 0,
+        context_partial: false,
+        included_context_keys: vec![],
         updated_at: now_ms(),
     };
 }
 fn erase_context(record: &mut Record, enabled: bool) {
     record.task.context = Context::default();
+    record.task.previous_context = None;
+    record.task.change_summary.clear();
     record.task.revision += 1;
     record.task.updated_at = now_ms();
     record.task.recipe_id = None;
     record.task.quality = Quality::default();
     reset_pending(record, enabled);
+}
+
+fn replace_context(record: &mut Record, context: Context) {
+    let prior = &record.task.context;
+    let mut fields = vec![];
+    if prior.goal != context.goal {
+        fields.push("목표");
+    }
+    if prior.output_format != context.output_format {
+        fields.push("결과 형식");
+    }
+    if prior.constraints != context.constraints {
+        fields.push("조건");
+    }
+    if prior.decisions != context.decisions {
+        fields.push("결정");
+    }
+    if prior.remaining != context.remaining {
+        fields.push("남은 일");
+    }
+    record.task.previous_context = Some(std::mem::replace(&mut record.task.context, context));
+    record.task.change_summary = format!("변경: {}", fields.join(" · "));
+    record.task.revision += 1;
+    record.task.updated_at = now_ms();
+    record.task.quality = Quality::default();
 }
 
 #[cfg(test)]
@@ -751,11 +886,14 @@ mod tests {
                 binding: None,
                 expected_revision: revision,
                 preferences_revision: store.preferences().unwrap().revision,
+                settings_revision: store.load(id).unwrap().task.settings_revision,
                 recipe_id: "research".into(),
                 requested_model: Some("candidate".into()),
                 reason: "비교 기준을 정리했어요".into(),
                 injection_bytes: 500,
                 guidance_hash: "a".repeat(64),
+                context_partial: false,
+                included_context_keys: vec![],
             })
             .unwrap()
     }
@@ -779,6 +917,186 @@ mod tests {
             decisions: vec![],
             remaining: vec!["출처 확인".into()],
         }
+    }
+
+    #[test]
+    fn editing_undo_and_delete_all_revoke_each_outstanding_receipt() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = AssistanceStore::new(dir.path()).unwrap();
+        enable(&mut store);
+        let id = identity("a", "c");
+        read(&mut store, &id);
+        store.save_context(id.clone(), example(), 0).unwrap();
+        let prepared = prepare(&mut store, &id, 1);
+        let nonce = prepared["nonce"].as_str().unwrap();
+        let mut changed = example();
+        changed.goal = "변경된 목표".into();
+        store.save_context(id.clone(), changed, 1).unwrap();
+        assert!(delivered(&mut store, &id, nonce).is_err());
+        let prepared = prepare(&mut store, &id, 2);
+        let nonce = prepared["nonce"].as_str().unwrap();
+        let restored = store.undo_context(id.clone(), 2).unwrap();
+        assert_eq!(restored.context, example());
+        assert!(delivered(&mut store, &id, nonce).is_err());
+        let prepared = prepare(&mut store, &id, 3);
+        let nonce = prepared["nonce"].as_str().unwrap();
+        store.delete_all_contexts().unwrap();
+        assert!(delivered(&mut store, &id, nonce).is_err());
+        let task = store.load(&id).unwrap().task;
+        assert_eq!(task.revision, 4);
+        assert_eq!(task.settings_revision, 0);
+        assert!(task.previous_context.is_none());
+        assert!(task.change_summary.is_empty());
+    }
+
+    #[test]
+    fn previous_release_records_default_new_preferences_task_settings_and_delivery_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let id = identity("a", "old");
+        {
+            let mut store = AssistanceStore::new(dir.path()).unwrap();
+            read(&mut store, &id);
+            store.save_context(id.clone(), example(), 0).unwrap();
+            let mut prefs = serde_json::to_value(Preferences::default()).unwrap();
+            prefs.as_object_mut().unwrap().remove("answerLength");
+            prefs.as_object_mut().unwrap().remove("outputFormat");
+            store
+                .db
+                .execute(
+                    "INSERT INTO assistance_preferences(singleton,value) VALUES(1,?1)",
+                    [prefs.to_string()],
+                )
+                .unwrap();
+            let mut record = serde_json::to_value(store.load(&id).unwrap()).unwrap();
+            for key in [
+                "previousContext",
+                "changeSummary",
+                "workStyleOverride",
+                "settingsRevision",
+            ] {
+                record["task"].as_object_mut().unwrap().remove(key);
+            }
+            for key in ["contextPartial", "includedContextKeys"] {
+                record["task"]["assistance"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(key);
+            }
+            store
+                .db
+                .execute(
+                    "UPDATE assistance_tasks SET value=?2 WHERE identity=?1",
+                    params![id.key().unwrap(), record.to_string()],
+                )
+                .unwrap();
+        }
+        let store = AssistanceStore::new(dir.path()).unwrap();
+        let prefs = store.preferences().unwrap();
+        let task = store.load(&id).unwrap().task;
+        assert_eq!(prefs.answer_length, AnswerLength::Concise);
+        assert_eq!(prefs.output_format, OutputFormat::Adaptive);
+        assert_eq!(task.context, example());
+        assert_eq!(task.settings_revision, 0);
+        assert!(task.work_style_override.is_none());
+        assert!(task.previous_context.is_none());
+        assert!(task.change_summary.is_empty());
+        assert!(!task.assistance.context_partial);
+        assert!(task.assistance.included_context_keys.is_empty());
+    }
+    #[test]
+    fn undo_is_one_step_revision_checked_and_preserves_chat_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = AssistanceStore::new(dir.path()).unwrap();
+        let id = identity("a", "c");
+        read(&mut store, &id);
+        store.set_enabled(id.clone(), false).unwrap();
+        store.save_context(id.clone(), example(), 0).unwrap();
+        let mut changed = example();
+        changed.goal = "새로운 비교 기준".into();
+        let edited = store.save_context(id.clone(), changed.clone(), 1).unwrap();
+        assert_eq!(edited.previous_context, Some(example()));
+        assert_eq!(edited.change_summary, "변경: 목표");
+        let unchanged = store.save_context(id.clone(), changed, 2).unwrap();
+        assert_eq!(unchanged.revision, 2);
+        assert_eq!(unchanged.previous_context, Some(example()));
+        assert!(store.undo_context(id.clone(), 1).is_err());
+        let restored = store.undo_context(id.clone(), 2).unwrap();
+        assert_eq!(restored.context, example());
+        assert_eq!(restored.revision, 3);
+        assert!(restored.previous_context.is_none());
+        assert!(!restored.enabled);
+        assert_eq!(restored.assistance.status, Status::Off);
+        assert!(store.undo_context(id, 3).is_err());
+    }
+    #[test]
+    fn task_work_style_has_its_own_revision_and_does_not_leak_to_other_chats() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = AssistanceStore::new(dir.path()).unwrap();
+        enable(&mut store);
+        let a = identity("a", "one");
+        let b = identity("a", "two");
+        read(&mut store, &a);
+        read(&mut store, &b);
+        let p = prepare(&mut store, &a, 0);
+        let nonce = p["nonce"].as_str().unwrap();
+        let changed = store
+            .set_work_style(a.clone(), Some(WorkStyle::Fast), 0)
+            .unwrap();
+        assert_eq!(changed.settings_revision, 1);
+        assert_eq!(changed.revision, 0);
+        assert_eq!(changed.assistance.reason, "전달 대기");
+        assert!(delivered(&mut store, &a, nonce).is_err());
+        assert!(store
+            .set_work_style(a.clone(), Some(WorkStyle::Thorough), 0)
+            .is_err());
+        assert_eq!(
+            store
+                .set_work_style(a.clone(), Some(WorkStyle::Fast), 1)
+                .unwrap()
+                .settings_revision,
+            1
+        );
+        assert!(store.load(&b).unwrap().task.work_style_override.is_none());
+        let stale=serde_json::from_value::<Request>(serde_json::json!({"operation":"prepare","identity":a,"expectedRevision":0,"preferencesRevision":1,"recipeId":"general","requestedModel":null,"reason":"준비","injectionBytes":100,"guidanceHash":"a".repeat(64)})).unwrap();
+        assert!(store
+            .dispatch(stale)
+            .unwrap_err()
+            .contains("settings revision"));
+        let reset = store.set_work_style(a, None, 1).unwrap();
+        assert!(reset.work_style_override.is_none());
+        assert_eq!(reset.settings_revision, 2);
+    }
+    #[test]
+    fn partial_context_metadata_is_bounded_and_deletion_clears_history_and_receipts() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = AssistanceStore::new(dir.path()).unwrap();
+        enable(&mut store);
+        let id = identity("a", "c");
+        read(&mut store, &id);
+        store.save_context(id.clone(), example(), 0).unwrap();
+        let payload = serde_json::json!({"operation":"prepare","identity":id,"expectedRevision":1,"preferencesRevision":1,"recipeId":"general","requestedModel":null,"reason":"준비","injectionBytes":100,"guidanceHash":"c".repeat(64),"contextPartial":true,"includedContextKeys":["goal"]});
+        let mut invalid = payload.clone();
+        invalid["includedContextKeys"] = serde_json::json!(["transcript"]);
+        assert!(store
+            .dispatch(serde_json::from_value(invalid).unwrap())
+            .is_err());
+        let result = store
+            .dispatch(serde_json::from_value(payload).unwrap())
+            .unwrap();
+        assert_eq!(result["task"]["assistance"]["contextPartial"], true);
+        assert_eq!(
+            result["task"]["assistance"]["includedContextKeys"],
+            serde_json::json!(["goal"])
+        );
+        let nonce = result["nonce"].as_str().unwrap();
+        let deleted = store.delete_context(id.clone()).unwrap();
+        assert_eq!(deleted.context, Context::default());
+        assert!(deleted.previous_context.is_none());
+        assert!(deleted.change_summary.is_empty());
+        assert!(!deleted.assistance.context_partial);
+        assert_eq!(deleted.quality.status, QualityStatus::Unchecked);
+        assert!(delivered(&mut store, &id, nonce).is_err());
+        assert!(store.undo_context(id, deleted.revision).is_err());
     }
 
     #[test]

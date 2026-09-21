@@ -27,12 +27,12 @@ const fixture = {
 const unverified = { inputAssistance: false, modelSwitch: false, reasoningSwitch: false, contextSync: false, tokenUsage: false, additionalRepair: false, verification: 'unverified' };
 const blankContext = { goal: '', outputFormat: '', constraints: [], decisions: [], remaining: [] };
 const assistanceFixture = {
-  preferences: { enabled: false, workStyle: 'auto', routingMode: 'auto', fixedModel: null, allowedModels: [], allowEscalation: false, revision: 0 },
+  preferences: { enabled: false, workStyle: 'auto', answerLength: 'concise', outputFormat: 'adaptive', routingMode: 'auto', fixedModel: null, allowedModels: [], allowEscalation: false, revision: 0 },
   capabilities: { codex: unverified, chatgpt: unverified },
   tasks: ['fixture-research-id', 'fixture-writing-id'].map((chatId, index) => ({
     identity: { provider: 'codex', accountId: `fixture-account-${index}`, chatId }, enabled: true,
     context: { ...blankContext, goal: index ? '보고서 작성' : '근거 자료 조사', constraints: [index ? '작성 채팅만의 조건' : '조사 채팅만의 조건'] },
-    revision: 1, updatedAt: now, recipeId: index ? 'document' : 'research',
+    revision: 1, updatedAt: now, recipeId: index ? 'document' : 'research', workStyleOverride: null, settingsRevision: 0, previousContext: null, changeSummary: '',
     assistance: { status: 'pending', requestedModel: 'fixture-requested-model', appliedModel: null, reason: '설정을 저장했어요. 전달은 아직 확인되지 않았어요.', injectionBytes: 0, updatedAt: now },
     quality: { status: 'unchecked', findings: [], repairCount: 0 },
   })),
@@ -43,7 +43,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     const state = structuredClone(initial);
     const assistance = structuredClone(initialAssistance);
     const calls = [];
-    window.__uiTest = { state, assistance, calls };
+    window.__uiTest = { state, assistance, calls, clipboard: '', petVisibility: [true, true, true] };
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__uiTest.clipboard = text; } } });
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = {
       metadata: { currentWindow: { label: 'pet-0' }, currentWebview: { label: 'pet-0' } },
@@ -57,6 +58,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
         const session = state.sessions.find(session => session.id === args?.sessionId);
         const task = assistance.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
         if (name === 'save_preferences') {
+          if (args.preferences.revision !== assistance.preferences.revision) throw Error('preferences revision conflict');
           Object.assign(assistance.preferences, args.preferences, { revision: assistance.preferences.revision + 1 });
           for (const item of assistance.tasks) item.assistance.status = assistance.preferences.enabled && item.enabled ? 'pending' : 'off';
         }
@@ -67,14 +69,36 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
         }
         if (name === 'save_task_context') {
           if (!task || task.revision !== args.expectedRevision) throw Error('context revision conflict');
+          task.previousContext = structuredClone(task.context);
           task.context = args.context;
           task.revision++;
+          task.changeSummary = '중요한 조건을 수정했어요.';
           task.assistance.status = 'pending';
+        }
+        if (name === 'set_task_work_style') {
+          if (!task || task.settingsRevision !== args.expectedRevision) throw Error('task settings revision conflict');
+          task.workStyleOverride = args.workStyle;
+          task.settingsRevision++;
+          task.assistance.status = 'pending';
+        }
+        if (name === 'undo_task_context') {
+          if (!task || task.revision !== args.expectedRevision || !task.previousContext) throw Error('invalid context undo');
+          task.context = task.previousContext;
+          task.previousContext = null;
+          task.revision++;
+          task.changeSummary = '이전 기록으로 되돌렸어요.';
+          task.assistance.status = 'pending';
+        }
+        if (name === 'set_pet_visible') {
+          if (!Number.isInteger(args.slot) || args.slot < 0 || args.slot > 2) throw Error('invalid pet slot');
+          window.__uiTest.petVisibility[args.slot] = args.visible;
         }
         if (name === 'delete_task_context' || name === 'delete_all_contexts') {
           for (const item of name === 'delete_all_contexts' ? assistance.tasks : [task]) {
             if (!item) throw Error('unknown identity');
             item.context = { goal: '', outputFormat: '', constraints: [], decisions: [], remaining: [] };
+            item.previousContext = null;
+            item.changeSummary = '';
             item.revision++;
             item.assistance.status = item.enabled ? 'pending' : 'off';
           }
@@ -126,7 +150,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     checks.push('empty/offline UI has no fabricated activity or approval controls');
 
     const missing = await newPage();
-    await missing.route('**/assets/pet/sprite.png', route => route.abort());
+    await missing.route('**/assets/motions/sprite.png', route => route.abort());
     await missing.goto(origin);
     await missing.getByRole('img', { name: '펫 이미지 없음' }).first().waitFor();
     assert.equal(await missing.locator('.pet-sprite').count(), 0);
@@ -159,6 +183,29 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     await manager.screenshot({ path: screenshot, fullPage: true });
     checks.push('manual binding makes the criterion optional, preserves 10-minute default, saves timer-off and exact slot binding');
 
+    const allTasks = await newPage();
+    const manyTasks = structuredClone(fixture);
+    manyTasks.slots[1].sessionId = 'fixture-writing-id';
+    for (let index = 3; index < 9; index++) manyTasks.sessions.push({ ...base, id: `fixture-extra-${index}`, label: `${index + 1}번째 작업`, state: index === 3 ? 'waiting' : 'idle', lastTool: null, lastSeen: now - index * 1000 });
+    await mockBridge(allTasks, manyTasks);
+    await allTasks.goto(origin);
+    await allTasks.locator('.task-list-entry').last().waitFor();
+    assert.equal(await allTasks.locator('.task-list-entry').count(), 9);
+    assert.equal(await allTasks.getByRole('button', { name: '4번째 작업 펫 연결', exact: true }).isEnabled(), false);
+    await allTasks.getByRole('button', { name: '4번째 작업 작업 상세', exact: true }).click();
+    await allTasks.getByRole('dialog', { name: '4번째 작업', exact: true }).waitFor();
+    await allTasks.getByRole('button', { name: '닫기', exact: true }).click();
+    await allTasks.getByTestId('task-filter-working').click();
+    assert.equal(await allTasks.locator('.task-list-entry').count(), 2);
+    await allTasks.getByTestId('task-filter-attention').click();
+    assert.equal(await allTasks.locator('.task-list-entry').count(), 2);
+    await allTasks.getByTestId('task-filter-arrived').click();
+    assert.equal(await allTasks.locator('.task-list-entry').count(), 1);
+    await allTasks.getByTestId('task-filter-all').click();
+    assert.equal(await allTasks.locator('.task-list-entry').count(), 9);
+    assert.equal(await allTasks.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'assign_session').length), 0);
+    checks.push('all nine tasks remain listed, the fourth stays inspectable without replacing pets, and status filters preserve the full list');
+
     await manager.locator('.pet-card-1').getByRole('button', { name: '작업 카드 열기 →' }).click();
     await manager.getByText('계획이 아직 전달되지 않았어요.', { exact: false }).waitFor();
     assert.equal(await manager.locator('.plan-list').count(), 0);
@@ -185,6 +232,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     await manager.getByRole('radio', { name: /^빠르게/ }).check();
     await manager.getByLabel('모델 선택', { exact: true }).selectOption('fixed');
     await manager.getByText('상세 설정', { exact: true }).click();
+    await manager.getByLabel('답변 길이', { exact: true }).selectOption('detailed');
+    await manager.getByLabel('결과 형식 선호', { exact: true }).selectOption('table');
     await manager.getByLabel('고정할 모델 ID', { exact: true }).fill('fixture-model');
     await manager.getByLabel('허용할 모델 ID', { exact: true }).fill('fixture-model\nfixture-other-model');
     await manager.getByRole('button', { name: '설정 저장', exact: true }).click();
@@ -192,9 +241,20 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     assert.equal(prefs.workStyle, 'fast');
     assert.equal(prefs.routingMode, 'fixed');
     assert.equal(prefs.allowEscalation, false);
+    assert.equal(prefs.answerLength, 'detailed');
+    assert.equal(prefs.outputFormat, 'table');
     assert.deepEqual(prefs.allowedModels, ['fixture-model', 'fixture-other-model']);
+    await manager.getByRole('tab', { name: '현재 작업', exact: true }).click();
     await manager.getByLabel('채팅 선택', { exact: true }).selectOption(JSON.stringify(['codex', 'fixture-account-0', 'fixture-research-id']));
     await manager.getByTestId('assistance-state').filter({ hasText: '다음 메시지 전달 대기' }).waitFor();
+    await manager.getByLabel('이번 채팅 작업 방식', { exact: true }).selectOption('thorough');
+    await manager.waitForFunction(() => window.__uiTest.assistance.tasks[0].workStyleOverride === 'thorough');
+    assert.equal(await manager.evaluate(() => window.__uiTest.assistance.tasks[1].workStyleOverride), null);
+    assert.equal(await manager.evaluate(() => window.__uiTest.assistance.preferences.workStyle), 'fast');
+    await manager.getByLabel('이번 채팅 작업 방식', { exact: true }).selectOption('');
+    await manager.waitForFunction(() => window.__uiTest.assistance.tasks[0].settingsRevision === 2);
+    assert.equal(await manager.evaluate(() => window.__uiTest.assistance.tasks[0].workStyleOverride), null);
+    await manager.getByText('적용 내역', { exact: true }).click();
     assert.equal(await manager.getByTestId('applied-model').textContent(), '확인되지 않음');
     await manager.getByText('이 채팅에 저장한 조건', { exact: true }).click();
     assert.equal(await manager.getByLabel('중요한 조건', { exact: true }).inputValue(), '조사 채팅만의 조건');
@@ -219,6 +279,17 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     const records = await manager.evaluate(() => window.__uiTest.assistance.tasks);
     assert.deepEqual(records[0].context.constraints, ['수정한 조건', '출처 확인']);
     assert.deepEqual(records[1].context.constraints, ['작성 채팅만의 조건']);
+    await manager.getByText('최근 바뀐 내용', { exact: true }).click();
+    await manager.locator('.context-before').filter({ hasText: '조사 채팅만의 조건' }).waitFor();
+    await manager.locator('.context-after').filter({ hasText: '수정한 조건' }).waitFor();
+    await manager.getByRole('button', { name: '한 단계 되돌리기', exact: true }).click();
+    await manager.waitForFunction(() => window.__uiTest.assistance.tasks[0].previousContext === null);
+    assert.equal(await manager.getByLabel('중요한 조건', { exact: true }).inputValue(), '조사 채팅만의 조건');
+    assert.equal(await manager.getByRole('button', { name: '한 단계 되돌리기', exact: true }).count(), 0);
+    assert.deepEqual(await manager.evaluate(() => window.__uiTest.assistance.tasks[1].context.constraints), ['작성 채팅만의 조건']);
+    await manager.getByLabel('중요한 조건', { exact: true }).fill('수정한 조건\n출처 확인');
+    await manager.getByRole('button', { name: '기록 저장', exact: true }).click();
+    checks.push('common output preferences, isolated work-style overrides and revision-bound one-step context undo stay distinct');
     await manager.getByRole('button', { name: '이번 채팅 도움 끄기', exact: true }).click();
     await manager.getByTestId('assistance-state').filter({ hasText: '자동 도움 꺼짐' }).waitFor();
     assert.equal(await manager.getByLabel('중요한 조건', { exact: true }).inputValue(), '수정한 조건\n출처 확인');
@@ -226,52 +297,83 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     await manager.getByRole('button', { name: '삭제 확인', exact: true }).click();
     await manager.waitForFunction(() => window.__uiTest.assistance.tasks[0].context.constraints.length === 0);
     assert.equal(await manager.evaluate(() => window.__uiTest.assistance.tasks[1].context.constraints[0]), '작성 채팅만의 조건');
+    await manager.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance.png'), fullPage: true });
+    await manager.getByRole('tab', { name: '연결·데이터', exact: true }).click();
     await manager.getByText('연결별 지원 상태', { exact: true }).click();
     assert.equal(await manager.getByText('모델 자동 변경 · 미검증', { exact: true }).count(), 2);
-    await manager.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance.png'), fullPage: true });
     await manager.getByRole('button', { name: '모든 채팅 기록 삭제', exact: true }).click();
     await manager.getByRole('button', { name: '모든 기록 삭제 확인', exact: true }).click();
     assert.ok(await manager.evaluate(() => window.__uiTest.assistance.tasks.every(task => !task.context.goal && !task.context.constraints.length)));
     checks.push('opt-in and preferences stay distinct from confirmed delivery; exact account/chat edits, off and deletion remain isolated');
 
-    const emptyPet = await newPage({ width: 380, height: 600 });
+    const emptyPet = await newPage({ width: 328, height: 600 });
     await mockBridge(emptyPet, { ...fixture, slots: [{ index: 0, sessionId: null }, { index: 1, sessionId: null }, { index: 2, sessionId: null }] });
     await emptyPet.goto(`${origin}/?pet=0`);
     await emptyPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
     assert.equal(await emptyPet.getByRole('button', { name: '이번 채팅 도움 끄기', exact: true }).count(), 0);
-    await emptyPet.getByRole('button', { name: '도움 설정 열기', exact: true }).click();
-    await emptyPet.getByRole('button', { name: '펫 모두 숨기기', exact: true }).click();
+    await emptyPet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
+    await emptyPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
+    await emptyPet.getByRole('button', { name: '이 펫 숨기기', exact: true }).click();
+    await emptyPet.locator('.pet-quick-card').waitFor({ state: 'hidden' });
+    assert.deepEqual(await emptyPet.evaluate(() => window.__uiTest.petVisibility), [false, true, true]);
+    await emptyPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await emptyPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
     await emptyPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).click();
     assert.ok(await emptyPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
-    assert.ok(await emptyPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'set_pets_visible' && call.args.visible === false)));
-    checks.push('unbound pet exposes assistance, hide and quit without inventing a chat identity');
+    assert.ok(await emptyPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'set_pet_visible' && call.args.slot === 0 && call.args.visible === false)));
+    checks.push('unbound pet exposes details, individual hide and quit without inventing a chat identity');
 
-    const ambiguousPet = await newPage({ width: 380, height: 600 });
+    const ambiguousPet = await newPage({ width: 328, height: 600 });
     const ambiguous = structuredClone(assistanceFixture);
     ambiguous.tasks.push({ ...structuredClone(ambiguous.tasks[0]), identity: { ...ambiguous.tasks[0].identity, accountId: 'another-account' } });
     await mockBridge(ambiguousPet, fixture, ambiguous);
     await ambiguousPet.goto(`${origin}/?pet=0`);
     await ambiguousPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await ambiguousPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
     assert.equal(await ambiguousPet.getByRole('button', { name: '이번 채팅 도움 끄기', exact: true }).count(), 0);
+    assert.equal(await ambiguousPet.getByRole('radiogroup', { name: '이번 작업 방식', exact: true }).count(), 0);
     checks.push('ambiguous native-session/account matches never guess an assistance identity');
 
     const overlays = [];
     for (let index = 0; index < 3; index++) {
-      const pet = await newPage({ width: 380, height: 600 });
+      const pet = await newPage({ width: 328, height: 600 });
       const state = structuredClone(fixture);
       state.slots[1].sessionId = 'fixture-writing-id';
-      await mockBridge(pet, state);
+      const helpState = structuredClone(assistanceFixture);
+      helpState.preferences.enabled = true;
+      helpState.tasks[0].context.constraints = ['비교 기준 유지', '출처 확인', '한국어 작성', '넷째 조건'];
+      await mockBridge(pet, state, helpState);
       await pet.goto(`${origin}/?pet=${index}`);
       await pet.getByText(state.sessions[index].label, { exact: true }).waitFor();
       overlays.push(pet);
     }
-    assert.equal(await overlays[1].locator('.sprite-writing').count(), 1);
+    await overlays[1].locator('.sprite-writing').waitFor();
+    await overlays[2].locator('.sprite-celebrate').waitFor();
     const pet = overlays[0];
-    await pet.getByRole('button', { name: '근거 자료 조사 · 도움 설정 열기' }).click();
+    await pet.bringToFront();
+    await pet.getByRole('button', { name: '근거 자료 조사 · 작업 카드 열기', exact: true }).click();
+    await pet.locator('.pet-quick-card').waitFor();
+    assert.equal(await pet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'show_manager')), false);
+    assert.equal(await pet.locator('.quick-context li').count(), 3);
+    await pet.getByText('나머지 1개는 상세 설정에서', { exact: true }).waitFor();
+    assert.equal(await pet.locator('.pet-quick-card').evaluate(element => Math.round(element.getBoundingClientRect().width)), 320);
+    assert.ok(await pet.locator('.quick-details').evaluate(element => element.getBoundingClientRect().bottom <= document.querySelector('.quick-card-stack').getBoundingClientRect().bottom));
+    await pet.getByRole('button', { name: /^작업명·ID 복사/ }).click();
+    assert.equal(await pet.evaluate(() => window.__uiTest.clipboard), '근거 자료 조사\nfixture-research-id');
+    await pet.getByRole('radio', { name: '꼼꼼하게', exact: true }).click();
+    await pet.waitForFunction(() => window.__uiTest.assistance.tasks[0].workStyleOverride === 'thorough');
+    assert.equal(await pet.evaluate(() => window.__uiTest.assistance.tasks[1].workStyleOverride), null);
+    assert.equal(await pet.evaluate(() => window.__uiTest.assistance.preferences.workStyle), 'auto');
+    await pet.getByRole('button', { name: '기본 설정 사용', exact: true }).click();
+    await pet.waitForFunction(() => window.__uiTest.assistance.tasks[0].workStyleOverride === null);
+    await pet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
     assert.ok(await pet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'show_manager' && call.args.section === 'assistance' && call.args.sessionId === 'fixture-research-id')));
-    await pet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await pet.keyboard.press('Escape');
+    await pet.locator('.pet-quick-card').waitFor({ state: 'hidden' });
+    await pet.getByRole('button', { name: '근거 자료 조사 · 작업 카드 열기', exact: true }).click();
     await pet.getByRole('button', { name: '알림 확인', exact: true }).waitFor();
     await pet.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-overlay.png') });
+    checks.push('pet opens a 320px quick card first, caps conditions at three, copies the correct task, and keeps style overrides local');
     await pet.getByRole('button', { name: '알림 확인', exact: true }).click();
     await pet.locator('.attention-card').waitFor({ state: 'hidden' });
     const acknowledged = await pet.evaluate(() => ({ state: window.__uiTest.state.sessions[0], calls: window.__uiTest.calls }));
@@ -292,11 +394,17 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     });
     await pet.locator('.floating-status.tool-error').waitFor();
     await pet.getByText('전체 작업이 실패한 것은 아니며,', { exact: false }).waitFor();
-    assert.equal(await pet.locator('.notion-chip').count(), 1);
+    assert.equal(await pet.locator('.sprite-angry').count(), 1);
     await pet.getByRole('button', { name: '알림 확인', exact: true }).click();
     await pet.locator('.attention-card').waitFor({ state: 'hidden' });
     assert.equal(await pet.evaluate(() => window.__uiTest.state.sessions[0].state), 'working');
-    checks.push('structured tool-error is distinct from whole-task failure and displays the observed Notion tool');
+    await pet.locator('.sprite-tool').waitFor();
+    checks.push('structured tool-error uses anger, returns to observed tool motion after acknowledgment and never stops the task');
+    await pet.setViewportSize({ width: 300, height: 460 });
+    const smallBounds = await pet.locator('.pet-overlay').evaluate(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height, scrollWidth: element.scrollWidth }));
+    assert.ok(smallBounds.width <= 300 && smallBounds.height <= 460 && smallBounds.scrollWidth <= 300);
+    await pet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
+    checks.push('quick card stays within a smaller viewport while details remain reachable by scrolling');
 
     const compact = await newPage({ width: 1120, height: 1120 });
     const compactAssistance = structuredClone(assistanceFixture);

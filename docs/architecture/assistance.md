@@ -36,3 +36,13 @@
 ## 증거
 
 기능 flags는 현재 모든 환경에서 false다. 지원 승격에는 실제 서비스 창의 입력 전달, 동일 작업 식별, 다음 실행에 적용된 설정을 확인한 재현 기록이 필요하다. 자체 app-server가 모델을 지정할 수 있다는 사실은 기존 Desktop 창 제어 증거가 아니다. [Codex App Server](https://learn.chatgpt.com/docs/app-server), [UserPromptSubmit](https://learn.chatgpt.com/docs/hooks#userpromptsubmit), [ChatGPT 확장](https://developers.openai.com/plugins/reference#capabilities).
+
+## 작업 카드와 기록 조절
+
+- 전역 선호에 answerLength(concise/normal/detailed), outputFormat(adaptive/table/list/document)을 추가했다. 이전 저장값은 concise/adaptive로 읽는다.
+- Task.workStyleOverride는 null이면 전역 기본값을 따른다. settingsRevision은 문맥 revision과 독립이며 set_task_work_style과 prepare에서 오래된 설정 요청을 거절한다.
+- previousContext는 마지막 변경 이전 값 한 개다. undo_task_context는 현재 revision 확인 후 한 번 소비하고 새 revision을 만든다. 채팅별/전체 삭제는 이전 값·변경 요약·품질 검사·전달 receipt도 제거한다.
+- 지침이 3KB를 넘으면 문맥 필드를 통째로 제외하고 contextPartial/includedContextKeys와 inspect 안내를 남긴다. 일부 조건을 몰래 잘라 전달하지 않는다.
+- 품질 규칙의 checks는 코드 검사/모델 자체 보고/미지원 구분을 제공한다. 현재 저장 API는 요약 품질 결과만 저장한다. 세부 검사 이력 UI와 실제 추가 보완 실행은 다음 단계다.
+- 펫 클릭은 작은 카드, 상세 선택은 설정창이다. 개별 숨김은 해당 슬롯에만 적용하며 전체 표시로 복구된다. 3개를 넘는 작업도 목록에 남는다.
+- 18프레임은 public/assets/motions/manifest.json으로 관리한다. 축하 모션은 관측된 미확인 응답 도착이며 목표 달성 자동 판정이 아니다. 실제 고민 상태는 관측 근거가 없으면 연결하지 않는다.

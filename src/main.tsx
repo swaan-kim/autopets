@@ -4,10 +4,12 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { command, isDesktop } from './api';
 import { Pet } from './Pet';
+import { PetQuickCard } from './features/pets/PetQuickCard';
 import { AssistancePanel, useAssistance } from './Assistance';
 import { taskForSession } from './assistance-types';
 import { DEFAULT_CONFIGURATION, PET_NAMES, STATE_LABEL, type Attention, type Session, type Snapshot, type TaskConfiguration } from './types';
 import './style.css';
+import './TaskList.css';
 
 const slotParam = new URLSearchParams(location.search).get('pet');
 const petIndex = slotParam !== null && /^[0-2]$/.test(slotParam) ? Number(slotParam) : null;
@@ -189,6 +191,8 @@ function ConfigurationForm({ session, submitLabel, busy, onSave }: { session: Se
 function PetOverlay({ snapshot, index, error, assistance }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance> }) {
   const [expanded, setExpanded] = useState(false);
   const [windowError, setWindowError] = useState('');
+  const [notice, setNotice] = useState('');
+  const overlay = useRef<HTMLDivElement>(null);
   const resizeQueue = useRef<Promise<unknown>>(Promise.resolve());
   const action = useAction();
   const sessionId = snapshot.slots.find(slot => slot.index === index)?.sessionId;
@@ -197,18 +201,54 @@ function PetOverlay({ snapshot, index, error, assistance }: { snapshot: Snapshot
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
   const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결 확인 필요' : '작업 연결 전' };
   const attention = session ? dueAttention(session, snapshot.now) : null;
-  useEffect(() => { setExpanded(false); }, [session?.id]);
+  useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {
     if (isDesktop) resizeQueue.current = resizeQueue.current.catch(() => undefined).then(() => command('set_pet_expanded', { expanded })).catch(cause => setWindowError(String(cause)));
   }, [expanded]);
-  return <div className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
-    {expanded && <section className="overlay-panel"><header><div><span className="eyebrow">{PET_NAMES[index]}의 메뉴</span><h2>{session?.label || '함께할 작업을 기다려요'}</h2></div><button className="icon-button" aria-label="카드 접기" onClick={() => setExpanded(false)}>×</button></header>
-      <div className="pet-direct-menu"><button className="button primary" disabled={!isDesktop || action.busy} onClick={() => void action.run('show_manager', { section: 'assistance', sessionId: session?.id })}>도움 설정 열기</button>{helpTask && <button className="button secondary" disabled={action.busy || !!assistance.error} onClick={async () => { if (await action.run('set_chat_assistance', { identity: helpTask.identity, enabled: !helpTask.enabled })) await assistance.refresh(); }}>{helpTask.enabled ? '이번 채팅 도움 끄기' : '이번 채팅 도움 켜기'}</button>}<button className="button secondary" disabled={!isDesktop || action.busy} onClick={() => void action.run('set_pets_visible', { visible: false })}>펫 모두 숨기기</button><button className="button secondary danger-text" disabled={!isDesktop || action.busy} onClick={() => void action.run('quit_app')}>AutoPets 종료</button></div>
-      {(error || action.error || windowError) && <p className="error" role="alert">{error || action.error || windowError}</p>}{session && <><p className="overlay-path" title={session.cwd}>{shortPath(session.cwd)}</p><TaskDetails session={session} now={snapshot.now} disconnected={disconnected} /></>}
-    </section>}
-    <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => void 0); }}>⠿</button>
-      <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button><button className="pet-hit" aria-label={session ? `${session.label} · 도움 설정 열기` : `${PET_NAMES[index]} · 도움 설정 열기`} onClick={() => void action.run('show_manager', { section: 'assistance', sessionId: session?.id })}><Pet index={index} activity={observedActivity(session, disconnected)} paused={disconnected || session?.connection === 'unknown'} />{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
-      <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`}>{session && !attention && !disconnected && session.connection === 'observed' && session.state === 'working' ? currentAction(session) : view.text}</span>
+  useEffect(() => {
+    if (!expanded) return;
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { setExpanded(false); overlay.current?.querySelector<HTMLButtonElement>('.pet-hit')?.focus(); } };
+    const outside = (event: PointerEvent) => { if (event.target === overlay.current || event.target === document.body || event.target === document.documentElement) setExpanded(false); };
+    const blur = () => setExpanded(false);
+    document.addEventListener('keydown', key); document.addEventListener('pointerdown', outside); window.addEventListener('blur', blur);
+    overlay.current?.querySelector<HTMLButtonElement>('.pet-quick-card button')?.focus();
+    return () => { document.removeEventListener('keydown', key); document.removeEventListener('pointerdown', outside); window.removeEventListener('blur', blur); };
+  }, [expanded]);
+  useEffect(() => {
+    if (!isDesktop) return;
+    let disposed = false; const disposers: (() => void)[] = [];
+    const add = <T,>(name: string, fn: (payload: T) => void) => { void listen<T>(name, event => fn(event.payload)).then(remove => { if (disposed) remove(); else disposers.push(remove); }).catch(cause => { if (!disposed) setWindowError(String(cause)); }); };
+    add<{ exceptSlot: number | null }>('autopets://collapse-pets', payload => { if (payload.exceptSlot !== index) setExpanded(false); });
+    return () => { disposed = true; disposers.forEach(remove => remove()); };
+  }, [index]);
+  const motion = disconnected || session?.connection !== 'observed' ? 'idle'
+    : session.state === 'failed' || attention?.kind === 'tool-error' ? 'angry'
+    : attention && attention.kind !== 'milestone' || session.state === 'waiting' ? 'dizzy'
+    : session.state === 'done' && session.unread ? 'celebrate' : undefined;
+  const help = disconnected || session?.connection !== 'observed' || attention ? view.text
+    : helpTask && (!assistance.snapshot.preferences.enabled || !helpTask.enabled) ? '이번 채팅의 자동 도움은 꺼져 있어요'
+    : session ? currentAction(session) : '함께할 작업을 기다려요';
+  return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
+    {expanded && <div className="quick-card-stack"><PetQuickCard title={session?.label || '작업 연결 전'} help={help}
+      goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
+      currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
+      task={helpTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
+      disabled={!isDesktop || !!assistance.error} busy={action.busy} error={error || action.error || windowError} notice={notice}
+      returnLabel="작업명·ID 복사" onReturn={session ? async () => {
+        try { await navigator.clipboard.writeText(`${session.label}\n${session.id}`); setNotice('복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
+        catch { setNotice(`복사하지 못했어요. 작업 ID: ${session.id}`); }
+      } : undefined}
+      onWorkStyle={async workStyle => { if (helpTask && await action.run('set_task_work_style', { identity: helpTask.identity, workStyle, expectedRevision: helpTask.settingsRevision ?? 0 })) { await assistance.refresh(); setNotice('이 작업만 변경했어요. 다음 메시지 전달 대기 중이에요.'); } }}
+      onDetails={async () => { await action.run('show_manager', { section: 'assistance', sessionId: session?.id }); }}
+      onToggleAssistance={helpTask ? async () => { if (await action.run('set_chat_assistance', { identity: helpTask.identity, enabled: !helpTask.enabled })) await assistance.refresh(); } : undefined}
+      onHide={async () => { setExpanded(false); await action.run('set_pet_visible', { slot: index, visible: false }); }}
+      onQuit={async () => { await action.run('quit_app'); }} onClose={() => setExpanded(false)} />
+      {session && attention && <AttentionCard session={session} attention={attention} />}
+    </div>}
+    <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
+      <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
+      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} />{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`}>{help}</span>
     </div>
   </div>;
 }
@@ -229,21 +269,45 @@ function Manager({ snapshot, error, assistance }: { snapshot: Snapshot; error: s
   const [query, setQuery] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [taskFilter, setTaskFilter] = useState<'all' | 'working' | 'attention' | 'arrived'>('all');
   const action = useAction();
   const assignedIds = snapshot.slots.map(slot => slot.sessionId);
   const bound = assignedIds.filter(Boolean).length;
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
+  const orderedTasks = [...snapshot.sessions].sort((a, b) => b.lastSeen - a.lastSeen);
+  const availableSlot = snapshot.slots.find(slot => slot.index >= 0 && slot.index < 3 && slot.sessionId === null);
+  const matchesFilter = (session: Session, filter: typeof taskFilter) => filter === 'all'
+    || filter === 'working' && !disconnected && session.connection === 'observed' && session.state === 'working'
+    || filter === 'attention' && (disconnected || session.connection === 'unknown' || Boolean(dueAttention(session, snapshot.now)) || session.state === 'waiting' || session.state === 'failed')
+    || filter === 'arrived' && session.state === 'done';
+  const filters = [{ id: 'all', label: '전체' }, { id: 'working', label: '진행 중' }, { id: 'attention', label: '확인 필요' }, { id: 'arrived', label: '응답 도착' }] as const;
+  const visibleTasks = orderedTasks.filter(session => matchesFilter(session, taskFilter));
+  const unassignedCount = snapshot.sessions.filter(session => !assignedIds.includes(session.id)).length;
   const sessions = [...snapshot.sessions].filter(session => `${session.label} ${session.cwd} ${session.id}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.lastSeen - a.lastSeen);
   const pickedSession = snapshot.sessions.find(session => session.id === pickedId);
   const editSession = snapshot.sessions.find(session => session.id === editId);
   const detailSession = snapshot.sessions.find(session => session.id === detailId);
   const configure = async (sessionId: string, config: TaskConfiguration) => action.run('configure_session', { sessionId, ...config });
   const closePicker = () => { if (!action.busy) { setPicker(null); setPickedId(null); } };
-  return <div className="app-shell"><aside className="sidebar"><div className="brand"><span className="brand-mark" aria-hidden="true">a<span>••</span></span><span>AutoPets<span className="brand-sub">작은 작업 동료</span></span></div><div className="nav-label">WORKSPACE</div><button className={`nav-item ${settings === 'pets' ? 'active' : ''}`} onClick={() => setSettings('pets')}><span aria-hidden="true">◈</span><span className="nav-text">나의 펫</span><span className="nav-count">{bound}/3</span></button><button className={`nav-item ${settings === 'connection' ? 'active' : ''}`} onClick={() => setSettings('connection')}><span aria-hidden="true">⌘</span><span className="nav-text">연결 설정</span></button><button className={`nav-item ${settings === 'assistance' ? 'active' : ''}`} onClick={() => setSettings('assistance')} aria-label="자동 도움"><span aria-hidden="true">✦</span><span className="nav-text">자동 도움</span></button><div className="sidebar-bottom"><span className="local-indicator" />이 PC에서만 실행<p>작업의 흐름을 가까이,<br />필요한 순간에 확인해요.</p><button className="text-button danger-text" disabled={!isDesktop || action.busy} onClick={() => void action.run('quit_app')}>AutoPets 종료</button><span className="version">LOCAL MVP · 0.1</span></div></aside>
+  return <div className="app-shell"><aside className="sidebar"><div className="brand brand-logo-lockup"><img className="brand-logo" src="/assets/brand/autopets-logo.svg" alt="AutoPets" width="160" height="37" /><span className="brand-sub">작은 작업 동료</span></div><div className="nav-label">WORKSPACE</div><button className={`nav-item ${settings === 'pets' ? 'active' : ''}`} onClick={() => setSettings('pets')}><span aria-hidden="true">◈</span><span className="nav-text">나의 펫</span><span className="nav-count">{bound}/3</span></button><button className={`nav-item ${settings === 'connection' ? 'active' : ''}`} onClick={() => setSettings('connection')}><span aria-hidden="true">⌘</span><span className="nav-text">연결 설정</span></button><button className={`nav-item ${settings === 'assistance' ? 'active' : ''}`} onClick={() => setSettings('assistance')} aria-label="자동 도움"><span aria-hidden="true">✦</span><span className="nav-text">자동 도움</span></button><div className="sidebar-bottom"><span className="local-indicator" />이 PC에서만 실행<p>작업의 흐름을 가까이,<br />필요한 순간에 확인해요.</p><button className="text-button danger-text" disabled={!isDesktop || action.busy} onClick={() => void action.run('quit_app')}>AutoPets 종료</button><span className="version">LOCAL MVP · 0.1</span></div></aside>
     <main className="main-content"><header className="topbar"><span>YOUR LITTLE WORKSPACE</span><span className={`connection-pill ${disconnected ? 'offline' : ''}`}><i />{!isDesktop ? '브라우저 미리보기 · 연결 없음' : disconnected ? '브리지 연결 확인 필요' : '로컬 앱 실행 중'}</span></header>{(error || action.error) && <div className="error" role="alert">{error || action.error}</div>}
       {settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} /> : settings === 'connection' ? <><div className="page-heading"><span className="eyebrow">CONNECTION</span><h1>Codex와 연결하기</h1><p>이미 진행 중인 작업의 활동을 펫에게 전달해주세요.</p></div><section className="setup-card"><span className="step-number">01</span><div><h3>처음 한 번 연결 확인</h3><p>연결 안내에 따라 Codex 훅을 설정하고 지침 전달 여부를 확인해요. 설정 저장만으로 자동 연결이 완료되지는 않아요. 매번 스킬을 부를 필요가 없는 연결을 검증하고 있어요.</p><span className="field-label">로컬 연결 파일</span><code className="path-code">{snapshot.connectionPath || '데스크톱 앱의 브리지가 연결되면 표시됩니다.'}</code></div></section><section className="setup-card"><span className="step-number">02</span><div><h3>수동으로 작업을 골라도 좋아요</h3><p>훅으로 감지된 작업을 목록에서 직접 선택할 수도 있어요. 작업 하나에 펫 하나, 최대 3개까지 연결해요. 시간 알림은 기본 10분이며 설정에서 바꾸거나 끌 수 있어요.</p><button className="button secondary" onClick={() => setSettings('pets')}>나의 펫으로 돌아가기</button></div></section><section className="setup-card"><span className="step-number">03</span><div><h3>필요할 때 같은 Codex 작업으로</h3><p>펫의 카드를 열어 마지막 활동과 전달된 계획을 확인하세요. 권한 요청과 질문에는 Codex에서 답변해주세요.</p><p className="small-note">현재 연결에서는 토큰 사용량 측정과 Codex 작업 창 직접 열기를 지원하지 않아요.</p></div></section></> : <><div className="page-heading"><span className="eyebrow">A LITTLE COMPANY, A LITTLE CLARITY</span><h1>작업은 맡기고,<br />흐름은 가까이 두세요<span className="heading-spark" aria-hidden="true">✳</span></h1><p>펫 하나에 작업 하나. 실제 활동과 필요한 알림을 한눈에.</p></div><div className="section-title"><h2>나의 펫 <span>{bound} / 3</span></h2><button className="text-button" disabled={!isDesktop} onClick={() => void action.run('set_pets_visible', { visible: true })}>바탕화면에 모두 표시 ↗</button></div>
         <section className="pet-grid">{snapshot.slots.map(slot => { const session = snapshot.sessions.find(session => session.id === slot.sessionId); return <article className={`pet-card pet-card-${slot.index}`} key={slot.index}><div className="card-top"><span className="pet-name">{PET_NAMES[slot.index]}</span><span className="slot-label">0{slot.index + 1}</span></div><div className="pet-stage"><Pet index={slot.index} activity={observedActivity(session, disconnected)} paused={disconnected || session?.connection === 'unknown'} /></div>{session ? <><Badge session={session} now={snapshot.now} disconnected={disconnected} /><h3 title={session.label}>{session.label}</h3><p className="card-action" title={currentAction(session, disconnected)}>{currentAction(session, disconnected)}</p><p className="card-path" title={session.cwd}>{shortPath(session.cwd)}</p><button className="button card-button" onClick={() => setDetailId(session.id)}>작업 카드 열기 →</button><div className="card-options"><button className="text-button" onClick={() => setEditId(session.id)}>작업 설정</button><button className="text-button" disabled={action.busy} onClick={() => void action.run('unassign_session', { slot: slot.index })}>연결 해제</button><button className="text-button" onClick={() => void action.run('open_pet', { slot: slot.index })}>펫 보기 ↗</button></div></> : <><span className="status-badge empty"><i />연결 대기</span><h3>어떤 작업을 맡길까요?</h3><p className="card-action empty-copy">함께할 Codex 작업을 골라주세요.</p><p className="card-path">연결된 환경의 실제 작업만 표시해요.</p><button className="button card-button" disabled={!isDesktop} onClick={() => { setPicker(slot.index); setQuery(''); setPickedId(null); }}>＋ 작업 연결</button></>}</article>; })}</section>
-        <section className="activity-section"><div className="section-title"><h2>최근 감지된 작업 <span>{snapshot.sessions.length}</span></h2><span className="muted">마지막으로 관측한 활동 기준</span></div>{!snapshot.sessions.length ? <div className="empty-tasks"><span className="empty-orbit" aria-hidden="true">✧</span><div><h3>첫 번째 작업을 기다리고 있어요</h3><p>훅을 연결한 Codex에서 활동이 전달되면 여기에 나타나요.</p></div><button className="button secondary" onClick={() => setSettings('connection')}>연결 안내 →</button></div> : <div className="task-list">{[...snapshot.sessions].sort((a, b) => b.lastSeen - a.lastSeen).slice(0, 8).map(session => <button className="task-row" key={session.id} onClick={() => setDetailId(session.id)}><span className={`state-dot ${status(session, snapshot.now, disconnected).kind}`} /><span className="task-row-text"><strong>{session.label}</strong><span>{shortPath(session.cwd)}</span></span><span className="task-state">{status(session, snapshot.now, disconnected).text}</span><Clock stamp={session.lastSeen} /></button>)}</div>}</section><footer><span className="footer-leaf" aria-hidden="true">✳</span><span>펫의 알림을 확인해도 Codex 작업은 계속돼요.</span><span className="footer-mode">활동 관측 · 로컬 저장</span></footer></>}
+        <section className="activity-section manager-tasks" aria-label="전체 작업 목록">
+          <div className="section-title"><h2>모든 작업 <span>{snapshot.sessions.length}</span></h2><span className="muted">마지막으로 관측한 활동 기준</span></div>
+          <div className="task-filters" role="group" aria-label="작업 상태 필터">{filters.map(filter => <button key={filter.id} type="button" className={`task-filter ${taskFilter === filter.id ? 'selected' : ''}`} aria-pressed={taskFilter === filter.id} data-testid={`task-filter-${filter.id}`} onClick={() => setTaskFilter(filter.id)}>{filter.label}<span>{orderedTasks.filter(session => matchesFilter(session, filter.id)).length}</span></button>)}</div>
+          {unassignedCount > 0 && <p className="task-capacity-note">펫은 최대 3개까지 연결돼요. 펫에 연결되지 않은 {unassignedCount}개 작업도 이 목록에서 확인할 수 있어요.{!availableSlot && ' 다른 작업에 펫을 연결하려면 위에서 기존 연결을 먼저 해제해주세요.'}</p>}
+          {!snapshot.sessions.length ? <div className="empty-tasks"><span className="empty-orbit" aria-hidden="true">✧</span><div><h3>첫 번째 작업을 기다리고 있어요</h3><p>훅을 연결한 Codex에서 활동이 전달되면 여기에 나타나요.</p></div><button className="button secondary" onClick={() => setSettings('connection')}>연결 안내 →</button></div>
+            : !visibleTasks.length ? <div className="task-filter-empty" role="status">{filters.find(filter => filter.id === taskFilter)?.label} 작업이 없어요.<button type="button" className="text-button" onClick={() => setTaskFilter('all')}>전체 작업 보기</button></div>
+            : <div className="task-list manager-task-list">{visibleTasks.map(session => {
+              const slot = snapshot.slots.find(slot => slot.sessionId === session.id);
+              const view = status(session, snapshot.now, disconnected);
+              return <div className="task-list-entry" key={session.id} data-session-id={session.id}>
+                <button className="task-row" aria-label={`${session.label} 작업 상세`} onClick={() => setDetailId(session.id)}><span className={`state-dot ${view.kind}`} /><span className="task-row-text"><strong>{session.label}</strong><span>{shortPath(session.cwd)}</span></span><span className="task-state">{view.text}</span><Clock stamp={session.lastSeen} /></button>
+                <div className="task-binding">{slot ? <span className="task-pet-label">{PET_NAMES[slot.index]} 연결됨</span> : <><span className="task-pet-label unbound">목록에서 확인</span><button type="button" className="text-button" disabled={!isDesktop || !availableSlot || action.busy} title={!availableSlot ? '기존 펫 연결을 먼저 해제해주세요.' : '빈 펫에 이 작업을 연결해요.'} aria-label={`${session.label} 펫 연결`} onClick={() => { if (availableSlot) { setPicker(availableSlot.index); setQuery(''); setPickedId(session.id); } }}>펫 연결</button></>}</div>
+              </div>;
+            })}</div>}
+        </section><footer><span className="footer-leaf" aria-hidden="true">✳</span><span>펫의 알림을 확인해도 Codex 작업은 계속돼요.</span><span className="footer-mode">활동 관측 · 로컬 저장</span></footer></>}
     </main>
     {picker !== null && <Modal title={pickedSession ? `${PET_NAMES[picker]}에게 작업 맡기기` : '연결할 작업을 골라주세요'} close={closePicker}>{action.error && <p className="error" role="alert">{action.error}</p>}{pickedSession ? <><button className="text-button" disabled={action.busy} onClick={() => setPickedId(null)}>← 다른 작업 선택</button><ConfigurationForm key={pickedSession.id} session={pickedSession} busy={action.busy} submitLabel="이 작업 연결하기" onSave={async config => { if (await configure(pickedSession.id, config) && await action.run('assign_session', { slot: picker, sessionId: pickedSession.id })) { setPicker(null); setPickedId(null); } }} /></> : <><input className="search-input" aria-label="작업 검색" placeholder="작업 이름, 경로 또는 ID 검색" value={query} onChange={event => setQuery(event.target.value)} /><div className="picker-list">{!sessions.length ? <p className="picker-empty">표시할 작업이 없어요.<br />연결한 Codex에서 활동을 시작해주세요.</p> : sessions.map(session => <button className="picker-row" key={session.id} disabled={assignedIds.includes(session.id)} onClick={() => setPickedId(session.id)}><span><strong>{session.label}</strong><small>{session.cwd}</small><small>{session.id} · {formatTime(session.lastSeen)}</small></span><span>{assignedIds.includes(session.id) ? '연결됨' : '＋'}</span></button>)}</div></>}</Modal>}
     {editSession && <Modal title="작업 설정" close={() => { if (!action.busy) setEditId(null); }}>{action.error && <p className="error" role="alert">{action.error}</p>}<ConfigurationForm key={editSession.id} session={editSession} busy={action.busy} submitLabel="설정 저장" onSave={async config => { if (await configure(editSession.id, config)) setEditId(null); }} /></Modal>}

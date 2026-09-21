@@ -21,6 +21,7 @@ struct Position {
 }
 struct Desktop {
     visible: AtomicBool,
+    hidden_slots: Mutex<[bool; 3]>,
     positions: Mutex<HashMap<String, Position>>,
     data_dir: PathBuf,
     bridge: Mutex<Option<bridge::BridgeHandle>>,
@@ -33,9 +34,16 @@ fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
         .map(|s| s.visible.load(Ordering::Relaxed))
         .unwrap_or(true);
     let has_assignments = snapshot.slots.iter().any(|slot| slot.session_id.is_some());
+    let hidden_slots = app
+        .try_state::<Desktop>()
+        .map(|s| s.hidden_slots.lock().map(|h| *h).unwrap_or([false; 3]))
+        .unwrap_or([false; 3]);
     for slot in &snapshot.slots {
         if let Some(window) = app.get_webview_window(&format!("pet-{}", slot.index)) {
-            if visible && (slot.session_id.is_some() || (!has_assignments && slot.index == 0)) {
+            if visible
+                && !hidden_slots[slot.index]
+                && (slot.session_id.is_some() || (!has_assignments && slot.index == 0))
+            {
                 if !window.is_visible().unwrap_or(false) {
                     let _ = window.show();
                 }
@@ -204,6 +212,31 @@ fn save_task_context(
         .save_context(identity, context, expected_revision)
 }
 #[tauri::command]
+fn set_task_work_style(
+    store: tauri::State<SharedStore>,
+    identity: assistance::Identity,
+    work_style: Option<assistance::WorkStyle>,
+    expected_revision: u64,
+) -> Result<assistance::Task, String> {
+    store
+        .lock()
+        .map_err(|_| "설정을 저장할 수 없습니다.")?
+        .assistance
+        .set_work_style(identity, work_style, expected_revision)
+}
+#[tauri::command]
+fn undo_task_context(
+    store: tauri::State<SharedStore>,
+    identity: assistance::Identity,
+    expected_revision: u64,
+) -> Result<assistance::Task, String> {
+    store
+        .lock()
+        .map_err(|_| "기록을 되돌릴 수 없습니다.")?
+        .assistance
+        .undo_context(identity, expected_revision)
+}
+#[tauri::command]
 fn delete_task_context(
     store: tauri::State<SharedStore>,
     identity: assistance::Identity,
@@ -230,9 +263,52 @@ fn set_pets_visible(
     visible: bool,
 ) {
     desktop.visible.store(visible, Ordering::Relaxed);
+    if visible {
+        if let Ok(mut hidden) = desktop.hidden_slots.lock() {
+            *hidden = [false; 3];
+        }
+    }
     if let Ok(s) = store.lock() {
         emit(&app, s.snapshot());
     }
+}
+fn change_slot_visibility(desktop: &Desktop, slot: usize, visible: bool) -> Result<(), String> {
+    if slot > 2 {
+        return Err("펫 슬롯이 올바르지 않습니다.".into());
+    }
+    let mut hidden = desktop
+        .hidden_slots
+        .lock()
+        .map_err(|_| "펫 표시 상태를 변경할 수 없습니다.")?;
+    if visible && !desktop.visible.swap(true, Ordering::Relaxed) {
+        *hidden = [true; 3];
+    }
+    hidden[slot] = !visible;
+    Ok(())
+}
+#[tauri::command]
+fn set_pet_visible(
+    app: tauri::AppHandle,
+    store: tauri::State<SharedStore>,
+    desktop: tauri::State<Desktop>,
+    slot: usize,
+    visible: bool,
+) -> Result<(), String> {
+    change_slot_visibility(&desktop, slot, visible)?;
+    let snapshot = store
+        .lock()
+        .map_err(|_| "상태를 읽을 수 없습니다.")?
+        .snapshot();
+    emit(&app, snapshot);
+    if !visible {
+        if let Some(window) = app.get_webview_window(&format!("pet-{slot}")) {
+            let _ = window.emit(
+                "autopets://collapse-pets",
+                serde_json::json!({"exceptSlot":null}),
+            );
+        }
+    }
+    Ok(())
 }
 #[tauri::command]
 fn open_pet(
@@ -256,7 +332,7 @@ fn open_pet(
     if !bound && !(slot == 0 && !has_assignments) {
         return Err("먼저 작업을 연결해주세요.".into());
     }
-    desktop.visible.store(true, Ordering::Relaxed);
+    change_slot_visibility(&desktop, slot, true)?;
     if let Some(window) = app.get_webview_window(&format!("pet-{slot}")) {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
@@ -268,22 +344,57 @@ fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> Result<(), 
     if !["pet-0", "pet-1", "pet-2"].contains(&window.label()) {
         return Err("펫 창에서만 사용할 수 있습니다.".into());
     }
+    if expanded {
+        let slot = window
+            .label()
+            .strip_prefix("pet-")
+            .and_then(|s| s.parse::<usize>().ok());
+        let _ = window.app_handle().emit(
+            "autopets://collapse-pets",
+            serde_json::json!({"exceptSlot":slot}),
+        );
+    }
     let prior = window.outer_position().map_err(|e| e.to_string())?;
     let old_size = window.outer_size().map_err(|e| e.to_string())?;
-    window
-        .set_size(tauri::LogicalSize::new(
-            if expanded { 380.0 } else { 180.0 },
+    let current_monitor = window.current_monitor().ok().flatten();
+    let (width, height) = if let Some(monitor) = current_monitor.as_ref() {
+        let area = monitor.work_area();
+        fit_pet_size(
+            expanded,
+            window.scale_factor().unwrap_or(monitor.scale_factor()),
+            area.size.width,
+            area.size.height,
+        )
+    } else {
+        (
+            if expanded { 328.0 } else { 180.0 },
             if expanded { 600.0 } else { 230.0 },
-        ))
+        )
+    };
+    window
+        .set_size(tauri::LogicalSize::new(width, height))
         .map_err(|e| e.to_string())?;
     let new_size = window.outer_size().map_err(|e| e.to_string())?;
-    let position = clamp_position(
-        &window,
-        Position {
-            x: prior.x + old_size.width as i32 - new_size.width as i32,
-            y: prior.y + old_size.height as i32 - new_size.height as i32,
-        },
-    );
+    let anchored = Position {
+        x: prior.x + old_size.width as i32 - new_size.width as i32,
+        y: prior.y + old_size.height as i32 - new_size.height as i32,
+    };
+    // Keep the pet on its original monitor: expansion near the left edge can
+    // place the proposed top-left point inside an adjacent monitor.
+    let position = if let Some(monitor) = current_monitor.as_ref() {
+        let area = monitor.work_area();
+        clamp_to_work_area(
+            anchored,
+            new_size.width as i32,
+            new_size.height as i32,
+            area.position.x,
+            area.position.y,
+            area.size.width,
+            area.size.height,
+        )
+    } else {
+        clamp_position(&window, anchored)
+    };
     window
         .set_position(PhysicalPosition::new(position.x, position.y))
         .map_err(|e| e.to_string())
@@ -307,6 +418,7 @@ fn clamp_position(window: &tauri::WebviewWindow, position: Position) -> Position
     let size = window.outer_size().ok();
     let width = size.map(|s| s.width as i32).unwrap_or(180);
     let height = size.map(|s| s.height as i32).unwrap_or(230);
+    let current = window.current_monitor().ok().flatten();
     let monitor = monitors
         .iter()
         .find(|m| {
@@ -317,20 +429,52 @@ fn clamp_position(window: &tauri::WebviewWindow, position: Position) -> Position
                 && position.y >= p.y
                 && position.y < p.y + s.height as i32
         })
+        .or(current.as_ref())
         .or_else(|| monitors.first());
     if let Some(m) = monitor {
-        let p = m.position();
-        let s = m.size();
-        Position {
-            x: position
-                .x
-                .clamp(p.x, (p.x + s.width as i32 - width).max(p.x)),
-            y: position
-                .y
-                .clamp(p.y, (p.y + s.height as i32 - height - 48).max(p.y)),
-        }
+        let area = m.work_area();
+        clamp_to_work_area(
+            position,
+            width,
+            height,
+            area.position.x,
+            area.position.y,
+            area.size.width,
+            area.size.height,
+        )
     } else {
         position
+    }
+}
+fn fit_pet_size(expanded: bool, scale: f64, work_width: u32, work_height: u32) -> (f64, f64) {
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    let desired_width: f64 = if expanded { 328.0 } else { 180.0 };
+    let desired_height: f64 = if expanded { 600.0 } else { 230.0 };
+    (
+        desired_width.min((f64::from(work_width) / scale).floor().max(1.0)),
+        desired_height.min((f64::from(work_height) / scale).floor().max(1.0)),
+    )
+}
+fn clamp_to_work_area(
+    position: Position,
+    width: i32,
+    height: i32,
+    left: i32,
+    top: i32,
+    work_width: u32,
+    work_height: u32,
+) -> Position {
+    Position {
+        x: position
+            .x
+            .clamp(left, (left + work_width as i32 - width).max(left)),
+        y: position
+            .y
+            .clamp(top, (top + work_height as i32 - height).max(top)),
     }
 }
 fn make_icon() -> tauri::image::Image<'static> {
@@ -363,6 +507,8 @@ pub fn run() {
             save_preferences,
             set_chat_assistance,
             save_task_context,
+            set_task_work_style,
+            undo_task_context,
             delete_task_context,
             delete_all_contexts,
             assign_session,
@@ -374,6 +520,7 @@ pub fn run() {
             snooze_attention,
             show_manager,
             set_pets_visible,
+            set_pet_visible,
             open_pet,
             set_pet_expanded,
             quit_app
@@ -394,6 +541,7 @@ pub fn run() {
             app.manage(store.clone());
             app.manage(Desktop {
                 visible: AtomicBool::new(true),
+                hidden_slots: Mutex::new([false; 3]),
                 positions: Mutex::new(positions.clone()),
                 data_dir: data_dir.clone(),
                 bridge: Mutex::new(None),
@@ -526,4 +674,52 @@ pub fn run() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod visibility_tests {
+    use super::*;
+    #[test]
+    fn pet_card_fits_work_area_at_common_dpi_and_negative_monitor_positions() {
+        assert_eq!(fit_pet_size(true, 1.0, 1920, 1040), (328.0, 600.0));
+        assert_eq!(fit_pet_size(true, 1.5, 1920, 1040), (328.0, 600.0));
+        assert_eq!(fit_pet_size(true, 2.0, 1920, 1040), (328.0, 520.0));
+        let position = clamp_to_work_area(
+            Position { x: -2200, y: 900 },
+            656,
+            1040,
+            -1920,
+            40,
+            1920,
+            1040,
+        );
+        assert_eq!(position.x, -1920);
+        assert_eq!(position.y, 40);
+        let position =
+            clamp_to_work_area(Position { x: 1800, y: 1000 }, 328, 600, 80, 0, 1840, 1080);
+        assert_eq!(position.x, 1592);
+        assert_eq!(position.y, 480);
+        let expanded_from_left_edge =
+            clamp_to_work_area(Position { x: -143, y: 100 }, 328, 600, 0, 0, 1920, 1040);
+        assert_eq!(expanded_from_left_edge.x, 0);
+    }
+    #[test]
+    fn individual_visibility_preserves_other_hidden_pets_and_global_hide() {
+        let desktop = Desktop {
+            visible: AtomicBool::new(true),
+            hidden_slots: Mutex::new([false; 3]),
+            positions: Mutex::new(HashMap::new()),
+            data_dir: PathBuf::new(),
+            bridge: Mutex::new(None),
+        };
+        change_slot_visibility(&desktop, 1, false).unwrap();
+        assert_eq!(*desktop.hidden_slots.lock().unwrap(), [false, true, false]);
+        desktop.visible.store(false, Ordering::Relaxed);
+        change_slot_visibility(&desktop, 2, true).unwrap();
+        assert!(desktop.visible.load(Ordering::Relaxed));
+        assert_eq!(*desktop.hidden_slots.lock().unwrap(), [true, true, false]);
+        change_slot_visibility(&desktop, 0, true).unwrap();
+        assert_eq!(*desktop.hidden_slots.lock().unwrap(), [false, true, false]);
+        assert!(change_slot_visibility(&desktop, 3, true).is_err());
+    }
 }

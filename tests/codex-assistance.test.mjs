@@ -23,11 +23,12 @@ async function fixture(t) {
     if (url === '/v1/events') { turnId = body.turnId; return { ok: true }; }
     const key = JSON.stringify(body.identity);
     let task = records.get(key);
-    if (!task) { task = { identity: body.identity, enabled: true, revision: 0, context: emptyContext() }; records.set(key, task); }
+    if (!task) { task = { identity: body.identity, enabled: true, revision: 0, workStyleOverride: null, settingsRevision: 0, context: emptyContext() }; records.set(key, task); }
     if (body.operation === 'read') return { preferences, task, capabilities: { codex: unverifiedCapabilities() } };
     if (!preferences.enabled || !task.enabled) throw new Error('disabled');
     if (body.expectedRevision !== task.revision) throw new Error('stale');
     if (body.operation === 'prepare') {
+      if ((body.settingsRevision ?? 0) !== task.settingsRevision) throw new Error('stale-settings');
       if (task.guidanceHash === body.guidanceHash) return { ok: true, duplicate: true, nonce: null };
       task.guidanceHash = body.guidanceHash; return { ok: true, nonce: 'fixture-nonce', task };
     }
@@ -63,6 +64,53 @@ test('Codex per-chat off and global off suppress guidance independently', async 
   assert.ok((await prepare(f.config, f.input('chat-b'), f.request)).receipt);
   f.preferences.enabled = false;
   assert.deepEqual((await prepare(f.config, f.input('chat-b'), f.request)).output, {});
+});
+test('Codex task style overrides global style without leaking to another chat and settings revisions reprepare', async t => {
+  const f = await fixture(t); f.preferences.workStyle = 'thorough'; f.preferences.answerLength = 'detailed'; f.preferences.outputFormat = 'table';
+  await prepare(f.config, f.input(), f.request);
+  const task = f.records.get(JSON.stringify(identityFor('chat-a')));
+  task.workStyleOverride = 'fast'; task.settingsRevision = 1;
+  const fast = await prepare(f.config, f.input(), f.request);
+  assert.match(fast.output.hookSpecificOutput.additionalContext, /필수 조건·정확성은 유지하며 빠르게/);
+  assert.match(fast.output.hookSpecificOutput.additionalContext, /근거와 설명을 상세하게/);
+  assert.match(fast.output.hookSpecificOutput.additionalContext, /표 중심/);
+  const body = f.calls.filter(call => call.body?.operation === 'prepare').at(-1).body;
+  assert.equal(body.settingsRevision, 1); assert.equal(body.requestedModel, null);
+  assert.deepEqual((await prepare(f.config, f.input(), f.request)).output, {});
+  task.settingsRevision++;
+  assert.ok((await prepare(f.config, f.input(), f.request)).receipt, 'settings CAS revision participates in deduplication');
+  const other = await prepare(f.config, f.input('chat-b'), f.request);
+  assert.match(other.output.hookSpecificOutput.additionalContext, /근거·누락을 꼼꼼히/);
+  assert.equal(f.preferences.workStyle, 'thorough');
+  task.workStyleOverride = null; task.settingsRevision++;
+  assert.match((await prepare(f.config, f.input(), f.request)).output.hookSpecificOutput.additionalContext, /근거·누락을 꼼꼼히/);
+});
+test('Codex prepare uses settings CAS so a setting changed after read cannot emit old guidance', async t => {
+  const f = await fixture(t); await prepare(f.config, f.input(), f.request);
+  const task = f.records.get(JSON.stringify(identityFor('chat-a')));
+  const racingRequest = async (url, body) => {
+    if (body?.operation === 'prepare') { task.workStyleOverride = 'fast'; task.settingsRevision++; }
+    return f.request(url, body);
+  };
+  await assert.rejects(prepare(f.config, f.input('chat-a', '앞으로는 보고서 작성'), racingRequest), /stale-settings/);
+});
+test('Codex discloses omitted context and sends exact inclusion metadata within the complete 3KB injection', async t => {
+  const f = await fixture(t); await prepare(f.config, f.input(), f.request);
+  const task = f.records.get(JSON.stringify(identityFor('chat-a')));
+  task.context = { ...emptyContext(), goal: '가'.repeat(300), outputFormat: '비교표', constraints: ['반드시 ' + '나'.repeat(150), '추가 ' + '다'.repeat(150)], remaining: ['라'.repeat(150)] };
+  task.revision++;
+  const result = await prepare(f.config, f.input(), f.request);
+  const text = result.output.hookSpecificOutput.additionalContext;
+  assert.ok(Buffer.byteLength(text) <= 3072); assert.match(text, /문맥 일부 생략됨/); assert.match(text, /inspect/);
+  const body = f.calls.filter(call => call.body?.operation === 'prepare').at(-1).body;
+  assert.equal(body.contextPartial, true); assert.equal(body.injectionBytes, Buffer.byteLength(text));
+  for (const key of body.includedContextKeys) {
+    const values = Array.isArray(task.context[key]) ? task.context[key] : [task.context[key]];
+    for (const value of values) assert.ok(text.includes(value));
+  }
+  assert.deepEqual((await prepare(f.config, f.input(), f.request)).output, {});
+  task.context.goal = '마'.repeat(300); task.revision++;
+  assert.ok((await prepare(f.config, f.input(), f.request)).receipt, 'omitted context revisions still invalidate stale deduplication');
 });
 test('Codex normal-turn sync is isolated, optimistic, scoped to ignored records and never confirms delivery', async t => {
   const f = await fixture(t);

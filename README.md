@@ -1,8 +1,8 @@
 # AutoPets
 
-**AI 설정을 몰라도, 매번 고르기 귀찮아도.** 기존 AI 채팅창에서 요청하고 펫에서 도움을 조절합니다. 일에 맞게 준비 · 알맞게 맡기기 · 조건 지키고 마무리. [제품 정의](docs/product/direction.md) · [개발 단계](docs/roadmap/implementation.md) · [구조](docs/architecture/layout.md)
+**AI 설정을 몰라도, 매번 고르기 귀찮아도.** 기존 AI 채팅창에서 요청하고 펫에서 도움을 조절합니다. 일에 맞게 준비 · 알맞게 맡기기 · 조건 지키고 마무리. [제품 정의](docs/product/direction.md) · [개발 단계](docs/roadmap/implementation.md) · [역할별 개발 인계](docs/roadmap/parallel-development.md) · [구조](docs/architecture/layout.md)
 
-**현재 소스:** 자동 도움 설정창, 채팅별 짧은 기록·끄기·삭제, 펫 숨기기·종료 메뉴, 네 가지 작업 규칙, 평가 기반 라우팅 정책, 형식 점검, Codex 준비 연결과 Chrome 연결 검증 패키지를 추가했습니다. 실제 ChatGPT·Codex 자동 적용과 모델 변경은 미검증이며 꺼져 있습니다. [구현·검수 상태](docs/testing/assistance-implementation.md) · [새 Codex 검증 연결](integrations/codex/assistance/README.md) · [ChatGPT 검증 패키지](integrations/chatgpt/README.md)
+**현재 소스:** 펫 빠른 카드·상세 3탭, 작업별 방식·답변 선호, 채팅별 기록·1회 되돌리기·삭제, 개별 펫 숨기기·종료 메뉴, 네 가지 작업 규칙, 평가 기반 라우팅 정책, 형식 점검, Codex 준비 연결과 Chrome 연결 검증 패키지를 추가했습니다. 실제 ChatGPT·Codex 자동 적용과 모델 변경은 미검증이며 꺼져 있습니다. [구현·검수 상태](docs/testing/assistance-implementation.md) · [새 Codex 검증 연결](integrations/codex/assistance/README.md) · [ChatGPT 검증 패키지](integrations/chatgpt/README.md)
 
 기존 설치 앱은 자동으로 업데이트하지 않았습니다. 이 변경은 설치·훅 신뢰·브라우저 프로필·실제 채팅을 변경하지 않습니다. 연결과 정책 평가를 통과한 기능만 정식 활성화합니다.
 
@@ -24,7 +24,7 @@
 
 - 투명 최상단 펫 창, 작업당 펫 하나·최대 세 개, 트레이 숨기기·종료, 위치 저장.
 - 기존 `$autopets` 수동 연결 유지. 수동 UI 연결의 완료 기준은 선택사항이며 기존 기준은 보존합니다. 새 자동 도움 연결은 별도 검증 중입니다.
-- 실제 계획·도구 이벤트에 맞춘 8프레임 PNG 재생. 실행 중 이미지 생성이나 상태 분류용 모델 호출은 없습니다.
+- 실제 계획·도구 이벤트와 확인·오류·응답 도착에 맞춘 기존 18프레임 PNG 재생. 실행 중 이미지 생성이나 상태 분류용 모델 호출은 없습니다.
 - 관측 시작 후 기본 10분 알림. 변경·끄기·확인·다시 알림을 지원하며 작업을 자동 중단하지 않습니다.
 - `milestones` 선택 시 실제 전달된 계획의 단계 완료를 알려줍니다. 일반 질문은 훅에서 관측하지 못할 수 있습니다.
 

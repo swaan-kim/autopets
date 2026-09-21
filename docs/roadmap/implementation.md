@@ -8,7 +8,7 @@
 | M1 연결 실증 | Codex 준비/기록 helper, Chrome 확장·Native Messaging, dry-run 설치 도구 | 실제 두 채팅 전달·계정 전환·설정 적용 증거 |
 | M2 구조 | 기존 경로 유지, 기능 모듈과 공통 계약/작업 규칙 분리, SQLite additive tables | 전체 디렉터리 이동은 별도 이관 작업 |
 | M3 핵심 도움 | 선호·채팅 기록·수정·끄기·삭제·짧은 지침 | 실서비스에서 자동 전달·정상 턴 기록 검증 |
-| M4 펫 경험 | 설정창·작업별 상태·직접 숨기기/종료 | 네이티브 DPI/모니터/포커스, 신규 홍보 모션 native 연결 |
+| M4 펫 경험 | 작은 작업 카드·상세 3탭·개별 숨김/종료·18프레임 연결 | 네이티브 DPI/모니터/포커스 실제 검증 |
 | M5 알파 | 검수용 빌드·연결 ZIP·24개 평가 자료 | 최초 설치 흐름, 서명, 실제 PC 실행·복구·제거, 사용자 5명 검증 |
 | M6 확대 | 환경별 capability와 독립 adapter | 다른 브라우저·ChatGPT Desktop/Work·타사 AI 검증 |
 
@@ -23,3 +23,5 @@
 - 보안 설정을 끄지 않는다. Windows 개발 빌드 실행 차단은 CI로 검수하되 사용자 PC 실행 허용과 서명을 별도로 확인한다.
 
 기존 [Milestones](https://github.com/swaan-kim/autopets/milestones)와 [M1 Issue](https://github.com/swaan-kim/autopets/issues/2)는 실제 관문 통과 전 닫지 않는다. 단위 테스트 통과로 기능 지원표를 자동 승격하지 않는다.
+
+독립 개발의 역할·파일 소유권·복사할 요청은 [병렬 개발 인계](parallel-development.md)를 따른다.
