@@ -1,4 +1,5 @@
 use super::*;
+use sha2::{Digest, Sha256};
 fn event(id: &str, turn: &str, kind: EventKind, timestamp: u64) -> EventInput {
     EventInput {
         event_id: id.into(),

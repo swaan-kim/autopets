@@ -75,7 +75,7 @@ pub struct Preferences {
     pub revision: u64,
 }
 impl Default for Preferences {
-    pub(crate) fn default() -> Self {
+    fn default() -> Self {
         Self {
             enabled: false,
             work_style: WorkStyle::Auto,
@@ -150,7 +150,7 @@ pub struct Quality {
     pub repair_count: u8,
 }
 impl Default for Quality {
-    pub(crate) fn default() -> Self {
+    fn default() -> Self {
         Self {
             status: QualityStatus::Unchecked,
             findings: vec![],

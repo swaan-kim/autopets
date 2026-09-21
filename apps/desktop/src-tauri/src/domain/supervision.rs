@@ -74,7 +74,7 @@ pub struct SessionSupervision {
 }
 
 impl Default for SessionSupervision {
-    pub(crate) fn default() -> Self {
+    fn default() -> Self {
         Self {
             completion_criterion: String::new(),
             intervention_mode: InterventionMode::WhenNeeded,

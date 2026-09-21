@@ -2,7 +2,6 @@ pub(crate) use crate::domain::activity::*;
 pub(crate) use crate::legacy::approval::*;
 pub(crate) use crate::storage::sqlite::{db_err, decode, encode};
 use rusqlite::Connection;
-use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
