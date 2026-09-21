@@ -6,4 +6,3 @@ export function validateIdentity(value) {
   for (const [key, bytes] of [['accountId', 200], ['chatId', 512]]) if (!bounded(value[key], bytes) || controlCharacters.test(value[key])) throw new Error('identity-shape');
   return { provider: value.provider, accountId: value.accountId, chatId: value.chatId };
 }
-

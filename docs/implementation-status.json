@@ -13,7 +13,7 @@
   "nodeTests": {
     "passed": 102,
     "failed": 0,
-    "evidence": "Local relocated and compatibility tests"
+    "evidence": "Windows CI and fresh checkout"
   },
   "browserNativeUiChecks": {
     "usesFixtures": true,
@@ -27,8 +27,30 @@
     "mode": "local-rules-only"
   },
   "currentImplementationCI": {
-    "status": "pending-restructure-validation",
-    "pullRequest": "https://github.com/swaan-kim/autopets/pull/8"
+    "status": "success",
+    "commit": "1315d19c5cbbfe82cbf5eb7a4716310575a35ff8",
+    "runId": 35594357064,
+    "url": "https://github.com/swaan-kim/autopets/actions/runs/35594357064",
+    "pullRequest": "https://github.com/swaan-kim/autopets/pull/8",
+    "nodeTests": {
+      "passed": 102,
+      "failed": 0
+    },
+    "uiChecks": {
+      "passed": 14,
+      "pageErrors": 0
+    },
+    "rustTests": {
+      "passed": 52,
+      "failed": 0
+    },
+    "promoTests": {
+      "passed": 22,
+      "failed": 0
+    },
+    "nsisBuild": "passed",
+    "companionPackaging": "passed",
+    "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
   },
   "realConnection": {
     "codex": "unverified",
@@ -79,6 +101,38 @@
     "connections": "integrations",
     "contracts": "packages/contracts",
     "guidance": "packages/guidance",
-    "runtimeDataMigrated": false
+    "runtimeDataMigrated": false,
+    "status": "implemented-and-regression-checked"
+  },
+  "freshCheckout": {
+    "commit": "4a389ef79a1f1c5344410b366a64c83c5875ad62",
+    "lockedInstall": "passed",
+    "build": "passed",
+    "nodeTests": 102,
+    "uiChecks": 14,
+    "rootDevAndDesktopDelegation": "passed-with-help-only"
+  },
+  "offlineDemo": {
+    "networkDisabled": true,
+    "externalRequests": 0,
+    "pageErrors": 0,
+    "consoleErrors": 0
+  },
+  "detachedCodexCompanion": {
+    "extractedOutsideRepository": true,
+    "passed": 49,
+    "failed": 0
+  },
+  "compatibility": {
+    "existingRustTestsPreserved": 52,
+    "uniqueSqlStatementsUnchanged": 26,
+    "appDataIdentityUnchanged": true,
+    "newDatabaseMigration": false,
+    "liveWindowPositionRestore": "not-tested"
+  },
+  "localBuildHelpers": {
+    "powerShellParseChecks": 3,
+    "explicitToolchainPathChecks": 10,
+    "systemSettingsChanged": false
   }
 }

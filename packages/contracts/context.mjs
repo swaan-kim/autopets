@@ -17,4 +17,3 @@ export function validateContext(value) {
   if (utf8Bytes(JSON.stringify(result)) > MAX_CONTEXT_BYTES) throw new Error('context-limit');
   return result;
 }
-

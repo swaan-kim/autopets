@@ -21,4 +21,3 @@ export function classifyTask(prompt, { nativePlan = false, nativeMemory = false,
   return { ...RECIPES[id], steps: [...RECIPES[id].steps], checks: [...RECIPES[id].checks], confidence,
     nativeSupport: { plan: nativePlan === true, memory: nativeMemory === true, review: nativeReview === true } };
 }
-

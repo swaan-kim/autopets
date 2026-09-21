@@ -28,4 +28,3 @@ export function selectRoute({ recipe, preferences, capabilities, currentModel, m
   if (!candidates.length) return keep('평가를 통과한 절약 경로가 없어 현재 설정을 유지해요');
   return pick(candidates[0].modelId, '이 유형의 품질 평가를 통과한 가벼운 모델이에요');
 }
-

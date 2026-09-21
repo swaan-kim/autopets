@@ -9,4 +9,3 @@ export const isRecord = value => value !== null && typeof value === 'object' && 
 export const emptyContext = () => ({ goal: '', outputFormat: '', constraints: [], decisions: [], remaining: [] });
 export const defaultPreferences = () => ({ enabled: false, workStyle: 'auto', answerLength: 'concise', outputFormat: 'adaptive', routingMode: 'auto', fixedModel: null, allowedModels: [], allowEscalation: false, revision: 0 });
 export const unverifiedCapabilities = () => ({ inputAssistance: false, modelSwitch: false, reasoningSwitch: false, contextSync: false, tokenUsage: false, additionalRepair: false, verification: 'unverified' });
-

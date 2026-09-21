@@ -7,4 +7,3 @@ const unpairedSurrogate = /[\ud800-\udfff]/u;
 export const bounded = (value, bytes, allowEmpty = false) => typeof value === 'string'
   && (allowEmpty || !!value.trim()) && utf8Bytes(value) <= bytes
   && !unsupportedContentControls.test(value) && !unpairedSurrogate.test(value);
-
