@@ -455,7 +455,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await waitingPet.goto(`${origin}/?pet=0`);
     await waitingPet.getByText('채팅 연결 대기', { exact: true }).waitFor();
     await waitingPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
     await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).click();
+    assert.ok(await waitingPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
     checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
