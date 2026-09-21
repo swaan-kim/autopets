@@ -20,7 +20,7 @@ export function installationPlan(opts){
 export async function install(opts){
  const plan=installationPlan(opts);if(!opts.install)return plan;
  if(process.platform!=='win32')throw Error('windows-only');await access(opts.node);await access(opts.connection);
- const files=['integrations/chatgpt/native/host.mjs','integrations/chatgpt/native/framing.mjs','integrations/chatgpt/extension/protocol.mjs','skills/autopets/scripts/bridge-client.mjs'];
+ const files=['integrations/chatgpt/native/host.mjs','integrations/chatgpt/native/framing.mjs','integrations/chatgpt/extension/protocol.mjs','integrations/codex/skills/autopets/scripts/bridge-client.mjs'];
  for(const file of files){const dest=join(opts.destination,file);await mkdir(dirname(dest),{recursive:true});await copyFile(join(root,file),dest);}
  const host=join(opts.destination,'integrations/chatgpt/native/host.mjs');
  await writeFile(join(opts.destination,'integrations/chatgpt/native/host-config.json'),JSON.stringify(plan.config,null,2));

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { identityKey, type AssistanceTask, type UserPreferences } from '../../assistance-types';
+import type { AssistanceTask, UserPreferences } from '@autopets/contracts/types';
+import { identityKey } from '../assistance/identity';
 
 type WorkStyle = UserPreferences['workStyle'];
 type Action = () => void | Promise<void>;

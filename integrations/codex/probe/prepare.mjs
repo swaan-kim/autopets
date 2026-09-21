@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir, rename, rmdir, realpath, stat } from 'node:
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
-import { readConnection, requestJson, validString, isObject, MAX_BODY } from '../../../skills/autopets/scripts/bridge-client.mjs';
+import { readConnection, requestJson, validString, isObject, MAX_BODY } from '../skills/autopets/scripts/bridge-client.mjs';
 
 export const MAX_CONTEXT_BYTES = 1024;
 export const MAX_INJECTION_BYTES = 3072;

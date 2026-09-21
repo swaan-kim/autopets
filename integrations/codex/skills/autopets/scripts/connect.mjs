@@ -31,7 +31,7 @@ async function connectionPathFor(options, environment) {
   }
   const candidates = [
     ...(environment.LOCALAPPDATA ? [path.join(environment.LOCALAPPDATA, 'local.autopets.desktop', 'connection.json')] : []),
-    fileURLToPath(new URL('../../../release/.local/connection.json', import.meta.url)),
+    fileURLToPath(new URL('../../../../../release/.local/connection.json', import.meta.url)),
   ];
   for (const candidate of candidates) {
     if (await stat(candidate).then((item) => item.isFile()).catch(() => false)) return candidate;

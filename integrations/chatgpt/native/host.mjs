@@ -1,7 +1,7 @@
 import { readFile,stat } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readConnection,requestJson } from '../../../skills/autopets/scripts/bridge-client.mjs';
+import { readConnection,requestJson } from '../../codex/skills/autopets/scripts/bridge-client.mjs';
 import { CAPABILITIES,validateMessage,validatePreferences,ProtocolError } from '../extension/protocol.mjs';
 import { FrameDecoder,encodeFrame } from './framing.mjs';
 export function validateConfig(config,origin){

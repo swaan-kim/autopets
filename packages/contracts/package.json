@@ -1,0 +1,10 @@
+{
+  "name": "@autopets/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./types": "./types/index.ts"
+  }
+}

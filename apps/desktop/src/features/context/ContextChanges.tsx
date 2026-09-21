@@ -1,4 +1,4 @@
-import type { TaskContext } from '../../assistance-types';
+import type { TaskContext } from '@autopets/contracts/types';
 
 const fields = [['goal', '목표'], ['outputFormat', '결과 형식'], ['constraints', '중요한 조건'], ['decisions', '확정한 결정'], ['remaining', '남은 일']] as const;
 function content(value: string | string[]) { return Array.isArray(value) ? value.join('\n') : value; }

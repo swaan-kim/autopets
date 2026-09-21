@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
-const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../work/native-ui-manager.png'));
+const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
 const now = Date.now();
 const base = {
   cwd: 'C:/UI fixture only', unread: false, lastSeen: now, connection: 'observed',

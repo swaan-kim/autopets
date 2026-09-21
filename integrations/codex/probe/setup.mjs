@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, copyFile, rename, lstat, realpath } from 'n
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { inspectProject } from '../../../scripts/install-hooks.mjs';
+import { inspectProject } from '../scripts/install-hooks.mjs';
 
 export const STATUS = 'AutoPets M1 preparation probe (review required)';
 const entry = fileURLToPath(new URL('./prepare.mjs', import.meta.url));

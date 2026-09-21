@@ -4,7 +4,7 @@ import { readFile, stat, lstat, realpath, writeFile, rename, open, unlink } from
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { readConnection, requestJson, validString, isObject } from '../../../skills/autopets/scripts/bridge-client.mjs';
+import { readConnection, requestJson, validString, isObject } from '../skills/autopets/scripts/bridge-client.mjs';
 import { validateContext, resolvePreferences, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
 import { classifyTask, buildGuidanceMetadata } from '../../../packages/guidance/index.mjs';
 
