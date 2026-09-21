@@ -28,7 +28,9 @@ export async function verifyPackage(directory) {
 }
 function childExit(executable, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { windowsHide: true, stdio: 'ignore' });
+    // NSIS consumes everything after the FINAL /D= as its path, without quotes.
+    // No shell is involved. Quote argv[0], but keep the /D value verbatim.
+    const child = spawn(executable, args, { windowsHide: true, windowsVerbatimArguments: true, argv0: `"${executable}"`, stdio: 'ignore' });
     child.on('error', reject);
     child.on('exit', code => code === 0 ? resolve() : reject(Error(code === 1 ? 'installation-cancelled' : 'installation-failed')));
   });
