@@ -118,10 +118,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native bootstrap verification failed.' }
           Copy-Item -LiteralPath work/bootstrap-windows-evidence.json, work/native-ui-setup.png -Destination work/artifacts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
         with:
           name: AutoPets-windows-review
           path: work/artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   draft-release:

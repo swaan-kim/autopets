@@ -18,7 +18,7 @@ function Stop-TestApp {
 }
 try {
     $taskFirst = (& (Join-Path $taskExpanded 'install.ps1') | ConvertFrom-Json)
-    if ($LASTEXITCODE -ne 0 -or -not $taskFirst.ok -or -not $taskFirst.appReady -or $taskFirst.chatConnected -or $taskFirst.guidanceDelivered) { throw 'First installation did not reach honest app-ready state.' }
+    if ($LASTEXITCODE -ne 0 -or -not $taskFirst.ok -or -not $taskFirst.appReady -or $taskFirst.chatConnected -or $taskFirst.guidanceDelivered) { Write-Host ($taskFirst | ConvertTo-Json -Compress); throw 'First installation did not reach honest app-ready state.' }
     $taskHooks = Get-Content -LiteralPath (Join-Path $env:CODEX_HOME 'hooks.json') -Raw
     $taskAppTime = (Get-Item -LiteralPath $taskApp).LastWriteTimeUtc
     $taskSecond = (& $taskNode $taskStart | ConvertFrom-Json)

@@ -167,6 +167,10 @@ async function main() {
     if (args[0] === '--disconnect' && args.length === 1) return console.log(JSON.stringify(await disconnect()));
     if (args.length && (args.length !== 2 || args[0] !== '--package' || !path.isAbsolute(args[1]))) throw Error('arguments');
     console.log(JSON.stringify(await start({ packageDir: args[1], progress: phase => console.error(phase === 'installing' ? '설치 확인 중' : '연결 확인 중') })));
-  } catch (error) { console.log(JSON.stringify({ ok: false, phase: 'attention', retryable: true, message: messages[error.message] || '설치를 완료하지 못했어요. 원래 채팅은 계속 사용할 수 있어요.' })); process.exitCode = 1; }
+  } catch (error) {
+    const code = Object.hasOwn(messages, error.message) ? error.message : error.code === 'ENOENT' ? 'required-file-missing' : error.code === 'EACCES' ? 'execution-not-allowed' : 'setup-failed';
+    console.log(JSON.stringify({ ok: false, phase: 'attention', retryable: true, code,
+      message: messages[error.message] || '설치를 완료하지 못했어요. 검증한 설치 파일로 다시 시작해주세요.' })); process.exitCode = 1;
+  }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

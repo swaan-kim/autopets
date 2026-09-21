@@ -84,14 +84,20 @@ mod tests {
             .slots
             .iter()
             .any(|slot| slot.as_deref() == Some("pending")));
-        assert!(store
-            .sessions
-            .get("pending")
-            .unwrap()
-            .view
-            .supervision
-            .turn_started_at
-            .is_none());
+        // The established timer measures the first real observation; no
+        // synthetic turn_started event is inserted to connect the pet.
+        let starts: i64 = store
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM events WHERE kind=?1",
+                [
+                    serde_json::to_string(&crate::domain::activity::EventKind::TurnStarted)
+                        .unwrap(),
+                ],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(starts, 0);
         assert_eq!(store.setup_status().unwrap()["chatConnected"], true);
     }
 }
