@@ -12,7 +12,7 @@
     "writing": { "frames": [6, 7], "fps": 3, "stillFrame": 6, "label": "비교 초안을 작성하고 있어요" },
     "thinking": { "frames": [8, 9], "fps": 2, "stillFrame": 8, "label": "생각을 정리하고 있어요" },
     "tool": { "frames": [10, 11], "fps": 2, "stillFrame": 10, "label": "도구 사용 · Notion" },
-    "dizzy": { "frames": [12, 13], "fps": 3, "stillFrame": 12, "label": "계속 작업 중이에요. 살펴볼까요?" },
+    "dizzy": { "frames": [12], "fps": 3, "stillFrame": 12, "label": "계속 작업 중이에요. 살펴볼까요?" },
     "angry": { "frames": [14, 15], "fps": 3, "stillFrame": 14, "label": "도구 오류가 생겼어요" },
     "celebrate": { "frames": [16, 17], "fps": 3, "stillFrame": 16, "label": "비교 초안이 완성됐어요" }
   },

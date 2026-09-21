@@ -1,0 +1,27 @@
+name: 구현 작업
+description: 사용자 결과와 검수 기준으로 구현을 나눕니다.
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 사용자 결과와 결과물
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 선행 작업과 관문
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 검수 기준
+      description: 실제 환경과 시연·fixture 검사를 구분하세요.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 근거와 남은 제한
+      description: 채팅 본문·개인 경로·인증 정보는 첨부하지 마세요.

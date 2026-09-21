@@ -1,0 +1,24 @@
+.sidebar .brand-logo-lockup { display: block; padding-left: 2px; }
+.sidebar .brand-logo { display: block; width: 160px; max-width: 100%; height: auto; }
+.sidebar .brand-logo-lockup .brand-sub { padding-left: 36px; margin-top: 4px; }
+.manager-tasks .task-filters { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+.manager-tasks .task-filter { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; background: #fff; color: #6b7d5b; border: 1px solid var(--line); border-radius: 18px; font-size: 11px; }
+.manager-tasks .task-filter.selected { background: #e4edd9; border-color: #a7bd8e; color: #334f25; font-weight: 650; }
+.manager-tasks .task-filter > span { font-size: 10px; min-width: 14px; text-align: center; }
+.manager-tasks .task-capacity-note { margin: 0 0 12px; color: #718163; font-size: 11px; line-height: 1.7; }
+.manager-tasks .manager-task-list { max-height: 420px; overflow-y: auto; }
+.manager-tasks .task-list-entry { display: flex; align-items: center; border-bottom: 1px solid #eaf0e1; }
+.manager-tasks .task-list-entry:last-child { border-bottom: 0; }
+.manager-tasks .task-row { flex: 1; min-width: 0; border: 0; }
+.manager-tasks .task-row-text { flex: 1; }
+.manager-tasks .task-binding { width: 111px; flex-shrink: 0; padding: 8px 12px 8px 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.manager-tasks .task-pet-label { color: #60794a; background: #f0f5e9; padding: 4px 7px; border-radius: 5px; font-size: 10px; white-space: nowrap; }
+.manager-tasks .task-pet-label.unbound { color: #7d8576; background: #f4f5f1; }
+.manager-tasks .task-filter-empty { display: flex; align-items: center; gap: 18px; border: 1px dashed var(--line); border-radius: 12px; padding: 24px; color: #718163; font-size: 12px; }
+@media (max-width: 900px) {
+  .manager-tasks .task-row { flex-wrap: wrap; gap: 8px; }
+  .manager-tasks .task-row-text { flex-basis: calc(100% - 22px); }
+  .manager-tasks .task-state { margin-left: 13px; }
+  .manager-tasks .task-row time { margin-left: auto; }
+  .manager-tasks .task-binding { width: 100px; }
+}

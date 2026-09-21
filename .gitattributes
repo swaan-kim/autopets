@@ -1,0 +1,9 @@
+* text=auto
+*.png -text
+*.ico -text
+*.zip -text
+docs/demo/index.html text eol=lf
+docs/demo/assets/*.json text eol=lf
+docs/design-source/index.template.html text eol=lf
+apps/desktop/public/assets/**/*.json text eol=lf
+apps/desktop/public/assets/**/*.svg text eol=lf

@@ -47,7 +47,7 @@ function parseArguments(argv) {
 }
 
 function outputPaths(repoRoot) {
-  const petDirectory = path.join(repoRoot, 'public/assets/pet');
+  const petDirectory = path.join(repoRoot, 'apps/desktop/public/assets/pet');
   const promoDirectory = path.join(repoRoot, 'docs/demo/assets');
   return {
     petDirectory,
@@ -106,7 +106,7 @@ function validateMotionConfig(config) {
   if (config.version !== 4 || config.frameSize !== 64 || config.columns !== 4 || config.rows !== 5 || config.frameCount !== 18 || config.baseline !== 60 || config.bodySize !== 52 || config.runtimeGeneration !== false) {
     throw new Error('The promo config must describe 18 fixed 64px frames on a 4 by 5 grid (52px body, baseline 60).');
   }
-  const expected = { idle: [0, 1, 2, 3], research: [4, 5], writing: [6, 7], thinking: [8, 9], tool: [10, 11], dizzy: [12, 13], angry: [14, 15], celebrate: [16, 17] };
+  const expected = { idle: [0, 1, 2, 3], research: [4, 5], writing: [6, 7], thinking: [8, 9], tool: [10, 11], dizzy: [12], angry: [14, 15], celebrate: [16, 17] };
   if (Object.keys(config.animations || {}).length !== Object.keys(expected).length) throw new Error('Unexpected promo animation count.');
   for (const [name, frames] of Object.entries(expected)) {
     const animation = config.animations[name];
@@ -209,8 +209,8 @@ async function main(argv = process.argv.slice(2)) {
   }
   let sharp;
   try { sharp = createRequire(path.join(repoRoot, 'docs/design-source/package.json'))('sharp'); }
-  catch { throw new Error('Missing image dependency. Run npm ci --prefix docs/design-source from the repository root.'); }
-  const brandPath = path.join(repoRoot, 'public/assets/brand/autopets-mark.svg');
+  catch { throw new Error('Missing image dependency. Run pnpm install --frozen-lockfile from the repository root.'); }
+  const brandPath = path.join(repoRoot, 'apps/desktop/public/assets/brand/autopets-mark.svg');
   const brandMark = fs.readFileSync(brandPath, 'utf8').replace(/role="img" aria-labelledby="title desc"/, 'aria-hidden="true"').replace(/<title[^>]*>.*?<\/title>|<desc[^>]*>.*?<\/desc>/gs, '').replace(/[ \t]+$/gm, '');
   const template = fs.readFileSync(templatePath, 'utf8').replaceAll('__BRAND_MARK__', brandMark);
   const native = await assemble(sharp, source);

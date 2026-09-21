@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "AutoPets · ChatGPT 연결",
+  "version": "0.1.0",
+  "description": "로컬 펫 연결 상태를 확인합니다. 실제 입력·모델 자동 변경은 검증 전까지 꺼져 있습니다.",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://chatgpt.com/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AutoPets 연결"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'"
+  }
+}

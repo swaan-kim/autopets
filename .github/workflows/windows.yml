@@ -47,7 +47,17 @@ jobs:
       - name: Install locked frontend dependencies
         run: pnpm install --frozen-lockfile
       - name: Test adapter and task configuration
-        run: pnpm test
+        run: |
+          pnpm verify:layout
+          if ($LASTEXITCODE -ne 0) { throw 'Repository layout check failed.' }
+          pnpm test
+          if ($LASTEXITCODE -ne 0) { throw 'Node tests failed.' }
+      - name: Verify reproducible promo assets
+        run: |
+          node --test docs/design-source/build-assets.test.cjs docs/design-source/demo-model.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Promo tests failed.' }
+          node docs/design-source/build-assets.cjs --check
+          if ($LASTEXITCODE -ne 0) { throw 'Promo assets are out of date.' }
       - name: Prepare browser verification
         run: |
           New-Item -ItemType Directory -Path work -Force | Out-Null
@@ -57,6 +67,16 @@ jobs:
         run: node scripts/ci-ui.mjs
       - name: Build frontend assets for native compilation
         run: pnpm build
+      - name: Evaluate bounded local rules and package Chrome connection
+        run: |
+          node scripts/evaluate-assistance.mjs --out work/assistance-evaluation.json
+          if ($LASTEXITCODE -ne 0) { throw 'Local rule evaluation failed.' }
+          $taskNodePath = (Get-Command node).Source
+          $taskNodeVersion = node -p process.version
+          $taskNodeLicense = Join-Path $env:GITHUB_WORKSPACE 'work/NODE-LICENSE.txt'
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nodejs/node/$taskNodeVersion/LICENSE" -OutFile $taskNodeLicense
+          node scripts/package-chatgpt.mjs --node $taskNodePath --node-license $taskNodeLicense
+          if ($LASTEXITCODE -ne 0) { throw 'Chrome connection packaging failed.' }
       - name: Select Rust MSVC toolchain
         run: |
           rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
@@ -64,22 +84,25 @@ jobs:
           rustup default stable
           if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed.' }
       - name: Test Rust core and bridge
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+        run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
       - name: Build NSIS installer
         run: |
           $taskBundleConfig = Join-Path $env:RUNNER_TEMP 'autopets-tauri-build.json'
           '{"bundle":{"active":true,"targets":["nsis"],"windows":{"nsis":{"installMode":"currentUser"}}}}' | Set-Content -LiteralPath $taskBundleConfig -Encoding utf8
-          pnpm exec tauri build --bundles nsis --config $taskBundleConfig -- --locked
+          pnpm --filter @autopets/desktop exec tauri build --bundles nsis --config $taskBundleConfig -- --locked
           if ($LASTEXITCODE -ne 0) { throw 'Tauri NSIS build failed.' }
       - name: Stage review artifacts
         run: |
           $taskArtifactDir = Join-Path $env:GITHUB_WORKSPACE 'work/artifacts'
           New-Item -ItemType Directory -Path $taskArtifactDir -Force | Out-Null
-          $taskInstallers = @(Get-ChildItem -LiteralPath 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
+          $taskInstallers = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
           if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
           Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
-          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png -Destination $taskArtifactDir
-          Compress-Archive -LiteralPath hooks, skills, scripts, docs -DestinationPath (Join-Path $taskArtifactDir 'AutoPets-companion.zip')
+          Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/assistance-evaluation.json -Destination $taskArtifactDir
+          Copy-Item -LiteralPath release/chatgpt/AutoPets-chatgpt-extension.zip, release/chatgpt/AutoPets-chatgpt-companion.zip, release/chatgpt/package-status.json -Destination $taskArtifactDir
+          node scripts/package-companion.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Codex companion packaging failed.' }
+          Copy-Item -LiteralPath release/AutoPets-companion.zip -Destination $taskArtifactDir
           $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
             $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$taskDigest  $($_.Name)"
@@ -116,8 +139,8 @@ jobs:
         run: |
           $taskTag = $env:AUTOPETS_RELEASE_TAG
           if ($taskTag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'An existing vX.Y.Z tag is required.' }
-          $taskVersion = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
-          if ($taskTag -ne "v$taskVersion") { throw 'Tag must match package.json version.' }
+          $taskVersion = (Get-Content -LiteralPath apps/desktop/package.json -Raw | ConvertFrom-Json).version
+          if ($taskTag -ne "v$taskVersion") { throw 'Tag must match desktop package version.' }
           $taskCommit = git rev-parse --verify "refs/tags/$taskTag^{commit}"
           if ($LASTEXITCODE -ne 0 -or $taskCommit -ne $env:GITHUB_SHA) { throw 'Tag must already point to the exact built commit.' }
       - name: Download artifacts from this successful run

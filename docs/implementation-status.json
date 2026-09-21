@@ -1,34 +1,138 @@
 {
-  "date": "2026-09-20",
-  "scope": "CI results apply to c895955; later changes are presentation assets, authoring tools and verification documentation",
-  "phase": "concept-complete-windows-installer-built-native-integration-unverified",
-  "ci": {"runId":35462024271,"commit":"c89595547d9c95049c85061bb87442a0f385b3f4","conclusion":"success","url":"https://github.com/swaan-kim/autopets/actions/runs/35462024271"},
-  "adapterTests": {"passed":22,"failed":0},
-  "browserNativeUiChecks": {"passed":6,"pageErrors":0,"usesFixtures":true},
-  "interactiveConceptChecks": {"passed":8,"failed":0},
-  "conceptImages": {"count":3,"width":1080,"height":1350},
-  "petFrames": {"count":8,"width":64,"height":64,"transparent":true},
+  "date": "2026-09-21",
+  "scope": "Repository and module restructuring; existing app identity, data and external contracts preserved.",
+  "phase": "implemented-foundation-awaiting-live-connection-and-quality-evidence",
+  "installedThisChange": false,
+  "liveRoutingEnabled": false,
+  "runtimeModelCallsForPet": 0,
+  "automaticQualityRepairEnabled": false,
   "frontendTypecheck": "passed",
   "frontendProductionBuild": "passed",
   "rustFormatCheck": "passed",
-  "cargoMetadata": "passed",
-  "rustTests": {"written":31,"executedLocally":0,"passedInCI":31,"failedInCI":0},
-  "nativeBinaryBuiltLocally": false,
-  "windowsNsisInstallerBuiltInCI": true,
-  "downloadedArtifactChecksums": {"matched":4,"failed":0},
-  "installerSignature": "NotSigned",
-  "nativeAppRunning": false,
-  "desktopObservationVerified": false,
-  "taskReturn": "manual",
-  "taskTokenUsage": "unavailable",
-  "directApproval": "excluded-from-v1",
-  "runtimeModelCallsForPet": 0,
-  "interviewsConducted": 0,
-  "repository": "https://github.com/swaan-kim/autopets",
+  "localRustTests": "blocked-before-project-check-by-time-macros-E0463",
+  "nodeTests": {
+    "passed": 102,
+    "failed": 0,
+    "evidence": "Windows CI and fresh checkout"
+  },
+  "browserNativeUiChecks": {
+    "usesFixtures": true,
+    "passed": 14,
+    "pageErrors": 0
+  },
+  "evaluation": {
+    "liveSavingsMeasured": false,
+    "liveQualityEvaluated": false,
+    "koreanCases": 24,
+    "mode": "local-rules-only"
+  },
+  "currentImplementationCI": {
+    "status": "success",
+    "commit": "1315d19c5cbbfe82cbf5eb7a4716310575a35ff8",
+    "runId": 35594357064,
+    "url": "https://github.com/swaan-kim/autopets/actions/runs/35594357064",
+    "pullRequest": "https://github.com/swaan-kim/autopets/pull/8",
+    "nodeTests": {
+      "passed": 102,
+      "failed": 0
+    },
+    "uiChecks": {
+      "passed": 14,
+      "pageErrors": 0
+    },
+    "rustTests": {
+      "passed": 52,
+      "failed": 0
+    },
+    "promoTests": {
+      "passed": 22,
+      "failed": 0
+    },
+    "nsisBuild": "passed",
+    "companionPackaging": "passed",
+    "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
+  },
+  "realConnection": {
+    "codex": "unverified",
+    "modelChange": "unverified-disabled",
+    "twoChatIsolation": "fixture-only",
+    "chatgptChrome": "unverified",
+    "taskTokenUsage": "unavailable"
+  },
+  "previousEvidence": {
+    "m1": {
+      "installerExitCode": 0,
+      "installerSignature": "NotSigned",
+      "appProcessAndWindowObserved": true,
+      "authenticatedLoopbackReachable": true,
+      "nativeVisualQa": "not-performed",
+      "codexSeparateProbe": "access-denied",
+      "hooksConfiguredForDevelopmentProject": true,
+      "hookTrustChanged": false,
+      "actualChatReceipts": 0,
+      "preparationProbeTests": 9,
+      "allNodeTests": 31,
+      "gate": "not-passed",
+      "observedAtUtc": "2026-09-20T13:35:00Z"
+    },
+    "note": "Historical build and installation only; not evidence for new implementation.",
+    "ci": {
+      "runId": 35462024271,
+      "commit": "c89595547d9c95049c85061bb87442a0f385b3f4",
+      "conclusion": "success",
+      "url": "https://github.com/swaan-kim/autopets/actions/runs/35462024271"
+    },
+    "date": "2026-09-20"
+  },
   "limitations": [
-    "Local Rust compilation was blocked by Windows application control error 4551; no security policy was changed.",
-    "Real Codex hook trust and task event roundtrip remain unverified.",
-    "Installer signing and permission to execute on the user PC require separate verification.",
-    "The offline concept uses demonstration data; it does not control Codex tasks."
-  ]
+    "Production connector capabilities remain false until observed in the actual service.",
+    "No app, hook, trust, extension, registry, or account changes were made in this implementation turn.",
+    "Local Windows application control remains enabled. CI build does not establish PC execution permission or signing.",
+    "Model selection and bounded repair policies are tested locally but not connected to live UI control.",
+    "No real user testing or token savings measurement has been conducted."
+  ],
+  "repository": "https://github.com/swaan-kim/autopets",
+  "promoTests": {
+    "passed": 22,
+    "failed": 0
+  },
+  "layout": {
+    "desktop": "apps/desktop",
+    "connections": "integrations",
+    "contracts": "packages/contracts",
+    "guidance": "packages/guidance",
+    "runtimeDataMigrated": false,
+    "status": "implemented-and-regression-checked"
+  },
+  "freshCheckout": {
+    "commit": "4a389ef79a1f1c5344410b366a64c83c5875ad62",
+    "lockedInstall": "passed",
+    "build": "passed",
+    "nodeTests": 102,
+    "uiChecks": 14,
+    "rootDevAndDesktopDelegation": "passed-with-help-only"
+  },
+  "offlineDemo": {
+    "networkDisabled": true,
+    "externalRequests": 0,
+    "pageErrors": 0,
+    "consoleErrors": 0
+  },
+  "detachedCodexCompanion": {
+    "extractedOutsideRepository": true,
+    "passed": 49,
+    "failed": 0
+  },
+  "compatibility": {
+    "existingRustTestsPreserved": 52,
+    "uniqueSqlStatementsUnchanged": 26,
+    "appDataIdentityUnchanged": true,
+    "newDatabaseMigration": false,
+    "liveWindowPositionRestore": "not-tested"
+  },
+  "localBuildHelpers": {
+    "powerShellParseChecks": 3,
+    "explicitToolchainPathChecks": 10,
+    "systemSettingsChanged": false
+  }
 }

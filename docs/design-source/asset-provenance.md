@@ -22,7 +22,7 @@ Baseline dependency: Sharp 0.35.4, pinned in this folder's package and lock file
 | Artifact | SHA-256 at packaging |
 | --- | --- |
 | `sprite-source.png` | `7bd968c4f1a74751d66fdf176b1a15221be3a72bf215ab7602c1557ff15100ba` |
-| `public/assets/pet/sprite.png` | `04746ea7c1985acff12abaee2b03559d4a63ee67c65631b066f1d763a94fe31d` |
+| `apps/desktop/public/assets/pet/sprite.png` | `04746ea7c1985acff12abaee2b03559d4a63ee67c65631b066f1d763a94fe31d` |
 | `motion-sources/thinking.png` | `5bf8804f37c1f52438057ce1c4aa5dd1cde2deac1e8bb99542337d395df66dc3` |
 | `motion-sources/tool.png` | `3ecbedaca4013b446f9f1a61e16904498856cfdc9bfa51b24f56ad6e158c23d4` |
 | `motion-sources/dizzy.png` | `d92dd54c385da105bcf82500bb31d7369156050a72a28ca5cd3ae93feb24b1c7` |

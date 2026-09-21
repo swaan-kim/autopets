@@ -8,14 +8,14 @@
 
 첫 화면은 1280×800 가로 구성의 그림 소개입니다. `00-overview-wide.png`는 **“AI는 맡겨두고, 내 일에 집중하세요.”**라는 제안과 큰 업무 장면, 세 가지 편리함, 전체 사용 흐름을 한 화면에 담습니다. `01-overview.png`는 같은 소개의 세로판, `02-user-flow.png`는 결과물까지 이어지는 이야기, `03-benefits.png`는 사용자가 얻는 편의를 보여주며 세로 세 장은 각각 1080×1350입니다. 모션 상태표 한 장을 추가하며 최신 자료 묶음은 `AutoPets-promo-v4.zip`입니다. 상단 **직접 체험하기**와 첫 장의 편리함 카드가 클릭 목업으로 연결됩니다.
 
-로고 원본은 `public/assets/brand/autopets-mark.svg`입니다. 템플릿의 `__BRAND_MARK__` 위치에 빌드 스크립트가 같은 SVG를 삽입하므로 원본 한 곳을 고치면 소개·체험 화면에 함께 반영됩니다. 워드마크 및 PNG 배포본도 같은 brand 폴더에 있습니다. 로고는 코드로 만든 벡터이며 이번 수정에서 ImageGen을 추가 호출하지 않았습니다.
+로고 원본은 `apps/desktop/public/assets/brand/autopets-mark.svg`입니다. 템플릿의 `__BRAND_MARK__` 위치에 빌드 스크립트가 같은 SVG를 삽입하므로 원본 한 곳을 고치면 소개·체험 화면에 함께 반영됩니다. 워드마크 및 PNG 배포본도 같은 brand 폴더에 있습니다. 로고는 코드로 만든 벡터이며 이번 수정에서 ImageGen을 추가 호출하지 않았습니다.
 
 ## 준비와 재생성
 
 저장소 루트에서 Node.js 22 이상과 npm으로 실행합니다. 제작용 Sharp 의존성은 이 폴더에만 설치되므로 앱의 `package.json`과 잠금 파일을 바꾸지 않습니다.
 
 ```sh
-npm ci --prefix docs/design-source
+pnpm install --frozen-lockfile
 node docs/design-source/build-assets.cjs --plan
 node --test docs/design-source/build-assets.test.cjs
 node --test docs/design-source/demo-model.test.cjs
@@ -34,9 +34,9 @@ node docs/design-source/build-assets.cjs
 
 | 출력 | 내용 |
 | --- | --- |
-| `public/assets/pet/frame-0.png` … `frame-7.png` | 64 × 64 RGBA 프레임 8개 |
-| `public/assets/pet/sprite.png` | 256 × 128 런타임 아틀라스 |
-| `public/assets/pet/manifest.json` | 프레임 순서, 기준선, 원본 내용 경계 |
+| `apps/desktop/public/assets/pet/frame-0.png` … `frame-7.png` | 64 × 64 RGBA 프레임 8개 |
+| `apps/desktop/public/assets/pet/sprite.png` | 256 × 128 런타임 아틀라스 |
+| `apps/desktop/public/assets/pet/manifest.json` | 프레임 순서, 기준선, 원본 내용 경계 |
 | `docs/demo/assets/frame-0.png` … `frame-17.png` | 홍보용 64 × 64 RGBA 프레임 18개 |
 | `docs/demo/assets/promo-sprite.png` | 홍보용 256 × 320 RGBA 아틀라스, 4열 × 5행 |
 | `docs/demo/assets/promo-motion-manifest.json` | 홍보 모션 설정, 원본 해시, 공통 crop·기준선 검증 기록 |
