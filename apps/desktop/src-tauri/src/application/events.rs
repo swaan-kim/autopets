@@ -41,6 +41,9 @@ impl Store {
         let session_id = event.session_id.clone();
         let observed = event.clone();
         self.with_session_transaction(&session_id, |store| store.apply_event_inner(event, now))?;
+        if matches!(observed.kind, EventKind::TurnStarted) {
+            self.assign_setup_pet(&session_id)?;
+        }
         // Update the separate connection only after the session transaction commits.
         if let Some(turn_id) = &observed.turn_id {
             if matches!(

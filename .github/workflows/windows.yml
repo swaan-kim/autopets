@@ -103,12 +103,19 @@ jobs:
           node scripts/package-companion.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Codex companion packaging failed.' }
           Copy-Item -LiteralPath release/AutoPets-companion.zip -Destination $taskArtifactDir
+          node scripts/package-bootstrap.mjs --installer $taskInstallers[0].FullName --node (Get-Command node).Source --license work/NODE-LICENSE.txt --out (Join-Path $taskArtifactDir 'AutoPets-windows-x64.zip')
+          if ($LASTEXITCODE -ne 0) { throw 'One-call package failed.' }
           $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
             $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$taskDigest  $($_.Name)"
           }
           $taskChecksums | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'SHA256SUMS.txt') -Encoding utf8
           "Commit: $env:GITHUB_SHA`nChecks: Node, rendered UI, Rust, NSIS build.`nInstaller signature and real Codex Desktop hook roundtrip require separate verification." | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'BUILD.txt') -Encoding utf8
+      - name: Verify isolated native first start and repeat
+        run: |
+          ./scripts/test-bootstrap-windows.ps1 -Package work/artifacts/AutoPets-windows-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Native bootstrap verification failed.' }
+          Copy-Item -LiteralPath work/bootstrap-windows-evidence.json, work/native-ui-setup.png -Destination work/artifacts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: AutoPets-windows-review

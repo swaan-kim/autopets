@@ -11,10 +11,11 @@ use transport::workflow_commands;
 pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            platform::windows::show_manager(app.clone(), None, None)
+            platform::windows::reopen(app)
         }))
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            commands::get_setup_state,
             workflow_commands::workflow_snapshot,
             workflow_commands::save_workflow_preferences,
             workflow_commands::configure_workflow_task,
