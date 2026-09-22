@@ -45,6 +45,14 @@ test('installer resources work detached from checkout and contain no installer o
   await assert.rejects(fs.stat(f.env.CODEX_HOME), { code: 'ENOENT' });
 });
 
+test('verified connector manifests accept the same pinned beta version syntax as release metadata', async t => {
+  const f = await fixture(t), file = path.join(f.report.connector, 'manifest.json');
+  const manifest = await readJson(file);
+  manifest.appVersion = '0.1.0-beta.1';
+  await fs.writeFile(file, JSON.stringify(manifest));
+  assert.equal((await verifyPackage(f.report.connector, { installedResource: true })).appVersion, '0.1.0-beta.1');
+});
+
 test('post-install connect, AI repeat and repair converge without another installer or duplicate hooks', async t => {
   const f = await fixture(t);
   const result = await connectInstalled(f.options);
@@ -58,7 +66,10 @@ test('post-install connect, AI repeat and repair converge without another instal
   assert.deepEqual(installed.connectionStates, [{ hostId: 'codex-windows-local', configured: true }]);
   const before = await fs.readFile(path.join(f.env.CODEX_HOME, 'hooks.json'), 'utf8');
   const skill = await fs.readFile(path.join(f.env.CODEX_HOME, 'skills/autopets/SKILL.md'), 'utf8');
-  assert.ok(skill.includes(JSON.stringify(path.join(f.report.connector, 'runtime/node.exe'))));
+  const executionLine = skill.split(/\r?\n/u).find(line => line.startsWith('실행 파일: '));
+  assert.ok(executionLine, 'Registered skill must name its runtime executable');
+  const skillRuntime = JSON.parse(executionLine.slice('실행 파일: '.length));
+  assert.equal(await fs.realpath(skillRuntime), await fs.realpath(path.join(f.report.connector, 'runtime/node.exe')));
   await start({ ...f.options, root: f.managed });
   assert.equal(f.calls.filter(call => call === 'launch').length, 1);
   assert.equal(f.calls.at(-1).entryPoint, 'ai');

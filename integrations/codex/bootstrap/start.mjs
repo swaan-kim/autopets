@@ -16,7 +16,7 @@ function connectionStates(manifest, configured) {
 export async function verifyPackage(directory, { installedResource = false } = {}) {
   const realRoot = await fs.realpath(directory);
   const manifest = await readJson(path.join(directory, 'manifest.json'));
-  if (manifest.version !== 1 || !/^\d+\.\d+\.\d+$/u.test(manifest.appVersion) || !Array.isArray(manifest.files) || manifest.files.length > 1000) throw Error('package-format');
+  if (manifest.version !== 1 || !/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/u.test(manifest.appVersion) || !Array.isArray(manifest.files) || manifest.files.length > 1000) throw Error('package-format');
   const names = new Set();
   for (const file of manifest.files) {
     const target = inside(directory, file.path);
