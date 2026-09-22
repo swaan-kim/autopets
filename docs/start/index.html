@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="쓰던 AI는 그대로. 바탕화면의 작은 펫과 함께 작업 방식, 현재 흐름, 필요한 확인을 가까이 두세요.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>AutoPets — AI는 그대로, 펫과 함께</title>
+  <link rel="stylesheet" href="./start.css">
+  <script src="./start.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <div class="page">
+    <header><a class="brand" href="./" aria-label="AutoPets 시작 페이지"><span aria-hidden="true">✳</span> AutoPets</a><nav aria-label="주 메뉴"><a href="#start">시작하기</a><a href="#compatibility">연결 범위</a><a href="../">화면 미리보기 ↗</a></nav></header>
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy"><span class="eyebrow">A LITTLE COMPANY FOR YOUR AI WORK</span><h1 id="hero-title">AI는 그대로,<br><em>펫과 함께.</em></h1><p class="hero-description">매번 설명하던 작업 방식은 한곳에.<br>맡긴 일의 흐름과 필요한 확인은 가까이.</p><a class="button primary" href="#start">나에게 맞는 시작 방법 ↓</a><p class="release-note" id="hero-release">Windows 앱 · 공개 배포 준비 중</p></div>
+        <div class="hero-scene" aria-label="제품 경험 예시. 실제 연결 상태가 아닌 시연 화면">
+          <div class="scene-window"><div class="window-bar"><span>● ● ●</span><b>쓰던 AI의 작업 창</b></div><div class="scene-document"><small>이번 주 업무 정리</small><h2>먼저 계획을 세워볼게요.</h2><p>✓ 목표와 완료 기준 확인</p><p>✓ 필요한 자료 정리</p><div class="document-line"></div><div class="document-line short"></div></div></div>
+          <div class="pet-example"><div class="pet-bubble"><small>Codex · 선택한 작업</small><b>주간 보고서 정리</b><span>계획을 확인해주세요</span></div><img class="hero-pet" src="../demo/assets/frame-0.png" width="176" height="176" alt="작업 옆을 지키는 픽셀 펫"><span class="example-label">화면 예시 · 연결 기능 검증 중</span></div>
+        </div>
+      </section>
+      <section class="benefits" aria-label="AutoPets가 돕는 세 가지">
+        <article><span class="benefit-index">01 / 준비</span><h2>작업 준비</h2><p>목표·조건·완료 기준을 정리하고,<br>필요하면 계획부터 시작해요.</p></article>
+        <article><span class="benefit-index">02 / 설정</span><h2>설정 실수 방지</h2><p>계획→실행의 희망 설정을 살펴보고,<br>실제 설정이 미확인이면 안내로 확인해요.</p></article>
+        <article><span class="benefit-index">03 / 확인</span><h2>조건 유지와 확인</h2><p>채팅별 수정한 조건과 남은 일을<br>기록하고 다시 확인해요.</p></article>
+      </section>
+      <section id="start" class="start-section" aria-labelledby="start-title">
+        <div class="section-heading"><span class="eyebrow">TWO WAYS IN, ONE APP</span><h2 id="start-title">시작은 두 가지. 도착은 같은 앱.</h2><p>어느 쪽이든 같은 Windows 설치 파일과 연결 화면으로 이어져요.</p></div>
+        <div class="entrypoints">
+          <article class="entry"><div class="entry-heading"><span class="entry-icon" aria-hidden="true">↓</span><h3>버튼으로 설치</h3></div><p>Windows 설치 파일을 받고<br>앱에서 사용할 AI를 연결해요.</p><button class="button primary" id="download-pending" disabled>Windows 다운로드 준비 중</button><a class="button primary" id="download" hidden>Windows용 다운로드</a><small id="download-detail">서명과 실제 설치 검증 후 공개해요.</small></article>
+          <article class="entry"><div class="entry-heading"><span class="entry-icon" aria-hidden="true">✦</span><h3>AI에게 요청</h3></div><p>지원하는 로컬 AI에서 요청하면<br>같은 앱의 설치·연결로 이어져요.</p><button class="button primary" id="copy-invocation" disabled>AI 설치 안내 준비 중</button><small>웹·클라우드 AI에서는 설치 링크로 안내해요.</small><p class="copy-status" id="copy-status" role="status" aria-live="polite"></p></article>
+        </div>
+        <div class="shared-flow" aria-label="공통 시작 순서"><span><i>1</i>앱 준비</span><b aria-hidden="true">→</b><span><i>2</i>AI 연결</span><b aria-hidden="true">→</b><span><i>3</i>첫 작업 확인</span></div>
+        <p class="flow-note">연결은 앱에서 버튼을 눌러 시작해요. AI의 연결 허용이나 재시작이 필요하면 안내해요.</p>
+        <details id="release-details" hidden><summary>공개 설치 파일 확인</summary><dl><dt>버전</dt><dd id="release-version"></dd><dt>SHA-256</dt><dd><code id="release-sha"></code></dd></dl><p><a href="./channel.json">서명·배포 정보</a> · <a href="./fetch-installer.ps1">AI 설치용 검증 도구</a></p></details>
+      </section>
+      <section id="compatibility" class="compatibility" aria-labelledby="compatibility-title">
+        <div class="section-heading"><span class="eyebrow">KNOW WHAT’S CONNECTED</span><h2 id="compatibility-title">사용할 AI와 연결 범위를 확인하세요.</h2><p>앱 설치, 활동 수신, 실제 모델 변경은 각각 확인해요.</p></div>
+        <div class="compatibility-table" role="table" aria-label="연결 지원 상태">
+          <div role="row"><span role="columnheader">환경</span><span role="columnheader">현재 상태</span></div>
+          <div role="row"><strong role="cell">Codex · Windows 로컬</strong><span role="cell">연결 구현 · 실제 환경 검증 중</span></div>
+          <div role="row"><strong role="cell">ChatGPT Work 로컬 · Codex VS Code</strong><span role="cell">호환성 확인 전</span></div>
+          <div role="row"><strong role="cell">Claude Code · Antigravity</strong><span role="cell">후속 연결 준비 중</span></div>
+          <div role="row"><strong role="cell">ChatGPT · Claude · Gemini 웹</strong><span role="cell">요청 문구와 설치 링크 안내</span></div>
+        </div>
+        <p class="compatibility-note">모델·추론·Plan 모드 자동 변경은 아직 제공하지 않아요. 기존 AI에서 직접 확인하도록 안내해요. 별도 AI 채팅창이나 API 결제 없이, 사용 중인 AI와 함께하는 Windows 앱을 만들고 있어요.</p>
+      </section>
+      <section class="help" aria-labelledby="help-title"><img src="../demo/assets/frame-8.png" width="80" height="80" alt=""><div><h2 id="help-title">설치 전에 조금 더 살펴볼까요?</h2><p>기능 검증과 공개 배포 상태를 확인할 수 있어요.</p></div><a class="button secondary" href="https://github.com/swaan-kim/autopets">프로젝트·설치 도움 ↗</a></section>
+    </main>
+    <footer><a class="brand" href="./">AutoPets</a><span>작업은 AI와. 흐름은 펫과.</span><a href="../">기존 화면 데모 ↗</a></footer>
+  </div>
+  <!-- AUTOPETS_RELEASE_DATA -->
+</body>
+</html>

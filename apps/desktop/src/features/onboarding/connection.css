@@ -1,0 +1,32 @@
+.connection-guide { max-width: 780px; }
+.setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 20px; }
+.setup-heading h1 { font-size: 28px; line-height: 1.3; margin: 8px 0; }
+.setup-heading p { margin: 8px 0; }
+.setup-heading .pet-art { margin-right: 35px; }
+.setup-steps { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line); }
+.setup-step { display: flex; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.setup-step > div { flex: 1; min-width: 0; }
+.setup-step-title { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.setup-step h2 { margin: 3px 0 0; font-size: 17px; letter-spacing: -.5px; }
+.setup-step p { color: #6e7c62; line-height: 1.7; font-size: 12px; margin: 8px 0; }
+.setup-status { font-size: 10px; color: #78866b; padding: 5px 9px; border-radius: 6px; background: #edf1e5; white-space: nowrap; }
+.setup-default { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; font-size: 12px; margin-top: 14px; }
+.setup-default strong { margin-left: 9px; color: #4e693b; }
+.setup-step .small-note { font-size: 11px; color: #7c8772; }
+.setup-step .text-input { width: 100%; max-width: 450px; height: 40px; min-height: 40px; resize: none; }
+.setup-step .field-label { display: block; margin: 18px 0 7px; }
+.setup-step .setup-host-stage { margin: 7px 0 12px; font-size: 10px; }
+.setup-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 16px 0; }
+.setup-actions summary { cursor: pointer; color: #78866b; font-size: 11px; }
+.setup-actions details .text-button { display: block; margin-top: 6px; }
+.setup-help { margin: 12px 0 16px; }
+.setup-help summary { font-size: 11px; color: #647d50; cursor: pointer; }
+.setup-help .path-code { white-space: normal; overflow-wrap: anywhere; }
+.setup-guidance .text-button { display: block; margin-top: 8px; }
+.setup-step .setup-notice { border-left: 2px solid #92aa75; padding-left: 12px; }
+.setup-step .setup-delivery { font-size: 11px; }
+.setup-endnote { margin-top: 20px; line-height: 1.8; }
+.setup-update { margin: 22px 0; padding-top: 15px; border-top: 1px solid var(--line); font-size: 11px; }
+.setup-update summary { cursor: pointer; color: #647d50; }
+.setup-update .button { margin: 12px 8px 0 0; }
+@media (max-width: 700px) { .setup-heading .pet-art { margin: 0; } .setup-step { gap: 12px; } .setup-step-title { align-items: flex-start; flex-wrap: wrap; gap: 8px; } .setup-status { padding-left: 0; background: transparent; } }

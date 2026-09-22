@@ -51,7 +51,10 @@ impl Store {
         ) && self.sessions.get(&session_id).is_some_and(|session| {
             session.active_turn == observed.turn_id && !session.turn_finished
         }) {
-            self.assign_setup_pet(&session_id)?;
+            if self.sessions.get(&session_id).is_some_and(|session| session.last_activity_timestamp == observed.timestamp)
+                && self.observe_setup_event(&session_id, observed.timestamp)? {
+                self.assign_setup_pet(&session_id)?;
+            }
         }
         // Update the separate connection only after the session transaction commits.
         if let Some(turn_id) = &observed.turn_id {
