@@ -52,6 +52,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Repository layout check failed.' }
           pnpm test
           if ($LASTEXITCODE -ne 0) { throw 'Node tests failed.' }
+          node scripts/validate-release.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Release declarations are inconsistent.' }
+          node scripts/build-product-site.mjs --out work/product-site/start
+          if ($LASTEXITCODE -ne 0) { throw 'Product site build failed.' }
       - name: Verify reproducible promo assets
         run: |
           node --test docs/design-source/build-assets.test.cjs docs/design-source/demo-model.test.cjs
@@ -85,10 +89,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed.' }
       - name: Test Rust core and bridge
         run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Stage self-contained installer resources
+        run: |
+          node scripts/stage-desktop-resources.mjs --node (Get-Command node).Source --license work/NODE-LICENSE.txt --out work/desktop-resources
+          if ($LASTEXITCODE -ne 0) { throw 'Bundled connector staging failed.' }
       - name: Build NSIS installer
         run: |
-          $taskBundleConfig = Join-Path $env:RUNNER_TEMP 'autopets-tauri-build.json'
-          '{"bundle":{"active":true,"targets":["nsis"],"windows":{"nsis":{"installMode":"currentUser"}}}}' | Set-Content -LiteralPath $taskBundleConfig -Encoding utf8
+          $taskBundleConfig = Join-Path $env:GITHUB_WORKSPACE 'work/desktop-resources/tauri-bundle.json'
           pnpm --filter @autopets/desktop exec tauri build --bundles nsis --config $taskBundleConfig -- --locked
           if ($LASTEXITCODE -ne 0) { throw 'Tauri NSIS build failed.' }
       - name: Stage review artifacts
@@ -99,6 +106,12 @@ jobs:
           if ($taskInstallers.Count -ne 1) { throw 'Expected exactly one NSIS installer.' }
           Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination $taskArtifactDir
           Copy-Item -LiteralPath scripts/fetch-bootstrap.ps1 -Destination $taskArtifactDir
+          Copy-Item -LiteralPath scripts/fetch-installer.ps1 -Destination $taskArtifactDir
+          Copy-Item -LiteralPath docs/releases/channel.json -Destination $taskArtifactDir
+          node scripts/package-plugin.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Skill-only plugin packaging failed.' }
+          Copy-Item -LiteralPath release/AutoPets-plugin-review.zip, release/AutoPets-plugin-review.zip.sha256 -Destination $taskArtifactDir
+          Copy-Item -LiteralPath work/product-site -Destination $taskArtifactDir -Recurse
           Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/native-ui-workflow-presets.png, work/native-ui-workflow-task.png, work/assistance-evaluation.json -Destination $taskArtifactDir
           Copy-Item -LiteralPath release/chatgpt/AutoPets-chatgpt-extension.zip, release/chatgpt/AutoPets-chatgpt-companion.zip, release/chatgpt/package-status.json -Destination $taskArtifactDir
           node scripts/package-companion.mjs
@@ -112,9 +125,10 @@ jobs:
           }
           $taskChecksums | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'SHA256SUMS.txt') -Encoding utf8
           "Commit: $env:GITHUB_SHA`nChecks: Node, rendered UI, Rust, NSIS build.`nInstaller signature and real Codex Desktop hook roundtrip require separate verification." | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'BUILD.txt') -Encoding utf8
-      - name: Verify isolated native first start and repeat
+      - name: Verify single installer, explicit connection, repair and removal
         run: |
-          ./scripts/test-bootstrap-windows.ps1 -Package work/artifacts/AutoPets-windows-x64.zip
+          $taskInstaller = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)[0].FullName
+          ./scripts/test-bootstrap-windows.ps1 -Installer $taskInstaller
           if ($LASTEXITCODE -ne 0) { throw 'Native bootstrap verification failed.' }
           Copy-Item -LiteralPath work/bootstrap-windows-evidence.json, work/native-ui-setup.png -Destination work/artifacts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

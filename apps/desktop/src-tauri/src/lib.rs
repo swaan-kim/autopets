@@ -13,9 +13,14 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             platform::windows::reopen(app)
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::get_setup_state,
+            transport::setup_commands::connect_ai,
+            transport::setup_commands::disconnect_ai,
+            platform::updater::check_app_update,
+            platform::updater::install_app_update,
             workflow_commands::workflow_snapshot,
             workflow_commands::save_workflow_preferences,
             workflow_commands::configure_workflow_task,

@@ -27,6 +27,43 @@ async fn setup_is_authenticated_and_does_not_fabricate_sessions() {
 }
 
 #[tokio::test]
+async fn disconnect_is_authenticated_and_preserves_task_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"hostId":"codex-windows-local"});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup/disconnect","",body.clone()).await.0, 401);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup/disconnect",&auth,serde_json::json!({"hostId":"work-local"})).await.0, 409);
+    let setup = serde_json::json!({"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":null,"cwd":null,"entryPoint":"desktop"});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup",&auth,setup).await.0,200);
+    let (_, result) = json_http(&bridge.base_url,"POST","/v1/setup/disconnect",&auth,body).await;
+    assert_eq!(result["connections"][0]["configured"],false);
+    assert_eq!(result["chatConnected"],false);
+    assert!(store.lock().unwrap().workflow.preferences().unwrap().enabled);
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn chatgpt_read_cannot_complete_codex_first_task_setup() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let setup = serde_json::json!({"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":null,"cwd":null});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup",&auth,setup).await.0,200);
+    let read = serde_json::json!({"operation":"read","identity":{"provider":"chatgpt","accountId":"browser-account","chatId":"unrelated-web-chat"}});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/assistance",&auth,read).await.0,200);
+    assert_eq!(store.lock().unwrap().setup_status().unwrap()["chatConnected"],false);
+    let other_event = serde_json::json!({"provider":"chatgpt","eventId":"wrong-provider","sessionId":"unrelated-web-chat","turnId":"turn","kind":"turn_started","cwd":dir.path().to_string_lossy(),"timestamp":crate::domain::activity::now_ms()});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/events",&auth,other_event).await.0,422);
+    assert!(store.lock().unwrap().sessions.is_empty());
+    bridge.shutdown();
+}
+
+#[tokio::test]
 async fn workflow_preflight_is_authenticated_cwd_bound_and_never_invents_started_turns() {
     let dir = tempfile::tempdir().unwrap();
     let store = Arc::new(std::sync::Mutex::new(

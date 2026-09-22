@@ -1,23 +1,23 @@
 {
   "date": "2026-09-22",
-  "scope": "One-call bootstrap, bundled Node runtime, user-scope hooks, repair/disconnect and separate app/chat/guidance/protection evidence. No installation on the user PC.",
-  "phase": "implemented-bootstrap-awaiting-live-codex-verification",
+  "scope": "Unified single EXE, explicit in-app AI connection, product site, skill/plugin entry, host capability catalog and signed update path. No installation or publication on the user PC.",
+  "phase": "implemented-unified-entry-awaiting-native-ci-and-live-verification",
   "installedThisChange": false,
   "liveRoutingEnabled": false,
   "runtimeModelCallsForPet": 0,
   "automaticQualityRepairEnabled": false,
   "frontendTypecheck": "passed",
   "frontendProductionBuild": "passed",
-  "rustFormatCheck": "passed",
+  "rustFormatCheck": "local-tool-blocked-by-windows-policy",
   "localRustTests": "blocked-before-project-check-by-time-macros-E0463",
   "nodeTests": {
-    "passed": 127,
+    "passed": 140,
     "failed": 0,
-    "evidence": "Local complete suite including standalone ZIP and real child user-hook fixtures."
+    "evidence": "Local complete suite including installed-resource repair, shared entrypoints and publication-gate fixtures."
   },
   "browserNativeUiChecks": {
     "usesFixtures": true,
-    "passed": 25,
+    "passed": 31,
     "pageErrors": 0
   },
   "evaluation": {
@@ -27,10 +27,10 @@
     "mode": "local-rules-only"
   },
   "currentImplementationCI": {
-    "status": "tracked-in-current-branch-checks",
-    "branch": "feat/one-call-setup",
+    "status": "pending",
+    "branch": "feat/unified-distribution",
     "url": "https://github.com/swaan-kim/autopets/actions/workflows/windows.yml",
-    "note": "PR #15 checks record Rust, NSIS, packaged first start and repeat on an isolated Windows runner. Live Codex trust/delivery and user Windows policy remain unverified."
+    "note": "New code requires exact-commit Windows CI. Prior bootstrap success does not prove this installer or live AI support."
   },
   "realConnection": {
     "codex": "unverified",
@@ -88,6 +88,15 @@
       "nsisBuild": "passed",
       "companionPackaging": "passed",
       "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
+    },
+    "oneCallCI": {
+      "commit": "fd7f8b0704ee37150a4d7aae151054b3cc19d6ec",
+      "url": "https://github.com/swaan-kim/autopets/actions/runs/35631416604",
+      "conclusion": "success",
+      "nodeTests": 127,
+      "uiChecks": 25,
+      "rustTests": 73,
+      "note": "Prior ZIP bootstrap only; not evidence for unified EXE or actual Codex trust."
     }
   },
   "limitations": [
@@ -170,7 +179,23 @@
     "publicOneCallVerified": false,
     "bundledRuntime": "Node 24 with LICENSE",
     "userProfileChanged": false,
-    "isolatedNativeInstall": "tracked-in-current-CI",
+    "isolatedNativeInstall": "awaiting-new-CI",
     "screen": "docs/images/app-setup.png"
+  },
+  "unifiedDistribution": {
+    "installerFormat": "single-nsis-exe",
+    "firstRun": "app-ready / AI-connect / first-real-event",
+    "siteSource": "docs/start/index.html",
+    "sitePublishedThisChange": false,
+    "pluginSource": "integrations/plugins/autopets",
+    "pluginDirectorySubmitted": false,
+    "storeSubmitted": false,
+    "publicRelease": null,
+    "codexLiveConnection": "unverified",
+    "otherProviderAdapters": "catalog-only-not-enabled",
+    "updatePolicy": "embedded-key-required / signed-version-required / no-downgrade",
+    "actualSignedUpdate": "not-tested",
+    "signerLimitation": "Locked Tauri CLI 2.11.4 does not embed the version in its signature; a verified version-aware signer is required before public updates.",
+    "screen": "docs/images/product-start.png"
   }
 }

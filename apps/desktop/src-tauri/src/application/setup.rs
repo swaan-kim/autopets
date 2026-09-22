@@ -14,6 +14,8 @@ pub struct SetupRequest {
     pub installed_version: String,
     pub session_id: Option<String>,
     pub cwd: Option<String>,
+    pub host_id: Option<String>,
+    pub entry_point: Option<String>,
 }
 
 #[cfg(test)]
@@ -24,6 +26,8 @@ mod tests {
             installed_version: env!("CARGO_PKG_VERSION").into(),
             session_id: Some(id.into()),
             cwd: Some(cwd.into()),
+            host_id: None,
+            entry_point: None,
         }
     }
     fn event(store: &mut Store, id: &str, cwd: &str) {
@@ -100,12 +104,68 @@ mod tests {
         assert_eq!(starts, 0);
         assert_eq!(store.setup_status().unwrap()["chatConnected"], true);
     }
+    #[test]
+    fn installed_app_waits_for_new_event_and_keeps_first_task_stable() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_string_lossy().to_string();
+        let mut store = Store::new(dir.path()).unwrap();
+        event(&mut store, "before-connect", &cwd);
+        let mut input = request("unused", &cwd);
+        input.session_id = None;
+        input.cwd = None;
+        input.host_id = Some(crate::domain::connections::CODEX_LOCAL.into());
+        input.entry_point = Some("desktop".into());
+        store.begin_setup(input.clone()).unwrap();
+        assert_eq!(store.setup_status().unwrap()["chatConnected"], false);
+        // A delayed old event is observable, but cannot prove this new setup worked.
+        let configured = store.read_setup().unwrap().unwrap().configured_at;
+        store.apply_event(serde_json::from_value(serde_json::json!({
+            "eventId":"delayed-before-setup","sessionId":"delayed","turnId":"old-turn",
+            "kind":"turn_started","cwd":cwd,"timestamp":configured.saturating_sub(1)
+        })).unwrap()).unwrap();
+        assert_eq!(store.setup_status().unwrap()["chatConnected"], false);
+        event(&mut store, "first-real", &cwd);
+        event(&mut store, "second-real", &cwd);
+        let state = store.setup_status().unwrap();
+        assert_eq!(state["connections"][0]["firstTask"]["sessionId"], "first-real");
+        assert_eq!(state["connections"][0]["hostVersion"], serde_json::Value::Null);
+        assert_eq!(state["guidanceDelivered"], false);
+        store.begin_setup(input.clone()).unwrap();
+        assert_eq!(store.setup_status().unwrap()["connections"][0]["firstTask"]["sessionId"], "first-real");
+        store.disconnect_setup(crate::domain::connections::CODEX_LOCAL).unwrap();
+        event(&mut store, "after-disconnect", &cwd);
+        assert_eq!(store.setup_status().unwrap()["chatConnected"], false);
+        assert!(!store.slots.iter().any(|slot| slot.as_deref() == Some("after-disconnect")));
+        store.begin_setup(input).unwrap();
+        assert_eq!(store.setup_status().unwrap()["chatConnected"], false);
+        event(&mut store, "reconnected", &cwd);
+        assert_eq!(store.setup_status().unwrap()["connections"][0]["firstTask"]["sessionId"], "reconnected");
+    }
+    #[test]
+    fn legacy_setup_reads_without_migration_and_unknown_hosts_are_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path()).unwrap();
+        std::fs::write(dir.path().join("setup-state-v1.json"), serde_json::to_vec(&serde_json::json!({
+            "version":1,"request":{"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":null,"cwd":null}
+        })).unwrap()).unwrap();
+        assert_eq!(store.setup_status().unwrap()["phase"], "connecting");
+        let mut input = request("unknown", &dir.path().to_string_lossy());
+        input.host_id = Some("claude-web".into());
+        assert!(store.begin_setup(input).is_err());
+        assert!(!store.sessions.contains_key("unknown"));
+    }
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Saved {
     version: u8,
     request: SetupRequest,
+    #[serde(default)]
+    configured_at: u64,
+    #[serde(default)]
+    disconnected: bool,
+    #[serde(default)]
+    first_observed_session: Option<String>,
 }
 
 fn identity(id: &str) -> Identity {
@@ -116,7 +176,46 @@ fn identity(id: &str) -> Identity {
     }
 }
 impl Store {
+    fn read_setup(&self) -> Result<Option<Saved>, String> {
+        match std::fs::read(self.data_dir.join("setup-state-v1.json")) {
+            Ok(bytes) => serde_json::from_slice::<Saved>(&bytes)
+                .map(Some).map_err(|_| "Invalid setup state".into()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+    fn write_setup(&self, saved: &Saved) -> Result<(), String> {
+        let temporary = self.data_dir.join(format!("setup-{}.tmp", uuid::Uuid::new_v4()));
+        std::fs::write(&temporary, serde_json::to_vec(saved).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        std::fs::rename(temporary, self.data_dir.join("setup-state-v1.json"))
+            .map_err(|e| e.to_string())
+    }
+    pub fn disconnect_setup(&mut self, host_id: &str) -> Result<serde_json::Value, String> {
+        crate::domain::connections::require_connectable(host_id)?;
+        if let Some(mut saved) = self.read_setup()? {
+            saved.disconnected = true;
+            self.write_setup(&saved)?;
+        }
+        // Retain chat records, explicit opt-outs and desired preferences.
+        self.setup_status()
+    }
+    pub(crate) fn observe_setup_event(&mut self, session_id: &str, timestamp: u64) -> Result<bool, String> {
+        let Some(mut saved) = self.read_setup()? else { return Ok(false) };
+        if saved.disconnected || timestamp < saved.configured_at {
+            return Ok(false);
+        }
+        if saved.request.session_id.is_none() && saved.first_observed_session.is_none() {
+            saved.first_observed_session = Some(session_id.into());
+            self.write_setup(&saved)?;
+        }
+        Ok(true)
+    }
     pub fn begin_setup(&mut self, input: SetupRequest) -> Result<serde_json::Value, String> {
+        crate::domain::connections::require_connectable(input.host_id.as_deref().unwrap_or(crate::domain::connections::CODEX_LOCAL))?;
+        if input.entry_point.as_deref().is_some_and(|entry| !["desktop", "ai", "store"].contains(&entry)) {
+            return Err("Invalid setup entry point".into());
+        }
         if input.installed_version != env!("CARGO_PKG_VERSION") {
             return Err("Setup requires the matching app version".into());
         }
@@ -165,43 +264,32 @@ impl Store {
             }
         }
         let current = input.session_id.clone();
-        let temporary = self
-            .data_dir
-            .join(format!("setup-{}.tmp", uuid::Uuid::new_v4()));
-        std::fs::write(
-            &temporary,
-            serde_json::to_vec(&Saved {
-                version: 1,
-                request: input,
-            })
-            .map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())?;
-        std::fs::rename(temporary, file).map_err(|e| e.to_string())?;
+        let previous = self.read_setup()?;
+        let unchanged = previous.as_ref().is_some_and(|saved| !saved.disconnected
+            && saved.request.session_id == input.session_id && saved.request.cwd == input.cwd);
+        let configured_at = previous.as_ref().filter(|_| unchanged)
+            .map(|saved| saved.configured_at).unwrap_or_else(crate::domain::activity::now_ms);
+        let first_observed_session = previous.filter(|_| unchanged).and_then(|saved| saved.first_observed_session);
+        self.write_setup(&Saved { version: 1, request: input, configured_at, disconnected: false, first_observed_session })?;
         if let Some(id) = current {
             self.assign_setup_pet(&id)?;
         }
         self.setup_status()
     }
     pub fn setup_status(&self) -> Result<serde_json::Value, String> {
-        let saved = match std::fs::read(self.data_dir.join("setup-state-v1.json")) {
-            Ok(bytes) => {
-                Some(serde_json::from_slice::<Saved>(&bytes).map_err(|_| "Invalid setup state")?)
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(e) => return Err(e.to_string()),
-        };
+        let saved = self.read_setup()?;
         let request = saved.as_ref().map(|s| &s.request);
-        let chat = request
-            .and_then(|r| r.session_id.as_ref())
+        let configured = saved.as_ref().is_some_and(|s| !s.disconnected);
+        let current_id = saved.as_ref().and_then(|s| s.request.session_id.as_ref().or(s.first_observed_session.as_ref()));
+        let chat = current_id
             .and_then(|id| self.sessions.get(id));
-        let connected = chat.is_some_and(|s| {
+        let connected = configured && chat.is_some_and(|s| {
             matches!(
                 s.view.connection,
                 crate::domain::activity::ConnectionState::Observed
             )
         });
-        let confirmed = if let Some(id) = request.and_then(|r| r.session_id.as_ref()) {
+        let confirmed = configured && if let Some(id) = current_id {
             self.assistance
                 .load(&identity(id))
                 .ok()
@@ -211,14 +299,26 @@ impl Store {
         };
         Ok(
             serde_json::json!({ "version":1, "installedVersion":env!("CARGO_PKG_VERSION"),
-            "phase": if saved.is_none() { "not-started" } else if connected { "ready" } else { "connecting" },
+            "phase": if !configured { "not-started" } else if connected { "ready" } else { "connecting" },
             "appReady":true, "chatConnected":connected, "guidanceDelivered":confirmed,
             "protection":{"model":false,"reasoning":false,"submission":false},
-            "retryable":true, "nextAction":if saved.is_none() { "start" } else if connected { "none" } else { "review-hooks" } }),
+            "retryable":true, "nextAction":if !configured { "start" } else if connected { "none" } else { "review-hooks" },
+            "currentHostId": request.map(|r| r.host_id.as_deref().unwrap_or(crate::domain::connections::CODEX_LOCAL)),
+            "entryPoint":request.and_then(|r| r.entry_point.as_ref()),
+            "hosts":crate::domain::connections::catalog(),
+            "connections": if saved.is_some() { vec![serde_json::json!({
+                "hostId":crate::domain::connections::CODEX_LOCAL,
+                "configured":configured,
+                "status":if !configured { "disconnected" } else if connected { "connected" } else { "waiting-for-event" },
+                "hostVersion":null,
+                "firstTask":if connected { chat.map(|s| serde_json::json!({"sessionId":s.view.id,"lastEventAt":s.view.last_seen})) } else { None },
+                "guidanceDelivered":confirmed,
+                "settingsVerified":{"model":false,"reasoning":false,"submission":false}
+            })] } else { vec![] } }),
         )
     }
     pub(crate) fn assign_setup_pet(&mut self, session_id: &str) -> Result<(), String> {
-        if !self.data_dir.join("setup-state-v1.json").exists() {
+        if !self.read_setup()?.is_some_and(|saved| !saved.disconnected) {
             return Ok(());
         }
         let Some(session) = self.sessions.get(session_id) else {

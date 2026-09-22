@@ -27,6 +27,7 @@ AutoPets/
   integrations/
     codex/                 hooks·scripts·skills·assistance·probe·tests
     chatgpt/               extension·native·compatibility·tests
+    plugins/autopets/       스킬 중심 플러그인 검토용 소스
   packages/
     contracts/             데이터 형식·검증·공통 TS 타입·tests
     guidance/              절차·지침·선택·점검·평가·tests
@@ -53,3 +54,5 @@ Rust는 domain의 타입·검증, application의 처리, storage의 SQL, transpo
 [실행 계약](assistance.md) · [검수](../testing/assistance-implementation.md) · [병렬 개발 인계](../roadmap/parallel-development.md)
 
 후속 기능: [계획·실행 상태와 제출 보호](planning-execution.md).
+
+배포 진입점은 `docs/start/`, 연결 지원표는 `packages/contracts/data/connections.json`, 단일 EXE 자원 구성은 `scripts/stage-desktop-resources.mjs`에 둔다. [설치·연결·업데이트 계약](distribution.md).

@@ -5,6 +5,7 @@ import { identityKey } from '../assistance/identity';
 type WorkStyle = UserPreferences['workStyle'];
 type Action = () => void | Promise<void>;
 export interface PetQuickCardProps {
+  aiName?: string;
   title: string;
   help: string;
   goal?: string;
@@ -29,12 +30,13 @@ export interface PetQuickCardProps {
 }
 
 const styles: [WorkStyle, string][] = [['auto', '자동'], ['fast', '빠르게'], ['thorough', '꼼꼼하게']];
-export function PetQuickCard({ title, help, goal, constraints = [], currentStep, task, workflowTask, defaultWorkStyle, assistanceEnabled, busy = false, disabled = false, error, notice, returnLabel = '작업으로 돌아가기', onReturn, onWorkStyle, onDetails, onToggleAssistance, onHide, onQuit, onClose }: PetQuickCardProps) {
+export function PetQuickCard({ aiName, title, help, goal, constraints = [], currentStep, task, workflowTask, defaultWorkStyle, assistanceEnabled, busy = false, disabled = false, error, notice, returnLabel = '작업으로 돌아가기', onReturn, onWorkStyle, onDetails, onToggleAssistance, onHide, onQuit, onClose }: PetQuickCardProps) {
   const [more, setMore] = useState(false);
   const taskKey = task ? identityKey(task.identity) : workflowTask ? identityKey(workflowTask.identity) : '';
   useEffect(() => { setMore(false); }, [taskKey]);
   const effectiveStyle = task?.workStyleOverride ?? defaultWorkStyle;
   return <section className="pet-quick-card" aria-label={`${title} 빠른 설정`}>
+    {aiName && <span className="quick-ai-name">{aiName} · 선택한 작업</span>}
     <header className="quick-card-header"><h2 title={title}>{title}</h2><button className="icon-button" aria-label="펫 카드 메뉴" aria-expanded={more} onClick={() => setMore(!more)}>⋯</button><button className="icon-button" aria-label="카드 접기" onClick={onClose}>×</button></header>
     <p className="quick-help" title={help}>{help}</p>
     {task?.enabled && assistanceEnabled && task.assistance.status === 'unavailable' && <p className="quick-connection" role="status">자동 도움 연결을 확인해주세요.</p>}
