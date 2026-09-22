@@ -6,7 +6,7 @@ import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { stageDesktopResources } from '../stage-desktop-resources.mjs';
-import { connectInstalled, disconnect, start, verifyPackage } from '../../integrations/codex/bootstrap/start.mjs';
+import { connectInstalled, disconnect, runPowerShellJson, start, verifyPackage } from '../../integrations/codex/bootstrap/start.mjs';
 import { readJson } from '../../integrations/codex/bootstrap/files.mjs';
 
 async function fixture(t) {
@@ -51,6 +51,11 @@ test('verified connector manifests accept the same pinned beta version syntax as
   manifest.appVersion = '0.1.0-beta.1';
   await fs.writeFile(file, JSON.stringify(manifest));
   assert.equal((await verifyPackage(f.report.connector, { installedResource: true })).appVersion, '0.1.0-beta.1');
+});
+
+test('Windows PowerShell discovery preserves Korean and space characters without registry writes', { skip: process.platform !== 'win32' }, async () => {
+  const result = await runPowerShellJson("[pscustomobject]@{ directory='C:\\사용자\\한글 폴더\\AutoPets'; version='0.1.0' } | ConvertTo-Json -Compress");
+  assert.deepEqual(result, { directory: 'C:\\사용자\\한글 폴더\\AutoPets', version: '0.1.0' });
 });
 
 test('post-install connect, AI repeat and repair converge without another installer or duplicate hooks', async t => {

@@ -21,7 +21,11 @@ try {
     $taskInstall = Start-Process -FilePath ([IO.Path]::GetFullPath($Installer)) -ArgumentList @('/S', "/D=$taskAppDirectory") -PassThru -Wait -WindowStyle Hidden
     if ($taskInstall.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $taskApp -PathType Leaf) -or -not (Test-Path -LiteralPath $taskNode -PathType Leaf)) { throw 'Single self-contained EXE installation failed.' }
     if (Test-Path -LiteralPath $env:CODEX_HOME) { throw 'Silent installer changed AI settings before explicit connection.' }
-    Start-Process -FilePath $taskApp -WindowStyle Hidden
+    # Exercise actual registry discovery with a Korean/spaced install directory.
+    # A fresh installed runner must open onboarding without installing any hooks.
+    $taskOpened = (& $taskNode $taskStart | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0 -or -not $taskOpened.ok -or -not $taskOpened.appReady -or $taskOpened.chatConnected -or $taskOpened.nextAction -ne 'connect-in-app') { throw 'AI invocation could not open the freshly installed app.' }
+    if (Test-Path -LiteralPath $env:CODEX_HOME) { throw 'Fresh-install AI invocation changed configuration before explicit connection.' }
     $taskDeadline = [DateTime]::UtcNow.AddSeconds(30)
     $taskInitial = $null
     while ([DateTime]::UtcNow -lt $taskDeadline) {

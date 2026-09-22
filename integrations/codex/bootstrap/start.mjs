@@ -41,15 +41,40 @@ function childExit(executable, args) {
     child.on('exit', code => code === 0 ? resolve() : reject(Error(code === 1 ? 'installation-cancelled' : 'installation-failed')));
   });
 }
+export function runPowerShellJson(script) {
+  return new Promise((resolve, reject) => {
+    // Windows PowerShell otherwise encodes redirected output using its legacy
+    // console code page, which can corrupt Korean installation paths.
+    const utf8Script = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; ${script}`;
+    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(utf8Script, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    let finished = false, size = 0;
+    const chunks = [];
+    const finish = (error, value) => {
+      if (finished) return;
+      finished = true; clearTimeout(timeout);
+      if (error) { child.kill(); reject(error); } else resolve(value);
+    };
+    const timeout = setTimeout(() => finish(Error('existing-installation-review')), 5000);
+    child.stdout.on('data', data => {
+      size += data.length;
+      if (size > 65536) return finish(Error('existing-installation-review'));
+      chunks.push(data);
+    });
+    child.on('error', () => finish(Error('existing-installation-review')));
+    child.on('close', code => {
+      if (code !== 0) return finish(Error('existing-installation-review'));
+      try { const text = Buffer.concat(chunks).toString('utf8').trim(); finish(null, text ? JSON.parse(text) : null); }
+      catch { finish(Error('existing-installation-review')); }
+    });
+  });
+}
 export const systemDriver = {
-  discover: async () => new Promise((resolve, reject) => {
+  discover: async () => {
     // Query only this product's current-user uninstall entries. Never execute a
     // registry command string or modify registry/PATH/security policy.
     const script = `$items = @('HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\AutoPets','HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\local.autopets.desktop') | ForEach-Object { Get-ItemProperty -LiteralPath $_ -ErrorAction SilentlyContinue }; $items | Where-Object { $_.DisplayName -eq 'AutoPets' -and $_.InstallLocation } | Select-Object -First 1 @{n='directory';e={$_.InstallLocation.Trim([char]34)}}, @{n='version';e={$_.DisplayVersion}} | ConvertTo-Json -Compress`;
-    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
-    const chunks = []; child.stdout.on('data', data => chunks.push(data));
-    child.on('error', reject); child.on('exit', () => { try { const text = Buffer.concat(chunks).toString('utf8').trim(); resolve(text ? JSON.parse(text) : null); } catch { reject(Error('existing-installation-review')); } });
-  }),
+    return runPowerShellJson(script);
+  },
   install: async (installer, destination) => childExit(installer, ['/S', `/D=${destination}`]),
   launch: async executable => new Promise((resolve, reject) => {
     const child = spawn(executable, [], { detached: true, windowsHide: true, stdio: 'ignore' });
