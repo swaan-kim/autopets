@@ -18,6 +18,27 @@ export const MAX_CLI_OUTPUT_BYTES = 64 * 1024;
 const entry = fileURLToPath(import.meta.url);
 const samePath = (left, right) => process.platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
 const sameIdentity = (left, right) => isObject(left) && ['provider', 'accountId', 'chatId'].every(key => left[key] === right[key]);
+const sameFile = (left, right) => left.dev === right.dev && left.ino === right.ino;
+
+async function plainLocation(file, directory = false) {
+  if (!path.isAbsolute(file ?? '')) throw new BridgeError('file-path');
+  const absolute = path.resolve(file), root = path.parse(absolute).root;
+  const parts = absolute.slice(root.length).split(path.sep).filter(Boolean);
+  let current = root, info = await lstat(root);
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new BridgeError('file-type');
+  // Windows 8.3 aliases are ordinary directory entries. Inspect every ancestor
+  // rather than treating a different realpath spelling as evidence of a link.
+  for (const [index, part] of parts.entries()) {
+    current = path.join(current, part); info = await lstat(current);
+    const needsDirectory = directory || index < parts.length - 1;
+    if (info.isSymbolicLink() || (needsDirectory ? !info.isDirectory() : !info.isFile())
+      || (!needsDirectory && info.nlink !== 1)) throw new BridgeError('file-type');
+  }
+  if (!directory && !parts.length) throw new BridgeError('file-type');
+  const canonical = await realpath(absolute), resolved = await lstat(canonical);
+  if (!sameFile(info, resolved) || resolved.isSymbolicLink()) throw new BridgeError('file-changed');
+  return { canonical, info };
+}
 
 function argumentsFor(args) {
   const operation = args.shift();
@@ -39,17 +60,19 @@ function argumentsFor(args) {
 
 async function savePacket(file, value) {
   const parent = path.dirname(file);
-  if (!samePath(path.resolve(parent), await realpath(parent))) throw new BridgeError('file-type');
-  const temporary = path.join(parent, `.autopets-packet-${randomUUID()}.tmp`);
+  const initial = await plainLocation(parent, true);
+  const target = path.join(initial.canonical, path.basename(file));
+  const temporary = path.join(initial.canonical, `.autopets-packet-${randomUUID()}.tmp`);
   let created = false;
   try {
     const handle = await open(temporary, 'wx', 0o600); created = true;
     try { await handle.writeFile(JSON.stringify(value), 'utf8'); await handle.sync(); }
     finally { await handle.close(); }
-    if (!samePath(path.resolve(parent), await realpath(parent))) throw new BridgeError('file-type');
+    const checked = await plainLocation(parent, true);
+    if (!sameFile(initial.info, checked.info) || !samePath(initial.canonical, checked.canonical)) throw new BridgeError('file-changed');
     // A hard-link publishes the complete file atomically and fails if the destination
     // already exists (including symlinks). rename would overwrite on some platforms.
-    await link(temporary, file);
+    await link(temporary, target);
     return file;
   } catch (error) {
     if (error instanceof BridgeError) throw error;
@@ -99,19 +122,17 @@ export function summarizeArtifact(result) {
 }
 
 async function regularBytes(file, limit) {
-  if (!path.isAbsolute(file ?? '')) throw new BridgeError('file-path');
-  const initial = await lstat(file);
-  if (!initial.isFile() || initial.isSymbolicLink() || initial.nlink !== 1
-    || !samePath(path.resolve(file), await realpath(file))) throw new BridgeError('file-type');
+  const location = await plainLocation(file), initial = location.info;
   if (initial.size > limit) throw new BridgeError('file-size');
-  const handle = await open(file, 'r');
-  const unchanged = stat => stat.isFile() && stat.dev === initial.dev && stat.ino === initial.ino
+  const handle = await open(location.canonical, 'r');
+  const unchanged = stat => stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1 && sameFile(stat, initial)
     && stat.size === initial.size && stat.mtimeMs === initial.mtimeMs;
   try {
     if (!unchanged(await handle.stat())) throw new BridgeError('file-changed');
     const bytes = await handle.readFile();
     if (bytes.length > limit) throw new BridgeError('file-size');
-    if (!unchanged(await handle.stat()) || !unchanged(await lstat(file))) throw new BridgeError('file-changed');
+    const checked = await plainLocation(file);
+    if (!unchanged(await handle.stat()) || !unchanged(checked.info) || !samePath(location.canonical, checked.canonical)) throw new BridgeError('file-changed');
     return bytes;
   } finally { await handle.close(); }
 }
@@ -203,6 +224,7 @@ function userError(error) {
 export async function runArtifact(args = process.argv.slice(2), environment = process.env, { timeoutMs = 5000 } = {}) {
   try {
     const options = argumentsFor([...args]);
+    const observedCwdCandidate = options.cwd ?? process.cwd();
     const cwd = await realpath(process.cwd());
     if (options.cwd && !samePath(await realpath(options.cwd), cwd)) throw new BridgeError('wrong-task');
     const sessionId = environment.CODEX_THREAD_ID || options.chat;
@@ -229,10 +251,20 @@ export async function runArtifact(args = process.argv.slice(2), environment = pr
     const identity = validateIdentity(identityFor(sessionId));
     if (operation !== 'inspect') validateArtifactRequest({ operation, identity, ...fields });
     const connection = await readConnection(connectionPath);
-    const observed = await requestJson(connection, `/v1/task-context?${new URLSearchParams({ sessionId, cwd })}`, undefined, timeoutMs);
+    const contextAt = value => requestJson(connection, `/v1/task-context?${new URLSearchParams({ sessionId, cwd: value })}`, undefined, timeoutMs);
+    let observed;
+    try { observed = await contextAt(observedCwdCandidate); }
+    catch (error) {
+      // Lookup only: a known canonical spelling may match an observation stored
+      // under the long path. Never repeat a mutation or guess another session.
+      if (!(error instanceof BridgeError) || ![404, 409].includes(error.status) || samePath(observedCwdCandidate, cwd)) throw error;
+      observed = await contextAt(cwd);
+    }
     if (observed.sessionId !== sessionId || !validString(observed.turnId) || !path.isAbsolute(observed.cwd ?? '')
       || !samePath(await realpath(observed.cwd), cwd) || (options.turn && options.turn !== observed.turnId)) throw new BridgeError('wrong-task');
-    const binding = { sessionId, cwd, turnId: observed.turnId };
+    // Preserve the observed spelling for the bridge after checking canonical
+    // equivalence (an observed Windows path may legitimately use an 8.3 alias).
+    const binding = { sessionId, cwd: observed.cwd, turnId: observed.turnId };
     // A lost mutation response is uncertain: never automatically resend or generate replacement output.
     const data = scopedResult(await artifactRequest(connection, { operation, identity, binding, ...fields }, timeoutMs), identity, operation !== 'inspect');
     const result = { ok: true, operation: options.operation, ...data,

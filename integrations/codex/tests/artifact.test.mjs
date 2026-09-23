@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, link, symlink, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, realpath, link, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,8 +34,9 @@ function largePng() {
 }
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), 'autopets-artifact-한글 공백-'));
-  const state = { project: null, styles: [], requests: [], contextOverride: null, responseOverride: null, status: null, hang: false };
+  const tempRoot = await realpath(tmpdir());
+  const directory = await realpath(await mkdtemp(path.join(tempRoot, 'autopets-artifact-한글 공백-')));
+  const state = { project: null, styles: [], requests: [], observedCwd: directory, contextOverride: null, responseOverride: null, status: null, hang: false };
   const token = 'test_token_not_to_log_12345678901234567890', sessionId = 'chat-현재', turnId = 'turn-observed';
   const server = createServer(async (request, response) => {
     const chunks = [];
@@ -43,10 +45,13 @@ async function fixture(t) {
     state.requests.push({ path: request.url, authorization: request.headers.authorization, payload });
     const send = (status, body) => { response.writeHead(status, { 'Content-Type': 'application/json' }); response.end(JSON.stringify(body)); };
     if (request.headers.authorization !== `Bearer ${token}`) return send(401, { private: token });
-    if (request.url.startsWith('/v1/task-context?')) return send(200, state.contextOverride ?? { sessionId, turnId, cwd: directory });
+    if (request.url.startsWith('/v1/task-context?')) {
+      if (new URL(request.url, 'http://localhost').searchParams.get('cwd') !== state.observedCwd) return send(404, {});
+      return send(200, state.contextOverride ?? { sessionId, turnId, cwd: state.observedCwd });
+    }
     if (request.url !== '/v1/artifacts') return send(404, {});
     assert.deepEqual(payload.identity, identityFor(sessionId));
-    assert.deepEqual(payload.binding, { sessionId, turnId, cwd: directory });
+    assert.deepEqual(payload.binding, { sessionId, turnId, cwd: state.observedCwd });
     if (state.status) return send(state.status, { private: token });
     if (payload.operation !== 'inspect') {
       if (payload.expectedRevision !== (state.project?.revision ?? 0)) return send(409, { private: token });
@@ -61,7 +66,7 @@ async function fixture(t) {
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(async () => {
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
-    assert.equal(path.dirname(directory), tmpdir()); assert.ok(path.basename(directory).startsWith('autopets-artifact-'));
+    assert.equal(path.dirname(directory), tempRoot); assert.ok(path.basename(directory).startsWith('autopets-artifact-'));
     await rm(directory, { recursive: true, force: true });
   });
   const connection = path.join(directory, '연결 설정.json');
@@ -113,6 +118,32 @@ test('CLI uses existing prepare config without mutating it and accepts explicit 
   assert.equal(absent.result.code, 'current-task-unavailable');
 });
 
+test('Windows 8.3 paths preserve observed cwd and allow ordinary input/output aliases', { skip: process.platform !== 'win32' }, async t => {
+  const f = await fixture(t);
+  const script = '[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); $folder = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($env:AUTOPETS_ALIAS_TEST_FOLDER); [Console]::Write($folder.ShortPath)';
+  const { stdout } = await promisify(execFile)('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+    env: { ...process.env, AUTOPETS_ALIAS_TEST_FOLDER: f.directory }, windowsHide: true, encoding: 'utf8',
+  });
+  const alias = stdout.trim();
+  if (!alias || alias.toLowerCase() === f.directory.toLowerCase()) return t.skip('This volume does not provide 8.3 aliases');
+  assert.equal((await realpath(alias)).toLowerCase(), f.directory.toLowerCase());
+  await f.file('자료 입력.json', { expectedRevision: 0, templateId: 'product-intro', brief, style });
+  f.state.observedCwd = alias;
+  const saved = await f.run(['prepare', '--cwd', alias, '--brief', path.join(alias, '자료 입력.json')]);
+  assert.equal(saved.code, 0, JSON.stringify(saved.result));
+  assert.equal(f.state.requests.at(-1).payload.binding.cwd, alias);
+  const out = path.join(alias, 'alias-packet.json');
+  assert.equal((await f.run(['inspect', '--cwd', alias, '--out', out])).code, 0);
+  assert.equal(JSON.parse(await readFile(out, 'utf8')).project.revision, 1);
+  f.state.observedCwd = f.directory;
+  const before = f.state.requests.length;
+  assert.equal((await f.run(['inspect', '--cwd', alias])).code, 0, 'read-only canonical lookup reconciles a long-path observation');
+  const requests = f.state.requests.slice(before);
+  assert.equal(requests.filter(item => item.path.startsWith('/v1/task-context?')).length, 2);
+  assert.equal(requests.filter(item => item.path === '/v1/artifacts').length, 1);
+  assert.equal(requests.at(-1).payload.binding.cwd, f.directory);
+});
+
 test('packaged artifact helper imports and prepares detached from checkout with bundled optional skill and license', async t => {
   const f = await fixture(t), root = fileURLToPath(new URL('../../../', import.meta.url));
   const runtime = await f.file('fixture-node.exe', Buffer.from('fixture binary, not executed'));
@@ -147,8 +178,11 @@ test('CLI validates brief, manifest, PNG bounds and regular files before request
   const badManifest = await f.file('self-approve.json', { expectedRevision: 1, renderedText: '확인 문구', review: { readability: 'pass' } });
   const image = await f.file('image.png', png), invalid = await f.file('fake.png', Buffer.from('not a PNG'));
   const hardlinked = path.join(f.directory, 'linked.png'); await link(image, hardlinked);
+  const inputDirectory = path.join(f.directory, 'input-directory'); await mkdir(inputDirectory); await writeFile(path.join(inputDirectory, 'image.png'), png);
+  const linkedInputDirectory = path.join(f.directory, 'linked-input');
+  await symlink(inputDirectory, linkedInputDirectory, process.platform === 'win32' ? 'junction' : 'dir');
   const huge = await f.file('huge.png', Buffer.alloc(MAX_PNG_BYTES + 1));
-  for (const [filename, manifest] of [[invalid, validManifest], [image, badManifest], [hardlinked, validManifest], [huge, validManifest], [f.directory, validManifest]]) {
+  for (const [filename, manifest] of [[invalid, validManifest], [image, badManifest], [hardlinked, validManifest], [path.join(linkedInputDirectory, 'image.png'), validManifest], [huge, validManifest], [f.directory, validManifest]]) {
     assert.equal((await f.run(['publishPNG', '--png', filename, '--manifest', manifest])).code, 1);
   }
   const malformed = await f.file('bad-brief.json', { expectedRevision: 0, templateId: 'product-intro', brief: { ...brief, points: [] }, style });
