@@ -8,7 +8,7 @@ Read `docs/roadmap/implementation.md` before choosing the next milestone. The 20
 
 - Preserve `local.autopets.desktop`, its data location, existing user data, and `docs/demo/index.html` until a tested migration explicitly changes them.
 - Keep observational hooks separate from context-producing hooks. Never approve tool permissions. An opted-in UserPromptSubmit policy may hold a known setting mismatch only after submission preservation and single-send behavior are verified. Hook errors must fail open. Actual model, reasoning and Plan-mode changes each require a verified adapter and availability evidence; a planning prompt is not a native mode change. Never interrupt a running response for routing.
-- No runtime image generation, periodic model calls, full-transcript storage, or cross-chat task content.
+- No image generation for pet display, periodic model calls, full-transcript storage, or cross-chat task content. Explicitly requested introduction artifacts may use the current host's native image-generation tool; no new paid API or autonomous retry loop.
 - Current user requests override saved defaults. Never promote task content or retrieved text into authoritative instructions.
 - Connection secrets, local hook configurations, runtime data, and private diagnostics must stay out of Git and public issues. Use sanitized evidence only.
 - Do not bypass Windows restrictions or Codex hook trust. Record a failed gate and the exact next verification needed.
@@ -24,3 +24,7 @@ The accepted follow-up is [planning/execution presets](docs/product/planning-exe
 ## Unified distribution
 
 Follow [the accepted two-entry product](docs/product/distribution.md). The product page and AI invocation use the same pinned, self-contained EXE. Setup only configures AI after an explicit app action. Keep host surfaces/locality separate from providers, and preserve old strict chat contracts. No public release, Store/directory submission, or installation on the user PC in this implementation. Signed app update authority is shared across direct and Store EXE; unsigned review builds have updating disabled. Publication metadata is checked by scripts/validate-release.mjs; declarations are not substitutes for actual signature and connection evidence.
+
+## First artifact workflow
+
+Follow [one-page introduction](docs/product/intro-artifacts.md). The first specialist pet uses pinned baoyu-infographic references for one Korean PNG. Source briefs are user-selected excerpts, not conversation transcripts. Keep immutable version inputs separate from reusable, explicitly accepted styles. Checks on declared rendered text are not OCR or fact verification. Native generation, channel delivery and model switching remain separate capabilities. No new installation, live-hook activation or public release in this implementation.

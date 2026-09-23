@@ -18,6 +18,7 @@ use tokio::{
 };
 
 mod auth;
+mod artifacts;
 mod handlers;
 mod workflow;
 use workflow::workflow;
@@ -120,6 +121,7 @@ pub async fn start(
         .route("/v1/approvals/{request_id}/returned", post(returned))
         .route("/v1/approvals/{request_id}/abandon", post(abandon))
         .layer(DefaultBodyLimit::max(256 * 1024))
+        .route("/v1/artifacts", post(artifacts::artifacts).layer(DefaultBodyLimit::max(25 * 1024 * 1024)))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate))
         .with_state(state.clone());
     let info = ConnectionInfo {
@@ -193,3 +195,6 @@ pub(crate) fn state_error(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod artifact_tests;

@@ -221,7 +221,7 @@ async fn assistance_http(
     json_http(base_url, "POST", "/v1/assistance", headers, body).await
 }
 
-async fn json_http(
+pub(super) async fn json_http(
     base_url: &str,
     method: &str,
     path: &str,

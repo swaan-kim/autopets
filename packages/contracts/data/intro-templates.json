@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "skill": {
+    "repo": "JimLiu/baoyu-skills",
+    "commit": "1567581c26ec29f4216c6e6835415bf30343b0e3",
+    "path": "skills/baoyu-infographic/SKILL.md",
+    "url": "https://github.com/JimLiu/baoyu-skills/blob/1567581c26ec29f4216c6e6835415bf30343b0e3/skills/baoyu-infographic/SKILL.md",
+    "version": "1.117.4",
+    "license": "MIT"
+  },
+  "templates": [
+    {
+      "id": "product-intro", "title": "제품 소개", "description": "핵심 메시지와 장점 3가지",
+      "example": { "audience": "처음 보는 팀원", "message": "회의 준비를 한곳에서", "points": ["자료 모으기", "안건 정리", "결정 기록"] },
+      "requiredCapabilities": ["current-chat-input", "requested-image-generation", "png-file"],
+      "checkItems": ["핵심 내용 보존", "근거 없는 수치 없음", "한글 가독성", "잘림 없는 배치"]
+    },
+    {
+      "id": "plan-summary", "title": "기획 요약", "description": "문제 → 해결 → 다음 행동",
+      "example": { "audience": "함께 기획하는 동료", "message": "점심 메뉴 결정 시간을 줄여요", "points": ["문제: 매일 반복하는 메뉴 고민", "해결: 후보를 함께 모으기", "다음: 팀에서 먼저 사용"] },
+      "requiredCapabilities": ["current-chat-input", "requested-image-generation", "png-file"],
+      "checkItems": ["문제와 제안 구분", "미확인 효과를 성과로 쓰지 않기", "한글 가독성", "잘림 없는 배치"]
+    },
+    {
+      "id": "comparison", "title": "비교 설명", "description": "같은 기준으로 나란히 비교",
+      "example": { "audience": "방식을 고르는 팀원", "message": "우리 회의에 맞는 진행 방식", "points": ["실시간 회의: 즉시 의견 교환", "비동기 문서: 각자 읽고 답변", "판단 기준: 긴급함과 준비 시간"] },
+      "requiredCapabilities": ["current-chat-input", "requested-image-generation", "png-file"],
+      "checkItems": ["비교 기준과 대상 유지", "없는 수치·우열을 만들지 않기", "한글 가독성", "잘림 없는 배치"]
+    }
+  ]
+}

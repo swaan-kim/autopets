@@ -5,6 +5,7 @@ const path = require('node:path');
 const { emptyWorkflow, runWorkflowChecks } = require('./workflow-ui.cjs');
 const { runSetupChecks } = require('./setup-ui.cjs');
 const { runProductSiteChecks } = require('./product-site-ui.cjs');
+const { emptyArtifacts, runIntroChecks } = require('./intro-ui.cjs');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -41,25 +42,65 @@ const assistanceFixture = {
   })),
 };
 
-async function mockBridge(page, initial, initialAssistance = assistanceFixture, initialWorkflow = emptyWorkflow) {
-  await page.addInitScript(({ initial, initialAssistance, initialWorkflow }) => {
+async function mockBridge(page, initial, initialAssistance = assistanceFixture, initialWorkflow = emptyWorkflow, initialArtifacts = emptyArtifacts) {
+  await page.addInitScript(({ initial, initialAssistance, initialWorkflow, initialArtifacts }) => {
     const state = structuredClone(initial);
     const assistance = structuredClone(initialAssistance);
     const workflow = structuredClone(initialWorkflow);
+    const artifacts = structuredClone(initialArtifacts);
     const calls = [];
-    window.__uiTest = { state, assistance, workflow, calls, clipboard: '', petVisibility: [true, true, true] };
+    window.__uiTest = { state, assistance, workflow, artifacts, artifactImages: {}, calls, clipboard: '', petVisibility: [true, true, true] };
+    const callbacks = new Map(); const eventHandlers = new Map(); let callbackId = 0;
+    window.__uiTest.emitEvent = (name, payload) => { for (const handler of eventHandlers.get(name) || []) callbacks.get(handler)?.({ event: name, id: 1, payload }); };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__uiTest.clipboard = text; } } });
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = {
       metadata: { currentWindow: { label: 'pet-0' }, currentWebview: { label: 'pet-0' } },
-      transformCallback: () => 1, unregisterCallback: () => {},
+      transformCallback: callback => { callbacks.set(++callbackId, callback); return callbackId; }, unregisterCallback: id => callbacks.delete(id),
       invoke: async (name, args) => {
         if (name === 'get_snapshot') return { ...structuredClone(state), now: Date.now() };
         if (name === 'get_assistance') return structuredClone(assistance);
         if (name === 'workflow_snapshot') return structuredClone(workflow);
-        if (name === 'plugin:event|listen') return 1;
+        if (name === 'artifact_snapshot') return structuredClone(artifacts);
+        if (name === 'plugin:event|listen') { eventHandlers.set(args.event, [...(eventHandlers.get(args.event) || []), args.handler]); return 1; }
         if (name.startsWith('plugin:event|')) return null;
         calls.push({ name, args });
+        if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
+        if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
+        if (name === 'artifact_dispatch') {
+          if (window.__uiTest.artifactError) throw Error(window.__uiTest.artifactError);
+          const request = args.request;
+          const key = identity => JSON.stringify([identity.provider, identity.accountId, identity.chatId]);
+          let project = artifacts.projects.find(item => key(item.identity) === key(request.identity || {}));
+          if (window.__uiTest.artifactConflictNext) { project.revision++; project.brief.message = '다른 창에서 저장한 내용'; window.__uiTest.artifactConflictNext = false; throw Error('artifact revision conflict'); }
+          if (request.operation === 'delete-style') { artifacts.styles = artifacts.styles.filter(item => item.id !== request.styleId); return structuredClone(artifacts); }
+          if ((project?.revision || 0) !== request.expectedRevision) throw Error('artifact revision conflict');
+          if (!project && request.operation !== 'save-brief') throw Error('artifact missing project');
+          if (request.operation === 'delete-project') { artifacts.projects = artifacts.projects.filter(item => item !== project); return structuredClone(artifacts); }
+          if (request.operation === 'save-brief') {
+            if (!project) { project = { identity: request.identity, revision: 0, versions: [], pendingRevision: null, favorite: false }; artifacts.projects.push(project); }
+            Object.assign(project, { templateId: request.templateId, brief: structuredClone(request.brief), style: structuredClone(request.style) });
+          }
+          const version = project.versions.find(item => item.id === request.versionId);
+          if (request.operation === 'import-version') {
+            const id = `fixture-version-${project.versions.length + 1}-${project.identity.accountId}`;
+            window.__uiTest.artifactImages[id] = request.pngBytes;
+            project.versions.push({ id, createdAt: Date.now(), width: 1200, height: 800, brief: structuredClone(project.brief), style: structuredClone(project.style), templateId: project.templateId, renderedText: request.renderedText, revisionRequest: project.pendingRevision, checks: [{ id: 'png', status: 'pass', detail: 'PNG 파일과 크기 확인 · UI 검수용', method: 'code' }, { id: 'text', status: 'warning', detail: '문구가 원문과 일치하는지 직접 확인해주세요.', method: 'code' }], review: { readability: 'pending', layout: 'pending', fidelity: 'pending' }, acceptedAt: null });
+            project.pendingRevision = null;
+          }
+          if (request.operation === 'review-version') { if (!version || version.acceptedAt) throw Error('immutable version'); version.review = structuredClone(request.review); }
+          if (request.operation === 'accept-version') { if (!version || Object.values(version.review).some(item => item !== 'pass')) throw Error('review required'); version.acceptedAt = Date.now(); }
+          if (request.operation === 'request-revision') { const base = project.versions.find(item => item.id === request.revisionRequest.baseVersionId); if (!base) throw Error('invalid revision base'); project.brief = structuredClone(base.brief); project.style = structuredClone(base.style); project.templateId = base.templateId; project.pendingRevision = structuredClone(request.revisionRequest); }
+          if (request.operation === 'set-favorite') project.favorite = request.favorite;
+          if (request.operation === 'save-style') {
+            if (!version?.acceptedAt) throw Error('approved style required');
+            const saved = { id: request.styleId || `fixture-style-${artifacts.styles.length + 1}`, name: request.name, templateId: version.templateId, style: structuredClone(version.style), updatedAt: Date.now() };
+            const index = artifacts.styles.findIndex(item => item.id === saved.id);
+            if (index < 0) artifacts.styles.push(saved); else artifacts.styles[index] = saved;
+          }
+          project.revision++; project.updatedAt = Date.now();
+          return structuredClone(artifacts);
+        }
         if (name === 'check_app_update') return window.__uiTest.update || { status: 'disabled', message: '이 빌드에서는 공개 업데이트를 제공하지 않아요.' };
         if (name === 'install_app_update') return null;
         if (name === 'connect_ai' || name === 'disconnect_ai') {
@@ -165,7 +206,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         return null;
       },
     };
-  }, { initial, initialAssistance, initialWorkflow });
+  }, { initial, initialAssistance, initialWorkflow, initialArtifacts });
 }
 
 (async () => {
@@ -178,6 +219,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_INTRO_ONLY === '1') {
+      const screenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     const empty = await newPage();
     await empty.goto(origin);
     await empty.getByRole('heading', { name: /펫과 함께 시작해요/ }).waitFor();
@@ -481,6 +528,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const introScreenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
 
     const compact = await newPage({ width: 1120, height: 1120 });
     const compactAssistance = structuredClone(assistanceFixture);
@@ -497,6 +545,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     });
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots], checks, pageErrors: errors }, null, 2));
-  } finally { await browser.close(); }
+    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
+  } finally { if (errors.length) console.error('Browser page errors:', errors); await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

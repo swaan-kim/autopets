@@ -17,7 +17,7 @@ export async function collectConnectorFiles({ root, node, license }) {
       const name = `${relative}/${entry.name}`;
       if (entry.isSymbolicLink()) throw Error('No linked release files');
       if (entry.isDirectory()) await walk(name);
-      else if (/\.(mjs|json|md|ts)$/u.test(name)) await add(name, path.join(root, name));
+      else if (/\.(mjs|json|md|ts)$/u.test(name) || entry.name === 'LICENSE') await add(name, path.join(root, name));
     }
   }
   for (const directory of ['integrations/codex/bootstrap', 'integrations/codex/hooks', 'integrations/codex/assistance', 'integrations/codex/skills', 'packages/contracts', 'packages/guidance']) await walk(directory);

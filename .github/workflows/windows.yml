@@ -75,6 +75,8 @@ jobs:
         run: |
           node scripts/evaluate-assistance.mjs --out work/assistance-evaluation.json
           if ($LASTEXITCODE -ne 0) { throw 'Local rule evaluation failed.' }
+          node scripts/prepare-intro-evaluation.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Introduction evaluation material preparation failed.' }
           $taskNodePath = (Get-Command node).Source
           $taskNodeVersion = node -p process.version
           $taskNodeLicense = Join-Path $env:GITHUB_WORKSPACE 'work/NODE-LICENSE.txt'

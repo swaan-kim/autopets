@@ -61,6 +61,7 @@ impl Store {
         let mut store = Self {
             assistance: crate::application::assistance::AssistanceStore::new(&data_dir)?,
             workflow: crate::application::workflow::WorkflowStore::new(&data_dir)?,
+            artifacts: crate::application::artifacts::ArtifactStore::new(&data_dir)?,
             db,
             sessions: HashMap::new(),
             slots: [None, None, None],
