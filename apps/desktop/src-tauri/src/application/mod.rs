@@ -1,4 +1,5 @@
 pub mod assistance;
+pub mod artifacts;
 mod events;
 pub mod store;
 mod supervision;

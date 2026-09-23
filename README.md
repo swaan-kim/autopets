@@ -6,8 +6,13 @@
 
 ## 현재 구현 상태
 
+이번 개발 브랜치의 첫 전문 업무는 **한국어 소개 자료 PNG 한 장**입니다. 제품 소개·기획 요약·비교 설명을 고르고, 초안과 수정 이력을 확인한 뒤 승인한 스타일을 재사용합니다. [제품 범위](docs/product/intro-artifacts.md) · [구조](docs/architecture/intro-artifacts.md) · [검수·효과 평가](docs/testing/intro-evaluation.md)
+
+[구현 화면과 검수 결과](docs/testing/intro-implementation.md)
+
 | 구현 | 상태 |
 |---|---|
+| 소개 자료·버전 비교·사용자 검수·스타일 재사용 | 개발 브랜치 구현 · 실제 Codex 생성 연계는 미검증 |
 | 설치 버튼과 AI 호출 | 같은 설치 EXE·첫 연결 화면 · 공개 서명/실제 연결 검증 전 |
 | AI 실행 환경별 지원 정보 | Codex 로컬 연결 코드 · Work/VS Code/Claude/Antigravity는 개별 검증 대기 |
 | 앱 업데이트 | 고정 배포 주소·서명 검증 경로 · 리뷰 빌드 비활성 |
@@ -19,7 +24,7 @@
 | Codex 준비/관측·ChatGPT 확장 연결 | 코드와 검증 도구 구현, 실제 연결 미검증 |
 | 실제 모델 변경·자동 보완·작업별 토큰 | 비활성 또는 미지원 |
 
-설정 저장과 AI 전달 확인은 다릅니다. 토큰 절감·품질 향상은 아직 측정하지 않았습니다. 펫 표시를 위한 반복 모델 호출이나 실행 중 이미지 생성은 없습니다. 응답 도착은 목표 달성 자동 판정이 아닙니다.
+설정 저장과 AI 전달 확인은 다릅니다. 토큰 절감·품질 향상은 아직 측정하지 않았습니다. 펫 표시를 위한 반복 모델 호출이나 이미지 생성은 없습니다. 사용자가 요청한 소개 자료는 기존 AI의 이미지 도구로 제작하며 앱 자체의 생성 API는 없습니다. 응답 도착은 목표 달성 자동 판정이 아닙니다.
 
 [정확한 검수 상태](docs/implementation-status.json) · [Windows 검사와 빌드](https://github.com/swaan-kim/autopets/actions/workflows/windows.yml) · [현재 개발 단계](docs/roadmap/implementation.md)
 

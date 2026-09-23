@@ -339,8 +339,13 @@ fn restart_preserves_assignment_but_never_replays_decisions_or_secrets() {
         .unwrap();
     assert!(!rows.contains("details"));
     assert!(!rows.contains("description"));
-    for file in std::fs::read_dir(d.path()).unwrap().flatten() {
-        let bytes = std::fs::read(file.path()).unwrap();
+    let mut pending = vec![d.path().to_path_buf()];
+    while let Some(path) = pending.pop() {
+        if path.is_dir() {
+            pending.extend(std::fs::read_dir(path).unwrap().map(|entry| entry.unwrap().path()));
+            continue;
+        }
+        let bytes = std::fs::read(path).unwrap();
         assert!(!String::from_utf8_lossy(&bytes).contains("PRIVATE_COMMAND_SECRET"));
     }
 }

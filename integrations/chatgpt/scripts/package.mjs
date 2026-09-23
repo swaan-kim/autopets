@@ -15,7 +15,7 @@ export async function packageChatGPT({out=join(root,'release/chatgpt'),node=null
  const extension=await list(join(root,'integrations/chatgpt/extension'));
  const manifest=JSON.parse(extension.find(f=>f.name==='manifest.json').data);if(manifest.host_permissions?.length||JSON.stringify(manifest.optional_host_permissions)!==JSON.stringify(['https://chatgpt.com/*']))throw Error('manifest-permissions');
  // Shared deterministic policy is copied only when available, never fetched at runtime.
- const runtimeFiles={guidance:['index.mjs','recipes.mjs','injection.mjs','routing.mjs','quality.mjs','workflow.mjs'],contracts:['index.mjs','constants.mjs','validation.mjs','identity.mjs','context.mjs','preferences.mjs','workflow.mjs']};
+ const runtimeFiles={guidance:['index.mjs','recipes.mjs','injection.mjs','routing.mjs','quality.mjs','workflow.mjs','intro.mjs'],contracts:['index.mjs','constants.mjs','validation.mjs','identity.mjs','context.mjs','preferences.mjs','workflow.mjs','artifacts.mjs']};
  for(const[part,files]of Object.entries(runtimeFiles))for(const name of files)extension.push({name:'vendor/'+part+'/'+name,data:await readFile(join(root,'packages',part,name))});
  const companion=[];
  for(const name of ['integrations/chatgpt/native/host.mjs','integrations/chatgpt/native/framing.mjs','integrations/chatgpt/native/install.mjs','integrations/chatgpt/extension/protocol.mjs','integrations/codex/skills/autopets/scripts/bridge-client.mjs','integrations/chatgpt/README.md'])companion.push({name,data:await readFile(join(root,name))});

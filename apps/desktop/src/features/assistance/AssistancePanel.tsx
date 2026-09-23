@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AssistanceSnapshot, UserPreferences } from '@autopets/contracts/types';
+import type { AssistanceSnapshot, ChatIdentity, UserPreferences } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 import { splitLines } from '../../app/shared/text';
 import { identityKey } from './identity';
@@ -9,11 +9,11 @@ import { ConnectionDataPanel } from '../settings/ConnectionDataPanel';
 import type { useWorkflow } from '../../bridge/useWorkflow';
 import { uniqueIdentities } from './identity';
 
-export function AssistancePanel({ snapshot, sessions, initialSessionId, error, loaded, refresh, workflow }: { snapshot: AssistanceSnapshot; sessions: { id: string; label: string }[]; initialSessionId?: string | null; error: string; loaded: boolean; refresh: () => Promise<void>; workflow: ReturnType<typeof useWorkflow> }) {
+export function AssistancePanel({ snapshot, sessions, initialSessionId, initialIdentity, error, loaded, refresh, workflow }: { snapshot: AssistanceSnapshot; sessions: { id: string; label: string }[]; initialSessionId?: string | null; initialIdentity?: ChatIdentity | null; error: string; loaded: boolean; refresh: () => Promise<void>; workflow: ReturnType<typeof useWorkflow> }) {
   const [draft, setDraft] = useState<UserPreferences>(snapshot.preferences);
   const [dirty, setDirty] = useState(false);
   const [selected, setSelected] = useState('');
-  const [tab, setTab] = useState<'current' | 'defaults' | 'connection'>(initialSessionId ? 'current' : 'defaults');
+  const [tab, setTab] = useState<'current' | 'defaults' | 'connection'>(initialSessionId || initialIdentity ? 'current' : 'defaults');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [actionError, setActionError] = useState('');
@@ -21,6 +21,11 @@ export function AssistancePanel({ snapshot, sessions, initialSessionId, error, l
   const initialSelection = useRef<{ sessionId: string | null | undefined; applied: boolean }>({ sessionId: undefined, applied: false });
   useEffect(() => { if (!dirty) setDraft(snapshot.preferences); }, [snapshot.preferences, dirty]);
   useEffect(() => {
+    if (initialIdentity && loaded && (workflow.loaded || workflow.error)) {
+      const key = identityKey(initialIdentity);
+      if (uniqueIdentities(snapshot.tasks, workflow.snapshot.tasks).some(identity => identityKey(identity) === key) && !initialSelection.current.applied) { setSelected(key); setTab('current'); initialSelection.current.applied = true; }
+      return;
+    }
     if (initialSelection.current.sessionId !== initialSessionId) {
       initialSelection.current = { sessionId: initialSessionId, applied: false };
       setSelected('');
@@ -30,7 +35,7 @@ export function AssistancePanel({ snapshot, sessions, initialSessionId, error, l
     const matches = uniqueIdentities(snapshot.tasks, workflow.snapshot.tasks).filter(identity => identity.provider === 'codex' && identity.chatId === initialSessionId);
     setSelected(matches.length === 1 ? identityKey(matches[0]) : '');
     initialSelection.current.applied = true;
-  }, [initialSessionId, loaded, snapshot.tasks, workflow.loaded, workflow.error, workflow.snapshot.tasks]);
+  }, [initialSessionId, initialIdentity, loaded, snapshot.tasks, workflow.loaded, workflow.error, workflow.snapshot.tasks]);
   const selectedTask = snapshot.tasks.find(task => identityKey(task.identity) === selected);
   const panelOrder = ['current', 'defaults', 'connection'] as const;
   const disabled = !isDesktop || !loaded || !!error || busy;

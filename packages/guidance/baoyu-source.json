@@ -1,0 +1,214 @@
+{
+  "repo": "JimLiu/baoyu-skills",
+  "commit": "1567581c26ec29f4216c6e6835415bf30343b0e3",
+  "path": "skills/baoyu-infographic",
+  "url": "https://github.com/JimLiu/baoyu-skills/tree/1567581c26ec29f4216c6e6835415bf30343b0e3/skills/baoyu-infographic",
+  "version": "1.117.4",
+  "license": "MIT",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "601839401f6ce68b7a8aec0f7ba247ab8ef0848113378220bec4b2615cc84ee7"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "1572aaa294c5f7547889f520b6efeed979aeaaf58b4e7c4bcaaa26ace2ee3564"
+    },
+    {
+      "path": "references/analysis-framework.md",
+      "sha256": "8ec26b5fd477ace735a89f0ebcb19e36c64c1c435a9f185d2036e4586bf76ca8"
+    },
+    {
+      "path": "references/base-prompt.md",
+      "sha256": "a0d476aa0042d25d4c757e7f400883a04f586e74920ac822b89a50dffa185d16"
+    },
+    {
+      "path": "references/codex-imagegen.md",
+      "sha256": "dda3857c33d27a81fb771fac89f102c92b7af73f3aa4d84b6d88abd886f993e6"
+    },
+    {
+      "path": "references/config/first-time-setup.md",
+      "sha256": "1005e3f2d0f9ef28dd8a86660beb652c8e1bda3f215b7f61d460aff07a046620"
+    },
+    {
+      "path": "references/config/preferences-schema.md",
+      "sha256": "74abf2974fa598e5b82f0f5fd21a86c28cd61a15a9867748321253246bd0c856"
+    },
+    {
+      "path": "references/layouts/bento-grid.md",
+      "sha256": "b8dfb690b90d935483c5bfcfbd1476f31b392990fe81b1b67ad571008f6e6e99"
+    },
+    {
+      "path": "references/layouts/binary-comparison.md",
+      "sha256": "6740c77e89b4cd120e2da9c96feb447fb707e40ef42ee1774794337c8079c8ee"
+    },
+    {
+      "path": "references/layouts/bridge.md",
+      "sha256": "ead9bd74c76c6de214e0fcee0b6bb756764b10f67ccaba52b591d05136bc7e1d"
+    },
+    {
+      "path": "references/layouts/circular-flow.md",
+      "sha256": "96c560cdf274e62cebecdd864e7d7a18ce44863c78cbda3ff62f48233839e859"
+    },
+    {
+      "path": "references/layouts/comic-strip.md",
+      "sha256": "3ed52755443e435304cb28925da1f7465bd6186aac2ac125d9336c8e0afed028"
+    },
+    {
+      "path": "references/layouts/comparison-matrix.md",
+      "sha256": "77bfeb08fd66287e11db575582262f80a6c8471c5dfa6b9508e3c48e567ae14e"
+    },
+    {
+      "path": "references/layouts/dashboard.md",
+      "sha256": "045514ab6f196ff0ab2c7ead9755e955eff582c5cdedc163eb0a4b18aebee2b6"
+    },
+    {
+      "path": "references/layouts/dense-modules.md",
+      "sha256": "c74d72f4daeb9b41b983f92052fab9b4b6dd28c07651b1be7023d07c20d2482e"
+    },
+    {
+      "path": "references/layouts/funnel.md",
+      "sha256": "e505f04f334d8da00607972b19b23f9a2e24b6c2cff8cdb8fbe6baa0698c7286"
+    },
+    {
+      "path": "references/layouts/hierarchical-layers.md",
+      "sha256": "5fdacc7c543788a32d9e73b4cc26465e54adec498dd4975cdcff85ca2f2d1da9"
+    },
+    {
+      "path": "references/layouts/hub-spoke.md",
+      "sha256": "d79526313a7f6550e5586652d871dee3b958c2ea400242a9a9c3f2bccf4b57a5"
+    },
+    {
+      "path": "references/layouts/iceberg.md",
+      "sha256": "26a21caf9a3d8dd4172565953f2cd060bca0b3ab2afd82f54828dc7542f5e9e3"
+    },
+    {
+      "path": "references/layouts/isometric-map.md",
+      "sha256": "ec0be8d54e5a8db5182696c637fd8769f9b9a6c7f4f190ca9f6f4ea7fc00732a"
+    },
+    {
+      "path": "references/layouts/jigsaw.md",
+      "sha256": "1b5566cdf0981677bf79437a6c5877749a7ecc22fcf1cccc1bee864c9d865e75"
+    },
+    {
+      "path": "references/layouts/linear-progression.md",
+      "sha256": "65dea6f3fc3c131c7d3fc32050e541b3f60e5896699adc0e8624d1c5cc469757"
+    },
+    {
+      "path": "references/layouts/periodic-table.md",
+      "sha256": "8fa5c1823092eecd84e88cf8a3f9547e5ce7389dfeec4fd87b6277154f33f858"
+    },
+    {
+      "path": "references/layouts/story-mountain.md",
+      "sha256": "251491e38320301caa0e2c29c4d7c73f910f598c8a00f924eb7e58a70cc7f2e8"
+    },
+    {
+      "path": "references/layouts/structural-breakdown.md",
+      "sha256": "eff60da27c0603113a283488824312e1078140872ff204935bf2c3cfe712c1fc"
+    },
+    {
+      "path": "references/layouts/tree-branching.md",
+      "sha256": "f493c76aa8d5ace6b5cf96a8ca2480f1131ee2ad41d335fdcb82f3ab83d928fc"
+    },
+    {
+      "path": "references/layouts/venn-diagram.md",
+      "sha256": "c0babb164e540dcdc83f9006835024d04e3e2782665ceac4742e59b02a0cfd48"
+    },
+    {
+      "path": "references/layouts/winding-roadmap.md",
+      "sha256": "52dc70d953e795696a71a4331b951cc428283016d8a01e0ffcf9f1d79eb6e4f4"
+    },
+    {
+      "path": "references/structured-content-template.md",
+      "sha256": "d979b8d4fb37746fbf404d5737ec76e5837f066b97f6bd45c9b9b9478bee0877"
+    },
+    {
+      "path": "references/styles/aged-academia.md",
+      "sha256": "596be4263818615dc491531bb326370a276c3995d13b27a7d3222da7ab8fffd3"
+    },
+    {
+      "path": "references/styles/bold-graphic.md",
+      "sha256": "d7262e681a5d8ca93aea397dbd4f00925724af9d20909adef877f5f117e2dabd"
+    },
+    {
+      "path": "references/styles/chalkboard.md",
+      "sha256": "d903ffb1bd67b7f05972acbf82fec2305d93c149f458ad434097e4b18ff94df5"
+    },
+    {
+      "path": "references/styles/claymation.md",
+      "sha256": "c55e726c0d1156f2715107dd3b3d3c60af385b48db33b6121cb569494aa59644"
+    },
+    {
+      "path": "references/styles/corporate-memphis.md",
+      "sha256": "156e6e27009fdc3305e97ef242cb1a45fac65a054f73cd62718ce99bf5171ebf"
+    },
+    {
+      "path": "references/styles/craft-handmade.md",
+      "sha256": "91740549239ab391d18532c83317a137c68cb11ab33ea154130db68a791288c0"
+    },
+    {
+      "path": "references/styles/cyberpunk-neon.md",
+      "sha256": "68fdaa033dbece53c5e788972ab47fc548df621f23c1ab408c7c633b457f6491"
+    },
+    {
+      "path": "references/styles/hand-drawn-edu.md",
+      "sha256": "f08c3abbdde1b63a8ff8e5a6d82024d2bf961fcff42c032510cf8dd0194e48b8"
+    },
+    {
+      "path": "references/styles/ikea-manual.md",
+      "sha256": "64816d33fd9fb5c22024d2db48f9e4ca7ca38c64cfad1d020880c7f32ccd5690"
+    },
+    {
+      "path": "references/styles/kawaii.md",
+      "sha256": "d88bf32f4257c13ee68b6b13e7af733aa67b4eedce14e50182a791272f389f3a"
+    },
+    {
+      "path": "references/styles/knolling.md",
+      "sha256": "59302d093c12766b1924e659c406429cc2543055ddf791f0d42760a1b2eaafbd"
+    },
+    {
+      "path": "references/styles/lego-brick.md",
+      "sha256": "3753f54d30e02bce4de89a1ace9db4ba82bd8395ae8f643c3670449aaaab04c7"
+    },
+    {
+      "path": "references/styles/morandi-journal.md",
+      "sha256": "13d230f40671f05d80c6e8b134e426da1c7f5a463d354ab241ca0f1ee30fec0d"
+    },
+    {
+      "path": "references/styles/origami.md",
+      "sha256": "58f51438267c1499591d272bd7e434283565799889a4b0c75debf2329f2b919b"
+    },
+    {
+      "path": "references/styles/pixel-art.md",
+      "sha256": "1a1dffbccf818e77fd8b16f7a5872e245a934db77ce2aa2a5b6348268bb2f5f3"
+    },
+    {
+      "path": "references/styles/pop-laboratory.md",
+      "sha256": "c920d07989697c46aa3482fe2b2f4c6387ab803e3f19ca11206a35a2ac7b7ff9"
+    },
+    {
+      "path": "references/styles/retro-pop-grid.md",
+      "sha256": "d59faa1639c15a6624c51746d9725de50a40c448dbbeba8faf6eb00ac3468023"
+    },
+    {
+      "path": "references/styles/retro-popup-pop.md",
+      "sha256": "cf040315e78c0a4a46069f902653062470b7d1fc17f1feafa4073df646ce9ab1"
+    },
+    {
+      "path": "references/styles/storybook-watercolor.md",
+      "sha256": "d7067bc69f56f3fad42e3f2671c86317c36962f38fd69a181f9d606d6fd54f88"
+    },
+    {
+      "path": "references/styles/subway-map.md",
+      "sha256": "a122e7f9f5b990f804b717d6e696f916922ff61227e72bfe5e540fd51c66d359"
+    },
+    {
+      "path": "references/styles/technical-schematic.md",
+      "sha256": "2b21ce445c6a2b1ef280c2d7b4cb8e87e2f6e720f85cb68a8ba40a5c2d73a12d"
+    },
+    {
+      "path": "references/styles/ui-wireframe.md",
+      "sha256": "9a27502ab6bba76ad042cfa08834053f9e563c76cc8ffb46456cd3db2a6523a3"
+    }
+  ]
+}

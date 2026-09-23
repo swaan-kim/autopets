@@ -13,6 +13,7 @@ pub struct Store {
     pub(crate) db: Connection,
     pub assistance: crate::application::assistance::AssistanceStore,
     pub workflow: crate::application::workflow::WorkflowStore,
+    pub artifacts: crate::application::artifacts::ArtifactStore,
     pub(crate) sessions: HashMap<String, SessionRecord>,
     pub(crate) slots: [Option<String>; 3],
     pub(crate) approvals: HashMap<String, ApprovalRecord>,

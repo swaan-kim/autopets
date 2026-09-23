@@ -36,6 +36,9 @@ test('installer resources work detached from checkout and contain no installer o
   assert.equal(manifest.kind, 'installed-connector');
   assert.ok(manifest.files.some(file => file.path === 'runtime/LICENSE'));
   assert.ok(manifest.files.some(file => file.path === 'LICENSE'));
+  assert.ok(manifest.files.some(file => file.path === 'packages/guidance/vendor/baoyu-infographic/LICENSE'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/assistance/artifact.mjs'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/autopets-intro/SKILL.md'));
   assert.ok(!manifest.files.some(file => /(^|\/)(tests|node_modules|\.local)(\/|$)|connection\.json|\.sqlite3|setup\.exe/u.test(file.path)));
   const imported = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/bootstrap/start.mjs')).href);
   assert.equal(typeof imported.connectInstalled, 'function');
