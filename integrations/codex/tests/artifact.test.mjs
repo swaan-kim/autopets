@@ -154,7 +154,7 @@ test('packaged artifact helper imports and prepares detached from checkout with 
   }
   const helperPath = path.join(connector, 'integrations/codex/assistance/artifact.mjs');
   assert.equal((await f.prepare({ helperPath })).code, 0);
-  assert.ok((await readFile(path.join(connector, 'integrations/codex/skills/autopets-intro/SKILL.md'), 'utf8')).startsWith('---\nname: autopets-intro'));
+  assert.match(await readFile(path.join(connector, 'integrations/codex/skills/autopets-intro/SKILL.md'), 'utf8'), /^---\r?\nname: autopets-intro\r?\n/);
   assert.match(await readFile(path.join(connector, 'packages/guidance/vendor/baoyu-infographic/LICENSE'), 'utf8'), /MIT License/);
 });
 
