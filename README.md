@@ -55,9 +55,9 @@ AI 설정이 낯선 초심자와 매번 설정하기 번거로운 숙련자를 �
 
 **구현 화면 — 합성 데이터로 검사한 앱 UI**
 
-<img src="docs/images/app-pet-card.png" width="480" alt="합성 데이터로 검사한 AutoPets 펫 빠른 카드. 실제 AI 연결 증거가 아닙니다.">
+<img src="docs/images/app-settings.png" width="640" alt="합성 데이터로 검사한 AutoPets 기본 설정 화면. 저장과 실제 전달은 별도이며 실제 AI 연결 증거가 아닙니다.">
 
-[main 설정 화면](docs/images/app-settings.png) · [PR의 계획·실행 설정 화면](https://github.com/swaan-kim/autopets/blob/4225bdf51fc3a1074492a788a96bcf374484be39/docs/images/app-workflow-presets.png)
+[main 펫 카드 검수 화면](docs/images/app-pet-card.png) · [PR의 계획·실행 설정 화면](https://github.com/swaan-kim/autopets/blob/4225bdf51fc3a1074492a788a96bcf374484be39/docs/images/app-workflow-presets.png)
 
 **과거 콘셉트 — 상태 표시 중심의 소개 목업**
 
