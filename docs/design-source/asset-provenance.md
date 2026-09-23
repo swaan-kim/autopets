@@ -1,5 +1,7 @@
 # Pixel puppy asset provenance
 
+> Scope clarified on 2026-09-23: this is the provenance of the original eight-frame atlas and the v4 eighteen-frame promotion assets. “Unchanged native atlas” below refers to the preserved `assets/pet` source output, not the current desktop renderer. The desktop now reuses eighteen frames from `apps/desktop/public/assets/motions`; it does not generate images at runtime. See the [team brief](../product/team-brief.md) and [project status](../roadmap/project-status.md) for current implementation and verification boundaries. Original source hashes below remain historical evidence.
+
 ## Included source and origin
 
 - Authoring tool: built-in ImageGen; one original generation request and five additional v4 motion requests.
@@ -15,9 +17,9 @@ Eight grid cells are inspected for opaque content, resized with nearest-neighbor
 
 The generated sprite is embedded in the offline HTML as a data URL. Neither asset assembly nor demo viewing fetches reference artwork from a remote service. Production runtime never generates or edits artwork; this folder is a separate authoring toolchain.
 
-For the v4 promotion, the original eight frames are reused and ten new frames are appended in a separate 256 × 320 atlas. Each new pair shares its crop, nearest-neighbor scale, center, and baseline 60. `promo-motion-config.json` defines animation frames, playback rates, and representative still frames. The native sprite and native state types are not changed. HTML supplies text, badges, token fixtures, and stage controls; no text is painted into the motion artwork.
+For the v4 promotion, the original eight frames are reused and ten new frames are appended in a separate 256 × 320 atlas. Each new pair shares its crop, nearest-neighbor scale, center, and baseline 60. `promo-motion-config.json` defines animation frames, playback rates, and representative still frames. That authoring step did not change the original native sprite or native state types. HTML supplies text, badges, token fixtures, and stage controls; no text is painted into the motion artwork.
 
-Baseline dependency: Sharp 0.35.4, pinned in this folder's package and lock file.
+Baseline dependency: Sharp 0.35.4, declared in this folder's package and pinned by the repository's root `pnpm-lock.yaml`.
 
 | Artifact | SHA-256 at packaging |
 | --- | --- |
