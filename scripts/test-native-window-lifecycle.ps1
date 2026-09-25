@@ -163,15 +163,30 @@ function Quit-ThroughButton($Window, $Process, $Connection, [string]$Step) {
         return (-not $taskQuit.Current.IsOffscreen -and $taskWorkArea.Contains($taskCenter))
     } 'Quit button could not be scrolled into the visible work area.' 10)
     Save-WindowImage $Window ($Step + '-button')
-    $taskTimer = [Diagnostics.Stopwatch]::StartNew()
-    Invoke-Button $taskQuit
-    if (-not $Process.WaitForExit(10000)) { throw 'Exit button did not stop the app. Forced termination is not accepted.' }
-    $taskTimer.Stop()
-    if ($Process.ExitCode -ne 0 -or @(Get-AppProcesses).Count -ne 0) { throw 'App failed to exit normally.' }
-    $taskPort = ([Uri]$Connection.baseUrl).Port
-    [void](Wait-Until { Test-PortRefused $taskPort } 'Local bridge still accepts connections after app exit.' 10)
-    if (Test-Path -LiteralPath $taskConnectionFile) { throw 'Normal exit left its connection file behind.' }
-    $taskResult.steps += [pscustomobject]@{ step = $Step; invokedButton = 'AutoPets quit'; exitCode = $Process.ExitCode; seconds = [Math]::Round($taskTimer.Elapsed.TotalSeconds, 3); appProcessCount = 0; portClosed = $true; connectionFileRemoved = $true }
+    Write-Host "Native quit requested: $Step"
+    $taskMarker = Join-Path $taskOut ($Step + '-invoked.txt')
+    $taskWorkerScript = Join-Path $PSScriptRoot 'invoke-native-quit.ps1'
+    $taskWorker = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList @('-NoProfile','-NonInteractive','-File', "`"$taskWorkerScript`"", '-AppProcessId', $Process.Id, '-MarkerFile', "`"$taskMarker`"") -WindowStyle Hidden -PassThru -RedirectStandardError (Join-Path $taskOut ($Step + '-worker-error.txt'))
+    $taskWorkerStopped = $false
+    try {
+        if (-not $Process.WaitForExit(15000)) { throw 'Exit button did not stop the app. Forced app termination is not accepted.' }
+        if (-not (Test-Path -LiteralPath $taskMarker)) { throw 'App exited without an observed quit-button invocation.' }
+        if ($Process.ExitCode -ne 0 -or @(Get-AppProcesses).Count -ne 0) { throw 'App failed to exit normally.' }
+        $taskInvokedAt = [DateTime]::Parse((Get-Content -LiteralPath $taskMarker -Raw)).ToUniversalTime()
+        $taskSeconds = ($Process.ExitTime.ToUniversalTime() - $taskInvokedAt).TotalSeconds
+        if ($taskSeconds -lt 0) { throw 'App exited before the quit-button request.' }
+        $taskPort = ([Uri]$Connection.baseUrl).Port
+        [void](Wait-Until { Test-PortRefused $taskPort } 'Local bridge still accepts connections after app exit.' 10)
+        if (Test-Path -LiteralPath $taskConnectionFile) { throw 'Normal exit left its connection file behind.' }
+        if (-not $taskWorker.WaitForExit(2000)) { $taskWorkerStopped = $true }
+        $taskResult.steps += [pscustomobject]@{ step = $Step; invokedButton = 'AutoPets quit'; exitCode = $Process.ExitCode; seconds = [Math]::Round($taskSeconds, 3); appProcessCount = 0; portClosed = $true; connectionFileRemoved = $true; uiAutomationWorkerCleanup = $taskWorkerStopped }
+        Write-Host "Native app exited normally: $Step"
+    } finally {
+        # Only the known UIA helper started above is reclaimed. Never kill the
+        # app or count a killed app as a normal exit, even on a failed check.
+        $taskWorker.Refresh()
+        if (-not $taskWorker.HasExited) { $taskWorker.Kill(); [void]$taskWorker.WaitForExit(5000) }
+    }
 }
 function Read-Fixture {
     $taskOutput = & $taskNode --no-warnings (Join-Path $env:GITHUB_WORKSPACE 'scripts/inspect-native-lifecycle-data.mjs')
