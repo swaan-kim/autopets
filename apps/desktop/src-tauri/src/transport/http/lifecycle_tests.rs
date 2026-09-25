@@ -140,6 +140,8 @@ async fn shutdown_preserves_nonempty_history_and_settings_on_reopen() {
         let mut workflow = state.workflow.preferences().unwrap();
         workflow.plan_first = false;
         let workflow = state.workflow.save_preferences(workflow).unwrap();
+        let template = crate::domain::roles::templates().unwrap().remove(1);
+        state.save_pet(None, 0, template).unwrap();
         let events: u64 = state.db.query_row("SELECT count(*) FROM events", [], |row| row.get(0)).unwrap();
         assert_eq!(events, 3);
         (preferences, workflow, events)
@@ -165,6 +167,8 @@ async fn shutdown_preserves_nonempty_history_and_settings_on_reopen() {
     assert_eq!(restored.slots, [None, Some("saved-chat".into()), None]);
     assert_eq!(restored.assistance.preferences().unwrap(), preferences);
     assert_eq!(restored.workflow.preferences().unwrap(), workflow_preferences);
+    assert_eq!(restored.roles_snapshot().unwrap().pets.len(), 1);
+    assert_eq!(restored.roles_snapshot().unwrap().pets[0].template.id, crate::domain::roles::RoleId::BuildImplementation);
     let tasks = restored.assistance.overview().unwrap().tasks;
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].identity, identity);

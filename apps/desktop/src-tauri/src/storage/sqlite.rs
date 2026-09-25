@@ -157,6 +157,7 @@ impl Store {
             }
         }
         store.restore_approval_history()?;
+        store.init_roles()?;
         Ok(store)
     }
 

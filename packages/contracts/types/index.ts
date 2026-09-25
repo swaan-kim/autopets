@@ -4,3 +4,4 @@ export type * from './workflow';
 export type * from './setup';
 export type * from './connections';
 export type * from './artifacts';
+export type * from './roles';

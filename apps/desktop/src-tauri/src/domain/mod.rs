@@ -4,3 +4,4 @@ pub mod assistance;
 pub mod supervision;
 pub mod workflow;
 pub mod connections;
+pub mod roles;

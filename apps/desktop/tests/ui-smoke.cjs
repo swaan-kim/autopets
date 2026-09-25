@@ -6,6 +6,7 @@ const { emptyWorkflow, runWorkflowChecks } = require('./workflow-ui.cjs');
 const { runSetupChecks } = require('./setup-ui.cjs');
 const { runProductSiteChecks } = require('./product-site-ui.cjs');
 const { emptyArtifacts, runIntroChecks } = require('./intro-ui.cjs');
+const { runRoleChecks } = require('./roles-ui.cjs');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -528,6 +529,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const introScreenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
 
     const compact = await newPage({ width: 1120, height: 1120 });

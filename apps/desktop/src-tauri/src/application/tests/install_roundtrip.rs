@@ -35,6 +35,11 @@ fn installer_fixture() {
         let mut preferences = store.workflow.preferences().unwrap();
         preferences.plan_first = false;
         store.workflow.save_preferences(preferences).unwrap();
+        let mut template = crate::domain::roles::templates().unwrap().remove(0);
+        template.name = "재설치 보존 역할".into();
+        template.prop = crate::domain::roles::Prop::Notebook;
+        template.background = crate::domain::roles::Background::Meadow;
+        store.save_pet(None, 0, template).unwrap();
         std::fs::write(data.join("positions.json"), positions).unwrap();
         store.shutdown().unwrap();
     }
@@ -57,6 +62,11 @@ fn installer_fixture() {
     assert!(!workflow.plan_first);
     assert_eq!(workflow.revision, 1);
     assert!(!workflow.enabled);
+    let pets = store.roles_snapshot().unwrap().pets;
+    assert_eq!(pets.len(), 1);
+    assert_eq!(pets[0].template.name, "재설치 보존 역할");
+    assert_eq!(pets[0].template.prop, crate::domain::roles::Prop::Notebook);
+    assert_eq!(pets[0].template.background, crate::domain::roles::Background::Meadow);
     let tasks = store.assistance.overview().unwrap().tasks;
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].identity, identity);
@@ -74,6 +84,6 @@ fn installer_fixture() {
     std::fs::write(evidence, serde_json::to_vec_pretty(&serde_json::json!({
         "phase": phase, "sessions": 1, "events": events, "settingsPreserved": true,
         "contextPreserved": true, "petAssignmentPreserved": true, "positionsFilePreserved": true,
-        "integrity": integrity, "desktopAppLaunched": false
+        "integrity": integrity, "desktopAppLaunched": false, "roleTemplatePreserved": true
     })).unwrap()).unwrap();
 }
