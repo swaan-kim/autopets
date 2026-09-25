@@ -125,8 +125,21 @@ function Test-PortRefused([int]$Port) {
     finally { $taskClient.Dispose() }
 }
 function Quit-ThroughButton($Window, $Process, $Connection, [string]$Step) {
+    $taskQuit = Find-Button $Window $taskQuitName
+    if (-not $taskQuit) { throw 'Quit button is missing.' }
+    $taskScroll = $null
+    if ($taskQuit.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$taskScroll)) {
+        ([System.Windows.Automation.ScrollItemPattern]$taskScroll).ScrollIntoView()
+    }
+    [void](Wait-Until {
+        $taskBounds = $taskQuit.Current.BoundingRectangle
+        $taskCenter = [Drawing.Point]::new([int]($taskBounds.X + $taskBounds.Width / 2), [int]($taskBounds.Y + $taskBounds.Height / 2))
+        $taskWorkArea = [Windows.Forms.Screen]::FromHandle([IntPtr]$Window.Current.NativeWindowHandle).WorkingArea
+        return (-not $taskQuit.Current.IsOffscreen -and $taskWorkArea.Contains($taskCenter))
+    } 'Quit button could not be scrolled into the visible work area.' 10)
+    Save-WindowImage $Window ($Step + '-button')
     $taskTimer = [Diagnostics.Stopwatch]::StartNew()
-    Invoke-Button (Find-Button $Window $taskQuitName)
+    Invoke-Button $taskQuit
     if (-not $Process.WaitForExit(10000)) { throw 'Exit button did not stop the app. Forced termination is not accepted.' }
     $taskTimer.Stop()
     if ($Process.ExitCode -ne 0 -or @(Get-AppProcesses).Count -ne 0) { throw 'App failed to exit normally.' }
@@ -147,6 +160,15 @@ try {
     if ((Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $taskResult.installerSha256) { throw 'Pinned installer hash mismatch.' }
     $taskInstalled = Start-Process -FilePath $Installer -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
     if ($taskInstalled.ExitCode -ne 0) { throw 'Installer failed.' }
+    # Fresh installs need not have a positions file until a pet is moved.
+    # Seed deliberate, valid custom positions to test actual native restoration.
+    $taskWorkArea = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+    $taskPositions = [ordered]@{}
+    for ($taskIndex = 0; $taskIndex -lt 3; $taskIndex++) {
+        $taskPositions[('pet-' + $taskIndex)] = @{ x = $taskWorkArea.Right - 200 - $taskIndex * 190; y = $taskWorkArea.Bottom - 250 }
+    }
+    New-Item -ItemType Directory -Path $taskDataDirectory -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $taskDataDirectory 'positions.json'), ($taskPositions | ConvertTo-Json -Depth 3), [Text.UTF8Encoding]::new($false))
     $taskStartTimer = [Diagnostics.Stopwatch]::StartNew()
     # Visible native window on the isolated runner is the subject of this test.
     $taskOriginal = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
