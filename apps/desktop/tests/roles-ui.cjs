@@ -5,13 +5,15 @@ const { emptyWorkflow } = require('./workflow-ui.cjs');
 
 async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir, checks }) {
   const page = await newPage({ width: 1120, height: 900 });
+  await page.clock.setFixedTime(new Date('2026-09-26T12:00:00Z'));
   const workflow = structuredClone(emptyWorkflow);
   workflow.tasks = assistanceFixture.tasks.map(task => ({ identity: task.identity, enabled: false, preset: 'balanced', planFirst: true,
     planning: { model: 'fixture-model', reasoning: 'high' }, execution: { model: 'fixture-model', reasoning: 'low' },
     phase: 'unknown', settingsRevision: 0, planRevision: 0, plan: null, approval: null, observation: null,
     guard: { status: 'unavailable', reason: '', submissionId: null, requestFingerprint: null, checkedAt: null }, onceAvailable: false, updatedAt: Date.now(),
   }));
-  workflow.capabilities.codex.availableModels = [{ model: 'fixture-model', reasoning: ['low', 'high'] }];
+  workflow.capabilities.codex.availableModels = [{ model: 'fixture-model', reasoning: ['low', 'high'] },
+    { model: 'gpt-6-sol', reasoning: ['high'] }, { model: 'gpt-6-luna', reasoning: ['low'] }];
   await mockBridge(page, fixture, assistanceFixture, workflow);
   await page.addInitScript(({ templates }) => {
     // Rendered UI fixture only. SQLite persistence and revision atomicity are Rust checks.
@@ -61,7 +63,24 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   await page.getByLabel('역할 배경').selectOption('meadow');
   const key = identity => JSON.stringify([identity.provider, identity.accountId, identity.chatId]);
   await page.getByLabel('역할을 선택할 작업').selectOption(key(workflow.tasks[0].identity));
+  await page.getByLabel('계획 역할 모델').selectOption('gpt-6-sol');
+  const solInfo = page.getByLabel('gpt-6-sol 모델 정보');
+  await solInfo.getByText(/복잡한 코딩/).waitFor();
+  assert.match(await solInfo.innerText(), /자료 확인 2026-09-26/);
+  assert.match(await solInfo.getByRole('link').getAttribute('href'), /^https:\/\/learn.chatgpt.com\//);
+  const informationScreenshot = path.join(screenshotDir, 'native-ui-model-information.png');
+  await page.evaluate(() => { document.querySelector('.connection-pill').textContent = '합성 UI 검사 · 실제 연결 미검증'; });
+  await page.screenshot({ path: informationScreenshot, fullPage: true });
+  await page.getByLabel('계획 역할 모델').selectOption('gpt-6-luna');
+  await page.getByLabel('gpt-6-luna 모델 정보').getByText(/많이 반복/).waitFor();
+  assert.equal(await solInfo.count(), 0);
+  await page.clock.setFixedTime(new Date('2026-11-01T12:00:00Z'));
+  await page.getByLabel('계획 역할 모델').selectOption('gpt-6-sol');
+  await solInfo.getByText(/오래된 자료/).waitFor();
+  assert.equal(await solInfo.getByText(/복잡한 코딩/).count(), 0);
+  await page.clock.setFixedTime(new Date('2026-09-26T12:00:00Z'));
   await page.getByLabel('계획 역할 모델').selectOption('fixture-model');
+  await page.getByLabel('fixture-model 모델 정보').getByText(/미확인/).waitFor();
   await page.getByLabel('계획 역할 추론').selectOption('high');
   assert.equal(await page.getByLabel('계획 역할 추론').locator('option').count(), 2);
   await page.getByRole('button', { name: '내 펫 저장', exact: true }).click();
@@ -94,7 +113,8 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   await page.evaluate(() => { document.querySelector('.connection-pill').textContent = '합성 UI 검사 · 실제 연결 미검증'; });
   await page.screenshot({ path: screenshot, fullPage: true });
   checks.push('two roles save selected preferences, bind separate chats, copy bounded instructions without context, support off and validate Korean byte limits');
+  checks.push('model information follows exact selection, links dated official evidence, hides stale comparisons and keeps unknown data unknown');
   await page.close();
-  return [screenshot];
+  return [screenshot, informationScreenshot];
 }
 module.exports = { runRoleChecks };

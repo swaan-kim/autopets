@@ -5,10 +5,11 @@ import { useRoles } from '../../bridge/useRoles';
 import { identityKey } from '../assistance/identity';
 import { Pet } from '../pets/Pet';
 import { PetAppearance } from '../pets/PetAppearance';
+import { ModelInformation } from './ModelInformation';
 import { rolePrompt } from '../../../../../packages/guidance/roles.mjs';
 import './roles.css';
 
-function RoleModel({ label, value, models, disabled, onChange }: { label: string; value: WorkflowModel | null; models: { model: string; reasoning: WorkflowModel['reasoning'][] }[]; disabled: boolean; onChange: (value: WorkflowModel | null) => void }) {
+function RoleModel({ label, value, models, surface, disabled, onChange }: { label: string; value: WorkflowModel | null; models: { model: string; reasoning: WorkflowModel['reasoning'][] }[]; surface?: string; disabled: boolean; onChange: (value: WorkflowModel | null) => void }) {
   const current = models.find(model => model.model === value?.model);
   return <fieldset className="role-model" disabled={disabled}><legend>{label} 희망 설정</legend>
     <label>모델<select aria-label={`${label} 역할 모델`} className="text-input" value={value?.model ?? ''} onChange={event => { const found = models.find(model => model.model === event.target.value); onChange(found ? { model: found.model, reasoning: found.reasoning[0] } : null); }}>
@@ -19,6 +20,7 @@ function RoleModel({ label, value, models, disabled, onChange }: { label: string
       {current?.reasoning.map(effort => <option key={effort}>{effort}</option>)}
       {!current?.reasoning.includes(value.reasoning) && <option value={value.reasoning} disabled>{value.reasoning} · 가용성 미확인</option>}
     </select></label>}
+    {value && <ModelInformation model={value.model} surface={surface} />}
   </fieldset>;
 }
 
@@ -68,7 +70,7 @@ export function RoleStudio({ workflow, sessions, refreshWorkflow }: { workflow: 
         <div className="role-templates"><label>소품<select className="text-input" aria-label="역할 소품" value={draft.prop} disabled={busy} onChange={event => edit({ prop: event.target.value as PetRoleTemplate['prop'] })}><option value="none">없음</option><option value="notebook">노트</option></select></label><label>배경<select className="text-input" aria-label="역할 배경" value={draft.background} disabled={busy} onChange={event => edit({ background: event.target.value as PetRoleTemplate['background'] })}><option value="none">없음</option><option value="meadow">풀밭</option></select></label></div>
       </div></div>
     <label>역할을 선택할 작업<select className="text-input" aria-label="역할을 선택할 작업" value={target} disabled={disabled || !isDesktop} onChange={event => { setTarget(event.target.value); setNotice(''); }}><option value="">연결에서 확인한 작업 선택</option>{workflow.tasks.map(task => <option key={identityKey(task.identity)} value={identityKey(task.identity)}>{sessions.find(session => session.id === task.identity.chatId)?.label ?? task.identity.chatId} · {task.identity.provider} · {task.identity.accountId} · {task.identity.chatId}</option>)}</select></label>
-    <div className="role-models">{(['planning', 'execution'] as const).map((stage, index) => <RoleModel key={stage} label={index ? '실행' : '계획'} value={draft[stage]} models={models} disabled={disabled} onChange={value => edit({ [stage]: value })} />)}</div>
+    <div className="role-models">{(['planning', 'execution'] as const).map((stage, index) => <RoleModel key={stage} label={index ? '실행' : '계획'} value={draft[stage]} models={models} surface={task?.identity.provider} disabled={disabled} onChange={value => edit({ [stage]: value })} />)}</div>
     {!models.length && <p className="small-note">이 작업의 가용 모델 목록을 아직 확인하지 못했어요. 기본값은 대상 작업 설정 유지예요.</p>}
     <p className="small-note">스킬 참조 · {draft.skills.map(skill => `${skill.id}@${skill.version}`).join(', ')} · 실행 미확인</p>
     <div className="role-actions"><button className="button primary" disabled={!isDesktop || disabled || !!validation || !dirty} onClick={() => void save(false)}>{saved ? '내 펫 변경 저장' : '내 펫 저장'}</button>{saved && <button className="button secondary" disabled={!isDesktop || disabled || !!validation} onClick={() => void save(true)}>새 펫으로 복사</button>}<button className="button secondary" disabled={!isDesktop || disabled || dirty || !saved || !task} onClick={() => void apply(true)}>이 작업에 역할 선택</button>{binding?.enabled && saved?.id === binding.petId && <button className="text-button" disabled={disabled || dirty} onClick={() => void apply(false)}>이 작업의 역할 도움 끄기</button>}</div>

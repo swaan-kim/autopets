@@ -34,6 +34,7 @@ $taskWindow = $null
 $taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SHA; installerSha256 = $ExpectedSha256; sourceCommit = $SourceCommit; environment = 'GitHub-hosted Windows'; automation = 'UI Automation InvokePattern'; forcedTerminationUsed = $false; screenshots = @(); steps = @() }
 $taskOriginalPath = $env:PATH
 . (Join-Path $PSScriptRoot 'native-install-state.ps1')
+. (Join-Path $PSScriptRoot 'measure-native-resources.ps1')
 
 function Wait-Until([scriptblock]$Probe, [string]$Failure, [int]$Seconds = 30) {
     $taskDeadline = [DateTime]::UtcNow.AddSeconds($Seconds)
@@ -251,6 +252,7 @@ try {
     $taskHandle = [long]$taskWindow.Current.NativeWindowHandle
     $taskResult.steps += [pscustomobject]@{ step = 'first-render'; seconds = [Math]::Round($taskStartTimer.Elapsed.TotalSeconds, 3); nativeWindowVisible = $true; renderedSetupHeadingFound = $true; quitButtonFound = $true }
     Save-WindowImage $taskWindow 'first-window'
+    $taskResult.resources = @((Measure-NativeResources $taskOriginal.Id 'manager-no-task'))
     $taskWindow = Invoke-Recall $taskOriginal $taskHandle 'recall-while-visible'
     $taskCaptionClose = $taskWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'Close'))
@@ -268,6 +270,7 @@ try {
     [void](Request-Bridge $taskConnection '/v1/events' @{ eventId = 'gui-start'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; kind = 'turn_started'; cwd = $taskFixtureDirectory; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() })
     [void](Request-Bridge $taskConnection '/v1/task-config' @{ requestId = 'gui-config'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; cwd = $taskFixtureDirectory; completionCriterion = 'GUI restart must preserve this test record'; interventionMode = 'milestones'; elapsedAlertMinutes = 7 })
     Save-RoleFixture $taskWindow
+    $taskResult.resources += Measure-NativeResources $taskOriginal.Id 'manager-with-synthetic-working-pet'
     Quit-ThroughButton $taskWindow $taskOriginal $taskConnection 'normal-exit'
     $taskBeforeRestart = Read-Fixture
     $taskBeforeRestart | Set-Content -LiteralPath (Join-Path $taskOut 'before-restart.json') -Encoding UTF8
