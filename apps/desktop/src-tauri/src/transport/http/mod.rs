@@ -198,3 +198,6 @@ mod tests;
 
 #[cfg(test)]
 mod artifact_tests;
+
+#[cfg(test)]
+mod lifecycle_tests;
