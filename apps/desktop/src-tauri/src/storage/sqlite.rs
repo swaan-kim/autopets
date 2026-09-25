@@ -113,6 +113,9 @@ impl Store {
                 };
                 let mut restored_supervision: SupervisionRecord = decode(&saved_supervision)?;
                 restored_supervision.view.activity = Activity::Idle;
+                if let Some(tools) = &mut restored_supervision.view.tool_activity_v1 {
+                    tools.mark_unconfirmed();
+                }
                 store.sessions.insert(
                     id.clone(),
                     SessionRecord {

@@ -136,10 +136,22 @@ impl Store {
         rec.view.last_seen = now;
         // Resuming a session is a connection observation, not an idle/completion event.
         if matches!(event.kind, EventKind::SessionStarted) {
+            if !event.cwd.is_empty() && crate::domain::supervision::normalized_cwd(&rec.view.cwd)
+                != crate::domain::supervision::normalized_cwd(&event.cwd) {
+                rec.supervision.view.tool_activity_v1 = None;
+            }
             rec.view.connection = ConnectionState::Observed;
             return self.save_session(&event.session_id);
         }
         if event.timestamp < rec.last_activity_timestamp {
+            // Tool calls have their own clocks: a parallel call's newer event
+            // must not hide the result of an older call in this exact turn/source.
+            if !rec.turn_finished && rec.active_turn == event.turn_id
+                && crate::domain::supervision::normalized_cwd(&rec.view.cwd)
+                    == crate::domain::supervision::normalized_cwd(&event.cwd) {
+                crate::domain::tool_activity::ToolActivity::observe(
+                    &mut rec.supervision.view.tool_activity_v1, &event, now);
+            }
             return self.save_session(&event.session_id);
         }
         let mut cancel_prior = false;
@@ -207,10 +219,19 @@ impl Store {
         }
         rec.last_activity_timestamp = event.timestamp;
         if !event.cwd.is_empty() {
+            if crate::domain::supervision::normalized_cwd(&rec.view.cwd)
+                != crate::domain::supervision::normalized_cwd(&event.cwd) {
+                rec.supervision.view.tool_activity_v1 = None;
+            }
             rec.view.cwd = event.cwd;
         }
         if !matches!(event.kind, EventKind::SessionEnded) {
             rec.view.connection = ConnectionState::Observed;
+        }
+        crate::domain::tool_activity::ToolActivity::observe(
+            &mut rec.supervision.view.tool_activity_v1, &supervision_event, now);
+        if matches!(event.kind, EventKind::TurnFinished | EventKind::Interrupted | EventKind::SessionEnded) {
+            if let Some(tools) = &mut rec.supervision.view.tool_activity_v1 { tools.mark_unconfirmed(); }
         }
         if cancel_prior {
             let ids: Vec<_> = self

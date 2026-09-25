@@ -12,6 +12,7 @@ import { workflowHelp } from '../workflow/presentation';
 import { currentAction, dueAttention, observedActivity, status } from '../tasks/presentation';
 import { AttentionCard } from '../tasks/AttentionCard';
 import { canAttemptReturn, returnToTask } from '../tasks/returnToTask';
+import { McpProp } from '../tasks/ToolActivity';
 import { PET_NAMES } from './constants';
 import { Pet } from './Pet';
 import { PetAppearance } from './PetAppearance';
@@ -97,6 +98,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
       <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`} title={help}>{help}</span>
     </div>
   </div>;

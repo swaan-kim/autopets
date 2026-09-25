@@ -35,6 +35,9 @@ impl Store {
             .map(|s| {
                 let mut view = s.view.clone();
                 view.supervision = s.supervision.for_snapshot(now);
+                if view.connection != ConnectionState::Observed {
+                    if let Some(tools) = &mut view.supervision.tool_activity_v1 { tools.mark_unconfirmed(); }
+                }
                 view
             })
             .collect();
@@ -189,6 +192,10 @@ impl Store {
 #[cfg(test)]
 #[path = "tests/store.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/tool_activity.rs"]
+mod tool_activity_tests;
 
 #[cfg(all(test, target_os = "windows"))]
 #[path = "tests/install_roundtrip.rs"]

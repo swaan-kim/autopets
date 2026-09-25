@@ -9,6 +9,12 @@ export interface Attention {
   createdAt: number;
   snoozedUntil: number | null;
 }
+export interface ToolActivity {
+  version: 1;
+  turnId: string;
+  calls: { id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; observedAt: number }[];
+  truncated: boolean;
+}
 export interface Session {
   id: string;
   label: string;
@@ -27,6 +33,7 @@ export interface Session {
   turnEndedAt: number | null;
   elapsedAlertMinutes: number | null;
   attention: Attention | null;
+  toolActivityV1?: ToolActivity | null;
   canOpenTask?: boolean;
 }
 export interface Slot { index: number; sessionId: string | null }

@@ -71,6 +71,7 @@ pub struct SessionSupervision {
     pub turn_ended_at: Option<u64>,
     pub elapsed_alert_minutes: Option<u32>,
     pub attention: Option<Attention>,
+    pub tool_activity_v1: Option<super::tool_activity::ToolActivity>,
 }
 
 impl Default for SessionSupervision {
@@ -85,6 +86,7 @@ impl Default for SessionSupervision {
             turn_ended_at: None,
             elapsed_alert_minutes: Some(10),
             attention: None,
+            tool_activity_v1: None,
         }
     }
 }

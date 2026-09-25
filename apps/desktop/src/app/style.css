@@ -165,6 +165,10 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .unavailable-copy span { color: #9aa88e; font-size: 10px; }
 .block-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .tool-chip { display: inline-block; font-size: 9px; color: #7c916a; border: 1px solid #dce6d1; border-radius: 5px; padding: 4px 7px; margin-top: 8px; max-width: 100%; overflow-wrap: anywhere; }
+.mcp-pet-prop { position: absolute; top: 72px; right: 24px; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid #718961; border-radius: 4px; background: #f0f5e9; color: #405332; font-size: 14px; pointer-events: none; }
+.mcp-pet-prop small { position: absolute; right: -3px; bottom: -3px; min-width: 11px; height: 11px; display: grid; place-items: center; border-radius: 3px; background: #f0f5e9; font-size: 10px; font-weight: 700; line-height: 1; }
+.mcp-pet-prop[data-state="failed"] small { background: #f9e6df; color: #942f19; }
+.mcp-pet-prop[data-state="unknown"] small { background: #f3ecd7; color: #6b5a24; }
 .notion-chip { color: #5c5e60; background: #f4f4f2; border-color: #ddddda; }
 .plan-list { padding: 0; margin: 0; list-style: none; }
 .plan-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 11px; line-height: 1.75; padding: 8px 0; color: #859776; }

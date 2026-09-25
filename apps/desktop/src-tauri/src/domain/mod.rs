@@ -5,3 +5,4 @@ pub mod supervision;
 pub mod workflow;
 pub mod connections;
 pub mod roles;
+pub mod tool_activity;
