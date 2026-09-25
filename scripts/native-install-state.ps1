@@ -37,14 +37,15 @@ function Assert-StateFiles($Before, $After, [string]$Name) {
 function Invoke-InstallerStep([string]$Executable, [string]$Step) {
     if (@(Get-AppProcesses).Count) { throw 'Installer requires a normally stopped app.' }
     Write-Host "Installer step started: $Step"
-    $taskTimer = [Diagnostics.Stopwatch]::StartNew()
     # Preserve -Wait's descendant handling for the self-relocating uninstaller,
     # while bounding the entire operation. A timeout is failure, never success.
     $taskJob = Start-Job -ScriptBlock {
         param($taskExecutable)
         $ErrorActionPreference = 'Stop'
+        $taskTimer = [Diagnostics.Stopwatch]::StartNew()
         $taskProcess = Start-Process -FilePath $taskExecutable -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
-        return $taskProcess.ExitCode
+        $taskTimer.Stop()
+        return [pscustomobject]@{ exitCode = $taskProcess.ExitCode; seconds = [Math]::Round($taskTimer.Elapsed.TotalSeconds, 3) }
     } -ArgumentList $Executable
     if (-not (Wait-Job -Job $taskJob -Timeout 120)) {
         $taskResult.timedOutInstallerStep = $Step
@@ -56,11 +57,11 @@ function Invoke-InstallerStep([string]$Executable, [string]$Step) {
         })
         throw "Installer step timed out after 120 seconds: $Step. No forced-termination pass is allowed."
     }
-    $taskExitCode = Receive-Job -Job $taskJob -ErrorAction Stop
-    if ($taskJob.State -ne 'Completed' -or $null -eq $taskExitCode) { throw "Installer worker failed: $Step" }
+    $taskMeasurement = Receive-Job -Job $taskJob -ErrorAction Stop
+    if ($taskJob.State -ne 'Completed' -or @($taskMeasurement).Count -ne 1 -or $null -eq $taskMeasurement.exitCode) { throw "Installer worker failed: $Step" }
+    $taskExitCode = [int]$taskMeasurement.exitCode
     Remove-Job -Job $taskJob
-    $taskTimer.Stop()
-    $taskResult.steps += [pscustomobject]@{ step = $Step; seconds = [Math]::Round($taskTimer.Elapsed.TotalSeconds, 3); exitCode = $taskExitCode }
+    $taskResult.steps += [pscustomobject]@{ step = $Step; seconds = $taskMeasurement.seconds; exitCode = $taskExitCode }
     Write-Host "Installer step finished: $Step ($taskExitCode)"
     if ($taskExitCode -ne 0) { throw "$Step failed with exit code $taskExitCode." }
 }
