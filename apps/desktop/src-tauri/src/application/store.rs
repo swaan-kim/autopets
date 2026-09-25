@@ -189,3 +189,7 @@ impl Store {
 #[cfg(test)]
 #[path = "tests/store.rs"]
 mod tests;
+
+#[cfg(all(test, target_os = "windows"))]
+#[path = "tests/install_roundtrip.rs"]
+mod install_roundtrip;
