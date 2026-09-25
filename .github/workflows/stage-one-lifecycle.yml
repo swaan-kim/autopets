@@ -4,6 +4,11 @@ on:
   push:
     branches: ['fix/stage-one-lifecycle']
   workflow_dispatch:
+    inputs:
+      installer_run:
+        description: Existing successful build job run ID to reuse for harness-only changes
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -11,6 +16,7 @@ permissions:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch' || inputs.installer_run == ''
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -77,6 +83,7 @@ jobs:
           retention-days: 14
 
   lifecycle:
+    if: always() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.installer_run != ''))
     needs: build
     runs-on: windows-latest
     timeout-minutes: 15
@@ -88,14 +95,20 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          INSTALLER_RUN: ${{ inputs.installer_run || github.run_id }}
         run: |
-          gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name stage-one-installer --dir work/installer
+          if ($env:INSTALLER_RUN -notmatch '^[0-9]+$') { throw 'Expected a numeric build run ID.' }
+          $taskRun = gh run view $env:INSTALLER_RUN --repo $env:GITHUB_REPOSITORY --json jobs,headSha | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not ($taskRun.jobs | Where-Object { $_.name -eq 'build' -and $_.conclusion -eq 'success' })) { throw 'Installer build job did not pass.' }
+          gh run download $env:INSTALLER_RUN --repo $env:GITHUB_REPOSITORY --name stage-one-installer --dir work/installer
           if ($LASTEXITCODE -ne 0) { throw 'Installer download failed.' }
+          $taskBuild = Get-Content work/installer/build.json -Raw | ConvertFrom-Json
+          if ($taskBuild.sourceCommit -ne $taskRun.headSha) { throw 'Build manifest differs from the run commit.' }
       - name: Install, recall, exit, overwrite, remove, reinstall and reopen
         shell: powershell
         run: |
           $taskBuild = Get-Content work/installer/build.json -Raw | ConvertFrom-Json
-          if ($taskBuild.sourceCommit -ne $env:GITHUB_SHA -or $taskBuild.file -ne 'AutoPets_0.1.0_x64-setup.exe') { throw 'Build identity mismatch.' }
+          if ($taskBuild.file -ne 'AutoPets_0.1.0_x64-setup.exe') { throw 'Build identity mismatch.' }
           ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE ('work/installer/' + $taskBuild.file)) -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
           if ($LASTEXITCODE -ne 0) { throw 'Stage one lifecycle failed.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -36,11 +36,33 @@ function Assert-StateFiles($Before, $After, [string]$Name) {
 }
 function Invoke-InstallerStep([string]$Executable, [string]$Step) {
     if (@(Get-AppProcesses).Count) { throw 'Installer requires a normally stopped app.' }
+    Write-Host "Installer step started: $Step"
     $taskTimer = [Diagnostics.Stopwatch]::StartNew()
-    $taskProcess = Start-Process -FilePath $Executable -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
+    # Preserve -Wait's descendant handling for the self-relocating uninstaller,
+    # while bounding the entire operation. A timeout is failure, never success.
+    $taskJob = Start-Job -ScriptBlock {
+        param($taskExecutable)
+        $ErrorActionPreference = 'Stop'
+        $taskProcess = Start-Process -FilePath $taskExecutable -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
+        return $taskProcess.ExitCode
+    } -ArgumentList $Executable
+    if (-not (Wait-Job -Job $taskJob -Timeout 120)) {
+        $taskResult.timedOutInstallerStep = $Step
+        $taskResult.installerProcesses = @(Get-CimInstance Win32_Process | Where-Object {
+            $_.Name -match 'autopets|setup|uninstall|webview' -or $_.ExecutablePath -eq $Executable
+        } | Select-Object Name,ProcessId,ParentProcessId,ExecutablePath)
+        $taskResult.visibleWindows = @([System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object {
+            [pscustomobject]@{ name = $_.Current.Name; pid = $_.Current.ProcessId }
+        })
+        throw "Installer step timed out after 120 seconds: $Step. No forced-termination pass is allowed."
+    }
+    $taskExitCode = Receive-Job -Job $taskJob -ErrorAction Stop
+    if ($taskJob.State -ne 'Completed' -or $null -eq $taskExitCode) { throw "Installer worker failed: $Step" }
+    Remove-Job -Job $taskJob
     $taskTimer.Stop()
-    $taskResult.steps += [pscustomobject]@{ step = $Step; seconds = [Math]::Round($taskTimer.Elapsed.TotalSeconds, 3); exitCode = $taskProcess.ExitCode }
-    if ($taskProcess.ExitCode -ne 0) { throw "$Step failed with exit code $($taskProcess.ExitCode)." }
+    $taskResult.steps += [pscustomobject]@{ step = $Step; seconds = [Math]::Round($taskTimer.Elapsed.TotalSeconds, 3); exitCode = $taskExitCode }
+    Write-Host "Installer step finished: $Step ($taskExitCode)"
+    if ($taskExitCode -ne 0) { throw "$Step failed with exit code $taskExitCode." }
 }
 function Read-InstallFootprint {
     $taskRegistration = @(Get-InstallRegistration)
