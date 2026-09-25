@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{"label":"main","title":"AutoPets · 작은 작업 동료","width":1120,"height":880,"minWidth":760,"minHeight":640,"center":true}],
+    "windows": [{"label":"main","title":"AutoPets · 작은 작업 동료","width":1120,"height":880,"minWidth":760,"minHeight":640,"center":true,"visible":false}],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'self'",
       "capabilities": ["default"]

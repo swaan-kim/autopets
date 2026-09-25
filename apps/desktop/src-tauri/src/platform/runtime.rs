@@ -10,6 +10,9 @@ use tauri::{Emitter, Manager, PhysicalPosition};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(window) = app.get_webview_window("main") {
+        super::main_window::show_fitted(&window)?;
+    }
     let data_dir = match std::env::var_os("AUTOPETS_DATA_DIR") {
         Some(path) => PathBuf::from(path),
         None => app.path().app_local_data_dir()?,

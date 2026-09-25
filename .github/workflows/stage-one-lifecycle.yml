@@ -1,0 +1,107 @@
+name: Stage one installation and native lifecycle
+
+on:
+  push:
+    branches: ['fix/stage-one-lifecycle']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: '11.19.0'
+          cache: true
+      - name: Verify Node and rendered interface
+        run: |
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
+          pnpm verify:layout
+          if ($LASTEXITCODE -ne 0) { throw 'Layout verification failed.' }
+          pnpm test
+          if ($LASTEXITCODE -ne 0) { throw 'Node tests failed.' }
+          pnpm exec playwright install chromium
+          if ($LASTEXITCODE -ne 0) { throw 'Browser preparation failed.' }
+          pnpm test:ui
+          if ($LASTEXITCODE -ne 0) { throw 'Rendered interface verification failed.' }
+          pnpm build
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+      - name: Verify Rust lifecycle and window sizing
+        run: |
+          rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Rust preparation failed.' }
+          cargo +stable test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
+      - name: Build the self-contained review installer
+        run: |
+          $taskNodeVersion = node -p process.version
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nodejs/node/$taskNodeVersion/LICENSE" -OutFile work/NODE-LICENSE.txt
+          node scripts/stage-desktop-resources.mjs --node (Get-Command node).Source --license work/NODE-LICENSE.txt --out work/stage-one-resources
+          if ($LASTEXITCODE -ne 0) { throw 'Resource staging failed.' }
+          $taskConfig = Join-Path $env:GITHUB_WORKSPACE 'work/stage-one-resources/tauri-bundle.json'
+          pnpm --filter @autopets/desktop exec tauri build --bundles nsis --config $taskConfig -- --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
+          $taskInstallers = @(Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis -Filter '*-setup.exe' -File)
+          if ($taskInstallers.Count -ne 1) { throw 'Expected one installer.' }
+          New-Item -ItemType Directory -Path work/stage-one-installer -Force | Out-Null
+          Copy-Item -LiteralPath $taskInstallers[0].FullName -Destination work/stage-one-installer
+          [ordered]@{ sourceCommit = $env:GITHUB_SHA; file = $taskInstallers[0].Name; bytes = $taskInstallers[0].Length; sha256 = (Get-FileHash -LiteralPath $taskInstallers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = (Get-AuthenticodeSignature -LiteralPath $taskInstallers[0].FullName).Status.ToString() } | ConvertTo-Json | Set-Content work/stage-one-installer/build.json -Encoding utf8
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: stage-one-installer
+          path: work/stage-one-installer/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: stage-one-rendered-ui
+          path: work/native-ui-*.png
+          if-no-files-found: warn
+          retention-days: 14
+
+  lifecycle:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download only this run's installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name stage-one-installer --dir work/installer
+          if ($LASTEXITCODE -ne 0) { throw 'Installer download failed.' }
+      - name: Install, recall, exit, overwrite, remove, reinstall and reopen
+        shell: powershell
+        run: |
+          $taskBuild = Get-Content work/installer/build.json -Raw | ConvertFrom-Json
+          if ($taskBuild.sourceCommit -ne $env:GITHUB_SHA -or $taskBuild.file -ne 'AutoPets_0.1.0_x64-setup.exe') { throw 'Build identity mismatch.' }
+          ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE ('work/installer/' + $taskBuild.file)) -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
+          if ($LASTEXITCODE -ne 0) { throw 'Stage one lifecycle failed.' }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: stage-one-lifecycle-evidence
+          path: work/native-window-lifecycle/
+          if-no-files-found: warn
+          retention-days: 14

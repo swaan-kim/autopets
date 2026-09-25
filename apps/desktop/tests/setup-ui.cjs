@@ -24,6 +24,22 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   const initial = path.join(screenshotDir, 'native-ui-setup.png');
   await page.screenshot({ path: initial, fullPage: true, animations: 'disabled' });
 
+  // A long onboarding page must not push the app's only main-window exit away.
+  for (const viewport of [{ width: 960, height: 640 }, { width: 640, height: 480 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const quit = page.getByRole('button', { name: 'AutoPets 종료', exact: true });
+    const bounds = await quit.boundingBox();
+    assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+      `Quit control must be visible without scrolling at ${viewport.width}x${viewport.height}: ${JSON.stringify(bounds)}`);
+    await quit.click();
+    assert.equal(await page.evaluate(() => window.__uiTest.calls.at(-1)?.name), 'quit_app');
+    await page.evaluate(() => { window.__uiTest.calls.length = 0; });
+    await page.screenshot({ path: path.join(screenshotDir, `native-ui-exit-${viewport.width}.png`), animations: 'disabled' });
+  }
+  await page.setViewportSize({ width: 1120, height: 880 });
+  checks.push('main-window exit remains visible and callable on short and narrow screens');
+
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
   await page.getByText('첫 활동 대기', { exact: true }).waitFor();
   await page.getByText(/Codex에서 훅을 검토해주세요/).waitFor();

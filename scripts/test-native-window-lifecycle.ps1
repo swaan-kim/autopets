@@ -1,4 +1,10 @@
-param([Parameter(Mandatory=$true)][string]$Installer)
+param(
+    [Parameter(Mandatory=$true)][string]$Installer,
+    [string]$ExpectedSha256 = 'aedd45bc8cb71e8ffa5b338c6c3fb9ec8b2e811663b79da8710b7a8cab85c5da',
+    [string]$SourceCommit = 'db06cb964be9824d8a975710f055fcfc1a1d0ed3',
+    [switch]$Roundtrip,
+    [switch]$RequireFits
+)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:GITHUB_REPOSITORY -ne 'swaan-kim/autopets') {
     throw 'Native UI checks run only on the disposable GitHub-hosted Windows runner.'
@@ -25,7 +31,9 @@ $taskTitle = [regex]::Unescape('AutoPets \u00b7 \uc791\uc740 \uc791\uc5c5 \ub3d9
 $taskQuitName = [regex]::Unescape('AutoPets \uc885\ub8cc')
 $taskReadyName = [regex]::Unescape('\uc571 \uc900\ube44')
 $taskWindow = $null
-$taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SHA; installerSha256 = 'aedd45bc8cb71e8ffa5b338c6c3fb9ec8b2e811663b79da8710b7a8cab85c5da'; sourceCommit = 'db06cb964be9824d8a975710f055fcfc1a1d0ed3'; environment = 'GitHub-hosted Windows'; automation = 'UI Automation InvokePattern'; forcedTerminationUsed = $false; screenshots = @(); steps = @() }
+$taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SHA; installerSha256 = $ExpectedSha256; sourceCommit = $SourceCommit; environment = 'GitHub-hosted Windows'; automation = 'UI Automation InvokePattern'; forcedTerminationUsed = $false; screenshots = @(); steps = @() }
+$taskOriginalPath = $env:PATH
+. (Join-Path $PSScriptRoot 'native-install-state.ps1')
 
 function Wait-Until([scriptblock]$Probe, [string]$Failure, [int]$Seconds = 30) {
     $taskDeadline = [DateTime]::UtcNow.AddSeconds($Seconds)
@@ -67,7 +75,23 @@ function Wait-ReadyWindow($Process, [bool]$Fresh) {
         }
         return $false
     } 'Window appeared, but the rendered app controls were not ready.' 60)
+    if ($RequireFits) {
+        [void](Wait-Until {
+            $taskBounds = $taskFound.Current.BoundingRectangle
+            $taskRectangle = [Drawing.Rectangle]::new([int]$taskBounds.X, [int]$taskBounds.Y, [int]$taskBounds.Width, [int]$taskBounds.Height)
+            $taskWorkArea = [Windows.Forms.Screen]::FromHandle([IntPtr]$taskFound.Current.NativeWindowHandle).WorkingArea
+            return $taskWorkArea.Contains($taskRectangle)
+        } 'Main window extends outside the monitor work area.' 10)
+        Assert-QuitVisible $taskFound
+    }
     return $taskFound
+}
+function Assert-QuitVisible($Window) {
+    $taskQuit = Find-Button $Window $taskQuitName
+    $taskBounds = $taskQuit.Current.BoundingRectangle
+    $taskRectangle = [Drawing.Rectangle]::new([int]$taskBounds.X, [int]$taskBounds.Y, [int]$taskBounds.Width, [int]$taskBounds.Height)
+    $taskWorkArea = [Windows.Forms.Screen]::FromHandle([IntPtr]$Window.Current.NativeWindowHandle).WorkingArea
+    if ($taskQuit.Current.IsOffscreen -or -not $taskWorkArea.Contains($taskRectangle)) { throw 'Quit button requires scrolling or extends outside the work area.' }
 }
 function Invoke-Button($Button) {
     if (-not $Button -or -not $Button.Current.IsEnabled) { throw 'Required button is unavailable.' }
@@ -128,7 +152,8 @@ function Quit-ThroughButton($Window, $Process, $Connection, [string]$Step) {
     $taskQuit = Find-Button $Window $taskQuitName
     if (-not $taskQuit) { throw 'Quit button is missing.' }
     $taskScroll = $null
-    if ($taskQuit.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$taskScroll)) {
+    if ($RequireFits) { Assert-QuitVisible $Window }
+    elseif ($taskQuit.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$taskScroll)) {
         ([System.Windows.Automation.ScrollItemPattern]$taskScroll).ScrollIntoView()
     }
     [void](Wait-Until {
@@ -157,9 +182,22 @@ function Read-Fixture {
 try {
     if (-not [Environment]::UserInteractive) { throw 'Runner has no interactive desktop; no GUI pass can be claimed.' }
     if ((Test-Path -LiteralPath $taskAppDirectory) -or (Test-Path -LiteralPath $taskDataDirectory) -or @(Get-AppProcesses).Count) { throw 'Runner is not fresh.' }
+    if (@(Get-InstallRegistration).Count -or @(Get-InstallShortcuts).Count) { throw 'Runner already has installation metadata.' }
     if ((Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant() -ne $taskResult.installerSha256) { throw 'Pinned installer hash mismatch.' }
-    $taskInstalled = Start-Process -FilePath $Installer -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
-    if ($taskInstalled.ExitCode -ne 0) { throw 'Installer failed.' }
+    $taskResult.installerBytes = (Get-Item -LiteralPath $Installer).Length
+    $taskResult.signature = (Get-AuthenticodeSignature -LiteralPath $Installer).Status.ToString()
+    $taskResult.elevatedRunner = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $taskAiDirectory = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex'
+    $taskAiBaseline = @(Get-StateFiles $taskAiDirectory)
+    if ($Roundtrip) {
+        $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\WindowsPowerShell\v1.0"
+        foreach ($taskTool in @('node','npm','pnpm','cargo','rustc','git','python')) {
+            if (Get-Command $taskTool -CommandType Application -ErrorAction SilentlyContinue) { throw "Developer tool remains on PATH: $taskTool" }
+        }
+        $taskResult.developerToolsAbsentFromPath = $true
+    }
+    Invoke-InstallerStep $Installer 'install'
+    $taskResult.firstInstall = Read-InstallFootprint
     # Fresh installs need not have a positions file until a pet is moved.
     # Seed deliberate, valid custom positions to test actual native restoration.
     $taskWorkArea = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
@@ -206,6 +244,33 @@ try {
     $taskAfterRestart | Set-Content -LiteralPath (Join-Path $taskOut 'after-restart.json') -Encoding UTF8
     $taskResult.steps += [pscustomobject]@{ step = 'restart'; dataPreserved = $true; settingsPreserved = $true; positionsPreserved = $true; integrity = 'ok' }
     Quit-ThroughButton $taskWindow $taskRestart $taskConnection 'normal-exit-after-restart'
+    if ($Roundtrip) {
+        $taskDurable = @(Get-StateFiles $taskDataDirectory -DurableOnly)
+        Invoke-InstallerStep $Installer 'overwrite-install'
+        $taskResult.overwrite = Read-InstallFootprint
+        Assert-StateFiles $taskDurable @(Get-StateFiles $taskDataDirectory -DurableOnly) 'Data after overwrite install'
+        if ((Read-Fixture) -cne $taskBeforeRestart) { throw 'Overwrite install changed synthetic records or settings.' }
+        $taskUninstaller = Join-Path $taskAppDirectory 'uninstall.exe'
+        Invoke-InstallerStep $taskUninstaller 'uninstall'
+        Assert-Uninstalled
+        Assert-StateFiles $taskDurable @(Get-StateFiles $taskDataDirectory -DurableOnly) 'Data after uninstall'
+        $taskResult.uninstallDataByteIdentical = $true
+        Invoke-InstallerStep $Installer 'reinstall'
+        $taskResult.reinstall = Read-InstallFootprint
+        Assert-StateFiles $taskDurable @(Get-StateFiles $taskDataDirectory -DurableOnly) 'Data after reinstall'
+        $taskResult.reinstallDataByteIdentical = $true
+        if ($taskResult.firstInstall.executableHash -ne $taskResult.reinstall.executableHash) { throw 'Reinstall changed app binary.' }
+        $taskReinstalled = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
+        $taskWindow = Wait-ReadyWindow $taskReinstalled $false
+        $taskConnection = Assert-ReadyBridge
+        if ((Read-Fixture) -cne $taskBeforeRestart) { throw 'Reinstalled app changed records, settings or positions.' }
+        Save-WindowImage $taskWindow 'after-reinstall'
+        Quit-ThroughButton $taskWindow $taskReinstalled $taskConnection 'normal-exit-after-reinstall'
+        $taskResult.steps += [pscustomobject]@{ step = 'reinstalled-app'; usable = $true; dataPreserved = $true; settingsPreserved = $true; positionsPreserved = $true }
+    }
+    Assert-StateFiles $taskAiBaseline @(Get-StateFiles $taskAiDirectory) 'AI settings'
+    $taskResult.aiConfigurationUnchanged = $true
+    $taskResult.windowFitRequired = [bool]$RequireFits
     $taskResult.outcome = 'passed'
 } catch {
     $taskResult.outcome = 'failed'
@@ -223,5 +288,6 @@ try {
     }
     throw
 } finally {
+    $env:PATH = $taskOriginalPath
     $taskResult | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $taskOut 'result.json') -Encoding UTF8
 }
