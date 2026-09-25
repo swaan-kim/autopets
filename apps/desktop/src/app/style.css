@@ -336,3 +336,6 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
   .sidebar-bottom p, .sidebar-bottom .local-indicator, .sidebar-bottom .version { display: none; }
   .sidebar-bottom > .text-button { font-size: 10px; line-height: 1.5; }
 }
+@media (max-height: 560px) {
+  .sidebar-bottom p, .sidebar-bottom .version { display: none; }
+}

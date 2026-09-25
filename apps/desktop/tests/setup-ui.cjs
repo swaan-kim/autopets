@@ -25,7 +25,7 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   await page.screenshot({ path: initial, fullPage: true, animations: 'disabled' });
 
   // A long onboarding page must not push the app's only main-window exit away.
-  for (const viewport of [{ width: 960, height: 640 }, { width: 640, height: 480 }]) {
+  for (const viewport of [{ width: 960, height: 640 }, { width: 912, height: 449 }, { width: 640, height: 480 }]) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => window.scrollTo(0, 0));
     const quit = page.getByRole('button', { name: 'AutoPets 종료', exact: true });

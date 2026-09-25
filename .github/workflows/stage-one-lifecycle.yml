@@ -46,7 +46,7 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { throw 'Rust preparation failed.' }
-          cargo +stable test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+          cargo +stable test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
           if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
       - name: Build the self-contained review installer
         run: |
