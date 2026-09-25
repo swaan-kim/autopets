@@ -11,6 +11,7 @@ import { identityKey, uniqueIdentities } from '../assistance/identity';
 import { workflowHelp } from '../workflow/presentation';
 import { currentAction, dueAttention, observedActivity, status } from '../tasks/presentation';
 import { AttentionCard } from '../tasks/AttentionCard';
+import { canAttemptReturn, returnToTask } from '../tasks/returnToTask';
 import { PET_NAMES } from './constants';
 import { Pet } from './Pet';
 import { PetAppearance } from './PetAppearance';
@@ -22,10 +23,13 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const [notice, setNotice] = useState('');
   const overlay = useRef<HTMLDivElement>(null);
   const resizeQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const returning = useRef(false);
   const action = useAction();
   const roles = useRoles();
   const sessionId = snapshot.slots.find(slot => slot.index === index)?.sessionId;
   const session = snapshot.sessions.find(session => session.id === sessionId);
+  const returnTarget = useRef('');
+  returnTarget.current = `${session?.id}\n${session?.cwd}`;
   const matches = uniqueIdentities(assistance.snapshot.tasks, workflow.snapshot.tasks).filter(identity => identity.provider === 'codex' && identity.chatId === sessionId);
   const taskKey = matches.length === 1 ? identityKey(matches[0]) : null;
   const roleMatches = roles.error ? [] : roles.snapshot.bindings.filter(binding => identityKey(binding.identity) === taskKey);
@@ -70,7 +74,16 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
       disabled={!isDesktop || !!assistance.error} busy={action.busy} error={error || action.error || windowError} notice={notice}
-      returnLabel="작업명·ID 복사" onReturn={session ? async () => {
+      returnLabel={session && canAttemptReturn(session) ? '앱에서 열기 시도' : '작업명·ID 복사'} onReturn={session ? async () => {
+        if (returning.current) return;
+        if (canAttemptReturn(session)) {
+          const target = returnTarget.current;
+          returning.current = true;
+          try { const message = await returnToTask(session); if (returnTarget.current === target) setNotice(message); }
+          catch (cause) { if (returnTarget.current === target) setNotice(`${String(cause)} 작업 ID: ${session.id}`); }
+          finally { returning.current = false; }
+          return;
+        }
         try { await navigator.clipboard.writeText(`${session.label}\n${session.id}`); setNotice('복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
         catch { setNotice(`복사하지 못했어요. 작업 ID: ${session.id}`); }
       } : undefined}

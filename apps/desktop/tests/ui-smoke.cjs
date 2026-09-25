@@ -7,6 +7,7 @@ const { runSetupChecks } = require('./setup-ui.cjs');
 const { runProductSiteChecks } = require('./product-site-ui.cjs');
 const { emptyArtifacts, runIntroChecks } = require('./intro-ui.cjs');
 const { runRoleChecks } = require('./roles-ui.cjs');
+const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
@@ -68,6 +69,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'plugin:event|listen') { eventHandlers.set(args.event, [...(eventHandlers.get(args.event) || []), args.handler]); return 1; }
         if (name.startsWith('plugin:event|')) return null;
         calls.push({ name, args });
+        if (name === 'open_local_task') {
+          if (window.__uiTest.returnError) throw Error(window.__uiTest.returnError);
+          return { status: 'dispatched', sessionId: window.__uiTest.returnWrongTarget ? 'wrong-task' : args.sessionId, targetVerified: false };
+        }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
         if (name === 'artifact_dispatch') {
@@ -554,6 +559,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.ok(await waitingPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
     checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
+    await runTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const introScreenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });

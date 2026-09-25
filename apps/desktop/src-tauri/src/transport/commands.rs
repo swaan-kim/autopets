@@ -6,6 +6,19 @@ use crate::application::{
 use crate::platform::windows::Desktop;
 
 #[tauri::command]
+pub(crate) fn open_local_task(
+    store: tauri::State<SharedStore>,
+    session_id: String,
+    expected_cwd: String,
+) -> Result<crate::platform::task_return::DispatchReceipt, String> {
+    let uri = {
+        let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
+        crate::platform::task_return::local_task_uri(&state, &session_id, &expected_cwd)?
+    };
+    crate::platform::task_return::dispatch(&session_id, &uri)
+}
+
+#[tauri::command]
 pub(crate) fn get_setup_state(
     store: tauri::State<SharedStore>,
 ) -> Result<serde_json::Value, String> {

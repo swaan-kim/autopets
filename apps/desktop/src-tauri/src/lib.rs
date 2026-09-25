@@ -16,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            commands::open_local_task,
             transport::role_commands::roles_snapshot,
             transport::role_commands::save_pet,
             transport::role_commands::apply_pet,
