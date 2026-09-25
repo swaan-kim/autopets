@@ -2,6 +2,28 @@ use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 #[tokio::test]
+async fn task_graph_is_authenticated_revision_bound_and_never_enables_live_control() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"expectedRevision":0,"report":crate::domain::task_graph::fixture()});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph","",body.clone()).await.0,401);
+    let browser = format!("{auth}Origin: http://127.0.0.1\r\n");
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&browser,body.clone()).await.0,403);
+    let result = json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,body.clone()).await;
+    assert_eq!(result.0,200); assert_eq!(result.1["revision"],1);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,body).await.0,409);
+    let mut forged = serde_json::json!({"expectedRevision":1,"report":crate::domain::task_graph::fixture()});
+    forged["report"]["controlEnabled"] = serde_json::json!(true);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,forged).await.0,422);
+    assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    assert!(!store.lock().unwrap().workflow.preferences().unwrap().enabled);
+    bridge.shutdown();
+}
+
+#[tokio::test]
 async fn setup_is_authenticated_and_does_not_fabricate_sessions() {
     let dir = tempfile::tempdir().unwrap();
     let store = Arc::new(std::sync::Mutex::new(

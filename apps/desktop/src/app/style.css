@@ -169,6 +169,13 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .mcp-pet-prop small { position: absolute; right: -3px; bottom: -3px; min-width: 11px; height: 11px; display: grid; place-items: center; border-radius: 3px; background: #f0f5e9; font-size: 10px; font-weight: 700; line-height: 1; }
 .mcp-pet-prop[data-state="failed"] small { background: #f9e6df; color: #942f19; }
 .mcp-pet-prop[data-state="unknown"] small { background: #f3ecd7; color: #6b5a24; }
+.task-graph { margin-top: 28px; padding-top: 20px; border-top: 1px solid #dce5d3; }
+.graph-project { margin-top: 16px; }
+.graph-project h3 { font-size: 13px; overflow-wrap: anywhere; }
+.graph-project ul { padding-left: 22px; }
+.graph-project li { margin: 10px 0; }
+.graph-task { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; font-size: 12px; overflow-wrap: anywhere; }
+.graph-task small { color: #65735f; }
 .notion-chip { color: #5c5e60; background: #f4f4f2; border-color: #ddddda; }
 .plan-list { padding: 0; margin: 0; list-style: none; }
 .plan-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 11px; line-height: 1.75; padding: 8px 0; color: #859776; }

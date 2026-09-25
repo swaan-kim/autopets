@@ -42,6 +42,13 @@ test('installer resources work detached from checkout and contain no installer o
   assert.ok(!manifest.files.some(file => /(^|\/)(tests|node_modules|\.local)(\/|$)|connection\.json|\.sqlite3|setup\.exe/u.test(file.path)));
   const imported = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/bootstrap/start.mjs')).href);
   assert.equal(typeof imported.connectInstalled, 'function');
+  const metadata = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/task-metadata.mjs')).href);
+  assert.equal(typeof metadata.inspectTaskMetadata, 'function');
+  for (const name of ['tasks-inspect.mjs', 'tasks-import.mjs', 'runtime-inspection.mjs', 'turn-selection-audit.mjs']) {
+    const result = spawnSync(process.execPath, [path.join(f.report.connector, 'integrations/codex/scripts', name)], { encoding: 'utf8', windowsHide: true, cwd: f.temporary });
+    assert.notEqual(result.status, 0);
+    assert.doesNotMatch(result.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/u);
+  }
   const config = await readJson(f.report.configPath);
   assert.equal(Object.values(config.bundle.resources)[0], 'connector/');
   await assert.rejects(stageDesktopResources({ root: f.root, node: f.fake, license: f.fake, out: f.app }), /empty directory/);

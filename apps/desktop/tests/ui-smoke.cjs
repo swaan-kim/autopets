@@ -9,6 +9,7 @@ const { emptyArtifacts, runIntroChecks } = require('./intro-ui.cjs');
 const { runRoleChecks } = require('./roles-ui.cjs');
 const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
+const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
@@ -63,6 +64,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       transformCallback: callback => { callbacks.set(++callbackId, callback); return callbackId; }, unregisterCallback: id => callbacks.delete(id),
       invoke: async (name, args) => {
         if (name === 'get_snapshot') return { ...structuredClone(state), now: Date.now() };
+        if (name === 'task_graph_snapshot') {
+          if (window.__uiTest.graphError) throw Error('fixture graph unavailable');
+          return structuredClone(window.__uiTest.taskGraph || []);
+        }
         if (name === 'get_assistance') return structuredClone(assistance);
         if (name === 'workflow_snapshot') return structuredClone(workflow);
         if (name === 'roles_snapshot') return structuredClone(window.__uiTest.roles);
@@ -561,6 +566,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
     await runTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
+    const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const toolScreenshots = await runToolActivityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
@@ -581,6 +587,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     });
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...toolScreenshots, ...roleScreenshots, ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
+    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...graphScreenshots, ...toolScreenshots, ...roleScreenshots, ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
   } finally { if (errors.length) console.error('Browser page errors:', errors); await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

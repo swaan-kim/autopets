@@ -161,6 +161,7 @@ impl Store {
         }
         store.restore_approval_history()?;
         store.init_roles()?;
+        store.init_task_graph()?;
         Ok(store)
     }
 
