@@ -22,3 +22,18 @@ export function rolePrompt(template) {
   if (bytes(text) > 3072) throw new Error('Role instruction exceeds 3KB');
   return text;
 }
+
+// The server supplies the immutable assignment from the exact task. Never accept
+// a profile from a different task or from hook input as first-turn instructions.
+export function roleGuidance(binding, identity, workflowEnabled = false) {
+  if (binding == null) return '';
+  if (!binding.identity || !identity || ['provider', 'accountId', 'chatId'].some(key => binding.identity[key] !== identity[key])
+    || typeof binding.enabled !== 'boolean' || !Number.isSafeInteger(binding.revision) || binding.revision < 1
+    || !Number.isSafeInteger(binding.petRevision) || binding.petRevision < 1) throw new Error('Invalid role binding');
+  if (!binding.enabled) return '';
+  rolePrompt(binding.template); // Shared strict template/version validation.
+  const template = binding.template;
+  return ['\n선택한 역할 지침(최신 요청·현재 권한 우선):', template.instruction,
+    ...(!workflowEnabled && template.planFirst ? ['복잡한 새 작업은 실행 전 계획을 확인하세요. native Plan 모드 전환은 아닙니다.'] : []),
+    `역할 스킬: ${template.skills[0].id}@${template.skills[0].version}. 가용성 확인 후 사용하고 실행 여부는 확인된 결과만 알리세요.`].join('\n');
+}

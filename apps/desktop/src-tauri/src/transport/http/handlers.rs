@@ -167,10 +167,15 @@ pub(super) async fn assistance(
         }
         _ => None,
     };
-    let result = store
+    let role = if matches!(&input, crate::application::assistance::Request::Read { .. })
+        && identity.provider == crate::application::assistance::Provider::Codex {
+        store.role_binding(identity).map_err(|e| error(StatusCode::CONFLICT, e))?
+    } else { None };
+    let mut result = store
         .assistance
         .dispatch_with_workflow(input, workflow_enabled)
         .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    if let Some(role) = role { result["role"] = serde_json::to_value(role).map_err(|_| error(StatusCode::INTERNAL_SERVER_ERROR, "Role serialization failed"))?; }
     if let Some(identity) = context_change {
         store
             .workflow

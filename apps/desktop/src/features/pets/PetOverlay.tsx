@@ -5,6 +5,7 @@ import type { Snapshot } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
 import { useAssistance } from '../../bridge/useAssistance';
+import { useRoles } from '../../bridge/useRoles';
 import type { useWorkflow } from '../../bridge/useWorkflow';
 import { identityKey, uniqueIdentities } from '../assistance/identity';
 import { workflowHelp } from '../workflow/presentation';
@@ -12,6 +13,7 @@ import { currentAction, dueAttention, observedActivity, status } from '../tasks/
 import { AttentionCard } from '../tasks/AttentionCard';
 import { PET_NAMES } from './constants';
 import { Pet } from './Pet';
+import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
 
 export function PetOverlay({ snapshot, index, error, assistance, workflow }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
@@ -21,10 +23,13 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const overlay = useRef<HTMLDivElement>(null);
   const resizeQueue = useRef<Promise<unknown>>(Promise.resolve());
   const action = useAction();
+  const roles = useRoles();
   const sessionId = snapshot.slots.find(slot => slot.index === index)?.sessionId;
   const session = snapshot.sessions.find(session => session.id === sessionId);
   const matches = uniqueIdentities(assistance.snapshot.tasks, workflow.snapshot.tasks).filter(identity => identity.provider === 'codex' && identity.chatId === sessionId);
   const taskKey = matches.length === 1 ? identityKey(matches[0]) : null;
+  const roleMatches = roles.error ? [] : roles.snapshot.bindings.filter(binding => identityKey(binding.identity) === taskKey);
+  const appearance = roleMatches.length === 1 ? roleMatches[0].template : undefined;
   const helpTask = assistance.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const workflowTask = workflow.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
@@ -78,7 +83,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     </div>}
     <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
-      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} />{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`} title={help}>{help}</span>
     </div>
   </div>;

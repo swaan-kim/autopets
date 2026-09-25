@@ -194,6 +194,26 @@ function Read-Fixture {
     return $taskOutput
 }
 
+function Save-RoleFixture($Window) {
+    $taskRoleNav = [regex]::Unescape('\uc5ed\ud560\uacfc \ub0b4 \ud3ab')
+    $taskRoleSave = [regex]::Unescape('\ub0b4 \ud3ab \uc800\uc7a5')
+    $taskRoleSaved = [regex]::Unescape('\ub0b4 \ud3ab \ubcc0\uacbd \uc800\uc7a5')
+    Invoke-Button (Find-Button $Window $taskRoleNav)
+    $taskSave = Wait-Until {
+        $taskButton = Find-Button $Window $taskRoleSave
+        if ($taskButton -and $taskButton.Current.IsEnabled) { return $taskButton }
+        return $null
+    } 'Role editor did not become ready.' 20
+    $taskScroll = $null
+    if ($taskSave.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$taskScroll)) {
+        ([System.Windows.Automation.ScrollItemPattern]$taskScroll).ScrollIntoView()
+    }
+    Invoke-Button $taskSave
+    [void](Wait-Until { Find-Button $Window $taskRoleSaved } 'Role save did not complete.' 20)
+    Save-WindowImage $Window 'saved-role'
+    $taskResult.steps += [pscustomobject]@{ step = 'save-role'; actualUi = $true; template = 'research-document' }
+}
+
 try {
     if (-not [Environment]::UserInteractive) { throw 'Runner has no interactive desktop; no GUI pass can be claimed.' }
     if ((Test-Path -LiteralPath $taskAppDirectory) -or (Test-Path -LiteralPath $taskDataDirectory) -or @(Get-AppProcesses).Count) { throw 'Runner is not fresh.' }
@@ -247,6 +267,7 @@ try {
     New-Item -ItemType Directory -Path $taskFixtureDirectory -Force | Out-Null
     [void](Request-Bridge $taskConnection '/v1/events' @{ eventId = 'gui-start'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; kind = 'turn_started'; cwd = $taskFixtureDirectory; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() })
     [void](Request-Bridge $taskConnection '/v1/task-config' @{ requestId = 'gui-config'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; cwd = $taskFixtureDirectory; completionCriterion = 'GUI restart must preserve this test record'; interventionMode = 'milestones'; elapsedAlertMinutes = 7 })
+    Save-RoleFixture $taskWindow
     Quit-ThroughButton $taskWindow $taskOriginal $taskConnection 'normal-exit'
     $taskBeforeRestart = Read-Fixture
     $taskBeforeRestart | Set-Content -LiteralPath (Join-Path $taskOut 'before-restart.json') -Encoding UTF8

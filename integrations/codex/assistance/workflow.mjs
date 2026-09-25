@@ -5,14 +5,17 @@ import { explicitPlanChange, workflowIntent } from '../../../packages/guidance/i
 const hash = value => createHash('sha256').update(value).digest('hex');
 export const identityFor = sessionId => ({ provider: 'codex', accountId: `session:${hash(sessionId)}`, chatId: sessionId });
 const modelSlug = value => typeof value === 'string' && /^[a-z0-9][a-z0-9._:-]{0,127}$/iu.test(value) ? value : null;
-export function explicitRequestModel(prompt) {
+export function explicitRequestModel(prompt, availableModels = []) {
   if (typeof prompt !== 'string') return null;
   const line = prompt.split(/\r?\n/u, 1)[0];
   if (line.length > 180) return null;
-  const match = /^(?:(?:모델|model)\s*:\s*(gpt-6-astra|gpt-5\.6-(?:sol|terra|luna))|\/model\s+(gpt-6-astra|gpt-5\.6-(?:sol|terra|luna))|이번 요청은 (Astra|Sol|Terra|Luna|gpt-6-astra|gpt-5\.6-(?:sol|terra|luna)) 모델로 진행해(?:줘|주세요))[.!]?$/iu.exec(line.trim());
+  const match = /^(?:(?:모델|model)\s*:\s*([a-z0-9][a-z0-9._:-]{0,127})|\/model\s+([a-z0-9][a-z0-9._:-]{0,127})|이번 요청은 ([a-z0-9][a-z0-9._:-]{0,127}) 모델로 진행해(?:줘|주세요))$/iu.exec(line.trim());
   if (!match) return null;
   const value = (match[1] ?? match[2] ?? match[3]).toLowerCase();
-  return ({ astra: 'gpt-6-astra', sol: 'gpt-5.6-sol', terra: 'gpt-5.6-terra', luna: 'gpt-5.6-luna' })[value] ?? value;
+  // A nickname must never silently choose another generation (for example Sol).
+  // Only exact slugs from this connection's catalog are eligible.
+  const matches = Array.isArray(availableModels) ? availableModels.filter(item => modelSlug(item?.model)?.toLowerCase() === value) : [];
+  return matches.length === 1 ? matches[0].model : null;
 }
 export function submissionEvidence(input) {
   if (typeof input?.prompt !== 'string' || utf8Bytes(input.prompt) > 128 * 1024 || !input.session_id || !input.turn_id) return null;
@@ -32,7 +35,7 @@ export async function preflightSubmission(input, request) {
     const intent = workflowIntent(input.prompt, data.task);
     const result = await request('/v1/workflow', { operation: 'preflight', identity, binding,
       expectedSettingsRevision: data.task.settingsRevision, expectedPlanRevision: data.task.planRevision,
-      ...evidence, intent, explicitModel: explicitRequestModel(input.prompt), planChanged: explicitPlanChange(input.prompt) });
+      ...evidence, intent, explicitModel: data.capabilities?.verification === 'verified' ? explicitRequestModel(input.prompt, data.capabilities.availableModels) : null, planChanged: explicitPlanChange(input.prompt) });
     if (result?.ok !== true || !['hold', 'allow', 'passthrough'].includes(result.decision) || !validWorkflowTask(result.task)) return { ...unavailable, error: true };
     const cap = data.capabilities;
     // This verified hold capability also attests an installed synchronous prep

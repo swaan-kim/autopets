@@ -4,6 +4,7 @@ import { command, isDesktop } from '../../bridge/command';
 import { useRoles } from '../../bridge/useRoles';
 import { identityKey } from '../assistance/identity';
 import { Pet } from '../pets/Pet';
+import { PetAppearance } from '../pets/PetAppearance';
 import { rolePrompt } from '../../../../../packages/guidance/roles.mjs';
 import './roles.css';
 
@@ -60,7 +61,7 @@ export function RoleStudio({ workflow, sessions, refreshWorkflow }: { workflow: 
     {!isDesktop && <p className="assistance-notice">브라우저 미리보기 · 실제 저장과 작업 연결은 데스크톱 앱에서 사용할 수 있어요.</p>}
     <div className="role-templates" aria-label="기본 역할">{library.snapshot.templates.map(template => <button className="button secondary" key={template.id} disabled={busy} onClick={() => { setDraft(structuredClone(template)); setSaved(null); setDirty(true); setNotice(''); }}>{template.name}</button>)}</div>
     {library.snapshot.pets.length > 0 && <label>저장한 내 펫<select className="text-input" aria-label="저장한 내 펫" disabled={disabled} value={saved?.id ?? ''} onChange={event => { const pet = library.snapshot.pets.find(pet => pet.id === event.target.value); if (pet) { setSaved(pet); setDraft(structuredClone(pet.template)); setDirty(false); setNotice(''); } }}><option value="">새 펫 만들기</option>{library.snapshot.pets.map(pet => <option value={pet.id} key={pet.id}>{pet.template.name} · 수정 {pet.revision}</option>)}</select></label>}
-    <div className="role-editor"><div className={`role-preview background-${draft.background}`}><Pet activity={draft.id === 'research-document' ? 'research' : 'tool'} />{draft.prop === 'notebook' && <span className="role-prop" aria-label="노트 소품">▤</span>}<strong>{draft.name}</strong></div>
+    <div className="role-editor"><div className="role-preview"><PetAppearance template={draft}><Pet activity={draft.id === 'research-document' ? 'research' : 'tool'} /></PetAppearance><strong>{draft.name}</strong></div>
       <div className="role-fields"><label>펫 이름<input className="text-input" aria-label="펫 이름" value={draft.name} disabled={busy} onChange={event => edit({ name: event.target.value })} /></label>
         <label>역할 지침<textarea className="text-input" aria-label="역할 지침" rows={5} disabled={busy} value={draft.instruction} onChange={event => edit({ instruction: event.target.value })} /></label>
         <label><input type="checkbox" checked={draft.planFirst} disabled={busy} onChange={event => edit({ planFirst: event.target.checked })} /> 복잡한 작업은 계획 먼저 확인</label>

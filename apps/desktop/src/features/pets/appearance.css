@@ -1,0 +1,3 @@
+.pet-appearance{position:relative;display:inline-grid;width:128px;height:128px;isolation:isolate;pointer-events:none}
+.pet-meadow{position:absolute;inset:78px 0 0;border-radius:50%;background:linear-gradient(180deg,#dce9ce88,#b9d59d99);z-index:-1;pointer-events:none}
+.pet-notebook{position:absolute;right:7px;bottom:16px;width:24px;height:28px;border-radius:3px;background:#e9e0c9;color:#536441;border:1px solid #79886b;font-size:25px;line-height:24px;transform:rotate(-8deg);pointer-events:none}

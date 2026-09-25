@@ -7,6 +7,7 @@ const { runSetupChecks } = require('./setup-ui.cjs');
 const { runProductSiteChecks } = require('./product-site-ui.cjs');
 const { emptyArtifacts, runIntroChecks } = require('./intro-ui.cjs');
 const { runRoleChecks } = require('./roles-ui.cjs');
+const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -44,13 +45,13 @@ const assistanceFixture = {
 };
 
 async function mockBridge(page, initial, initialAssistance = assistanceFixture, initialWorkflow = emptyWorkflow, initialArtifacts = emptyArtifacts) {
-  await page.addInitScript(({ initial, initialAssistance, initialWorkflow, initialArtifacts }) => {
+  await page.addInitScript(({ initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates }) => {
     const state = structuredClone(initial);
     const assistance = structuredClone(initialAssistance);
     const workflow = structuredClone(initialWorkflow);
     const artifacts = structuredClone(initialArtifacts);
     const calls = [];
-    window.__uiTest = { state, assistance, workflow, artifacts, artifactImages: {}, calls, clipboard: '', petVisibility: [true, true, true] };
+    window.__uiTest = { state, assistance, workflow, artifacts, roles: { templates: roleTemplates, pets: [], bindings: [] }, artifactImages: {}, calls, clipboard: '', petVisibility: [true, true, true] };
     const callbacks = new Map(); const eventHandlers = new Map(); let callbackId = 0;
     window.__uiTest.emitEvent = (name, payload) => { for (const handler of eventHandlers.get(name) || []) callbacks.get(handler)?.({ event: name, id: 1, payload }); };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__uiTest.clipboard = text; } } });
@@ -62,6 +63,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'get_snapshot') return { ...structuredClone(state), now: Date.now() };
         if (name === 'get_assistance') return structuredClone(assistance);
         if (name === 'workflow_snapshot') return structuredClone(workflow);
+        if (name === 'roles_snapshot') return structuredClone(window.__uiTest.roles);
         if (name === 'artifact_snapshot') return structuredClone(artifacts);
         if (name === 'plugin:event|listen') { eventHandlers.set(args.event, [...(eventHandlers.get(args.event) || []), args.handler]); return 1; }
         if (name.startsWith('plugin:event|')) return null;
@@ -207,7 +209,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         return null;
       },
     };
-  }, { initial, initialAssistance, initialWorkflow, initialArtifacts });
+  }, { initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates });
 }
 
 (async () => {
@@ -447,6 +449,30 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await overlays[2].locator('.sprite-celebrate').waitFor();
     const pet = overlays[0];
     await pet.bringToFront();
+    await pet.evaluate(template => {
+      window.__uiTest.roles.bindings = [{ identity: window.__uiTest.assistance.tasks[0].identity,
+        template: { ...template, prop: 'notebook', background: 'meadow' }, revision: 1, petRevision: 1, enabled: true }];
+      window.__uiTest.emitEvent('autopets://roles-changed', {});
+    }, roleTemplates[0]);
+    await pet.getByLabel('노트 소품', { exact: true }).waitFor();
+    await pet.getByLabel('풀밭 배경', { exact: true }).waitFor();
+    assert.equal(await overlays[1].getByLabel('노트 소품', { exact: true }).count(), 0);
+    assert.ok(await pet.locator('.pet-notebook').evaluate(element => {
+      const decoration = element.getBoundingClientRect(), hit = document.querySelector('.pet-hit').getBoundingClientRect();
+      return getComputedStyle(element).pointerEvents === 'none' && decoration.left >= hit.left && decoration.right <= hit.right
+        && decoration.top >= hit.top && decoration.bottom <= hit.bottom;
+    }));
+    await pet.evaluate(() => {
+      window.__uiTest.roles.bindings[0].identity = { ...window.__uiTest.roles.bindings[0].identity, accountId: 'different-source' };
+      window.__uiTest.emitEvent('autopets://roles-changed', {});
+    });
+    await pet.getByLabel('노트 소품', { exact: true }).waitFor({ state: 'hidden' });
+    await pet.evaluate(() => {
+      window.__uiTest.roles.bindings[0].identity = window.__uiTest.assistance.tasks[0].identity;
+      window.__uiTest.emitEvent('autopets://roles-changed', {});
+    });
+    await pet.getByLabel('노트 소품', { exact: true }).waitFor();
+    checks.push('saved decorations follow the exact task/source, remain inside the pet hit area and do not intercept pointer input');
     await pet.getByRole('button', { name: '근거 자료 조사 · 작업 카드 열기', exact: true }).click();
     await pet.locator('.pet-quick-card').waitFor();
     assert.equal(await pet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'show_manager')), false);
@@ -547,6 +573,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     });
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
+    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...roleScreenshots, ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
   } finally { if (errors.length) console.error('Browser page errors:', errors); await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });
