@@ -1,0 +1,50 @@
+name: Installed native window lifecycle (Windows)
+
+on:
+  push:
+    branches: ['test/native-window-lifecycle']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  native-window:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download the pinned review installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $taskArtifact = gh api repos/swaan-kim/autopets/actions/artifacts/10752596469 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $taskArtifact.expired -or $taskArtifact.workflow_run.id -ne 35863282348 -or $taskArtifact.workflow_run.head_sha -ne 'db06cb964be9824d8a975710f055fcfc1a1d0ed3') { throw 'Pinned artifact is unavailable or mismatched.' }
+          $taskZip = Join-Path $env:RUNNER_TEMP 'verified-review.zip'
+          Invoke-WebRequest -Uri 'https://api.github.com/repos/swaan-kim/autopets/actions/artifacts/10752596469/zip' -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' } -OutFile $taskZip
+          if ((Get-FileHash -LiteralPath $taskZip -Algorithm SHA256).Hash.ToLowerInvariant() -ne '58560a9a64c829ea74eec4bafc1b875b5488dd1eaec8dcb027c26365583fd6d3') { throw 'Artifact archive hash mismatch.' }
+          $taskArchive = [IO.Compression.ZipFile]::OpenRead($taskZip)
+          try {
+            $taskEntry = $taskArchive.GetEntry('AutoPets_0.1.0_x64-setup.exe')
+            if (-not $taskEntry -or $taskEntry.Length -ne 244097822) { throw 'Pinned installer missing.' }
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($taskEntry, (Join-Path $env:RUNNER_TEMP 'AutoPets_0.1.0_x64-setup.exe'), $false)
+          } finally { $taskArchive.Dispose() }
+      - name: Exercise the installed app through native accessibility controls
+        shell: powershell
+        run: |
+          ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:RUNNER_TEMP 'AutoPets_0.1.0_x64-setup.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'Native window lifecycle check failed.' }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: native-window-lifecycle-evidence
+          path: work/native-window-lifecycle/
+          if-no-files-found: warn
+          retention-days: 14
