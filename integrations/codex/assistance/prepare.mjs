@@ -12,6 +12,7 @@ import { identityFor, preflightSubmission } from './workflow.mjs';
 import { homeFor, digest } from '../bootstrap/files.mjs';
 import { runHookOnce } from '../bootstrap/deduplicate.mjs';
 import { turnStartId } from '../hooks/turn-events.mjs';
+import { isChildHook } from '../hooks/scope.mjs';
 export { identityFor } from './workflow.mjs';
 
 const entry = fileURLToPath(import.meta.url);
@@ -88,7 +89,7 @@ async function consumeRecord(config, recordPath, consume) {
 }
 
 export async function prepare(config, input, request = transport(config)) {
-  if (!config.enabled || !isObject(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
+  if (!config.enabled || !isObject(input) || isChildHook(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
     || !['UserPromptSubmit', 'SessionStart', 'PostCompact'].includes(input.hook_event_name)
     || (config.version === 2 && input.session_id !== config.sessionId)
     || !samePath(await realpath(input.cwd), config.project)) return { output: {} };

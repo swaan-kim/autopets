@@ -44,6 +44,11 @@ test('installer resources work detached from checkout and contain no installer o
   assert.equal(typeof imported.connectInstalled, 'function');
   const metadata = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/task-metadata.mjs')).href);
   assert.equal(typeof metadata.inspectTaskMetadata, 'function');
+  const delegated = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/delegation.mjs')).href);
+  assert.equal(typeof delegated.renderAgentProfiles, 'function');
+  assert.equal(typeof delegated.delegationEvent, 'function');
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/hooks/scope.mjs'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/runtime/delegation-hook.mjs'));
   const assistance = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/assistance/setup.mjs')).href);
   assert.equal(typeof assistance.updateHooks, 'function');
   for (const name of ['install-hooks.mjs', 'receiver-inspect.mjs', 'tasks-inspect.mjs', 'tasks-import.mjs', 'runtime-inspection.mjs', 'turn-selection-audit.mjs']) {

@@ -14,7 +14,7 @@ export async function runHookOnce(input, role, run, rootOverride) {
   await safeDirectory(directory);
   // Ignore hook-specific metadata: two definitions may receive the same event
   // with different source IDs. Prompt/model changes are genuinely new work.
-  const key = digest(JSON.stringify([role, input.session_id, input.turn_id, input.hook_event_name, input.tool_use_id ?? '', input.model ?? '', digest(input.prompt || ''), input.source ?? '']));
+  const key = digest(JSON.stringify([role, input.session_id, input.agent_id ?? '', input.agent_type ?? '', input.turn_id, input.hook_event_name, input.tool_use_id ?? '', input.model ?? '', digest(input.prompt || ''), input.source ?? '']));
   const file = path.join(directory, `${key}.json`);
   try { await fs.writeFile(file, JSON.stringify({ status: 'running', at: Date.now() }), { flag: 'wx' }); }
   catch (error) {

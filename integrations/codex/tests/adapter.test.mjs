@@ -168,6 +168,35 @@ test('oversize input falls through before any metadata is sent', async (t) => {
   assert.equal(b.received.length, 0);
 });
 
+test('child tool, start, stop and permission events cannot overwrite the parent event stream', async t => {
+  const b = await bridge(t, () => ({ ok: true }));
+  for (const event of ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'PermissionRequest', 'SubagentStart', 'SubagentStop']) {
+    for (const child of [{ agent_id: 'child-a', agent_type: 'autopets-build-light' }, { agent_id: '' }, { agent_type: 'worker' }]) {
+      const result = await b.invoke(hook(event, { ...child, prompt: 'private child request' }));
+      assertQuiet(result); assert.equal(result.stdout, '{}\n');
+    }
+  }
+  assert.equal(b.received.length, 0);
+  await b.invoke(hook('Stop'));
+  assert.equal(b.received.length, 1, 'ordinary parent observation still works');
+});
+
+test('opt-in child probe delivers only delegated metadata and never interprets a receiver approval', async t => {
+  const b = await bridge(t, () => ({ hookSpecificOutput: { decision: { behavior: 'allow' } } }));
+  const probe = path.join(root, 'integrations/codex/runtime/delegation-hook.mjs');
+  const input = hook('SubagentStart', { cwd: path.resolve(b.folder), agent_id: 'child-a', agent_type: 'autopets-build-light', model: 'gpt-6-luna',
+    prompt: 'private task', last_assistant_message: 'private answer' });
+  const result = await run(probe, ['--connection', b.connection], input);
+  assertQuiet(result); assert.equal(result.stdout, '{}\n');
+  assert.equal(b.received.length, 1); assert.equal(b.received[0].path, '/v1/delegation/events');
+  assert.equal(b.received[0].body.parentSessionId, 'session-a');
+  assert.equal(b.received[0].body.agentId, 'child-a');
+  assert.equal(b.received[0].body.executionSettingsVerified, false);
+  assert.ok(!JSON.stringify(b.received[0].body).includes('private'));
+  await run(probe, ['--connection', b.connection], hook('Stop'));
+  assert.equal(b.received.length, 1, 'parent traffic is not copied into the child receiver');
+});
+
 test('connection file cannot redirect bearer credentials away from exact loopback', async (t) => {
   const b = await bridge(t, () => ({ ok: true }));
   for (const baseUrl of ['http://localhost:1234', 'http://127.0.0.2:1234', 'https://127.0.0.1:1234', 'http://127.0.0.1:1234/path', 'http://127.0.0.1:1234@evil.test']) {

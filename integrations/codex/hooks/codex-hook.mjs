@@ -7,6 +7,7 @@ import { MAX_BODY, isObject, validString, readConnection, requestJson as request
 import { preflightSubmission } from '../assistance/workflow.mjs';
 import { runHookOnce } from '../bootstrap/deduplicate.mjs';
 import { turnStartId } from './turn-events.mjs';
+import { isChildHook } from './scope.mjs';
 
 const EVENTS = Object.freeze({
   SessionStart: 'session_started', UserPromptSubmit: 'turn_started',
@@ -73,7 +74,7 @@ function observedPlan(input) {
 }
 
 function baseEvent(input) {
-  if (!isObject(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
+  if (!isObject(input) || isChildHook(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
     || !validString(input.hook_event_name, 64)) return null;
   if (input.turn_id !== undefined && !validString(input.turn_id)) return null;
   return { sessionId: input.session_id, cwd: input.cwd,

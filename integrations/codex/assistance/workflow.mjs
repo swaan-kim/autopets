@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { validWorkflowTask, utf8Bytes } from '../../../packages/contracts/index.mjs';
 import { explicitPlanChange, workflowIntent } from '../../../packages/guidance/index.mjs';
+import { isChildHook } from '../hooks/scope.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 export const identityFor = sessionId => ({ provider: 'codex', accountId: `session:${hash(sessionId)}`, chatId: sessionId });
@@ -18,7 +19,7 @@ export function explicitRequestModel(prompt, availableModels = []) {
   return matches.length === 1 ? matches[0].model : null;
 }
 export function submissionEvidence(input) {
-  if (typeof input?.prompt !== 'string' || utf8Bytes(input.prompt) > 128 * 1024 || !input.session_id || !input.turn_id) return null;
+  if (isChildHook(input) || typeof input?.prompt !== 'string' || utf8Bytes(input.prompt) > 128 * 1024 || !input.session_id || !input.turn_id) return null;
   const requestFingerprint = hash(input.prompt);
   const submissionId = hash(JSON.stringify(['codex', input.session_id, input.turn_id, requestFingerprint]));
   return { requestFingerprint, submissionId, observation: { model: modelSlug(input.model), reasoning: null, mode: null,

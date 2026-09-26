@@ -4,8 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { homeFor, readJson, atomicJson, safeDirectory, digest } from './files.mjs';
+import { isChildHook } from '../hooks/scope.mjs';
 
 export async function chatConfig(root, input, connection) {
+  if (isChildHook(input)) throw Error('child-requires-delegation-bridge');
   if (typeof input.session_id !== 'string' || !input.session_id || input.session_id.length > 256 || typeof input.cwd !== 'string' || !path.isAbsolute(input.cwd)) throw Error('identity');
   const project = await fs.realpath(input.cwd);
   const directory = path.join(root, 'state/chats', digest(input.session_id));
@@ -23,6 +25,7 @@ export async function main(role = process.argv[2], env = process.env) {
     const parts = []; let size = 0;
     for await (const part of process.stdin) { size += part.length; if (size > 256 * 1024) throw Error('input-limit'); parts.push(part); }
     const raw = Buffer.concat(parts), input = JSON.parse(raw.toString('utf8'));
+    if (role === 'prepare' && isChildHook(input)) throw Error('child-requires-delegation-bridge');
     const root = homeFor(env);
     if (!(await readJson(path.join(root, 'state/connection-settings.json'))).enabled) throw Error('disabled');
     const connection = env.AUTOPETS_CONNECTION_FILE || path.join(env.AUTOPETS_DATA_DIR || path.join(env.LOCALAPPDATA, 'local.autopets.desktop'), 'connection.json');
