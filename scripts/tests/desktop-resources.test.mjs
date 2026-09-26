@@ -44,7 +44,9 @@ test('installer resources work detached from checkout and contain no installer o
   assert.equal(typeof imported.connectInstalled, 'function');
   const metadata = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/task-metadata.mjs')).href);
   assert.equal(typeof metadata.inspectTaskMetadata, 'function');
-  for (const name of ['tasks-inspect.mjs', 'tasks-import.mjs', 'runtime-inspection.mjs', 'turn-selection-audit.mjs']) {
+  const assistance = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/assistance/setup.mjs')).href);
+  assert.equal(typeof assistance.updateHooks, 'function');
+  for (const name of ['install-hooks.mjs', 'receiver-inspect.mjs', 'tasks-inspect.mjs', 'tasks-import.mjs', 'runtime-inspection.mjs', 'turn-selection-audit.mjs']) {
     const result = spawnSync(process.execPath, [path.join(f.report.connector, 'integrations/codex/scripts', name)], { encoding: 'utf8', windowsHide: true, cwd: f.temporary });
     assert.notEqual(result.status, 0);
     assert.doesNotMatch(result.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/u);

@@ -21,7 +21,7 @@ export async function collectConnectorFiles({ root, node, license }) {
     }
   }
   for (const directory of ['integrations/codex/bootstrap', 'integrations/codex/hooks', 'integrations/codex/assistance', 'integrations/codex/skills', 'integrations/codex/runtime', 'packages/contracts', 'packages/guidance']) await walk(directory);
-  for (const name of ['runtime-inspection.mjs', 'tasks-inspect.mjs', 'tasks-import.mjs', 'turn-selection-audit.mjs']) {
+  for (const name of ['install-hooks.mjs', 'receiver-inspect.mjs', 'runtime-inspection.mjs', 'tasks-inspect.mjs', 'tasks-import.mjs', 'turn-selection-audit.mjs']) {
     const file = `integrations/codex/scripts/${name}`;
     await add(file, path.join(root, file));
   }
