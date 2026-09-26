@@ -36,6 +36,10 @@ pub(crate) fn get_snapshot(store: tauri::State<SharedStore>) -> Result<Snapshot,
         .snapshot())
 }
 #[tauri::command]
+pub(crate) fn set_pet_link_enabled(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64, enabled: bool) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::Enable{target,expected_revision,enabled}).map(|_|()))
+}
+#[tauri::command]
 pub(crate) fn assign_session(
     app: tauri::AppHandle,
     store: tauri::State<SharedStore>,

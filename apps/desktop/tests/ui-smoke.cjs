@@ -10,6 +10,7 @@ const { runRoleChecks } = require('./roles-ui.cjs');
 const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
+const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
@@ -567,6 +568,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
 
     await runTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
     const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     const toolScreenshots = await runToolActivityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });

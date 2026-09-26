@@ -17,6 +17,7 @@ import { PET_NAMES } from './constants';
 import { Pet } from './Pet';
 import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
+import { ExplicitPet, explicitPetStatus } from './ExplicitPet';
 
 export function PetOverlay({ snapshot, index, error, assistance, workflow }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
   const [expanded, setExpanded] = useState(false);
@@ -60,6 +61,17 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     add<{ exceptSlot: number | null }>('autopets://collapse-pets', payload => { if (payload.exceptSlot !== index) setExpanded(false); });
     return () => { disposed = true; disposers.forEach(remove => remove()); };
   }, [index]);
+  const explicit = snapshot.petLinks?.find(link => link.slot === index);
+  if (explicit) {
+    const active = explicit.connected && explicit.enabled && !disconnected;
+    const state = active ? explicit.run?.state : undefined;
+    return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
+      {expanded && <div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div>}
+      <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
+        <button className="pet-hit" aria-label="제작 펫 메뉴" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><Pet index={index} activity={state === 'working' ? 'working' : 'idle'} paused={!active} motion={state === 'complete' ? 'celebrate' : state === 'failed' ? 'angry' : state === 'waiting' ? 'dizzy' : undefined} /></button>
+        <span className="floating-label">제작 펫 · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
+      </div></div>;
+  }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'
     : session.state === 'failed' || attention?.kind === 'tool-error' ? 'angry'
     : attention && attention.kind !== 'milestone' || session.state === 'waiting' ? 'dizzy'

@@ -31,7 +31,7 @@ pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
         .try_state::<Desktop>()
         .map(|s| s.visible.load(Ordering::Relaxed))
         .unwrap_or(true);
-    let has_assignments = snapshot.slots.iter().any(|slot| slot.session_id.is_some());
+    let has_assignments = snapshot.slots.iter().any(|slot| slot.session_id.is_some()) || !snapshot.pet_links.is_empty();
     let hidden_slots = app
         .try_state::<Desktop>()
         .map(|s| s.hidden_slots.lock().map(|h| *h).unwrap_or([false; 3]))
@@ -40,7 +40,7 @@ pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
         if let Some(window) = app.get_webview_window(&format!("pet-{}", slot.index)) {
             if visible
                 && !hidden_slots[slot.index]
-                && (slot.session_id.is_some() || (!has_assignments && slot.index == 0))
+                && (slot.session_id.is_some() || snapshot.pet_links.iter().any(|l| l.slot == slot.index) || (!has_assignments && slot.index == 0))
             {
                 if !window.is_visible().unwrap_or(false) {
                     let _ = window.show();

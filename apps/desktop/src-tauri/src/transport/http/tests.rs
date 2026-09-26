@@ -2,6 +2,34 @@ use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
 #[tokio::test]
+async fn explicit_pet_connection_is_authenticated_without_hook_sessions() {
+    let dir=tempfile::tempdir().unwrap();
+    let store=Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
+    let info:ConnectionInfo=serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth=format!("Authorization: Bearer {}\r\n",info.token);
+    let target=serde_json::json!({"sourceId":"codex-windows-local","threadId":"01a0d905-55a5-7061-9d60-151ed3d2b5f3","cwd":dir.path().to_string_lossy()});
+    let body=serde_json::json!({"operation":"connect","target":target});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link","",body.clone()).await.0,401);
+    let connected=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,body.clone()).await;
+    assert_eq!(connected.0,200);assert_eq!(connected.1["accountIdentity"],"unknown");assert_eq!(connected.1["liveHooksVerified"],false);
+    assert_eq!(connected.1["link"]["connected"],true);assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    let mut forged=body;forged["externalRoutingVerified"]=true.into();
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,forged).await.0,422);
+    let prepared=serde_json::json!({"operation":"prepare","target":target,"expectedRevision":1,"requestId":"01a0de13-1b09-7fa0-86e0-35f69dbbc6a8","profile":"light"});
+    let first=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared.clone()).await;
+    assert_eq!(first.0,200);assert_eq!(first.1["dispatchAllowed"],true);
+    let repeat=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared).await;
+    assert_eq!(repeat.0,200);assert_eq!(repeat.1["dispatchAllowed"],false);
+    bridge.shutdown();
+    assert!(tokio::net::TcpStream::connect(bridge.base_url.trim_start_matches("http://")).await.is_err() || *bridge.stop_signal.borrow());
+    let mut reopened=crate::application::store::Store::new(dir.path()).unwrap();
+    let read=serde_json::from_value(serde_json::json!({"operation":"read","target":target})).unwrap();
+    let link=reopened.pet_link_request(read).unwrap().unwrap();
+    assert!(!link.connected);assert_eq!(link.run.unwrap().state,crate::domain::pet_link::RunState::Unknown);
+}
+
+#[tokio::test]
 async fn task_graph_is_authenticated_revision_bound_and_never_enables_live_control() {
     let dir = tempfile::tempdir().unwrap();
     let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));

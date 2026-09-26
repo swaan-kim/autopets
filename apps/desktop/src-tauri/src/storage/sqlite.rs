@@ -59,6 +59,7 @@ impl Store {
             .map_err(db_err)?;
         }
         let mut store = Self {
+            pet_links: HashMap::new(),
             assistance: crate::application::assistance::AssistanceStore::new(&data_dir)?,
             workflow: crate::application::workflow::WorkflowStore::new(&data_dir)?,
             artifacts: crate::application::artifacts::ArtifactStore::new(&data_dir)?,
@@ -162,6 +163,7 @@ impl Store {
         store.restore_approval_history()?;
         store.init_roles()?;
         store.init_task_graph()?;
+        store.init_pet_links()?;
         Ok(store)
     }
 

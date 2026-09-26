@@ -5,6 +5,8 @@ description: AutoPets를 설치하거나 켜 달라는 요청에서 전용 Windo
 
 # AutoPets 시작
 
+“제작 펫 연결”과 “제작 펫으로 작업”은 설치된 연결 도구의 `integrations/codex/skills/autopets/references/explicit-pet.md`를 확인한다. 호스트의 현재 작업 ID와 폴더를 유지하며 `scripts/pet.mjs`로 연결·설정을 재조회한다. 훅 수신이나 실제 모델 적용을 연결 성공만으로 주장하지 않는다.
+
 제품 주소는 https://swaan-kim.github.io/autopets/start/ 이다. 요청과 결과는 기존 AI 채팅에 남기고, 별도 채팅이나 계정을 만들지 않는다.
 
 - **Windows 로컬 실행 도구가 있음:** 먼저 `%LOCALAPPDATA%/AutoPets/connector/runtime/node.exe`와 같은 설치의 `integrations/codex/bootstrap/start.mjs`를 확인한다. `AUTOPETS_HOME`이 명시돼 있으면 그 경로를 사용한다. 정상 설치는 해당 시작 도구로 실행하며 재다운로드하지 않는다. 작업 경로와 실제 `CODEX_THREAD_ID`를 보존한다.

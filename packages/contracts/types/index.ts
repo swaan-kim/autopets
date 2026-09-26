@@ -6,3 +6,4 @@ export type * from './connections';
 export type * from './artifacts';
 export type * from './roles';
 export type * from './task-graph';
+export type * from './pet-link';

@@ -7,3 +7,4 @@ pub mod connections;
 pub mod roles;
 pub mod tool_activity;
 pub mod task_graph;
+pub mod pet_link;

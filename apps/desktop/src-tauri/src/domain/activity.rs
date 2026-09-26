@@ -13,6 +13,7 @@ pub fn now_ms() -> u64 {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    pub pet_links: Vec<super::pet_link::Link>,
     pub sessions: Vec<Session>,
     pub slots: Vec<Slot>,
     pub approvals: Vec<Approval>,

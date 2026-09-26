@@ -47,6 +47,8 @@ test('installer resources work detached from checkout and contain no installer o
   const delegated = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/delegation.mjs')).href);
   assert.equal(typeof delegated.renderAgentProfiles, 'function');
   assert.equal(typeof delegated.delegationEvent, 'function');
+  const pet = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/skills/autopets/scripts/pet.mjs')).href);
+  assert.equal(typeof pet.runPet, 'function');
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/hooks/scope.mjs'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/runtime/delegation-hook.mjs'));
   const assistance = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/assistance/setup.mjs')).href);
