@@ -1,8 +1,8 @@
 use crate::{application::store::Store, domain::pet_link::*};
 fn target(path:&std::path::Path,id:&str)->Target {Target{source_id:"codex-windows-local".into(),thread_id:id.into(),cwd:path.to_string_lossy().into()}}
-const A:&str="01a0d905-55a5-7061-9d60-151ed3d2b5f3";
-const B:&str="01a0d905-d514-7d31-b05e-02630a284ccb";
-const C:&str="01a0de13-1b09-7fa0-86e0-35f69dbbc6a8";
+const A:&str="11111111-1111-4111-8111-111111111111";
+const B:&str="22222222-2222-4222-8222-222222222222";
+const C:&str="33333333-3333-4333-8333-333333333333";
 #[test]
 fn explicit_links_preserve_unknown_identity_and_reopen_without_fake_events() {
     let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let b=target(dir.path(),B);

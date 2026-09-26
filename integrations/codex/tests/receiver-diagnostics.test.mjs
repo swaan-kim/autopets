@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { inspectReceiver } from '../runtime/receiver-diagnostics.mjs';
 
-const target = { id: '01a0d905-55a5-7061-9d60-151ed3d2b5f3', cwd: 'C:/한글 시험/A', label: 'A' };
+const target = { id: '11111111-1111-4111-8111-111111111111', cwd: 'C:/한글 시험/A', label: 'A' };
 async function fixture(t, handler) {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-receiver-'));
   const token = 'test-only-'.padEnd(40, 'x');

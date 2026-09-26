@@ -6,7 +6,7 @@ import fs from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { runPet, parsePetArgs } from '../skills/autopets/scripts/pet.mjs';
 import { auditDelegatedTurn, resolveDelegatedRecord } from '../runtime/delegation-audit.mjs';
-const parent='01a0d905-55a5-7061-9d60-151ed3d2b5f3', child='01a0d905-d514-7d31-b05e-02630a284ccb', turn='01a0de13-1b09-7fa0-86e0-35f69dbbc6a8';
+const parent='11111111-1111-4111-8111-111111111111', child='22222222-2222-4222-8222-222222222222', turn='33333333-3333-4333-8333-333333333333';
 const cwd=path.resolve('fixture'), executable=path.resolve('fixture-codex.exe'), connection=path.resolve('fixture-connection.json');
 function fixture() {
   let link=null; const calls=[];

@@ -27,7 +27,7 @@ async fn explicit_pet_connection_is_authenticated_without_hook_sessions() {
     let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
     let info:ConnectionInfo=serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
     let auth=format!("Authorization: Bearer {}\r\n",info.token);
-    let target=serde_json::json!({"sourceId":"codex-windows-local","threadId":"01a0d905-55a5-7061-9d60-151ed3d2b5f3","cwd":dir.path().to_string_lossy()});
+    let target=serde_json::json!({"sourceId":"codex-windows-local","threadId":"11111111-1111-4111-8111-111111111111","cwd":dir.path().to_string_lossy()});
     let body=serde_json::json!({"operation":"connect","target":target});
     assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link","",body.clone()).await.0,401);
     let connected=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,body.clone()).await;
@@ -35,7 +35,7 @@ async fn explicit_pet_connection_is_authenticated_without_hook_sessions() {
     assert_eq!(connected.1["link"]["connected"],true);assert!(store.lock().unwrap().snapshot().sessions.is_empty());
     let mut forged=body;forged["externalRoutingVerified"]=true.into();
     assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,forged).await.0,422);
-    let prepared=serde_json::json!({"operation":"prepare","target":target,"expectedRevision":1,"requestId":"01a0de13-1b09-7fa0-86e0-35f69dbbc6a8","profile":"light"});
+    let prepared=serde_json::json!({"operation":"prepare","target":target,"expectedRevision":1,"requestId":"33333333-3333-4333-8333-333333333333","profile":"light"});
     let first=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared.clone()).await;
     assert_eq!(first.0,200);assert_eq!(first.1["dispatchAllowed"],true);
     let repeat=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared).await;
