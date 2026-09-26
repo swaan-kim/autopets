@@ -1,5 +1,26 @@
 use super::*;
 #[test]
+fn explicit_second_pet_can_reopen_without_a_legacy_hook_assignment() {
+    use crate::{application::store::Store, domain::pet_link::{Request, Target}};
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::new(dir.path()).unwrap();
+    assert!(pet_has_content(&store.snapshot(), 0));
+    assert!(!pet_has_content(&store.snapshot(), 1));
+    let a = Target { source_id: "codex-windows-local".into(), thread_id: "11111111-1111-4111-8111-111111111111".into(), cwd: dir.path().to_string_lossy().into() };
+    let b = Target { thread_id: "22222222-2222-4222-8222-222222222222".into(), ..a.clone() };
+    let first = store.pet_link_request(Request::Connect { target: a.clone() }).unwrap().unwrap();
+    let second = store.pet_link_request(Request::Connect { target: b }).unwrap().unwrap();
+    let snapshot = store.snapshot();
+    assert!(snapshot.slots.iter().all(|s| s.session_id.is_none()));
+    assert!(pet_has_content(&snapshot, first.slot));
+    assert!(pet_has_content(&snapshot, second.slot));
+    assert!(!pet_has_content(&snapshot, 2));
+    assert!(!pet_has_content(&snapshot, 3));
+    store.pet_link_request(Request::Disconnect { target: a, expected_revision: first.revision }).unwrap();
+    assert!(!pet_has_content(&store.snapshot(), first.slot));
+    assert!(pet_has_content(&store.snapshot(), second.slot));
+}
+#[test]
 fn pet_card_fits_work_area_at_common_dpi_and_negative_monitor_positions() {
     assert_eq!(fit_pet_size(true, 1.0, 1920, 1040), (328.0, 600.0));
     assert_eq!(fit_pet_size(true, 1.5, 1920, 1040), (328.0, 600.0));
