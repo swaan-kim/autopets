@@ -63,7 +63,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   }, [index]);
   const explicit = snapshot.petLinks?.find(link => link.slot === index);
   if (explicit) {
-    const active = explicit.connected && explicit.enabled && !disconnected;
+    const active = explicit.connected && !disconnected && !explicit.run?.trackingClosed && (explicit.enabled || Boolean(explicit.run));
     const state = active ? explicit.run?.state : undefined;
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
       {expanded && <div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div>}

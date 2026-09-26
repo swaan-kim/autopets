@@ -37,6 +37,15 @@ pub struct Run {
     pub state: RunState, pub child_id: Option<String>, pub turn_id: Option<String>,
     pub observed_model: Option<String>, pub observed_effort: Option<String>, pub evidence: Option<String>,
     pub started_at: u64,
+    #[serde(default)]
+    pub agent_path: Option<String>,
+    #[serde(default)]
+    pub tracking_closed: bool,
+}
+impl Run {
+    pub fn unresolved(&self) -> bool {
+        !self.tracking_closed && matches!(self.state, RunState::Requested | RunState::Working | RunState::Returned | RunState::Unknown)
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -52,12 +61,14 @@ pub enum Request {
     Settings { target: Target, expected_revision: u64, profile: Profile },
     Enable { target: Target, expected_revision: u64, enabled: bool },
     Disconnect { target: Target, expected_revision: u64 },
+    CloseTracking { target: Target, expected_revision: u64, request_id: String },
     Prepare { target: Target, expected_revision: u64, request_id: String, profile: Profile },
     Report { target: Target, expected_revision: u64, request_id: String, receipt: Receipt },
 }
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", rename_all_fields = "camelCase", deny_unknown_fields)]
 pub enum Receipt {
+    Spawned { agent_path: String },
     Returned,
     Failed,
     Runtime { parent_id: String, child_id: String, turn_id: String, model: String, effort: String, completed: bool },

@@ -17,6 +17,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::set_pet_link_enabled,
+            commands::set_pet_link_profile,
+            commands::close_pet_tracking,
             commands::open_local_task,
             transport::task_graph_commands::task_graph_snapshot,
             transport::role_commands::roles_snapshot,

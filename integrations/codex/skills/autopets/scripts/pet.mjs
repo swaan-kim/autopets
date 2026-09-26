@@ -10,11 +10,12 @@ import { withReadOnlyRuntime } from '../../../runtime/rpc.mjs';
 import { summarizeTaskMetadata } from '../../../runtime/task-metadata.mjs';
 import { availableProfile } from '../../../runtime/delegation.mjs';
 import { auditDelegatedTurn, resolveDelegatedRecord } from '../../../runtime/delegation-audit.mjs';
+import { openInstalledPetApp } from '../../../bootstrap/start.mjs';
 
 const uuid = v => typeof v === 'string' && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/iu.test(v);
 export function parsePetArgs(args) {
   const result = { operation: args[0] };
-  if (!['connect','status','settings','prepare','returned','failed','observe','disable','enable','disconnect'].includes(result.operation)) throw Error('invalid-operation');
+  if (!['connect','status','settings','prepare','spawned','returned','failed','observe','recover','close-tracking','disable','enable','disconnect'].includes(result.operation)) throw Error('invalid-operation');
   const flags = { '--codex':'executable','--connection':'connection','--profile':'profile','--request':'requestId','--child':'childId','--turn':'turnId','--record':'record','--agent-path':'agentPath' };
   for(let i=1;i<args.length;i+=2) {
     const key=flags[args[i]];
@@ -48,6 +49,8 @@ export async function runPet(args,env=process.env,deps={}) {
   const host=await (deps.inspect??inspectPetHost)({executable,cwd,threadId:env.CODEX_THREAD_ID});
   const target={sourceId:'codex-windows-local',threadId:env.CODEX_THREAD_ID,cwd:host.node.cwd};
   const connectionPath=o.connection??env.AUTOPETS_CONNECTION_FILE??path.join(env.AUTOPETS_DATA_DIR??path.join(env.LOCALAPPDATA??'', 'local.autopets.desktop'),'connection.json');
+  // Explicit invocation can open the installed app; hooks and diagnostics cannot.
+  if(o.operation==='connect' && !o.connection && !env.AUTOPETS_CONNECTION_FILE) await (deps.openApp??openInstalledPetApp)({env});
   const connection=await (deps.readConnection??readConnection)(connectionPath);
   const call=body=>(deps.request??requestJson)(connection,'/v1/pet-link',body,5000,32768);
   const verify=value=>{
@@ -56,15 +59,15 @@ export async function runPet(args,env=process.env,deps={}) {
     return value;
   };
   if(o.operation==='connect') {
-    availableProfile('light',host.models);
     const saved=verify(await call({operation:'connect',target}));
     const reread=verify(await call({operation:'read',target}));
     if(!reread.link || reread.link.revision!==saved.link?.revision) throw Error('connection-unconfirmed');
     return {...reread,operation:'connect'};
   }
-  const current=verify(await call({operation:'read',target}));
+  let current=verify(await call({operation:'read',target}));
   if(o.operation==='status') return current;
   if(!current.link) throw Error('pet-not-connected');
+  if(o.operation==='recover' && !current.link.connected) current=verify(await call({operation:'connect',target}));
   const expectedRevision=current.link.revision;
   if(['settings','prepare'].includes(o.operation)) {
     const profile=o.profile??current.link.profile;
@@ -86,18 +89,26 @@ export async function runPet(args,env=process.env,deps={}) {
     return {...result,dispatchAllowed:result.dispatchAllowed===true,requestId,taskName:`autopets_${requestId.replaceAll('-','')}`,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skill};
   }
   if(['enable','disable','disconnect'].includes(o.operation)) return verify(await call({operation:o.operation==='disconnect'?'disconnect':'enable',target,expectedRevision,...(o.operation==='disconnect'?{}:{enabled:o.operation==='enable'})}));
-  if(!o.requestId || current.link.run?.id!==o.requestId) throw Error('pet-run-mismatch');
+  const requestId=o.requestId??(o.operation==='recover'?current.link.run?.id:undefined);
+  if(!requestId || current.link.run?.id!==requestId) throw Error('pet-run-mismatch');
+  if(o.operation==='close-tracking') return verify(await call({operation:'close-tracking',target,expectedRevision,requestId}));
+  if(current.link.run.trackingClosed) throw Error('pet-run-closed');
   let receipt={kind:o.operation};
-  if(o.operation==='observe') {
+  if(o.operation==='spawned') {
+    if(!/^\/root(?:\/[a-z0-9_]+)+$/u.test(o.agentPath??'') || o.record || o.childId || o.turnId) throw Error('invalid-child-selector');
+    receipt={kind:'spawned',agentPath:o.agentPath};
+  }
+  if(o.operation==='observe' || o.operation==='recover') {
     const shared={parentId:target.threadId,cwd:target.cwd,startedAfter:current.link.run.startedAt};
+    const agentPath=o.agentPath??(!o.record && !o.childId && !o.turnId?current.link.run.agentPath:undefined);
     let record;
-    if(o.agentPath) {
+    if(agentPath) {
       if(o.record || o.childId || o.turnId) throw Error('ambiguous-child-selector');
-      record=await (deps.resolveRecord??resolveDelegatedRecord)({...shared,codexHome:env.CODEX_HOME??path.join(os.homedir(),'.codex'),agentPath:o.agentPath});
+      record=await (deps.resolveRecord??resolveDelegatedRecord)({...shared,codexHome:env.CODEX_HOME??path.join(os.homedir(),'.codex'),agentPath});
     } else { if(!o.record || !o.childId || !o.turnId) throw Error('explicit-child-record-required'); record={file:o.record,childId:o.childId,turnId:o.turnId}; }
     receipt={kind:'runtime',...await (deps.audit??auditDelegatedTurn)({...shared,...record})};
   }
-  return verify(await call({operation:'report',target,expectedRevision,requestId:o.requestId,receipt}));
+  return verify(await call({operation:'report',target,expectedRevision,requestId,receipt}));
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try { console.log(JSON.stringify(await runPet(process.argv.slice(2)))); }

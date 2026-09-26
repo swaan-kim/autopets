@@ -14,12 +14,13 @@ function fixture() {
     inspect:async ()=>({node:{cwd},models:[{model:'gpt-6-luna',supportedReasoningEfforts:['low']},{model:'gpt-6-sol',supportedReasoningEfforts:['low','medium']}]}),
     readFile:async ()=>'name: autopets-build-implementation',request:async (_,url,input)=>{
       calls.push({url,input});
-      if(input.operation==='connect') link??={target:input.target,revision:1,profile:'light',enabled:true,connected:true,template:{instruction:'Build small.'},run:null};
+      if(input.operation==='connect') { link??={target:input.target,revision:1,profile:'light',enabled:true,connected:true,template:{instruction:'Build small.'},run:null}; link.connected=true; }
       if(input.operation==='prepare') link.run={id:input.requestId,startedAt:1000,state:'requested'};
+      if(input.operation==='report' && input.receipt.kind==='spawned') link.run.agentPath=input.receipt.agentPath;
       return {ok:true,link:structuredClone(link),dispatchAllowed:input.operation==='prepare'};
     }};
   const run=(operation,args=[],env={CODEX_THREAD_ID:parent})=>runPet([operation,'--codex',executable,'--connection',connection,...args],env,deps);
-  return {deps,calls,run};
+  return {deps,calls,run,edit:fn=>fn(link)};
 }
 test('explicit connect rereads the same task without hooks, events or model runs',async()=>{
   const f=fixture(), result=await f.run('connect');
@@ -50,6 +51,31 @@ test('unknown connection response does not retry or submit work',async()=>{
   const f=fixture(); let writes=0;
   f.deps.request=async()=>{ writes++; throw Error('network timeout'); };
   await assert.rejects(f.run('connect'),/timeout/); assert.equal(writes,1);
+});
+
+test('saved native path permits restart recovery without spawning or guessing',async()=>{
+  const f=fixture();await f.run('connect');const request=await f.run('prepare');
+  const selected='/root/autopets_fixture';
+  await f.run('spawned',['--request',request.requestId,'--agent-path',selected]);
+  f.edit(link=>{link.connected=false;link.enabled=false;link.revision=3;link.run.state='unknown';});
+  f.deps.resolveRecord=async input=>{assert.equal(input.agentPath,selected);assert.equal(input.parentId,parent);return {file:path.resolve('fixture-record'),childId:child,turnId:turn};};
+  f.deps.audit=async()=>({parentId:parent,childId:child,turnId:turn,model:'gpt-6-luna',effort:'low',completed:true});
+  const before=f.calls.length;
+  await f.run('recover');
+  assert.deepEqual(f.calls.slice(before).map(c=>c.input.operation),['read','connect','report']);
+  assert.equal(f.calls.at(-1).input.requestId,request.requestId);
+  assert.equal(f.calls.at(-1).input.expectedRevision,3);
+  assert.equal(f.calls.at(-1).input.receipt.kind,'runtime');
+});
+
+test('recovery cannot select another run and an unknown child is not inferred',async()=>{
+  const f=fixture();await f.run('connect');const request=await f.run('prepare');
+  await assert.rejects(f.run('recover'),/explicit-child-record-required/);
+  await assert.rejects(f.run('spawned',['--request',request.requestId,'--agent-path','/root/../wrong']),/invalid-child/);
+  await assert.rejects(f.run('recover',['--request',child]),/pet-run-mismatch/);
+  f.edit(link=>{link.run.trackingClosed=true;});
+  await assert.rejects(f.run('recover'),/pet-run-closed/);
+  assert.equal(f.calls.filter(c=>c.input.operation==='prepare').length,1);
 });
 test('runtime audit binds exact child, parent, turn, time and settings, excluding content',async t=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'autopets-child-audit-'));

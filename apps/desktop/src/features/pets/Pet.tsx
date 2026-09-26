@@ -14,7 +14,7 @@ export function Pet({ index = 0, activity = 'idle', motion, small = false, pause
   const [assetState, setAssetState] = useState<'loading' | 'ready' | 'missing'>('loading');
   const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [tick, setTick] = useState(0);
-  const selected = motion ?? (activity === 'research' || activity === 'writing' || activity === 'tool' ? activity : 'idle');
+  const selected = motion ?? (activity === 'working' ? 'writing' : activity === 'research' || activity === 'writing' || activity === 'tool' ? activity : 'idle');
   const animation = manifest.animations[selected];
   useEffect(() => {
     const source = new Image();

@@ -189,6 +189,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /generate|submit|completion|model.*switch/.test(call.name))), false);
   await page.getByRole('button', { name: '고급 계획·실행 도움 보기', exact: false }).click();
   await page.getByLabel('채팅 선택', { exact: true }).waitFor();
+  await page.waitForFunction(expected => document.querySelector('#assistance-task')?.value === expected, identityKey(assistance.tasks[0].identity));
   assert.equal(await page.getByLabel('채팅 선택', { exact: true }).inputValue(), identityKey(assistance.tasks[0].identity));
   checks.push('stale revisions remain visible and cannot overwrite; approved style edit/delete, compact layout and scoped project deletion preserve the other account and never call a model');
   return screenshots;

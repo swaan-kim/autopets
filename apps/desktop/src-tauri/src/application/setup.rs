@@ -16,11 +16,22 @@ pub struct SetupRequest {
     pub cwd: Option<String>,
     pub host_id: Option<String>,
     pub entry_point: Option<String>,
+    pub connection_mode: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explicit_setup_does_not_enable_legacy_automatic_workflow() {
+        let dir=tempfile::tempdir().unwrap();let mut store=Store::new(dir.path()).unwrap();
+        let before=store.workflow.preferences().unwrap();
+        let mut input=request("explicit-fixture",&dir.path().to_string_lossy());
+        input.connection_mode=Some("explicit-pet".into());
+        let state=store.begin_setup(input).unwrap();
+        assert_eq!(state["nextAction"],"send-message");assert_eq!(state["chatConnected"],false);
+        let after=store.workflow.preferences().unwrap();assert_eq!(before.revision,after.revision);assert_eq!(before.enabled,after.enabled);
+    }
     fn request(id: &str, cwd: &str) -> SetupRequest {
         SetupRequest {
             installed_version: env!("CARGO_PKG_VERSION").into(),
@@ -28,6 +39,7 @@ mod tests {
             cwd: Some(cwd.into()),
             host_id: None,
             entry_point: None,
+            connection_mode: None,
         }
     }
     fn event(store: &mut Store, id: &str, cwd: &str) {
@@ -198,6 +210,7 @@ impl Store {
             self.write_setup(&saved)?;
         }
         // Retain chat records, explicit opt-outs and desired preferences.
+        self.disconnect_explicit_pets()?;
         self.setup_status()
     }
     pub(crate) fn observe_setup_event(&mut self, session_id: &str, timestamp: u64) -> Result<bool, String> {
@@ -212,6 +225,7 @@ impl Store {
         Ok(true)
     }
     pub fn begin_setup(&mut self, input: SetupRequest) -> Result<serde_json::Value, String> {
+        if input.connection_mode.as_deref().is_some_and(|mode| mode != "explicit-pet") { return Err("Invalid connection mode".into()); }
         crate::domain::connections::require_connectable(input.host_id.as_deref().unwrap_or(crate::domain::connections::CODEX_LOCAL))?;
         if input.entry_point.as_deref().is_some_and(|entry| !["desktop", "ai", "store"].contains(&entry)) {
             return Err("Invalid setup entry point".into());
@@ -237,7 +251,7 @@ impl Store {
             _ => return Err("Setup session and path must be paired".into()),
         }
         let file = self.data_dir.join("setup-state-v1.json");
-        if !file.exists() {
+        if !file.exists() && input.connection_mode.as_deref() != Some("explicit-pet") {
             // Freeze already observed chats before changing defaults for NEW chats.
             let existing: Vec<_> = self
                 .sessions
@@ -302,7 +316,8 @@ impl Store {
             "phase": if !configured { "not-started" } else if connected { "ready" } else { "connecting" },
             "appReady":true, "chatConnected":connected, "guidanceDelivered":confirmed,
             "protection":{"model":false,"reasoning":false,"submission":false},
-            "retryable":true, "nextAction":if !configured { "start" } else if connected { "none" } else { "review-hooks" },
+            "retryable":true, "nextAction":if !configured { "start" } else if connected { "none" } else if request.is_some_and(|r| r.connection_mode.as_deref()==Some("explicit-pet")) { "send-message" } else { "review-hooks" },
+            "connectionMode":request.and_then(|r| r.connection_mode.as_ref()),
             "currentHostId": request.map(|r| r.host_id.as_deref().unwrap_or(crate::domain::connections::CODEX_LOCAL)),
             "entryPoint":request.and_then(|r| r.entry_point.as_ref()),
             "hosts":crate::domain::connections::catalog(),

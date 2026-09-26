@@ -54,6 +54,7 @@ try {
     $taskFirst = (& $taskNode $taskStart --installed-resource $taskResources --connect --app-executable $taskApp | ConvertFrom-Json)
     if ($LASTEXITCODE -ne 0 -or -not $taskFirst.ok -or -not $taskFirst.appReady -or $taskFirst.chatConnected -or $taskFirst.guidanceDelivered) { throw 'Explicit connection did not reach event-waiting state.' }
     $taskHooks = Get-Content -LiteralPath $taskHooksPath -Raw
+    if ($taskHooks.Trim() -ne $taskUnrelatedHooks -or $taskFirst.connectionMode -ne 'explicit-pet') { throw 'Explicit pet setup changed hooks or used the wrong connection mode.' }
     $taskAppTime = (Get-Item -LiteralPath $taskApp).LastWriteTimeUtc
     # Skill/AI repeat uses the same installed resources, not a ZIP or download.
     $taskManagedNode = Join-Path $env:AUTOPETS_HOME 'connector/runtime/node.exe'

@@ -8,5 +8,5 @@ export interface PetLink {
   run: null | { id: string; settingsRevision: number; profile: PetLink['profile']; model: string; effort: string;
     state: 'requested' | 'working' | 'returned' | 'waiting' | 'complete' | 'failed' | 'unknown';
     childId: string | null; turnId: string | null; observedModel: string | null; observedEffort: string | null;
-    evidence: string | null; startedAt: number };
+    evidence: string | null; startedAt: number; agentPath?: string | null; trackingClosed?: boolean };
 }

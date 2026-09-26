@@ -40,6 +40,14 @@ pub(crate) fn set_pet_link_enabled(app: tauri::AppHandle, store: tauri::State<Sh
     update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::Enable{target,expected_revision,enabled}).map(|_|()))
 }
 #[tauri::command]
+pub(crate) fn set_pet_link_profile(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64, profile: crate::domain::pet_link::Profile) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::Settings{target,expected_revision,profile}).map(|_|()))
+}
+#[tauri::command]
+pub(crate) fn close_pet_tracking(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64, request_id: String) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::CloseTracking{target,expected_revision,request_id}).map(|_|()))
+}
+#[tauri::command]
 pub(crate) fn assign_session(
     app: tauri::AppHandle,
     store: tauri::State<SharedStore>,

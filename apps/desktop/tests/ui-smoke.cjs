@@ -128,7 +128,18 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           connection.guidanceDelivered = false;
           connection.settingsVerified = { model: false, reasoning: false, submission: false };
           state.setup.currentHostId = args.hostId;
+          state.setup.connectionMode = 'explicit-pet';
           return structuredClone(state.setup);
+        }
+        if (['set_pet_link_profile','set_pet_link_enabled','close_pet_tracking'].includes(name)) {
+          const link=state.petLinks?.find(item=>item.target.threadId===args.target.threadId);
+          if(!link || link.revision!==args.expectedRevision) throw Error('pet-revision-changed');
+          if(name==='set_pet_link_profile') { link.profile=args.profile;link.run=null; }
+          if(name==='set_pet_link_enabled') link.enabled=args.enabled;
+          if(name==='close_pet_tracking') { link.run.trackingClosed=true;link.run.state='unknown'; }
+          link.revision++;
+          state.now=Date.now();
+          window.__uiTest.emitEvent('autopets://snapshot',structuredClone(state));
         }
         const session = state.sessions.find(session => session.id === args?.sessionId);
         const task = assistance.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
