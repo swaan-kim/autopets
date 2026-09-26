@@ -1,5 +1,21 @@
 # MVP 기능 가능성 검사 기록
 
+## 현재 PC 설치와 Smart App Control 차단 (2026-09-27)
+
+**현재 PC에서 설치·앱 실행·통신 준비 확인, 설치 앱의 AI 연결은 수정 후 재검사 필요.** 설치 시도 전 기존 앱을 정상 종료하고 프로그램·DB·위치·설치 등록을 로컬 백업했다. 전용 시험에 대한 사용자 승인으로 현재 PC에서 실행했으며 보안 설정은 변경하지 않았다.
+
+- 검증용 빌드: PR head `a3f891b`, CI merge `579df2b3c9e3d76714e1978b0a47ac290217807e`, [실행 36263766452](https://github.com/swaan-kim/autopets/actions/runs/36263766452). Node/UI/Rust/설치 파일 생성은 통과했으나 별도 CI PC의 앱 통신 준비가 24.488초 후 실패했다. 현재 PC 차단과 CI 준비 실패를 같은 원인으로 확정하지 않는다.
+- 설치 파일은 243,471,832바이트, SHA256 `05e292a1de32b4b7f82d7ecac0f76f1482b9a3ba58e0f71781de0cbf00962e52`, Authenticode `NotSigned`다. `f301e96`의 잠금 보완은 이 설치본에 포함되지 않는다.
+- 번들 시작 도구와 같은 Node 프로세스 생성 경로는 `spawn UNKNOWN`으로 실패했다. Windows CodeIntegrity 3033/3077에 해당 설치 파일의 서명 정책 차단이 기록됐고 사용자가 Smart App Control 알림을 보고했다. 이 로컬 실패를 방화벽 오류로 분류하지 않는다.
+- 차단 알림을 확인하기 전에 시작한 별도의 정상 Windows 설치 요청은 종료 코드 0, 29.800초로 완료됐다. 차단된 Node 설치 경로는 반복하지 않았다.
+- 설치된 앱 자체의 정상 실행은 Smart App Control **On** 상태에서 성공했다. 통신 준비까지 3.354초이며 실제 AutoPets 창과 펫을 확인했다. 앱 실행 파일 SHA256은 `38181e21bbb7e9928b94d34e23ddb0d6a0b9a6c56db5d7caa27c231a495fde48`다. 이 결과는 모든 실행 경로·다른 PC·공개 배포 통과를 의미하지 않는다.
+- 설치 앱의 **이 AI 연결하기**는 `연결 결과를 확인할 수 없습니다`로 실패했다. 네이티브 코드가 검증 후 반환한 `\\?\` 경로를 Node 스크립트 인수로 전달하면서 ESM 진입점 대조가 실패했다. 번들 Node 24.21.0에서 같은 파일의 일반 경로는 오류 JSON을 출력하고 네임스페이스 경로는 출력 없이 코드 0으로 끝나는 것을 무변경 진단 인수로 재현했다. 연결 시 새로운 서명 차단 기록은 없었다. 무결성·경로 경계 확인을 유지한 채 Node에 전달하는 경로를 정규화하고 실제 Node를 사용하는 Windows Rust 회귀 검사를 추가했다. 수정 설치본의 버튼 성공은 아직 미검증이다.
+- 설치 후 기존 DB의 모든 기존 테이블 행 해시와 펫 위치 파일이 백업과 동일하고 SQLite integrity_check는 ok다. 설치된 앱과 제거기는 NotSigned, 포함된 Node는 Valid다. 원본 로그·경로·백업은 Git 제외 폴더에만 보관한다.
+
+사용자 배포의 별도 통과 조건: **Smart App Control을 켠 일반 Windows에서 설치 → 실행 → 펫 연결 → 재실행 → 제거가 동작해야 한다.** 일반 사용자 안내에 보안 기능 끄기를 필수 설치 단계로 넣지 않는다. 신뢰된 코드 서명과 모든 포함 실행 파일의 서명 상태를 확인하고 다운로드 경고도 독립 검사한다. [Microsoft 서명 안내](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/code-signing-for-smart-app-control), [전체 실행 경로 검사](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/test-your-app-with-smart-app-control).
+
+Microsoft의 최신 [FAQ](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions)는 앱별 예외 허용이 없고, 최근 Windows 업데이트에서는 재설치 없이 다시 활성화할 수 있다고 안내한다. 구형 장치의 설정 화면과 차이가 있을 수 있으므로 재활성화를 무조건 보장하거나 레지스트리 우회를 제공하지 않는다.
+
 ## 명시적 연결 MVP 실증 (2026-09-27)
 
 **조건부 가능:** 배포할 스킬/연결 도구가 기존 Codex 작업을 실제 AutoPets 통신부에 연결하고, 펫 설정으로 native 하위 작업을 실행해 결과·설정을 대조했다. 자동 훅 수신, 부모 채팅의 직접 모델 변경, 설치된 GUI의 전체 통합은 별도 미검증이다.

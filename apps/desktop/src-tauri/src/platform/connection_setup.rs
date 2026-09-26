@@ -63,7 +63,10 @@ fn run_from_resource(resource: &Path, executable: &Path, connect: bool) -> Resul
     let node = verified_file(resource, &manifest, "runtime/node.exe")?;
     let runner = verified_file(resource, &manifest, "integrations/codex/bootstrap/start.mjs")?;
     let mut command = Command::new(node);
-    command.arg(runner).arg("--installed-resource").arg(resource)
+    // Canonical Windows paths contain a verbatim prefix. Node's ESM entrypoint
+    // detection does not preserve that prefix, so use the equivalent normal path
+    // only after containment and hash verification above.
+    command.arg(dunce::simplified(&runner)).arg("--installed-resource").arg(resource)
         .arg(if connect { "--connect" } else { "--disconnect" })
         .arg("--app-executable").arg(executable)
         // The desktop process can inherit the task that originally launched it.
@@ -127,5 +130,43 @@ mod tests {
         std::fs::write(dir.path().join("node.exe"), b"modified").unwrap();
         assert!(verified_file(dir.path(), &manifest, "node.exe").is_err());
         assert!(verified_file(dir.path(), &manifest, "unlisted.exe").is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn native_connection_launches_node_entrypoint_from_korean_space_path() {
+        // Exercise the actual native launcher, not a JS import that bypasses
+        // process.argv entrypoint detection. CI provides the packaged Node runtime.
+        let node_source = std::env::var_os("AUTOPETS_TEST_NODE")
+            .expect("Set AUTOPETS_TEST_NODE to the Node executable used for packaging");
+        let dir = tempfile::Builder::new().prefix("autopets 연결 검사 ").tempdir().unwrap();
+        let resource = dir.path().join("connector");
+        let script_name = "integrations/codex/bootstrap/start.mjs";
+        let node = resource.join("runtime/node.exe");
+        let script = resource.join(script_name);
+        std::fs::create_dir_all(node.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(script.parent().unwrap()).unwrap();
+        std::fs::copy(node_source, &node).unwrap();
+        std::fs::write(&script, r#"
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    const args = process.argv.slice(2);
+    console.log(JSON.stringify({ ok: args.length === 5 && args[0] === '--installed-resource'
+        && ['--connect', '--disconnect'].includes(args[2]) && args[3] === '--app-executable'
+        && !process.env.CODEX_THREAD_ID }));
+}
+"#).unwrap();
+        let files = ["runtime/node.exe", script_name].map(|name| {
+            let bytes = std::fs::read(resource.join(name)).unwrap();
+            serde_json::json!({"path":name,"sha256":format!("{:x}",Sha256::digest(bytes))})
+        });
+        std::fs::write(resource.join("manifest.json"), serde_json::to_vec(&serde_json::json!({
+            "appVersion":env!("CARGO_PKG_VERSION"),"files":files
+        })).unwrap()).unwrap();
+        let executable = dir.path().join("autopets.exe");
+        for connect in [true, false] {
+            assert_eq!(run_from_resource(&resource, &executable, connect).unwrap(), Vec::<String>::new());
+        }
     }
 }
