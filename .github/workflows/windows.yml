@@ -234,7 +234,10 @@ jobs:
           $taskBuild = Get-Content work/identity/artifacts/recheck-build.json -Raw | ConvertFrom-Json
           if ($taskBuild.originalRun -ne $env:AUTOPETS_RECHECK_RUN -or $taskBuild.harnessCommit -ne $env:GITHUB_SHA) { throw 'Build identity mismatch.' }
           ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe') -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
-          if ($LASTEXITCODE -ne 0) { throw 'Lifecycle verification failed.' }
+          # The PowerShell supervisor validates the worker exit code and throws
+          # on failure; its Start-Process call does not set LASTEXITCODE here.
+          $taskLifecycle = Get-Content work/native-window-lifecycle/result.json -Raw | ConvertFrom-Json
+          if ($taskLifecycle.outcome -ne 'passed') { throw 'Lifecycle verification failed.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
