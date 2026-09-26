@@ -1,12 +1,46 @@
 # MVP 기능 가능성 검사 기록
 
-## 명시적 연결 MVP 구현 (2026-09-27)
+## 명시적 연결 MVP 실증 (2026-09-27)
 
-이전 훅 관문과 별개로 기존 스킬의 `pet.mjs`와 앱 `/v1/pet-link`를 추가했다. 현재 작업은 호스트 환경 ID와 metadata-only 정보로 확인하며 훅 이벤트를 만들지 않는다. 이전 strict API와 계정별 저장은 유지하고 계정 미확인 로컬 연결을 별도로 저장한다.
+**조건부 가능:** 배포할 스킬/연결 도구가 기존 Codex 작업을 실제 AutoPets 통신부에 연결하고, 펫 설정으로 native 하위 작업을 실행해 결과·설정을 대조했다. 자동 훅 수신, 부모 채팅의 직접 모델 변경, 설치된 GUI의 전체 통합은 별도 미검증이다.
 
-격리 검사는 연결 재조회, A/B 분리, ID/폴더 불일치, 없는 모델, 응답 유실 후 무재전송, 같은 요청 재사용, 재시작·끄기, 부모/자식/턴/시각 대조와 원문 미전송을 포함한다. Node **200/200**, 화면 빌드 통과. Windows/Rust와 새 화면·실제 연결은 아직 결과 대기다.
+환경은 Windows 10.0.26200, Desktop 26.917.6896.0, runtime 0.155.0-alpha.16. 실연결 시험 소스 `7fc135b34fed0083323ce217459ac041d01e36ea`. 이후 설치 스킬 진입 경로 누락을 고치고 탐색 실패 진단·합성 검사 ID를 정리한 제품 체크포인트는 `faf619df3fda8507b010290b904a16d5e331e8cc`다. 실제 통신부는 앞선 Windows CI 36254057316의 `7a08b5e` PR merge `d2cd61e46c4f3b65d99a3e9ef35cac1bfc892e5e`에서 만든 bounded probe다. 그 뒤 제품 Rust 변경은 없다. 연결 도구는 `7fc135b`의 독립 패키지 복사본이며 개발 소스 import에 의존하지 않는다. 실제 패키지는 Git 제외 work 폴더에 있고 명령은 별도 시험 작업 폴더에서 실행했다.
 
-위임 실행의 성공은 `connector-runtime-audit`로 표시하는 로컬 실행 기록 대조이며 서버의 실제 모델 증명이 아니다. API에 글로벌 지원 상태를 올리는 필드는 없다. 직접 결과 반환 보고만으로 작업 완료 연출을 내지 않는다. 자식 기록을 얻지 못하면 외부 연동 MVP는 미완성이다.
+| 검사·합성 입력 | 예상 결과 | 실제 결과 | 증거·남은 조건 |
+| --- | --- | --- | --- |
+| 전용 A에서 연결 | 현재 ID/폴더 대조, 저장/재조회 일치 | connected=true, 기본 light, 훅 관측 세션 없이 연결 | 실제 Desktop 도구 → 번들 connector → 실제 Rust HTTP/SQLite. 계정은 unknown 유지 |
+| light: 파일 바이트·해시 계산 | Luna/low native 자식 1회 | 요청/관측 일치, 19바이트와 예상 SHA256 반환, complete | 자식 runtime turn_context와 완료 이벤트 대조 |
+| standard: 줄·바이트 계산 | Sol/low native 자식 1회 | 요청/관측 일치, 1줄/19바이트, complete | 모델 변경 확인. 기존 부모 모델 유지 |
+| careful: 같은 파일 해시 | Sol/medium native 자식 1회 | 요청/관측 일치, 해시 동일, complete | 동일 모델의 추론 강도 변경 확인 |
+| 역할·선택 스킬 | 짧은 역할 지침/고정 스킬 전달 | 각 자식이 autopets-build-implementation@1.0.0 읽기 호출 후 합성 계산 수행 | 전달과 스킬 로딩 근거. 효과·절감률 평가 아님 |
+| plan: 나중에 DONE 추가할 계획 | 계획만 제시하고 대기 | Luna/low, waiting, 전용 계획 파일 내용/해시 불변 | 프롬프트 이행. 호스트 Plan 제한 검증 아님 |
+| 도움 끄기 | 새 prepare 거절, 자식 0회 | bridge-rejected, enable 뒤 plan 수행 가능 | 실제 대상 한 작업. 전역 설정 변경 없음 |
+| 재시작·복원 | 데이터 보존, 오래된 연결 무효 | 같은 DB 재개 시 light 보존/connected=false; 재연결 후 성공 | 실제 backend 정상 종료/통신 파일 제거. 설치 GUI 수명주기는 별도 |
+| 상태 표시 | 반환만으로 완료를 꾸미지 않음 | 요청/작업/미확인/계획 대기/완료 UI 검사, 실제 complete 데이터 렌더 확인 | headless UI harness. 실제 설치 오버레이의 포커스/창 동작 미검증 |
+| A/B·중복·오류 | 다른 작업 변경 및 중복 위임 거절 | Node/Rust 격리 검사: 대상/폴더/부모/턴/개정/오래된 요청/응답 유실 검사 | 이번 실연결은 A만 실행. B 실제 실행으로 확대하지 않음 |
+
+사용 AI는 부모 4 + 자식 4 = 추가 8턴, 보수적 누계 **25/30**. 화면 조작 0, 기존 설치/훅 신뢰 변경 0. 시험 기본값 light 및 도움 켜짐 복원 후 자체 시험 통신부를 정상 종료했다.
+
+### 코드·패키지 검사
+
+- Node 전체 **205/205**, 화면 빌드와 전체 UI 검사 통과.
+- 독립 연결 패키지 131개 파일의 manifest SHA256 일치. 명시적 연결 도구·runtime 조회/대조·선택 역할 스킬 포함을 확인했다.
+- 앞선 [Windows CI 36254057316](https://github.com/swaan-kim/autopets/actions/runs/36254057316) 성공. [Windows CI 36254571092](https://github.com/swaan-kim/autopets/actions/runs/36254571092)는 Node 201·UI·Rust 119(2 ignored)·설치본 생성은 통과했지만 설치 직후 탐색이 5.259초에 existing-installation-review로 실패했다. 이전 간헐 실패의 재현이며 정확한 하위 원인은 이 기록만으로 확정하지 않는다.
+- 설치로 생성되는 스킬에 명시적 펫 경로가 없던 누락은 실패 회귀 검사로 재현·수정했다. 탐색 실패는 timeout/spawn/exit/json/output-limit와 소요 시간만 기록하도록 보완했고 원본 출력·명령은 기록하지 않는다. 진단 버전의 [Windows CI 36256715208](https://github.com/swaan-kim/autopets/actions/runs/36256715208)에서 `reason=timeout`, 탐색 5.014초/전체 5.164초로 중단 위치를 확인했다. 실제 등록 정보 조회의 어느 내부 단계가 지연됐는지는 미확정이다.
+- 확인된 5초 중단을 보완해 조회 대기만 최대 15초로 늘렸다. 잘못된 JSON/종료 코드/과대 출력은 계속 거절한다. 지연 응답·무응답 회귀와 Node 205개를 통과했고 실제 Windows 지연 fixture도 5.928초에 성공했다. 현재 PC의 일반 설치 탐색은 앱 실행 없이 0.865초에 성공했다. 최종 [Windows CI 36257983637](https://github.com/swaan-kim/autopets/actions/runs/36257983637) **성공**: Node 205, UI/빌드, Rust 119 passed / 2 ignored, NSIS, 실제 설치·AI 연결 설정·재호출·연결 도구 복구·연결 해제·제거 통과. 최초 앱 준비 호출 전체는 7.774초이며 레지스트리 조회만의 시간은 아니다. 무신호를 실제 Codex 연결로 계산하지 않았다.
+- 최종 설치본은 PR head `faf619d`를 포함한 merge `d5d47910208a79a6ff2b14e7e17083c03de44e8e`, 243,478,880바이트다. CI SHA256SUMS 기준 EXE SHA256은 `9e4de3cf3bc54a3ff41c2f6b3949b7103b145960bb72b023529204fa9823a72b`. [검토 산출물](https://github.com/swaan-kim/autopets/actions/runs/36257983637/artifacts/10911522818). 서명 배포·일반 PC의 다운로드 경고와 전체 native 수명주기 재검사는 이번 통과에 포함하지 않는다.
+- probe SHA256: `3b7cc83f4a0c6c1ca31a8e418cbb9e61ffb3b11d6c010c63602223e3a67febd1`. 이 해시는 설치 EXE 해시가 아니다.
+- 기존 API/SQLite 위에 명시적 연결과 요청 이력만 버전 있는 구조로 추가했다. 과거 이벤트를 만들지 않고 계정/전체 서비스 지원 상태를 승격하지 않는다.
+
+### 경로의 제품상 한계와 재현
+
+`connector-runtime-audit`는 호스트가 로컬 기록에 남긴 모델·강도/완료를 대조한 값이다. 서버 내부의 실제 처리 모델 증명이 아니다. 로컬 `state_5.sqlite`와 선택된 자식 기록의 형식에 의존한다. 정확한 부모·경로·시각으로 유일한 자식을 얻지 못하거나 형식이 바뀌면 미확인으로 멈춘다. 도구 내부에서만 성공한 호출과 달리 외부 connector/실제 앱 계약까지 연결했지만, native 위임은 여전히 호스트가 제공해야 한다.
+
+재현은 [스킬 절차](../../integrations/codex/skills/autopets/references/explicit-pet.md)의 connect → prepare → native 호출 → observe → returned → observe다. 개발 검사는 `pnpm test`, `pnpm build`, `pnpm test:ui`, Windows의 `pnpm test:rust`. 실제 backend 검사는 명시적 격리 폴더/marker가 있어야 동작하는 ignored test `transport::http::tests::external_pet_bridge_probe`를 사용하며 최대 300초 후 종료한다. 토큰·실제 작업 ID·로컬 경로·원본 대화는 공개 보고서에 넣지 않는다.
+
+원본 자료: Git 제외 `work/mvp-goal/20260927-explicit/`의 connect/light/routing/plan 수신 결과, 각 runtime-audit, 정상 종료 결과, 패키지 manifest와 렌더링. 다음 관문은 **새 설치본에서 일반 입력 → 스킬 호출 → 실제 펫 창까지 통합**이다. 신뢰 완료와 훅 수신은 별개이며 같은 미수신 시험을 원인 수정 없이 반복하지 않는다.
+
+아래는 이전 결과다. 당시 미확인이던 자식 모델·강도는 위 최신 시험에서 확인했다. 이전 일반 입력의 도구 호출은 custom_tool_call 형식으로 후속 발견했으며, 도구 실행이 없었다는 근거로 사용하지 않는다.
 
 ## 현재 검사 — native 하위 작업 라우팅 관문 (2026-09-26)
 
@@ -33,7 +67,7 @@
 | --- | --- | --- | --- |
 | light 전용 프로필로 자식 호출 | 프로필 선택 및 자식 첫 실행 설정 확인 | 노출된 native 도구에 agent_type 선택 인수가 없어 부모가 미지원 응답, 자식 실행 0 | **해당 도구의 프로필 선택 경로 미지원 확인**. 서비스 전체 판정 아님 |
 | native 도구에 모델·강도 명시 | Luna/low 자식 실행·결과 반환 | 실제 spawn_agent 요청에 model=Luna, reasoning_effort=low, fork_turns=none 기록. 반환된 자식 경로와 결과 확인 | **호출·반환 검증됨**. 자식 runtime 설정·스킬·외부 자동 위임은 미검증 |
-| 사용자의 일반 입력 대조 | 시작·도구·완료가 AutoPets로 전달 | 일반 user 메시지와 합성 응답 표식·정상 완료 확인. 부모 runtime Luna/low. A DB 세션 없음·이벤트 0, 대상 조회 HTTP 404 task-not-observed. 이번 기록의 도구 호출 근거 없음 | **수신 미통과**. 승인 재요청 대신 호스트 훅 실행/전달 실패 진단 필요 |
+| 사용자의 일반 입력 대조 | 시작·도구·완료가 AutoPets로 전달 | 일반 user 메시지와 합성 응답 표식·정상 완료 확인. 부모 runtime Luna/low. A DB 세션 없음·이벤트 0, 대상 조회 HTTP 404 task-not-observed. 후속 재검토에서 custom_tool_call 도구 호출 확인(이전 수집기 누락) | **수신 미통과**. 승인 재요청 대신 호스트 훅 실행/전달 실패 진단 필요 |
 
 앞선 내부 발송 2회는 일반 사용자 메시지가 아니라 도구 응답으로 기록됐다. 실제 입력 대조 1회를 따로 수행한 이유다. 지정 프로필 자식만 받는 격리 관측기는 일반 부모 입력에 적용되지 않으며, 해당 수신 0건으로 훅 전체 미실행을 주장하지 않는다. 앱의 대상 조회 실패와 DB 과거 수신 0건은 각각 검사했다. 훅 실행 로그가 없어 현재는 **실행되지 않음 / 실행 후 실패**를 구분할 수 없다.
 
