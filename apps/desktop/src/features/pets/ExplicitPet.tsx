@@ -27,7 +27,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     <p className="card-path" title={link.target.cwd}>{link.target.cwd.split(/[\\/]/).pop()}</p>
     <label>다음 펫 작업 설정 <select aria-label="다음 펫 작업 설정" value={link.profile} disabled={action.busy || disconnected || unresolved}
       onChange={event => void action.run('set_pet_link_profile', { target: link.target, expectedRevision: link.revision, profile: event.target.value })}>
-      {Object.entries(profiles).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      {Object.entries(profiles).filter(([value]) => value !== 'plan' || link.profile === 'plan').map(([value, label]) => <option key={value} value={value} disabled={value === 'plan'}>{label}</option>)}
     </select></label>
     <small>가용 모델은 실행 전에 확인해요. 원래 채팅의 모델은 유지돼요.</small>
     {link.run?.model && <p>이번 요청: {link.run.model} · {link.run.effort}</p>}
