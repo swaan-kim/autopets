@@ -78,6 +78,7 @@ $taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SH
 $taskOriginalPath = $env:PATH
 . (Join-Path $PSScriptRoot 'native-install-state.ps1')
 . (Join-Path $PSScriptRoot 'measure-native-resources.ps1')
+. (Join-Path $PSScriptRoot 'native-bridge-readiness.ps1')
 
 function Save-LifecycleResult {
     $taskPendingResult = Join-Path $taskOut 'result.pending.json'
@@ -97,7 +98,7 @@ function Start-AndObserveApp([string]$Step, [bool]$Fresh) {
     $taskProcess = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
     $taskResult.steps += [pscustomobject]@{ step = $Step + '-launched'; pid = $taskProcess.Id }
     Set-LifecyclePhase ($Step + '-bridge') 40
-    $taskConnection = Assert-ReadyBridge
+    $taskConnection = Assert-ReadyBridge $taskProcess
     $taskResult.steps += [pscustomobject]@{ step = $Step + '-bridge-ready'; pid = $taskProcess.Id; appReady = $true }
     # The parent can time out this whole phase even if an individual UIA
     # FindFirst/Current/Invoke call never returns to the polling loop.
@@ -187,29 +188,27 @@ function Save-WindowImage($Window, [string]$Name) {
     } finally { $taskGraphics.Dispose(); $taskBitmap.Dispose() }
     $taskResult.screenshots += [pscustomobject]@{ file = $Name + '.png'; windowWidth = $taskRectangle.Width; windowHeight = $taskRectangle.Height; capturedWidth = $taskVisible.Width; capturedHeight = $taskVisible.Height; clipped = ($taskVisible -ne $taskRectangle) }
 }
-function Get-Connection {
-    if (-not (Test-Path -LiteralPath $taskConnectionFile)) { return $null }
-    $taskConnection = Get-Content -LiteralPath $taskConnectionFile -Raw | ConvertFrom-Json
-    if ($taskConnection.baseUrl -notmatch '^http://127\.0\.0\.1:[0-9]+$') { throw 'Expected exact loopback bridge address.' }
-    return $taskConnection
-}
 function Request-Bridge($Connection, [string]$Path, $Body = $null) {
     $taskArguments = @{ Uri = $Connection.baseUrl + $Path; Headers = @{ Authorization = 'Bearer ' + $Connection.token }; TimeoutSec = 5 }
     if ($null -eq $Body) { Invoke-RestMethod @taskArguments -Method Get }
     else { Invoke-RestMethod @taskArguments -Method Post -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 8 -Compress))) }
 }
-function Assert-ReadyBridge {
-    $taskConnection = Wait-Until { Get-Connection } 'Local connection file was not created.'
-    $taskState = Request-Bridge $taskConnection '/v1/setup'
-    if (-not $taskState.appReady -or $taskState.chatConnected -or $taskState.guidanceDelivered) { throw 'Unexpected app or AI connection state.' }
+function Assert-ReadyBridge($Process) {
+    $taskEvidenceFile = Join-Path $taskOut ($taskResult.phase.name + '-readiness.json')
+    $taskConnection = Wait-NativeBridgeReady -AppProcessId $Process.Id -AppStartedAt $Process.StartTime -AppPath $taskApp -ConnectionFile $taskConnectionFile -EvidenceFile $taskEvidenceFile
+    $taskReadiness = Get-Content -LiteralPath $taskEvidenceFile -Raw | ConvertFrom-Json
+    $taskResult.steps += [pscustomobject]@{ step = $taskResult.phase.name + '-http-ready'; appPid = $Process.Id; seconds = $taskReadiness.elapsedSeconds; attempts = @($taskReadiness.attempts).Count }
     return $taskConnection
 }
 function Invoke-Recall($Original, [long]$Handle, [string]$Step) {
-    Set-LifecyclePhase $Step 150
+    Set-LifecyclePhase $Step 30
     $taskDuplicate = Start-Process -FilePath $taskApp -PassThru -WindowStyle Hidden
     if (-not $taskDuplicate.WaitForExit(10000) -or $taskDuplicate.ExitCode -ne 0) { throw 'Repeated launch did not exit normally.' }
     $Original.Refresh()
     if ($Original.HasExited -or @(Get-AppProcesses).Count -ne 1) { throw 'Repeated launch replaced or duplicated the original process.' }
+    Set-LifecyclePhase ($Step + '-bridge') 40
+    [void](Assert-ReadyBridge $Original)
+    Set-LifecyclePhase ($Step + '-uia-ready') 140
     $taskRecalled = Wait-ReadyWindow $Original $false
     if ($taskRecalled.Current.NativeWindowHandle -ne $Handle) { throw 'Repeated launch did not reuse the original window.' }
     $taskResult.steps += [pscustomobject]@{ step = $Step; originalPidPreserved = $true; originalWindowPreserved = $true; appProcessCount = 1; duplicateExitCode = $taskDuplicate.ExitCode }
@@ -340,7 +339,8 @@ try {
     [void](Wait-Until { -not [AutoPetsNativeCheck]::IsWindowVisible([IntPtr]$taskHandle) } 'Caption X did not hide the window.' 10)
     $taskOriginal.Refresh()
     if ($taskOriginal.HasExited) { throw 'Caption X unexpectedly exited the app.' }
-    [void](Assert-ReadyBridge)
+    Set-LifecyclePhase 'caption-close-bridge' 40
+    [void](Assert-ReadyBridge $taskOriginal)
     $taskResult.steps += [pscustomobject]@{ step = 'caption-close'; hidden = $true; processAlive = $true; bridgeAlive = $true }
     $taskWindow = Invoke-Recall $taskOriginal $taskHandle 'recall-after-hide'
     Save-WindowImage $taskWindow 'reopened-window'

@@ -110,7 +110,8 @@ jobs:
           $taskBuild = Get-Content work/installer/build.json -Raw | ConvertFrom-Json
           if ($taskBuild.file -ne 'AutoPets_0.1.0_x64-setup.exe') { throw 'Build identity mismatch.' }
           ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE ('work/installer/' + $taskBuild.file)) -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
-          if ($LASTEXITCODE -ne 0) { throw 'Stage one lifecycle failed.' }
+          $taskLifecycle = Get-Content work/native-window-lifecycle/result.json -Raw | ConvertFrom-Json
+          if ($taskLifecycle.outcome -ne 'passed') { throw 'Stage one lifecycle failed.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
