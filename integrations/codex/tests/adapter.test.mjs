@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -114,7 +114,7 @@ test('all observational events carry metadata only and return empty JSON', async
 
 test('observer and synchronous preparation register one logical start across retries and keep A/B separate', async t => {
   const b = await bridge(t, req => req.path === '/v1/events' ? { ok: true } : { httpStatus: 503 });
-  const config = { version: 1, enabled: true, validationMode: true, project: b.folder, connection: b.connection };
+  const config = { version: 1, enabled: true, validationMode: true, project: await realpath(b.folder), connection: b.connection };
   const input = hook('UserPromptSubmit', { cwd: b.folder, prompt: '합성 입력', model: 'fixture-model' });
   await Promise.all([b.invoke(input), prepare(config, input)]);
   await b.invoke(input);
