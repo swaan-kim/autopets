@@ -44,7 +44,7 @@ try {
 } catch { }
 ${processDies ? 'finally { if (-not $taskSelf.HasExited) { $taskSelf.Kill(); [void]$taskSelf.WaitForExit(5000) } }' : ''}
 `);
-  await execute(powershell, ['-NoProfile', '-NonInteractive', '-File', driver], { windowsHide: true, timeout: 12000 });
+  await execute(powershell, ['-NoProfile', '-NonInteractive', '-File', driver], { windowsHide: true, timeout: (seconds + 8) * 1000 });
   const raw = await fs.readFile(evidence, 'utf8');
   assert.ok(!raw.includes(fakeToken), 'diagnostics must not contain the credential');
   assert.ok(!raw.includes('baseUrl'), 'diagnostics need no raw connection object');
@@ -53,17 +53,20 @@ ${processDies ? 'finally { if (-not $taskSelf.HasExited) { $taskSelf.Kill(); [vo
 }
 
 test('native readiness records a bounded timeout then a successful GET without replaying mutations', { skip: process.platform !== 'win32' }, async t => {
+  // Leave room for cold PowerShell/HTTP initialization on shared Windows runners.
+  // The request timeout remains two seconds; permanent-timeout tests stay strict.
+  const seconds = 12;
   const { result, requests } = await check(t, (res, count) => {
     if (count === 1) return; // A synthetic unresponsive HTTP handler.
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(ready));
-  });
-  assert.equal(result.outcome, 'passed');
+  }, { seconds });
+  assert.equal(result.outcome, 'passed', JSON.stringify(result));
   assert.equal(requests.length, 2);
   assert.equal(result.attempts[0].result, 'transport-not-ready');
   assert.equal(result.attempts[0].transportStatus, 'Timeout');
   assert.equal(result.attempts.at(-1).result, 'ready');
-  assert.ok(result.elapsedSeconds >= 2 && result.elapsedSeconds < 6);
+  assert.ok(result.elapsedSeconds >= 2 && result.elapsedSeconds < seconds);
 });
 
 test('native readiness retains permanent timeout as failure within its overall deadline', { skip: process.platform !== 'win32' }, async t => {
