@@ -14,6 +14,10 @@ on:
         description: Existing vX.Y.Z tag pointing to this exact commit (draft only)
         type: string
         default: ''
+      bootstrap_recheck_run:
+        description: Reuse a built review installer to diagnose only bootstrap/lifecycle (no release)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -24,6 +28,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch' || inputs.bootstrap_recheck_run == ''
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
@@ -140,6 +145,61 @@ jobs:
         with:
           name: AutoPets-windows-review
           path: work/artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  bootstrap-recheck:
+    if: github.event_name == 'workflow_dispatch' && inputs.bootstrap_recheck_run != '' && !inputs.draft_release
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AUTOPETS_RECHECK_RUN: ${{ inputs.bootstrap_recheck_run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify and download the existing review build
+        run: |
+          if ($env:AUTOPETS_RECHECK_RUN -notmatch '^[0-9]+$') { throw 'Expected a numeric build run ID.' }
+          $taskRun = gh run view $env:AUTOPETS_RECHECK_RUN --repo $env:GITHUB_REPOSITORY --json jobs,headSha | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Run lookup failed.' }
+          $taskBuild = @($taskRun.jobs | Where-Object { $_.name -eq 'build' })
+          if ($taskBuild.Count -ne 1) { throw 'Expected one build job.' }
+          foreach ($taskStep in @('Test adapter and task configuration', 'Test Rust core and bridge', 'Build NSIS installer', 'Stage review artifacts')) {
+            if (-not ($taskBuild[0].steps | Where-Object { $_.name -eq $taskStep -and $_.conclusion -eq 'success' })) { throw "Prerequisite failed: $taskStep" }
+          }
+          gh run download $env:AUTOPETS_RECHECK_RUN --repo $env:GITHUB_REPOSITORY --name AutoPets-windows-review --dir work/recheck
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact download failed.' }
+          $taskInstaller = Get-Item -LiteralPath work/recheck/AutoPets_0.1.0_x64-setup.exe
+          $taskHash = (Get-FileHash -LiteralPath $taskInstaller.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $taskExpected = @(Get-Content -LiteralPath work/recheck/SHA256SUMS.txt | Where-Object { $_ -match '^[a-f0-9]{64}  AutoPets_0\.1\.0_x64-setup\.exe$' })
+          if ($taskExpected.Count -ne 1 -or $taskExpected[0].Split(' ')[0] -ne $taskHash) { throw 'Installer checksum mismatch.' }
+          if (-not ((Get-Content work/recheck/BUILD.txt) -contains "Commit: $($taskRun.headSha)")) { throw 'Artifact source mismatch.' }
+          New-Item -ItemType Directory -Path work/artifacts -Force | Out-Null
+          [ordered]@{ sourceCommit = $taskRun.headSha; harnessCommit = $env:GITHUB_SHA; sha256 = $taskHash; bytes = $taskInstaller.Length; signature = (Get-AuthenticodeSignature -LiteralPath $taskInstaller.FullName).Status.ToString(); originalRun = $env:AUTOPETS_RECHECK_RUN } | ConvertTo-Json | Set-Content work/artifacts/recheck-build.json -Encoding utf8
+      - name: Recheck bootstrap using the unchanged installer
+        run: ./scripts/test-bootstrap-windows.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe')
+      - name: Verify native lifecycle and data preservation
+        shell: powershell
+        run: |
+          $taskBuild = Get-Content work/artifacts/recheck-build.json -Raw | ConvertFrom-Json
+          ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe') -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
+          if ($LASTEXITCODE -ne 0) { throw 'Lifecycle verification failed.' }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: bootstrap-recheck-evidence
+          path: |
+            work/artifacts/
+            work/bootstrap-windows-evidence.json
+            work/native-window-lifecycle/
           if-no-files-found: warn
           retention-days: 14
 
