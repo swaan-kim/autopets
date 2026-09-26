@@ -9,6 +9,7 @@ function processFixture(action) {
   let kills = 0;
   child.kill = () => { kills++; child.emit('close', -1); };
   return {
+    child,
     spawnProcess: (exe, args, options) => {
       assert.equal(exe, 'powershell.exe');
       assert.ok(args.includes('-NoProfile'));
@@ -27,6 +28,23 @@ test('registry discovery preserves Korean JSON and closes without killing succes
   });
   assert.deepEqual(await runPowerShellJson('fixture', f), { directory: '한글 앱', version: '0.1.0' });
   assert.equal(f.kills(), 0);
+});
+
+test('discovery permits a valid result after five seconds but retains a finite deadline', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const late = processFixture(() => {});
+  const result = runPowerShellJson('fixture', late);
+  t.mock.timers.tick(5001);
+  assert.equal(late.kills(), 0, 'A cold query must not be killed at the old five-second deadline');
+  late.child.stdout.emit('data', Buffer.from('{"version":"0.1.0"}'));
+  late.child.emit('close', 0);
+  assert.deepEqual(await result, { version: '0.1.0' });
+
+  const hung = processFixture(() => {});
+  const failure = assert.rejects(runPowerShellJson('fixture', hung), error => error.discovery?.reason === 'timeout');
+  t.mock.timers.tick(15001);
+  await failure;
+  assert.equal(hung.kills(), 1);
 });
 
 test('discovery distinguishes bounded process failures without recording script or raw output', async () => {

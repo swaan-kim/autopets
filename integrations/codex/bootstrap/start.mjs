@@ -41,7 +41,7 @@ function childExit(executable, args) {
     child.on('exit', code => code === 0 ? resolve() : reject(Error(code === 1 ? 'installation-cancelled' : 'installation-failed')));
   });
 }
-export function runPowerShellJson(script, { spawnProcess = spawn, timeoutMs = 5000 } = {}) {
+export function runPowerShellJson(script, { spawnProcess = spawn, timeoutMs = 15000 } = {}) {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) throw Error('discovery-timeout-range');
   const started = Date.now();
   const failure = (reason, exitCode = null) => Object.assign(Error('existing-installation-review'), { discovery: { reason, elapsedMs: Date.now() - started, exitCode } });
