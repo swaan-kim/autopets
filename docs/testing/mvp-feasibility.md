@@ -1,6 +1,47 @@
 # MVP 기능 가능성 검사 기록
 
-## 최신 판정 — 작은 Codex MVP의 선행 관문 (2026-09-26)
+## 최신 판정 — 무화면 기존 작업 제어의 차단 확인 (2026-09-26)
+
+**조회 가능, 자동 라우팅 MVP 미완성.** 최신 사용자 요구는 기존 Codex 작업에 한 번 연결한 뒤 요청별 설정을 첫 실행 전에 자동 적용하는 것이다. 과거의 화면 선택값 변경이나 웹 프롬프트 성공은 이번 경로에서 제외한다. 제품 기능은 활성화하지 않았다.
+
+환경: Windows 10.0.26200, Desktop 26.917.6896.0, runtime 0.155.0-alpha.16. 조사 시작 소스 3aea56d11e0e6485f36db1721f572342632300a6. 설치/연결 묶음은 ccd03a41e697e752fb64bf53b68caedf0800c81c로 유지. 설치된 Desktop archive SHA-256은 00b7936388d11a3faede5fc736a8c6264eb66e1907bac4ef72c39b7399175d68이다. 사용자 앱/DB/신뢰/설정 변경 0, 화면 조작 0, 추가 실제 AI 0턴.
+
+| 최소 검사·입력 | 예상 결과 | 실제 결과 | 판정·증거 한계 |
+| --- | --- | --- | --- |
+| 실행 중 Desktop과 자식 codex.exe의 PID/부모/실행 인수 대조 | 실제 소유 서버와 공개 전송 주소 구분 | Desktop 자식 app-server 인수는 analytics-default-enabled, listen 인수 없음. 검사 도구 자식의 별도 서버들과 구분 | **프로세스 식별 검증됨.** 기본 stdio 실행; 작업 제어 권한은 미확보 |
+| 해당 Desktop/서버 PID의 TCP LISTEN 조회 및 소스상 control socket 경로 존재 검사 | 외부 접속점이 있으면 정확한 주소로 읽기 검사 | TCP 수신 0, 사용자 app-server-control/app-server-control.sock 없음 | **해당 관측 경로 없음.** 모든 IPC/원격 경로 미지원으로 일반화하지 않음. 발견되지 않은 주소로 proxy 반복 없음 |
+| 설치된 전송 선택 코드 읽기 | Windows Desktop이 공용 daemon으로 연결되는지 확인 | .vite/build/src-mOb8On4V.js의 Fq.connect는 local-daemon 선택 조건에 process.platform !== win32 사용. 이 PC는 stdio 경로 | **설치 코드 근거.** 내부 pipe 탈취/앱 패치/새 listener 시작은 하지 않음 |
+| 정확한 A/B/Work 로컬 ID로 기존 metadata-only 조회 | ID/폴더 일치·설정 읽기 | 일치, 별도 조회 서버에서는 모두 not-loaded. A Sol/High, B와 Work Astra/Ultra | **조회 검증됨.** 해당 서버가 Desktop 작업을 소유하거나 제어한다는 증거 아님 |
+| 가용 목록에서 Astra 계획/구현 강도 확인 | xhigh와 high가 실제 목록에 있음 | 둘 다 발견 | **목록 검증됨.** 해당 제출의 실행 설정 적용 미검증 |
+| A 변경 훅과 선택 역할 스킬, AutoPets 저장된 A/B 이벤트 읽기 | 신뢰·실행·수신·스킬 발견 분리 | 훅 11개 modified, 오류 0. 역할 스킬 enabled/repo 발견. A/B/Work 수신 기록 0 | **발견만 확인.** 과거 신뢰를 재사용하지 않음. 새 시험을 보내지 않아 이번 실행 여부 판정은 없음 |
+| 공식 플러그인/MCP 훅 출력 계약 | 배포 가능한 설정 제어 기능 존재 확인 | MCP 훅은 command 훅과 동일 출력 계약; 추가 지침/차단이 있으며 모델·강도 필드 없음 | **이 출력 경로는 모델 변경 미지원.** 다른 공식 제어 API가 없다고 단정하지 않음 |
+
+[공식 App Server 규격](https://learn.chatgpt.com/docs/app-server#protocol)의 stdio·Unix socket·WebSocket은 서버가 선택해 실행하는 전송이다. [UserPromptSubmit](https://learn.chatgpt.com/docs/hooks#userpromptsubmit)의 추가 지침은 설정 변경과 별도이며, [MCP 훅](https://learn.chatgpt.com/docs/hooks#execution-and-lifecycle)은 동일 출력 계약을 사용한다. [플러그인 배포](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks)는 스킬·MCP·훅을 묶는 기능으로 조사했다.
+
+추가 소스 대조: 공개 runtime 태그 rust-v0.155.0-alpha.16(commit 0e2f848bf4a4e8d41a02d848a851ba126c09d185)의 app-server transport 분기는 stdio와 UnixSocket listener를 분리한다. Windows socket 구현 자체는 존재한다. thread/settings/update 테스트는 향후 턴 설정 변경을 검사하므로 UserPromptSubmit 중 같은 제출의 모델 변경 근거로 사용하지 않는다. 로컬 stdio 관측만으로 remote_control 등 모든 연결 부재를 추론하지 않는다.
+
+### 같은 제출의 첫 모델 설정: 독립 차단
+
+정확한 공개 버전 소스의 [run_turn](https://github.com/openai/codex/blob/0e2f848bf4a4e8d41a02d848a851ba126c09d185/codex-rs/core/src/session/turn.rs#L257)은 first_step_context를 먼저 만든 뒤 UserPromptSubmit을 포함한 run_hooks_and_record_inputs를 호출하고, 저장해 둔 첫 context로 run_sampling_request를 시작한다. [설정 변경 처리](https://github.com/openai/codex/blob/0e2f848bf4a4e8d41a02d848a851ba126c09d185/codex-rs/core/src/session/step_activation.rs#L224)는 새 current_settings를 저장하지만 기존 step의 설정 사본은 바꾸지 않는다. turn/settings/update 역시 이 제약을 없애지 않는다.
+
+따라서 **훅이 모델 호출보다 앞선다는 사실만으로, 훅 안 설정 변경이 같은 제출의 첫 모델에 반영되지는 않는다.** 훅 → thread/settings/update 조합은 이 요구를 충족하는 경로로 채택하지 않는다. 이후 턴/다음 sampling step 변경 가능성과 구분한다. 이것은 버전 소스 분석 결과이며 설치 바이너리의 빌드 SHA 동일성이나 실제 변경 실행을 증명하지 않는다. 인증된 제어 주소를 찾더라도 제출 설정 고정 전 개입 지점이 추가로 필요하다.
+
+### 완료 범위와 다음 필요한 조건
+
+① 통신은 **읽기만 검증**, 기존 Desktop 쓰기 연결은 **외부 조건으로 미검증**이다. ② 훅 내부 설정 변경으로 같은 요청 첫 실행 적용은 **해당 경로 미지원 확인(버전 소스 분석)**이며, 다른 사전 적용 경로와 ③~⑤ 통합은 대기한다. 동기 훅 승인만 받으면 자동 라우팅까지 된다는 설명은 하지 않는다. 프롬프트로 모델 이름을 요청하거나 별도 서버 새 작업을 실행하는 우회도 하지 않는다.
+
+재개에는 기존 Desktop 소유 작업에 대한 배포 가능한 제어 endpoint/호스트 확장과, 제출 설정 확정 전 override 계약이 필요하다. 그 후 설정 재조회 3회 → 연결 완료 뒤 계획/구현의 실제 turn_context 기록 → 지침/스킬/펫 통합을 검사한다. turn_context는 호스트 요청 설정의 증거이며 서버의 실제 처리 모델 증명과 구분한다. 현재 계획은 고정 xhigh/high 표식으로만 시험한다.
+
+재현은 화면이나 AI 실행 없이 다음 순서로 한다. 원본 진단과 정확한 PID/경로·선택 대상은 Git 제외 work/mvp-goal/20260925-minimum에 보존했다.
+
+1. PowerShell Get-CimInstance Win32_Process에서 실제 Desktop 부모의 codex.exe를 선택하고 실행 파일·전송 플래그만 기록한다. 원본 명령줄/인증값은 공개하지 않는다.
+2. Get-NetTCPConnection -State Listen을 그 PID들로 필터한다. 설치 코드에서 확인한 control socket 파일 경로만 확인한다. 포트 스캔이나 임의 연결은 하지 않는다.
+3. node integrations/codex/scripts/tasks-inspect.mjs <runtime.exe 절대경로> <시험 폴더 절대경로> <전용 대상 JSON 절대경로>로 metadata-only 조회한다.
+4. node integrations/codex/scripts/runtime-inspection.mjs <runtime.exe 절대경로> <시험 폴더 절대경로>로 가용 모델·변경 훅·스킬 발견을 분리한다.
+
+원본 파일: no-ui-desktop-transport.json, installed-transport-source-excerpts.jsonl, no-ui-tasks.json, no-ui-runtime-a.json, no-ui-events.json. AI 예산 **13/30**, 현재 범위 상한 **18/30** 유지. 10050/미로딩 작업 쓰기는 재시도하지 않았다. 사용자가 변경한 시험 A의 설정을 덮어쓰지 않고, 과거 GUI 복원 대기는 이력으로 남겼다.
+
+## 이전 판정 — 작은 Codex MVP의 선행 관문 (2026-09-26)
 
 **완성된 MVP 아님.** 사용자가 범위를 기존 Codex 작업 + 제작·구현 펫 하나로 줄였다. 현재 관문은 실제 이벤트, 외부 모델/강도 적용, 실행 전 역할/계획 지침, 스킬 적용이다. 이하 확장·웹 결과는 참고 이력이며 이 관문의 성공을 대신하지 않는다.
 

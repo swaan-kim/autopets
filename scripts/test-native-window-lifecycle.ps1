@@ -3,13 +3,58 @@ param(
     [string]$ExpectedSha256 = 'aedd45bc8cb71e8ffa5b338c6c3fb9ec8b2e811663b79da8710b7a8cab85c5da',
     [string]$SourceCommit = 'db06cb964be9824d8a975710f055fcfc1a1d0ed3',
     [switch]$Roundtrip,
-    [switch]$RequireFits
+    [switch]$RequireFits,
+    [switch]$Worker
 )
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows' -or $env:GITHUB_REPOSITORY -ne 'swaan-kim/autopets') {
     throw 'Native UI checks run only on the disposable GitHub-hosted Windows runner.'
 }
 if ($env:AUTOPETS_HOME -or $env:AUTOPETS_DATA_DIR -or $env:AUTOPETS_CONNECTION_FILE) { throw 'Default product paths are required.' }
+$taskOut = Join-Path $env:GITHUB_WORKSPACE 'work/native-window-lifecycle'
+New-Item -ItemType Directory -Path $taskOut -Force | Out-Null
+if (-not $Worker) {
+    . (Join-Path $PSScriptRoot 'native-lifecycle-watchdog.ps1')
+    $taskArguments = @('-Installer', ('"' + $Installer + '"'), '-ExpectedSha256', $ExpectedSha256, '-SourceCommit', $SourceCommit, '-Worker')
+    if ($Roundtrip) { $taskArguments += '-Roundtrip' }
+    if ($RequireFits) { $taskArguments += '-RequireFits' }
+    $taskWatchdog = Invoke-LifecycleWorker -ScriptFile $PSCommandPath -ScriptArguments $taskArguments -EvidenceDirectory $taskOut
+    $taskWatchdog | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskOut 'watchdog.json') -Encoding UTF8
+    Get-Content -LiteralPath (Join-Path $taskOut 'worker-output.txt') -ErrorAction SilentlyContinue | Write-Host
+    $taskResultFile = Join-Path $taskOut 'result.json'
+    $taskPartial = [pscustomobject]@{ outcome = 'incomplete'; forcedTerminationUsed = $false }
+    if (Test-Path -LiteralPath $taskResultFile) {
+        try { $taskPartial = Get-Content -LiteralPath $taskResultFile -Raw | ConvertFrom-Json }
+        catch { $taskPartial | Add-Member NoteProperty checkpointReadFailed $true }
+    }
+    if ($taskWatchdog.timedOut) {
+        # Independent process/HTTP evidence distinguishes app startup from a
+        # stuck UIA readiness probe. Never read AutomationElement here.
+        $taskExpectedApp = Join-Path $env:LOCALAPPDATA 'AutoPets/autopets.exe'
+        $taskProcesses = @(Get-Process -Name autopets -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $taskExpectedApp } | ForEach-Object { [pscustomobject]@{ pid = $_.Id; workingSetBytes = $_.WorkingSet64 } })
+        $taskConnectionPath = Join-Path $env:LOCALAPPDATA 'local.autopets.desktop/connection.json'
+        $taskBridge = [ordered]@{ connectionFilePresent = (Test-Path -LiteralPath $taskConnectionPath); requestSucceeded = $false; appReady = $null }
+        if ($taskBridge.connectionFilePresent) {
+            try {
+                $taskConnection = Get-Content -LiteralPath $taskConnectionPath -Raw | ConvertFrom-Json
+                if ($taskConnection.baseUrl -notmatch '^http://127\.0\.0\.1:[0-9]+$') { throw 'Unexpected bridge address.' }
+                $taskSetup = Invoke-RestMethod -Uri ($taskConnection.baseUrl + '/v1/setup') -Headers @{ Authorization = 'Bearer ' + $taskConnection.token } -TimeoutSec 2
+                $taskBridge.requestSucceeded = $true
+                $taskBridge.appReady = [bool]$taskSetup.appReady
+            } catch { $taskBridge.failure = $_.Exception.GetType().Name }
+        }
+        $taskPartial.outcome = 'failed'
+        if ($taskPartial.failure) { $taskPartial | Add-Member NoteProperty precedingFailure $taskPartial.failure }
+        $taskPartial | Add-Member -Force NoteProperty failure ("Native test worker exceeded the deadline in phase: " + $taskWatchdog.phase)
+        $taskPartial | Add-Member -Force NoteProperty timeoutEvidence ([pscustomobject]@{ phase = $taskWatchdog.phase; appProcesses = $taskProcesses; bridge = $taskBridge; uiAutomationObservationCompleted = $false; appTerminationRequested = $false })
+        $taskPartial | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $taskResultFile -Encoding UTF8
+    }
+    if ($taskWatchdog.timedOut -or $taskWatchdog.workerExitCode -ne 0 -or $taskPartial.outcome -ne 'passed') {
+        Get-Content -LiteralPath (Join-Path $taskOut 'worker-error.txt') -ErrorAction SilentlyContinue | Write-Host
+        throw "Native lifecycle did not pass. Last observed phase: $($taskWatchdog.phase). See result.json and watchdog.json."
+    }
+    return
+}
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes,WindowsBase,System.Windows.Forms,System.Drawing
 Add-Type @'
 using System;
@@ -25,8 +70,6 @@ $taskDataDirectory = Join-Path $env:LOCALAPPDATA 'local.autopets.desktop'
 $taskApp = Join-Path $taskAppDirectory 'autopets.exe'
 $taskNode = Join-Path $taskAppDirectory 'connector/runtime/node.exe'
 $taskConnectionFile = Join-Path $taskDataDirectory 'connection.json'
-$taskOut = Join-Path $env:GITHUB_WORKSPACE 'work/native-window-lifecycle'
-New-Item -ItemType Directory -Path $taskOut -Force | Out-Null
 $taskTitle = [regex]::Unescape('AutoPets \u00b7 \uc791\uc740 \uc791\uc5c5 \ub3d9\ub8cc')
 $taskQuitName = [regex]::Unescape('AutoPets \uc885\ub8cc')
 $taskReadyName = [regex]::Unescape('\uc571 \uc900\ube44')
@@ -35,6 +78,34 @@ $taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SH
 $taskOriginalPath = $env:PATH
 . (Join-Path $PSScriptRoot 'native-install-state.ps1')
 . (Join-Path $PSScriptRoot 'measure-native-resources.ps1')
+
+function Save-LifecycleResult {
+    $taskPendingResult = Join-Path $taskOut 'result.pending.json'
+    $taskResult | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $taskPendingResult -Encoding UTF8
+    Move-Item -LiteralPath $taskPendingResult -Destination (Join-Path $taskOut 'result.json') -Force
+}
+function Set-LifecyclePhase([string]$Name, [int]$Seconds = 30) {
+    $taskPhase = [pscustomobject]@{ name = $Name; startedAt = [DateTime]::UtcNow.ToString('O'); timeoutSeconds = $Seconds }
+    $taskResult.phase = $taskPhase
+    Save-LifecycleResult
+    $taskPhase | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskOut 'phase.json') -Encoding UTF8
+    Write-Host "Native checkpoint: $Name"
+}
+
+function Start-AndObserveApp([string]$Step, [bool]$Fresh) {
+    Set-LifecyclePhase ($Step + '-launch')
+    $taskProcess = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
+    $taskResult.steps += [pscustomobject]@{ step = $Step + '-launched'; pid = $taskProcess.Id }
+    Set-LifecyclePhase ($Step + '-bridge') 40
+    $taskConnection = Assert-ReadyBridge
+    $taskResult.steps += [pscustomobject]@{ step = $Step + '-bridge-ready'; pid = $taskProcess.Id; appReady = $true }
+    # The parent can time out this whole phase even if an individual UIA
+    # FindFirst/Current/Invoke call never returns to the polling loop.
+    Set-LifecyclePhase ($Step + '-uia-ready') 140
+    $taskFound = Wait-ReadyWindow $taskProcess $Fresh
+    Set-LifecyclePhase ($Step + '-rendered')
+    return [pscustomobject]@{ process = $taskProcess; window = $taskFound; connection = $taskConnection }
+}
 
 function Wait-Until([scriptblock]$Probe, [string]$Failure, [int]$Seconds = 30) {
     $taskDeadline = [DateTime]::UtcNow.AddSeconds($Seconds)
@@ -134,6 +205,7 @@ function Assert-ReadyBridge {
     return $taskConnection
 }
 function Invoke-Recall($Original, [long]$Handle, [string]$Step) {
+    Set-LifecyclePhase $Step 150
     $taskDuplicate = Start-Process -FilePath $taskApp -PassThru -WindowStyle Hidden
     if (-not $taskDuplicate.WaitForExit(10000) -or $taskDuplicate.ExitCode -ne 0) { throw 'Repeated launch did not exit normally.' }
     $Original.Refresh()
@@ -150,6 +222,7 @@ function Test-PortRefused([int]$Port) {
     finally { $taskClient.Dispose() }
 }
 function Quit-ThroughButton($Window, $Process, $Connection, [string]$Step) {
+    Set-LifecyclePhase $Step 45
     $taskQuit = Find-Button $Window $taskQuitName
     if (-not $taskQuit) { throw 'Quit button is missing.' }
     $taskScroll = $null
@@ -196,6 +269,7 @@ function Read-Fixture {
 }
 
 function Save-RoleFixture($Window) {
+    Set-LifecyclePhase 'save-role' 60
     $taskRoleNav = [regex]::Unescape('\uc5ed\ud560\uacfc \ub0b4 \ud3ab')
     $taskRoleSave = [regex]::Unescape('\ub0b4 \ud3ab \uc800\uc7a5')
     $taskRoleSaved = [regex]::Unescape('\ub0b4 \ud3ab \ubcc0\uacbd \uc800\uc7a5')
@@ -216,6 +290,7 @@ function Save-RoleFixture($Window) {
 }
 
 try {
+    Set-LifecyclePhase 'preflight' 120
     if (-not [Environment]::UserInteractive) { throw 'Runner has no interactive desktop; no GUI pass can be claimed.' }
     if ((Test-Path -LiteralPath $taskAppDirectory) -or (Test-Path -LiteralPath $taskDataDirectory) -or @(Get-AppProcesses).Count) { throw 'Runner is not fresh.' }
     if (@(Get-InstallRegistration).Count -or @(Get-InstallShortcuts).Count) { throw 'Runner already has installation metadata.' }
@@ -232,7 +307,9 @@ try {
         }
         $taskResult.developerToolsAbsentFromPath = $true
     }
+    Set-LifecyclePhase 'install' 150
     Invoke-InstallerStep $Installer 'install'
+    Set-LifecyclePhase 'install-footprint' 45
     $taskResult.firstInstall = Read-InstallFootprint
     # Fresh installs need not have a positions file until a pet is moved.
     # Seed deliberate, valid custom positions to test actual native restoration.
@@ -245,15 +322,18 @@ try {
     [IO.File]::WriteAllText((Join-Path $taskDataDirectory 'positions.json'), ($taskPositions | ConvertTo-Json -Depth 3), [Text.UTF8Encoding]::new($false))
     $taskStartTimer = [Diagnostics.Stopwatch]::StartNew()
     # Visible native window on the isolated runner is the subject of this test.
-    $taskOriginal = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
-    $taskWindow = Wait-ReadyWindow $taskOriginal $true
+    $taskLaunch = Start-AndObserveApp 'first' $true
+    $taskOriginal = $taskLaunch.process
+    $taskWindow = $taskLaunch.window
+    $taskConnection = $taskLaunch.connection
     $taskStartTimer.Stop()
-    $taskConnection = Assert-ReadyBridge
     $taskHandle = [long]$taskWindow.Current.NativeWindowHandle
     $taskResult.steps += [pscustomobject]@{ step = 'first-render'; seconds = [Math]::Round($taskStartTimer.Elapsed.TotalSeconds, 3); nativeWindowVisible = $true; renderedSetupHeadingFound = $true; quitButtonFound = $true }
     Save-WindowImage $taskWindow 'first-window'
+    Set-LifecyclePhase 'measure-idle-resources' 30
     $taskResult.resources = @((Measure-NativeResources $taskOriginal.Id 'manager-no-task'))
     $taskWindow = Invoke-Recall $taskOriginal $taskHandle 'recall-while-visible'
+    Set-LifecyclePhase 'caption-close' 30
     $taskCaptionClose = $taskWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'Close'))
     Invoke-Button $taskCaptionClose
@@ -270,43 +350,56 @@ try {
     [void](Request-Bridge $taskConnection '/v1/events' @{ eventId = 'gui-start'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; kind = 'turn_started'; cwd = $taskFixtureDirectory; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() })
     [void](Request-Bridge $taskConnection '/v1/task-config' @{ requestId = 'gui-config'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; cwd = $taskFixtureDirectory; completionCriterion = 'GUI restart must preserve this test record'; interventionMode = 'milestones'; elapsedAlertMinutes = 7 })
     Save-RoleFixture $taskWindow
+    Set-LifecyclePhase 'measure-working-resources' 30
     $taskResult.resources += Measure-NativeResources $taskOriginal.Id 'manager-with-synthetic-working-pet'
     Quit-ThroughButton $taskWindow $taskOriginal $taskConnection 'normal-exit'
+    Set-LifecyclePhase 'before-restart-data' 30
     $taskBeforeRestart = Read-Fixture
     $taskBeforeRestart | Set-Content -LiteralPath (Join-Path $taskOut 'before-restart.json') -Encoding UTF8
-    $taskRestart = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
-    $taskWindow = Wait-ReadyWindow $taskRestart $false
-    $taskConnection = Assert-ReadyBridge
+    $taskLaunch = Start-AndObserveApp 'restart' $false
+    $taskRestart = $taskLaunch.process
+    $taskWindow = $taskLaunch.window
+    $taskConnection = $taskLaunch.connection
     Save-WindowImage $taskWindow 'after-restart'
+    Set-LifecyclePhase 'after-restart-data' 30
     $taskAfterRestart = Read-Fixture
     if ($taskBeforeRestart -cne $taskAfterRestart) { throw 'Logical records, settings or pet positions changed after restart.' }
     $taskAfterRestart | Set-Content -LiteralPath (Join-Path $taskOut 'after-restart.json') -Encoding UTF8
     $taskResult.steps += [pscustomobject]@{ step = 'restart'; dataPreserved = $true; settingsPreserved = $true; positionsPreserved = $true; integrity = 'ok' }
     Quit-ThroughButton $taskWindow $taskRestart $taskConnection 'normal-exit-after-restart'
     if ($Roundtrip) {
+        Set-LifecyclePhase 'before-overwrite-data' 30
         $taskDurable = @(Get-StateFiles $taskDataDirectory -DurableOnly)
+        Set-LifecyclePhase 'overwrite-install' 150
         Invoke-InstallerStep $Installer 'overwrite-install'
+        Set-LifecyclePhase 'after-overwrite-data' 45
         $taskResult.overwrite = Read-InstallFootprint
         Assert-StateFiles $taskDurable @(Get-StateFiles $taskDataDirectory -DurableOnly) 'Data after overwrite install'
         if ((Read-Fixture) -cne $taskBeforeRestart) { throw 'Overwrite install changed synthetic records or settings.' }
         $taskUninstaller = Join-Path $taskAppDirectory 'uninstall.exe'
+        Set-LifecyclePhase 'uninstall' 150
         Invoke-InstallerStep $taskUninstaller 'uninstall'
+        Set-LifecyclePhase 'after-uninstall-data' 45
         Assert-Uninstalled
         Assert-StateFiles $taskDurable @(Get-StateFiles $taskDataDirectory -DurableOnly) 'Data after uninstall'
         $taskResult.uninstallDataByteIdentical = $true
+        Set-LifecyclePhase 'reinstall' 150
         Invoke-InstallerStep $Installer 'reinstall'
+        Set-LifecyclePhase 'after-reinstall-data' 45
         $taskResult.reinstall = Read-InstallFootprint
         Assert-StateFiles $taskDurable @(Get-StateFiles $taskDataDirectory -DurableOnly) 'Data after reinstall'
         $taskResult.reinstallDataByteIdentical = $true
         if ($taskResult.firstInstall.executableHash -ne $taskResult.reinstall.executableHash) { throw 'Reinstall changed app binary.' }
-        $taskReinstalled = Start-Process -FilePath $taskApp -PassThru -WindowStyle Normal
-        $taskWindow = Wait-ReadyWindow $taskReinstalled $false
-        $taskConnection = Assert-ReadyBridge
+        $taskLaunch = Start-AndObserveApp 'reinstall' $false
+        $taskReinstalled = $taskLaunch.process
+        $taskWindow = $taskLaunch.window
+        $taskConnection = $taskLaunch.connection
         if ((Read-Fixture) -cne $taskBeforeRestart) { throw 'Reinstalled app changed records, settings or positions.' }
         Save-WindowImage $taskWindow 'after-reinstall'
         Quit-ThroughButton $taskWindow $taskReinstalled $taskConnection 'normal-exit-after-reinstall'
         $taskResult.steps += [pscustomobject]@{ step = 'reinstalled-app'; usable = $true; dataPreserved = $true; settingsPreserved = $true; positionsPreserved = $true }
     }
+    Set-LifecyclePhase 'final-data-check' 45
     Assert-StateFiles $taskAiBaseline @(Get-StateFiles $taskAiDirectory) 'AI settings'
     $taskResult.aiConfigurationUnchanged = $true
     $taskResult.windowFitRequired = [bool]$RequireFits
@@ -314,6 +407,10 @@ try {
 } catch {
     $taskResult.outcome = 'failed'
     $taskResult.failure = $_.Exception.Message
+    $taskResult.failurePhase = $taskResult.phase.name
+    # Persist the failure before optional UI diagnostics, which can themselves
+    # hit an unresponsive provider. The process-only parent bounds this phase.
+    Set-LifecyclePhase 'failure-diagnostics' 15
     if ($taskWindow) {
         try {
             $taskItems = $taskWindow.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
@@ -328,5 +425,5 @@ try {
     throw
 } finally {
     $env:PATH = $taskOriginalPath
-    $taskResult | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $taskOut 'result.json') -Encoding UTF8
+    Save-LifecycleResult
 }
