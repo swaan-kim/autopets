@@ -168,7 +168,7 @@ jobs:
       - name: Verify and download the existing review build
         run: |
           if ($env:AUTOPETS_RECHECK_RUN -notmatch '^[0-9]+$') { throw 'Expected a numeric build run ID.' }
-          $taskRun = gh run view $env:AUTOPETS_RECHECK_RUN --repo $env:GITHUB_REPOSITORY --json jobs,headSha | ConvertFrom-Json
+          $taskRun = gh run view $env:AUTOPETS_RECHECK_RUN --repo $env:GITHUB_REPOSITORY --json jobs,headSha,event | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw 'Run lookup failed.' }
           $taskBuild = @($taskRun.jobs | Where-Object { $_.name -eq 'build' })
           if ($taskBuild.Count -ne 1) { throw 'Expected one build job.' }
@@ -181,9 +181,17 @@ jobs:
           $taskHash = (Get-FileHash -LiteralPath $taskInstaller.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           $taskExpected = @(Get-Content -LiteralPath work/recheck/SHA256SUMS.txt | Where-Object { $_ -match '^[a-f0-9]{64}  AutoPets_0\.1\.0_x64-setup\.exe$' })
           if ($taskExpected.Count -ne 1 -or $taskExpected[0].Split(' ')[0] -ne $taskHash) { throw 'Installer checksum mismatch.' }
-          if (-not ((Get-Content work/recheck/BUILD.txt) -contains "Commit: $($taskRun.headSha)")) { throw 'Artifact source mismatch.' }
+          $taskSourceLines = @(Get-Content work/recheck/BUILD.txt | Where-Object { $_ -match '^Commit: [a-f0-9]{40}$' })
+          if ($taskSourceLines.Count -ne 1) { throw 'Artifact source missing.' }
+          $taskSource = $taskSourceLines[0].Substring(8)
+          # PR checkout builds GitHub's test merge, while run.headSha names the PR head.
+          if ($taskSource -ne $taskRun.headSha) {
+            if ($taskRun.event -ne 'pull_request') { throw 'Artifact source mismatch.' }
+            $taskCommit = gh api "repos/$env:GITHUB_REPOSITORY/git/commits/$taskSource" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $taskCommit.parents.Count -ne 2 -or $taskCommit.parents[1].sha -ne $taskRun.headSha) { throw 'Artifact merge does not contain the recorded PR head.' }
+          }
           New-Item -ItemType Directory -Path work/artifacts -Force | Out-Null
-          [ordered]@{ sourceCommit = $taskRun.headSha; harnessCommit = $env:GITHUB_SHA; sha256 = $taskHash; bytes = $taskInstaller.Length; signature = (Get-AuthenticodeSignature -LiteralPath $taskInstaller.FullName).Status.ToString(); originalRun = $env:AUTOPETS_RECHECK_RUN } | ConvertTo-Json | Set-Content work/artifacts/recheck-build.json -Encoding utf8
+          [ordered]@{ sourceCommit = $taskSource; prHead = $taskRun.headSha; harnessCommit = $env:GITHUB_SHA; sha256 = $taskHash; bytes = $taskInstaller.Length; signature = (Get-AuthenticodeSignature -LiteralPath $taskInstaller.FullName).Status.ToString(); originalRun = $env:AUTOPETS_RECHECK_RUN } | ConvertTo-Json | Set-Content work/artifacts/recheck-build.json -Encoding utf8
       - name: Recheck bootstrap using the unchanged installer
         run: ./scripts/test-bootstrap-windows.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe')
       - name: Verify native lifecycle and data preservation
