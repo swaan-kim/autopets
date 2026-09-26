@@ -5,14 +5,19 @@ import type { Snapshot } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
 import { useAssistance } from '../../bridge/useAssistance';
+import { useRoles } from '../../bridge/useRoles';
 import type { useWorkflow } from '../../bridge/useWorkflow';
 import { identityKey, uniqueIdentities } from '../assistance/identity';
 import { workflowHelp } from '../workflow/presentation';
 import { currentAction, dueAttention, observedActivity, status } from '../tasks/presentation';
 import { AttentionCard } from '../tasks/AttentionCard';
+import { canAttemptReturn, returnToTask } from '../tasks/returnToTask';
+import { McpProp } from '../tasks/ToolActivity';
 import { PET_NAMES } from './constants';
 import { Pet } from './Pet';
+import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
+import { ExplicitPet, explicitPetStatus } from './ExplicitPet';
 
 export function PetOverlay({ snapshot, index, error, assistance, workflow }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
   const [expanded, setExpanded] = useState(false);
@@ -20,11 +25,17 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const [notice, setNotice] = useState('');
   const overlay = useRef<HTMLDivElement>(null);
   const resizeQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const returning = useRef(false);
   const action = useAction();
+  const roles = useRoles();
   const sessionId = snapshot.slots.find(slot => slot.index === index)?.sessionId;
   const session = snapshot.sessions.find(session => session.id === sessionId);
+  const returnTarget = useRef('');
+  returnTarget.current = `${session?.id}\n${session?.cwd}`;
   const matches = uniqueIdentities(assistance.snapshot.tasks, workflow.snapshot.tasks).filter(identity => identity.provider === 'codex' && identity.chatId === sessionId);
   const taskKey = matches.length === 1 ? identityKey(matches[0]) : null;
+  const roleMatches = roles.error ? [] : roles.snapshot.bindings.filter(binding => identityKey(binding.identity) === taskKey);
+  const appearance = roleMatches.length === 1 ? roleMatches[0].template : undefined;
   const helpTask = assistance.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const workflowTask = workflow.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
@@ -50,6 +61,17 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     add<{ exceptSlot: number | null }>('autopets://collapse-pets', payload => { if (payload.exceptSlot !== index) setExpanded(false); });
     return () => { disposed = true; disposers.forEach(remove => remove()); };
   }, [index]);
+  const explicit = snapshot.petLinks?.find(link => link.slot === index);
+  if (explicit) {
+    const active = explicit.connected && !disconnected && !explicit.run?.trackingClosed && (explicit.enabled || Boolean(explicit.run));
+    const state = active ? explicit.run?.state : undefined;
+    return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
+      {expanded && <div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div>}
+      <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
+        <button className="pet-hit" aria-label="제작 펫 메뉴" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><Pet index={index} activity={state === 'working' ? 'working' : 'idle'} paused={!active} motion={state === 'complete' ? 'celebrate' : state === 'failed' ? 'angry' : state === 'waiting' ? 'dizzy' : undefined} /></button>
+        <span className="floating-label">제작 펫 · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
+      </div></div>;
+  }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'
     : session.state === 'failed' || attention?.kind === 'tool-error' ? 'angry'
     : attention && attention.kind !== 'milestone' || session.state === 'waiting' ? 'dizzy'
@@ -65,7 +87,16 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
       disabled={!isDesktop || !!assistance.error} busy={action.busy} error={error || action.error || windowError} notice={notice}
-      returnLabel="작업명·ID 복사" onReturn={session ? async () => {
+      returnLabel={session && canAttemptReturn(session) ? '앱에서 열기 시도' : '작업명·ID 복사'} onReturn={session ? async () => {
+        if (returning.current) return;
+        if (canAttemptReturn(session)) {
+          const target = returnTarget.current;
+          returning.current = true;
+          try { const message = await returnToTask(session); if (returnTarget.current === target) setNotice(message); }
+          catch (cause) { if (returnTarget.current === target) setNotice(`${String(cause)} 작업 ID: ${session.id}`); }
+          finally { returning.current = false; }
+          return;
+        }
         try { await navigator.clipboard.writeText(`${session.label}\n${session.id}`); setNotice('복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
         catch { setNotice(`복사하지 못했어요. 작업 ID: ${session.id}`); }
       } : undefined}
@@ -78,7 +109,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     </div>}
     <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
-      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} />{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`} title={help}>{help}</span>
     </div>
   </div>;

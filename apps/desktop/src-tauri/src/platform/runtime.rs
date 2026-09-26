@@ -83,9 +83,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         *slot = Some(server);
                     };
                 }
-                if let Ok(s) = store.lock() {
-                    emit(&handle, s.snapshot());
-                };
+                let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(&handle, snapshot));
             }
             Err(error) => {
                 eprintln!("AutoPets bridge failed: {error}");

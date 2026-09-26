@@ -41,12 +41,15 @@ function childExit(executable, args) {
     child.on('exit', code => code === 0 ? resolve() : reject(Error(code === 1 ? 'installation-cancelled' : 'installation-failed')));
   });
 }
-export function runPowerShellJson(script) {
+export function runPowerShellJson(script, { spawnProcess = spawn, timeoutMs = 15000 } = {}) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) throw Error('discovery-timeout-range');
+  const started = Date.now();
+  const failure = (reason, exitCode = null) => Object.assign(Error('existing-installation-review'), { discovery: { reason, elapsedMs: Date.now() - started, exitCode } });
   return new Promise((resolve, reject) => {
     // Windows PowerShell otherwise encodes redirected output using its legacy
     // console code page, which can corrupt Korean installation paths.
     const utf8Script = `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; ${script}`;
-    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(utf8Script, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    const child = spawnProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(utf8Script, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
     let finished = false, size = 0;
     const chunks = [];
     const finish = (error, value) => {
@@ -54,17 +57,17 @@ export function runPowerShellJson(script) {
       finished = true; clearTimeout(timeout);
       if (error) { child.kill(); reject(error); } else resolve(value);
     };
-    const timeout = setTimeout(() => finish(Error('existing-installation-review')), 5000);
+    const timeout = setTimeout(() => finish(failure('timeout')), timeoutMs);
     child.stdout.on('data', data => {
       size += data.length;
-      if (size > 65536) return finish(Error('existing-installation-review'));
+      if (size > 65536) return finish(failure('output-limit'));
       chunks.push(data);
     });
-    child.on('error', () => finish(Error('existing-installation-review')));
+    child.on('error', () => finish(failure('spawn')));
     child.on('close', code => {
-      if (code !== 0) return finish(Error('existing-installation-review'));
+      if (code !== 0) return finish(failure('exit', code));
       try { const text = Buffer.concat(chunks).toString('utf8').trim(); finish(null, text ? JSON.parse(text) : null); }
-      catch { finish(Error('existing-installation-review')); }
+      catch { finish(failure('json')); }
     });
   });
 }
@@ -93,6 +96,20 @@ export const systemDriver = {
     throw Error('app-unavailable');
   },
 };
+/** Open only the packaged app for an explicit pet invocation. No install/config/hook writes. */
+export async function openInstalledPetApp({env=process.env,driver=systemDriver,resourceDirectory=fileURLToPath(new URL('../../../',import.meta.url))}={}) {
+  const realResource=await fs.realpath(resourceDirectory);
+  if(path.basename(realResource).toLowerCase()!=='connector') throw Error('installed-resource-path');
+  const manifest=await verifyPackage(realResource,{installedResource:true});
+  const app=path.join(path.dirname(realResource),'autopets.exe');
+  await regular(app);
+  if(path.dirname(await fs.realpath(app)).toLowerCase()!==path.dirname(realResource).toLowerCase()) throw Error('installed-resource-path');
+  await driver.launch(app);
+  const connection=env.AUTOPETS_CONNECTION_FILE||path.join(env.AUTOPETS_DATA_DIR||path.join(env.LOCALAPPDATA,'local.autopets.desktop'),'connection.json');
+  const bridge=await driver.bridge(connection,manifest.appVersion);
+  if(bridge.state?.appReady!==true) throw Error('app-unavailable');
+  return {ok:true,appReady:true};
+}
 async function installSkill(root, manifest, env) {
   const codex = env.CODEX_HOME || path.join(os.homedir(), '.codex');
   const directory = path.join(codex, 'skills/autopets');
@@ -105,7 +122,8 @@ async function installSkill(root, manifest, env) {
   await safeDirectory(directory);
   const runtimeRoot = manifest.resourceDirectory || path.join(root, 'connector');
   const node = path.join(runtimeRoot, 'runtime/node.exe'), script = path.join(runtimeRoot, 'integrations/codex/bootstrap/start.mjs');
-  const text = `---\nname: autopets\ndescription: AutoPets를 켜거나 현재 Codex 작업에 펫을 연결할 때 사용한다. 설치 확인, 실행, 연결 복구를 한 번에 처리한다.\n---\n${marker}\n# AutoPets 켜기\n\n사용자가 켜 달라고 요청하면 현재 작업 디렉터리와 CODEX_THREAD_ID를 유지하고 아래 실행 파일과 인수를 구조화해서 실행한다.\n\n실행 파일: ${JSON.stringify(node)}\n인수: ${JSON.stringify([script])}\n\n처음 결과가 connecting이면 앱은 실행됐지만 채팅 연결은 대기 중이라고 설명한다. 필요한 Codex 훅 신뢰 확인만 안내한다. trust나 실행 정책을 우회하지 않는다. 상태·모델·절감 효과를 추정하지 않는다. 같은 설정을 다시 묻지 않는다. 자동 도움·보호의 실제 검증 상태를 그대로 전달한다. --disconnect는 사용자가 연결 해제를 요청했을 때만 사용하며 앱 데이터는 지우지 않는다.\n`;
+  const petReference = path.join(runtimeRoot, 'integrations/codex/skills/autopets/references/explicit-pet.md');
+  const text = `---\nname: autopets\ndescription: AutoPets를 켜거나 현재 Codex 작업에 제작 펫을 연결하고, 펫 작업과 현재 펫 계획의 후속 구현, 펫 상태 확인을 요청할 때 사용한다.\n---\n${marker}\n# AutoPets\n\n“제작 펫 연결”, “제작 펫으로 작업”, “펫 상태 확인” 또는 현재 펫 계획의 명시적 후속 구현 요청이면 다음 설치된 안내 파일을 읽고 그 절차를 따른다. 현재 작업 ID와 폴더를 유지한다. 연결 성공과 실제 모델 적용·자동 훅 수신을 구분한다.\n\n펫 작업 안내: ${JSON.stringify(petReference)}\n\n사용자가 켜 달라고 요청하면 현재 작업 디렉터리와 CODEX_THREAD_ID를 유지하고 아래 실행 파일과 인수를 구조화해서 실행한다.\n\n실행 파일: ${JSON.stringify(node)}\n인수: ${JSON.stringify([script])}\n\n처음 결과가 connecting이면 앱은 실행됐지만 채팅 연결은 대기 중이라고 설명한다. 명시적 펫 연결에는 훅 허용이 필요하지 않다. 새 스킬이 발견되지 않을 때만 작업 종료 후 Codex 재시작을 안내한다. trust나 실행 정책을 우회하지 않는다. 상태·모델·절감 효과를 추정하지 않는다. 같은 설정을 다시 묻지 않는다. 자동 도움·보호의 실제 검증 상태를 그대로 전달한다. --disconnect는 사용자가 연결 해제를 요청했을 때만 사용하며 앱 데이터는 지우지 않는다.\n`;
   if (existing !== text) await fs.writeFile(file, text);
   return { conflict: false, path: file, sha256: digest(Buffer.from(text)) };
 }
@@ -228,12 +246,13 @@ export async function connectInstalled({ resourceDirectory, appExecutable, root 
     const skill = await installSkill(root, installed, env);
     installed.skillPath = skill.path;
     if (skill.path) installed.skillDigest = skill.sha256;
-    installed.hookIds = await configureConnection(root, installed, { env });
+    // Installed MVP uses the skill/explicit pet bridge. Existing hooks stay untouched.
+    installed.connectionMode = 'explicit-pet';
     installed.connectionStates = connectionStates(installed, true);
-    installed.completedSteps.push(...(skill.path ? ['skill'] : []), 'hooks-configured');
+    installed.completedSteps.push(...(skill.path ? ['skill'] : []));
     await atomicJson(manifestPath, installed);
     const sessionId = env.CODEX_THREAD_ID || null;
-    const state = await bridge.begin({ installedVersion: supplied.appVersion, sessionId, cwd: sessionId ? process.cwd() : null, hostId: 'codex-windows-local', entryPoint });
+    const state = await bridge.begin({ installedVersion: supplied.appVersion, sessionId, cwd: sessionId ? process.cwd() : null, hostId: 'codex-windows-local', entryPoint, connectionMode: 'explicit-pet' });
     return { ok: true, ...state, skillConflict: skill.conflict, updateAvailable: null, publicOneCallVerified: false };
   });
 }
@@ -242,7 +261,7 @@ export async function disconnect({ root = homeFor(), env = process.env } = {}) {
     const file = path.join(root, 'install-manifest.json'), manifest = await readJson(file).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
     if (!manifest) return { ok: true, disconnected: true, recordsDeleted: false };
     if (manifest.owner !== 'autopets') throw Error('installation-conflict');
-    manifest.hookIds = await configureConnection(root, manifest, { remove: true, env });
+    if (manifest.hookIds?.length) manifest.hookIds = await configureConnection(root, manifest, { remove: true, env });
     if (manifest.skillPath && manifest.skillDigest) {
       const content = await fs.readFile(manifest.skillPath).catch(() => null);
       if (content && digest(content) === manifest.skillDigest) await fs.unlink(manifest.skillPath);
@@ -281,7 +300,7 @@ async function main() {
     console.log(JSON.stringify(await start({ packageDir: args[1], progress: phase => console.error(phase === 'installing' ? '설치 확인 중' : '연결 확인 중') })));
   } catch (error) {
     const code = Object.hasOwn(messages, error.message) ? error.message : error.code === 'ENOENT' ? 'required-file-missing' : error.code === 'EACCES' ? 'execution-not-allowed' : 'setup-failed';
-    console.log(JSON.stringify({ ok: false, phase: 'attention', retryable: true, code,
+    console.log(JSON.stringify({ ok: false, phase: 'attention', retryable: true, code, ...(error.discovery ? { discovery: error.discovery } : {}),
       message: messages[error.message] || '설치를 완료하지 못했어요. 검증한 설치 파일로 다시 시작해주세요.' })); process.exitCode = 1;
   }
 }

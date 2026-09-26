@@ -41,8 +41,8 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   checks.push('main-window exit remains visible and callable on short and narrow screens');
 
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
-  await page.getByText('첫 활동 대기', { exact: true }).waitFor();
-  await page.getByText(/Codex에서 훅을 검토해주세요/).waitFor();
+  await page.getByText('채팅에서 호출 대기', { exact: true }).waitFor();
+  await page.getByText(/이 연결에는 훅 허용이 필요하지 않아요/).waitFor();
   assert.equal(await page.locator('.setup-step').nth(2).locator('.setup-status').textContent(), '확인 전');
   assert.equal(await page.getByRole('button', { name: '연결 설정 준비됨', exact: true }).isEnabled(), false);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [{ name: 'connect_ai', args: { hostId: 'codex-windows-local' } }]);

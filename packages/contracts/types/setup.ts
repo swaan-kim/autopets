@@ -13,6 +13,7 @@ export interface SetupState {
   /** Additive fields retain compatibility with the original v1 setup response. */
   currentHostId?: string | null;
   entryPoint?: 'desktop' | 'ai' | 'store' | null;
+  connectionMode?: 'explicit-pet' | null;
   hosts?: ConnectionHost[];
   connections?: ConnectionProgress[];
   warnings?: string[];
@@ -36,4 +37,5 @@ export interface InstallManifest {
   entryPoint?: 'desktop' | 'ai' | 'store';
   connectionStates?: { hostId: string; configured: boolean }[];
   updateOwner?: 'autopets-signed-updater';
+  connectionMode?: 'explicit-pet';
 }

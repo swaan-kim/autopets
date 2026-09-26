@@ -22,10 +22,18 @@ try {
   assert.ok(slots.some(slot => slot.session_id === row.id));
   const configs = db.prepare('SELECT request_id,session_id,turn_id,fingerprint FROM task_config_requests ORDER BY request_id').all();
   assert.equal(configs.length, 1);
+  const pets = db.prepare('SELECT id,value FROM pet_templates_v1 ORDER BY id').all().map(row => ({ id: row.id, value: JSON.parse(row.value) }));
+  assert.equal(pets.length, 1, 'actual role editor must save exactly one pet');
+  assert.equal(pets[0].id, pets[0].value.id);
+  assert.equal(pets[0].value.revision, 1);
+  assert.equal(pets[0].value.template.id, 'research-document');
+  assert.equal(pets[0].value.template.version, 1);
+  assert.equal(pets[0].value.template.skills[0].version, '1.0.0');
+  assert.ok(pets[0].value.template.instruction.length > 0);
   assert.equal(db.prepare('PRAGMA quick_check').get().quick_check, 'ok');
   const positions = JSON.parse(readFileSync(path.join(directory, 'positions.json'), 'utf8'));
   const sortedPositions = Object.fromEntries(Object.entries(positions).sort(([a], [b]) => a.localeCompare(b)));
   console.log(JSON.stringify({ session: { id: row.id, label: row.label, cwd: row.cwd,
     completionCriterion: supervision.completionCriterion, interventionMode: supervision.interventionMode,
-    elapsedAlertMinutes: supervision.elapsedAlertMinutes }, events, slots, configs, positions: sortedPositions, integrity: 'ok' }));
+    elapsedAlertMinutes: supervision.elapsedAlertMinutes }, events, slots, configs, pets, positions: sortedPositions, integrity: 'ok' }));
 } finally { db.close(); }

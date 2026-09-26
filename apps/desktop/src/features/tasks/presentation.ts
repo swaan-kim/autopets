@@ -1,5 +1,6 @@
 import type { Session } from '@autopets/contracts/types';
 import { STATE_LABEL } from './constants';
+import { toolCalls, toolSummary } from './ToolActivity';
 
 export function dueAttention(session: Session, now: number) {
   return session.attention && (!session.attention.snoozedUntil || session.attention.snoozedUntil <= now) ? session.attention : null;
@@ -22,10 +23,13 @@ export function currentAction(session: Session, disconnected = false) {
   if (session.state !== 'working') return STATE_LABEL[session.state];
   if (session.activity === 'research') return '자료를 조사하고 있어요';
   if (session.activity === 'writing') return '문서를 작성하고 있어요';
-  if (session.activity === 'tool' && session.lastTool) return `${session.lastTool} 사용 중`;
+  if (session.activity === 'tool') return toolSummary(toolCalls(session, disconnected));
   return '작업을 진행하고 있어요';
 }
 
 export function observedActivity(session: Session | undefined, disconnected: boolean) {
-  return !disconnected && session?.connection === 'observed' && session.state === 'working' ? session.activity : 'idle';
+  if (disconnected || session?.connection !== 'observed' || session.state !== 'working') return 'idle';
+  if (session.activity === 'tool' && session.toolActivityV1?.version === 1
+      && !toolCalls(session).some(call => call.state === 'running')) return 'working';
+  return session.activity;
 }

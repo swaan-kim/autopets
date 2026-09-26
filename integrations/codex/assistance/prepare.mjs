@@ -7,9 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { readConnection, requestJson, validString, isObject } from '../skills/autopets/scripts/bridge-client.mjs';
 import { validateContext, validateWorkflowPlan, validWorkflowTask, resolvePreferences, utf8Bytes, MAX_INJECTION_BYTES } from '../../../packages/contracts/index.mjs';
 import { classifyTask, buildGuidanceMetadata, buildWorkflowGuidance } from '../../../packages/guidance/index.mjs';
+import { roleGuidance } from '../../../packages/guidance/roles.mjs';
 import { identityFor, preflightSubmission } from './workflow.mjs';
 import { homeFor, digest } from '../bootstrap/files.mjs';
 import { runHookOnce } from '../bootstrap/deduplicate.mjs';
+import { turnStartId } from '../hooks/turn-events.mjs';
+import { isChildHook } from '../hooks/scope.mjs';
 export { identityFor } from './workflow.mjs';
 
 const entry = fileURLToPath(import.meta.url);
@@ -86,7 +89,7 @@ async function consumeRecord(config, recordPath, consume) {
 }
 
 export async function prepare(config, input, request = transport(config)) {
-  if (!config.enabled || !isObject(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
+  if (!config.enabled || !isObject(input) || isChildHook(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
     || !['UserPromptSubmit', 'SessionStart', 'PostCompact'].includes(input.hook_event_name)
     || (config.version === 2 && input.session_id !== config.sessionId)
     || !samePath(await realpath(input.cwd), config.project)) return { output: {} };
@@ -95,7 +98,7 @@ export async function prepare(config, input, request = transport(config)) {
   const identity = identityFor(input.session_id), binding = { sessionId: input.session_id, turnId: input.turn_id, cwd: input.cwd };
   const workflow = await preflightSubmission(input, request);
   if (workflow.decision === 'hold') return { output: { decision: 'block', reason: workflow.reason } };
-  await request('/v1/events', { eventId: randomUUID(), kind: 'turn_started', ...binding, timestamp: Date.now() });
+  await request('/v1/events', { eventId: turnStartId(binding), kind: 'turn_started', ...binding, timestamp: Date.now() });
   if (workflow.error) return { output: {} };
   const data = await assistance(request, 'read', identity, binding);
   const capability = data.capabilities?.codex ?? data.capabilities;
@@ -104,15 +107,28 @@ export async function prepare(config, input, request = transport(config)) {
   const preferences = resolvePreferences({ preferences: data.preferences, task: data.task });
   const settingsRevision = data.task.settingsRevision ?? 0;
   const workflowEnabled = workflow.available && workflow.task.enabled;
-  const helper = workflowEnabled ? planHelperText(config) : helperText(config);
-  const guidance = workflowEnabled
-    ? buildWorkflowGuidance({ task: workflow.task, intent: workflow.intent, preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) })
-    : buildGuidanceMetadata({ recipe, preferences, context: data.task.context, reserveBytes: utf8Bytes(helper) });
-  const additionalContext = guidance.text + helper;
+  const selectedRole = roleGuidance(data.role, identity, workflowEnabled);
+  // Keep the chosen instruction intact. Long role content may leave no room for
+  // optional recording helpers; the native chat still owns its plan and context.
+  let helper = workflowEnabled ? planHelperText(config) : helperText(config);
+  const compose = () => {
+    const reserveBytes = utf8Bytes(helper + selectedRole);
+    return workflowEnabled
+      ? buildWorkflowGuidance({ task: workflow.task, intent: workflow.intent, preferences, context: data.task.context, reserveBytes })
+      : buildGuidanceMetadata({ recipe, preferences, context: data.task.context, reserveBytes });
+  };
+  let guidance;
+  try { guidance = compose(); }
+  catch (error) {
+    if (!selectedRole || !['reserve-limit', 'injection-limit'].includes(error.message)) throw error;
+    helper = ''; guidance = compose();
+  }
+  const additionalContext = guidance.text + selectedRole + helper;
   if (utf8Bytes(additionalContext) > MAX_INJECTION_BYTES) throw new Error('injection-limit');
   // Hash prompt only on explicit revision requests; never persist or transmit raw prompt.
   const change = /(조건.*(바꿔|변경|수정)|대신|앞으로는|이제부터|아까.*(취소|변경)|목표.*(변경|수정))/u.test(input.prompt) ? hash(input.prompt) : '';
   const effectiveSettings = JSON.stringify({ preferences, settingsRevision, contextRevision: data.task.revision,
+    ...(selectedRole ? { roleRevision: data.role.revision, petRevision: data.role.petRevision } : {}),
     ...(workflowEnabled ? { workflow: { phase: workflow.task.phase, settingsRevision: workflow.task.settingsRevision,
       planRevision: workflow.task.planRevision, approval: workflow.task.approval, stage: guidance.stage,
       planPartial: guidance.planPartial, includedPlanKeys: guidance.includedPlanKeys } } : {}) });

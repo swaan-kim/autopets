@@ -6,7 +6,7 @@ import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { stageDesktopResources } from '../stage-desktop-resources.mjs';
-import { connectInstalled, disconnect, runPowerShellJson, start, verifyPackage } from '../../integrations/codex/bootstrap/start.mjs';
+import { connectInstalled, disconnect, openInstalledPetApp, runPowerShellJson, start, verifyPackage } from '../../integrations/codex/bootstrap/start.mjs';
 import { readJson } from '../../integrations/codex/bootstrap/files.mjs';
 
 async function fixture(t) {
@@ -42,6 +42,22 @@ test('installer resources work detached from checkout and contain no installer o
   assert.ok(!manifest.files.some(file => /(^|\/)(tests|node_modules|\.local)(\/|$)|connection\.json|\.sqlite3|setup\.exe/u.test(file.path)));
   const imported = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/bootstrap/start.mjs')).href);
   assert.equal(typeof imported.connectInstalled, 'function');
+  const metadata = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/task-metadata.mjs')).href);
+  assert.equal(typeof metadata.inspectTaskMetadata, 'function');
+  const delegated = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/delegation.mjs')).href);
+  assert.equal(typeof delegated.renderAgentProfiles, 'function');
+  assert.equal(typeof delegated.delegationEvent, 'function');
+  const pet = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/skills/autopets/scripts/pet.mjs')).href);
+  assert.equal(typeof pet.runPet, 'function');
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/hooks/scope.mjs'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/runtime/delegation-hook.mjs'));
+  const assistance = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/assistance/setup.mjs')).href);
+  assert.equal(typeof assistance.updateHooks, 'function');
+  for (const name of ['install-hooks.mjs', 'receiver-inspect.mjs', 'tasks-inspect.mjs', 'tasks-import.mjs', 'runtime-inspection.mjs', 'turn-selection-audit.mjs']) {
+    const result = spawnSync(process.execPath, [path.join(f.report.connector, 'integrations/codex/scripts', name)], { encoding: 'utf8', windowsHide: true, cwd: f.temporary });
+    assert.notEqual(result.status, 0);
+    assert.doesNotMatch(result.stderr, /ERR_MODULE_NOT_FOUND|Cannot find module/u);
+  }
   const config = await readJson(f.report.configPath);
   assert.equal(Object.values(config.bundle.resources)[0], 'connector/');
   await assert.rejects(stageDesktopResources({ root: f.root, node: f.fake, license: f.fake, out: f.app }), /empty directory/);
@@ -61,8 +77,11 @@ test('Windows PowerShell discovery preserves Korean and space characters without
   assert.deepEqual(result, { directory: 'C:\\사용자\\한글 폴더\\AutoPets', version: '0.1.0' });
 });
 
-test('post-install connect, AI repeat and repair converge without another installer or duplicate hooks', async t => {
+test('post-install explicit connect, repeat and repair do not change existing hooks', async t => {
   const f = await fixture(t);
+  await fs.mkdir(f.env.CODEX_HOME, { recursive:true });
+  const before='{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"keep-existing"}]}]}}';
+  await fs.writeFile(path.join(f.env.CODEX_HOME, 'hooks.json'), before);
   const result = await connectInstalled(f.options);
   assert.equal(result.chatConnected, false);
   assert.equal(f.calls.filter(call => call === 'launch').length, 0);
@@ -72,7 +91,8 @@ test('post-install connect, AI repeat and repair converge without another instal
   assert.equal(installed.installSource, 'unknown');
   assert.equal(installed.updateOwner, 'autopets-signed-updater');
   assert.deepEqual(installed.connectionStates, [{ hostId: 'codex-windows-local', configured: true }]);
-  const before = await fs.readFile(path.join(f.env.CODEX_HOME, 'hooks.json'), 'utf8');
+  assert.equal(installed.connectionMode, 'explicit-pet');
+  assert.deepEqual(installed.hookIds, []);
   const skill = await fs.readFile(path.join(f.env.CODEX_HOME, 'skills/autopets/SKILL.md'), 'utf8');
   const executionLine = skill.split(/\r?\n/u).find(line => line.startsWith('실행 파일: '));
   assert.ok(executionLine, 'Registered skill must name its runtime executable');
@@ -86,7 +106,20 @@ test('post-install connect, AI repeat and repair converge without another instal
   await connectInstalled(f.options);
   assert.equal(await fs.readFile(path.join(f.managed, 'connector/runtime/LICENSE'), 'utf8'), 'fixture runtime only');
   await disconnect({ root: f.managed, env: f.env });
+  assert.equal(await fs.readFile(path.join(f.env.CODEX_HOME, 'hooks.json'), 'utf8'), before);
   assert.deepEqual((await readJson(manifestPath)).connectionStates, [{ hostId: 'codex-windows-local', configured: false }]);
+});
+
+test('explicit pet opener launches packaged app without hook or setup writes', async t => {
+  const f=await fixture(t);
+  const driver={...f.driver,bridge:async()=>({state:{appReady:true}})};
+  assert.deepEqual(await openInstalledPetApp({env:f.env,driver,resourceDirectory:f.report.connector}),{ok:true,appReady:true});
+  assert.deepEqual(f.calls,['launch']);
+  await assert.rejects(fs.stat(f.env.CODEX_HOME),{code:'ENOENT'});
+  await assert.rejects(fs.stat(f.managed),{code:'ENOENT'});
+  await fs.appendFile(path.join(f.report.connector,'runtime/LICENSE'),'changed');
+  await assert.rejects(openInstalledPetApp({env:f.env,driver,resourceDirectory:f.report.connector}),/integrity/);
+  assert.deepEqual(f.calls,['launch']);
 });
 
 test('AI opens a fresh installed app before first connection without writing hooks or claiming connection', async t => {

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { packageBootstrap } from '../package-bootstrap.mjs';
+import { spawnSync } from 'node:child_process';
 
 test('standalone setup ZIP imports without the checkout and validates every payload file', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-bootstrap-package-'));
@@ -26,6 +27,13 @@ test('standalone setup ZIP imports without the checkout and validates every payl
   assert.ok(!names.some(name => /(^|\/)(tests|node_modules|\.local)(\/|$)|connection\.json|\.sqlite3/u.test(name)));
   const packaged = await import(pathToFileURL(path.join(extracted, 'integrations/codex/bootstrap/start.mjs')).href);
   assert.equal((await packaged.verifyPackage(extracted)).appVersion, '0.1.0');
+  // Imports alone do not check CLI entrypoint execution. The native canonical
+  // Windows argument boundary is covered by the Rust connection-launch test.
+  const entry = spawnSync(process.execPath, [path.join(extracted, 'integrations/codex/bootstrap/start.mjs'), '--invalid-test-argument'],
+    { cwd: directory, windowsHide: true, encoding: 'utf8', timeout: 10000 });
+  assert.equal(entry.error, undefined);
+  assert.equal(entry.status, 1);
+  assert.equal(JSON.parse(entry.stdout).code, 'setup-failed');
   await import(pathToFileURL(path.join(extracted, 'integrations/codex/assistance/prepare.mjs')).href);
   await fs.appendFile(path.join(extracted, 'packages/contracts/index.mjs'), '//tamper');
   await assert.rejects(packaged.verifyPackage(extracted), /integrity/);

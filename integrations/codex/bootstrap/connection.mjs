@@ -14,7 +14,7 @@ export function handlers(node, runner) {
       return { type: 'command', command: args.map(value => `'${value.replaceAll("'", "'\\''")}'`).join(' '),
         commandWindows: `powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(`& ${args.map(psQuote).join(' ')}; exit $LASTEXITCODE`, 'utf16le').toString('base64')}`,
         statusMessage: `AutoPets ${role} v1`, timeout: ['Interrupt', 'SessionEnd'].includes(event) ? 3 : 8,
-        ...(role === 'observe' && !['SessionEnd', 'PermissionRequest'].includes(event) ? { async: true } : {}),
+        ...(role === 'observe' && !['Stop', 'SessionEnd', 'PermissionRequest'].includes(event) ? { async: true } : {}),
         ...(role === 'prepare' && event === 'UserPromptSubmit' ? { additionalContextLimit: 3072 } : {}) };
     })];
   }));

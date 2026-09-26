@@ -20,7 +20,11 @@ export async function collectConnectorFiles({ root, node, license }) {
       else if (/\.(mjs|json|md|ts)$/u.test(name) || entry.name === 'LICENSE') await add(name, path.join(root, name));
     }
   }
-  for (const directory of ['integrations/codex/bootstrap', 'integrations/codex/hooks', 'integrations/codex/assistance', 'integrations/codex/skills', 'packages/contracts', 'packages/guidance']) await walk(directory);
+  for (const directory of ['integrations/codex/bootstrap', 'integrations/codex/hooks', 'integrations/codex/assistance', 'integrations/codex/skills', 'integrations/codex/runtime', 'packages/contracts', 'packages/guidance']) await walk(directory);
+  for (const name of ['install-hooks.mjs', 'receiver-inspect.mjs', 'runtime-inspection.mjs', 'tasks-inspect.mjs', 'tasks-import.mjs', 'turn-selection-audit.mjs']) {
+    const file = `integrations/codex/scripts/${name}`;
+    await add(file, path.join(root, file));
+  }
   for (const file of ['LICENSE', 'docs/releases/start.md', 'docs/releases/channel.json', 'docs/testing/one-call-setup.md']) await add(file, path.join(root, file));
   await add('runtime/node.exe', node);
   await add('runtime/LICENSE', license);

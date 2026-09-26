@@ -25,13 +25,20 @@ pub(crate) struct Desktop {
     pub(crate) bridge: Mutex<Option<bridge::BridgeHandle>>,
 }
 
+fn pet_has_content(snapshot: &Snapshot, slot: usize) -> bool {
+    if slot > 2 { return false; }
+    let assigned = snapshot.slots.iter().any(|s| s.session_id.is_some()) || !snapshot.pet_links.is_empty();
+    snapshot.slots.iter().any(|s| s.index == slot && s.session_id.is_some())
+        || snapshot.pet_links.iter().any(|link| link.slot == slot)
+        || (slot == 0 && !assigned)
+}
+
 pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
     let _ = app.emit("autopets://snapshot", &snapshot);
     let visible = app
         .try_state::<Desktop>()
         .map(|s| s.visible.load(Ordering::Relaxed))
         .unwrap_or(true);
-    let has_assignments = snapshot.slots.iter().any(|slot| slot.session_id.is_some());
     let hidden_slots = app
         .try_state::<Desktop>()
         .map(|s| s.hidden_slots.lock().map(|h| *h).unwrap_or([false; 3]))
@@ -40,7 +47,7 @@ pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
         if let Some(window) = app.get_webview_window(&format!("pet-{}", slot.index)) {
             if visible
                 && !hidden_slots[slot.index]
-                && (slot.session_id.is_some() || (!has_assignments && slot.index == 0))
+                && pet_has_content(&snapshot, slot.index)
             {
                 if !window.is_visible().unwrap_or(false) {
                     let _ = window.show();
@@ -78,9 +85,7 @@ pub(crate) fn reopen(app: &tauri::AppHandle) {
         }
     }
     if let Some(store) = app.try_state::<SharedStore>() {
-        if let Ok(store) = store.lock() {
-            emit(app, store.snapshot());
-        }
+        let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(app, snapshot));
     }
     show_manager(app.clone(), None, None);
 }
@@ -97,9 +102,7 @@ pub(crate) fn set_pets_visible(
             *hidden = [false; 3];
         }
     }
-    if let Ok(s) = store.lock() {
-        emit(&app, s.snapshot());
-    }
+    let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(&app, snapshot));
 }
 
 pub(crate) fn change_slot_visibility(
@@ -158,12 +161,7 @@ pub(crate) fn open_pet(
         .lock()
         .map_err(|_| "작업을 읽을 수 없습니다.")?
         .snapshot();
-    let has_assignments = snapshot.slots.iter().any(|s| s.session_id.is_some());
-    let bound = snapshot
-        .slots
-        .iter()
-        .any(|s| s.index == slot && s.session_id.is_some());
-    if !bound && !(slot == 0 && !has_assignments) {
+    if !pet_has_content(&snapshot, slot) {
         return Err("먼저 작업을 연결해주세요.".into());
     }
     change_slot_visibility(&desktop, slot, true)?;

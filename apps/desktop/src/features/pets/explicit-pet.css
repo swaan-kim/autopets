@@ -1,0 +1,10 @@
+.explicit-pet { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; text-align: left; }
+.explicit-pet > .pet-art { align-self: center; }
+.explicit-pet > strong, .explicit-pet > p[role="status"] { text-align: center; }
+.explicit-pet p { margin: 0; overflow-wrap: anywhere; line-height: 1.55; }
+.explicit-pet small { display: block; color: #6e7c62; line-height: 1.55; }
+.explicit-pet label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+.explicit-pet select { min-width: 0; width: 100%; padding: 7px; border: 1px solid var(--line); border-radius: 7px; background: #f7f9f3; color: inherit; }
+.explicit-pet .card-options { flex-wrap: wrap; gap: 8px; }
+.explicit-pet [role="group"] { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 7px; }
+.explicit-pet [role="alert"] { color: #9c3434; }

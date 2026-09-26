@@ -1,6 +1,75 @@
 use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
+// Real compiled application bridge, without opening windows or touching the installed DB.
+// Explicitly invoked only for the bounded dedicated Desktop connection trial.
+#[tokio::test]
+#[ignore]
+async fn external_pet_bridge_probe() {
+    let dir=std::path::PathBuf::from(std::env::var_os("AUTOPETS_ISOLATED_PROBE_DIR").expect("explicit probe directory"));
+    assert!(dir.is_absolute() && dir.join(".autopets-probe-v1").is_file());
+    let store=Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(&dir).unwrap()));
+    let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
+    std::fs::write(dir.join("ready"),"real-application-bridge-v1").unwrap();
+    let deadline=tokio::time::Instant::now()+Duration::from_secs(300);
+    while tokio::time::Instant::now()<deadline && !dir.join("finish").exists() {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    let links=store.lock().unwrap().snapshot().pet_links;
+    std::fs::write(dir.join("probe-result.json"),serde_json::to_vec_pretty(&links).unwrap()).unwrap();
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn explicit_pet_connection_is_authenticated_without_hook_sessions() {
+    let dir=tempfile::tempdir().unwrap();
+    let store=Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
+    let info:ConnectionInfo=serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth=format!("Authorization: Bearer {}\r\n",info.token);
+    let target=serde_json::json!({"sourceId":"codex-windows-local","threadId":"11111111-1111-4111-8111-111111111111","cwd":dir.path().to_string_lossy()});
+    let body=serde_json::json!({"operation":"connect","target":target});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link","",body.clone()).await.0,401);
+    let connected=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,body.clone()).await;
+    assert_eq!(connected.0,200);assert_eq!(connected.1["accountIdentity"],"unknown");assert_eq!(connected.1["liveHooksVerified"],false);
+    assert_eq!(connected.1["link"]["connected"],true);assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    let mut forged=body;forged["externalRoutingVerified"]=true.into();
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,forged).await.0,422);
+    let prepared=serde_json::json!({"operation":"prepare","target":target,"expectedRevision":1,"requestId":"33333333-3333-4333-8333-333333333333","profile":"light"});
+    let first=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared.clone()).await;
+    assert_eq!(first.0,200);assert_eq!(first.1["dispatchAllowed"],true);
+    let repeat=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared).await;
+    assert_eq!(repeat.0,200);assert_eq!(repeat.1["dispatchAllowed"],false);
+    bridge.shutdown();
+    assert!(tokio::net::TcpStream::connect(bridge.base_url.trim_start_matches("http://")).await.is_err() || *bridge.stop_signal.borrow());
+    let mut reopened=crate::application::store::Store::new(dir.path()).unwrap();
+    let read=serde_json::from_value(serde_json::json!({"operation":"read","target":target})).unwrap();
+    let link=reopened.pet_link_request(read).unwrap().unwrap();
+    assert!(!link.connected);assert_eq!(link.run.unwrap().state,crate::domain::pet_link::RunState::Unknown);
+}
+
+#[tokio::test]
+async fn task_graph_is_authenticated_revision_bound_and_never_enables_live_control() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"expectedRevision":0,"report":crate::domain::task_graph::fixture()});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph","",body.clone()).await.0,401);
+    let browser = format!("{auth}Origin: http://127.0.0.1\r\n");
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&browser,body.clone()).await.0,403);
+    let result = json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,body.clone()).await;
+    assert_eq!(result.0,200); assert_eq!(result.1["revision"],1);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,body).await.0,409);
+    let mut forged = serde_json::json!({"expectedRevision":1,"report":crate::domain::task_graph::fixture()});
+    forged["report"]["controlEnabled"] = serde_json::json!(true);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,forged).await.0,422);
+    assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    assert!(!store.lock().unwrap().workflow.preferences().unwrap().enabled);
+    bridge.shutdown();
+}
+
 #[tokio::test]
 async fn setup_is_authenticated_and_does_not_fabricate_sessions() {
     let dir = tempfile::tempdir().unwrap();

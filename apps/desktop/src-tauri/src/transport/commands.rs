@@ -6,6 +6,19 @@ use crate::application::{
 use crate::platform::windows::Desktop;
 
 #[tauri::command]
+pub(crate) fn open_local_task(
+    store: tauri::State<SharedStore>,
+    session_id: String,
+    expected_cwd: String,
+) -> Result<crate::platform::task_return::DispatchReceipt, String> {
+    let uri = {
+        let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
+        crate::platform::task_return::local_task_uri(&state, &session_id, &expected_cwd)?
+    };
+    crate::platform::task_return::dispatch(&session_id, &uri)
+}
+
+#[tauri::command]
 pub(crate) fn get_setup_state(
     store: tauri::State<SharedStore>,
 ) -> Result<serde_json::Value, String> {
@@ -21,6 +34,18 @@ pub(crate) fn get_snapshot(store: tauri::State<SharedStore>) -> Result<Snapshot,
         .lock()
         .map_err(|_| "상태를 읽을 수 없습니다.")?
         .snapshot())
+}
+#[tauri::command]
+pub(crate) fn set_pet_link_enabled(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64, enabled: bool) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::Enable{target,expected_revision,enabled}).map(|_|()))
+}
+#[tauri::command]
+pub(crate) fn set_pet_link_profile(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64, profile: crate::domain::pet_link::Profile) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::Settings{target,expected_revision,profile}).map(|_|()))
+}
+#[tauri::command]
+pub(crate) fn close_pet_tracking(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64, request_id: String) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::CloseTracking{target,expected_revision,request_id}).map(|_|()))
 }
 #[tauri::command]
 pub(crate) fn assign_session(

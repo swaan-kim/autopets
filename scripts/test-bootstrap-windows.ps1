@@ -23,8 +23,18 @@ try {
     if (Test-Path -LiteralPath $env:CODEX_HOME) { throw 'Silent installer changed AI settings before explicit connection.' }
     # Exercise actual registry discovery with a Korean/spaced install directory.
     # A fresh installed runner must open onboarding without installing any hooks.
+    $taskWatch = [Diagnostics.Stopwatch]::StartNew()
     $taskOpened = (& $taskNode $taskStart | ConvertFrom-Json)
-    if ($LASTEXITCODE -ne 0 -or -not $taskOpened.ok -or -not $taskOpened.appReady -or $taskOpened.chatConnected -or $taskOpened.nextAction -ne 'connect-in-app') { throw 'AI invocation could not open the freshly installed app.' }
+    $taskOpenExit = $LASTEXITCODE
+    $taskWatch.Stop()
+    # Only public setup status fields: never log connection.json or bearer tokens.
+    $taskDiagnostic = [ordered]@{ exitCode = $taskOpenExit; elapsedMs = $taskWatch.ElapsedMilliseconds; result = ($taskOpened | Select-Object ok, code, phase, appReady, chatConnected, nextAction, discovery) }
+    New-Item -ItemType Directory -Path work/artifacts -Force | Out-Null
+    $taskDiagnostic | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath work/artifacts/bootstrap-open.json -Encoding UTF8
+    if ($taskOpenExit -ne 0 -or -not $taskOpened.ok -or -not $taskOpened.appReady -or $taskOpened.chatConnected -or $taskOpened.nextAction -ne 'connect-in-app') {
+        Write-Output ($taskDiagnostic | ConvertTo-Json -Depth 4 -Compress)
+        throw 'AI invocation could not open the freshly installed app.'
+    }
     if (Test-Path -LiteralPath $env:CODEX_HOME) { throw 'Fresh-install AI invocation changed configuration before explicit connection.' }
     $taskDeadline = [DateTime]::UtcNow.AddSeconds(30)
     $taskInitial = $null
@@ -44,6 +54,7 @@ try {
     $taskFirst = (& $taskNode $taskStart --installed-resource $taskResources --connect --app-executable $taskApp | ConvertFrom-Json)
     if ($LASTEXITCODE -ne 0 -or -not $taskFirst.ok -or -not $taskFirst.appReady -or $taskFirst.chatConnected -or $taskFirst.guidanceDelivered) { throw 'Explicit connection did not reach event-waiting state.' }
     $taskHooks = Get-Content -LiteralPath $taskHooksPath -Raw
+    if ($taskHooks.Trim() -ne $taskUnrelatedHooks -or $taskFirst.connectionMode -ne 'explicit-pet') { throw 'Explicit pet setup changed hooks or used the wrong connection mode.' }
     $taskAppTime = (Get-Item -LiteralPath $taskApp).LastWriteTimeUtc
     # Skill/AI repeat uses the same installed resources, not a ZIP or download.
     $taskManagedNode = Join-Path $env:AUTOPETS_HOME 'connector/runtime/node.exe'

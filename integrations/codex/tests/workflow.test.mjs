@@ -100,8 +100,12 @@ test('hook evidence only uses documented model; input text is hashed and unknown
   assert.equal(attached.observation.source, 'hook'); assert.equal(unverifiedWorkflowCapabilities().requestIdentity, false);
 });
 test('explicit request model accepts only the exact initial user directive, never quotes or body mentions', () => {
-  for (const prompt of ['이번 요청은 Astra 모델로 진행해줘', '모델: gpt-6-astra\n보고서를 작성해줘', '/model gpt-6-astra']) assert.equal(explicitRequestModel(prompt), 'gpt-6-astra');
-  for (const prompt of ['인용문: 이번 요청은 Astra 모델로 진행해줘', '"모델: gpt-6-astra"', '보고서 작성\n모델: gpt-6-astra', 'Astra를 설명해줘', '모델: unknown']) assert.equal(explicitRequestModel(prompt), null);
+  const catalog = [{ model: 'fixture-new-model' }, { model: 'gpt-6-astra' }];
+  for (const prompt of ['이번 요청은 gpt-6-astra 모델로 진행해줘', '모델: gpt-6-astra\n보고서를 작성해줘', '/model gpt-6-astra']) assert.equal(explicitRequestModel(prompt, catalog), 'gpt-6-astra');
+  assert.equal(explicitRequestModel('모델: fixture-new-model', catalog), 'fixture-new-model');
+  for (const prompt of ['인용문: 이번 요청은 Astra 모델로 진행해줘', '"모델: gpt-6-astra"', '보고서 작성\n모델: gpt-6-astra', 'Astra를 설명해줘', '모델: unknown', '모델: Sol']) assert.equal(explicitRequestModel(prompt, catalog), null);
+  assert.equal(explicitRequestModel('모델: gpt-6-astra'), null);
+  assert.equal(explicitRequestModel('모델: gpt-6-astra', [...catalog, catalog[1]]), null);
 });
 test('both real hook processes hold one submission before events, preparation or delivery', async t => {
   const f = await fixture(t), body = input(f.project);
@@ -133,7 +137,7 @@ test('unverified, disabled, missing model and unavailable target cannot block; e
   assert.ok(!malformed.calls.some(call => call.url === '/v1/assistance'));
 });
 test('explicit request override wins preset and unchanged staged guidance is deduplicated', async t => {
-  const f = await fixture(t), body = input(f.project, { prompt: '이번 요청은 Astra 모델로 진행해줘' });
+  const f = await fixture(t), body = input(f.project, { prompt: '이번 요청은 gpt-6-astra 모델로 진행해줘' });
   const result = await prepare(f.config, body, f.request);
   assert.ok(result.receipt); assert.match(result.output.hookSpecificOutput.additionalContext, /실행 단계/);
   assert.ok(Buffer.byteLength(result.output.hookSpecificOutput.additionalContext) <= 3072);

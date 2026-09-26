@@ -10,6 +10,7 @@ use std::{
 
 pub type SharedStore = Arc<Mutex<Store>>;
 pub struct Store {
+    pub(crate) pet_links: HashMap<String, crate::domain::pet_link::Link>,
     pub(crate) db: Connection,
     pub assistance: crate::application::assistance::AssistanceStore,
     pub workflow: crate::application::workflow::WorkflowStore,
@@ -35,6 +36,9 @@ impl Store {
             .map(|s| {
                 let mut view = s.view.clone();
                 view.supervision = s.supervision.for_snapshot(now);
+                if view.connection != ConnectionState::Observed {
+                    if let Some(tools) = &mut view.supervision.tool_activity_v1 { tools.mark_unconfirmed(); }
+                }
                 view
             })
             .collect();
@@ -52,6 +56,7 @@ impl Store {
             .count();
         approvals.truncate(pending_count + 200);
         Snapshot {
+            pet_links: { let mut links: Vec<_> = self.pet_links.values().cloned().collect(); links.sort_by_key(|l| l.slot); links },
             sessions,
             slots: self
                 .slots
@@ -79,6 +84,7 @@ impl Store {
         if slot >= 3 {
             return Err("Pet slot must be 0, 1, or 2".into());
         }
+        if self.pet_links.values().any(|l| l.slot == slot) { return Err("Disconnect the explicit pet before replacing it".into()); }
         if !self.sessions.contains_key(session_id) {
             return Err("Only an observed session can be assigned".into());
         }
@@ -100,6 +106,7 @@ impl Store {
     }
 
     pub fn unassign_session(&mut self, slot: usize) -> Result<(), String> {
+        if self.disconnect_pet_slot(slot)? { return Ok(()); }
         self.tick()?;
         if slot >= 3 {
             return Err("Invalid pet slot".into());
@@ -134,7 +141,7 @@ impl Store {
         {
             None
         } else {
-            self.slots.iter().position(Option::is_none)
+            (0..3).find(|i| self.slots[*i].is_none() && !self.pet_links.values().any(|l| l.slot == *i))
         };
         if !self.persist_first_assignment(&identity.chat_id, slot)? {
             return Ok(false);
@@ -189,6 +196,10 @@ impl Store {
 #[cfg(test)]
 #[path = "tests/store.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/tool_activity.rs"]
+mod tool_activity_tests;
 
 #[cfg(all(test, target_os = "windows"))]
 #[path = "tests/install_roundtrip.rs"]

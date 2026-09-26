@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hookCommands, isAutoPetsHandler, STATUS, EVENTS } from '../scripts/install-hooks.mjs';
+import { hookCommands, isAutoPetsHandler, STATUS, EVENTS, updateConfig } from '../scripts/install-hooks.mjs';
+import { prepare } from '../assistance/prepare.mjs';
+import { handlers } from '../bootstrap/connection.mjs';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 const adapter = path.join(root, 'integrations', 'codex', 'hooks', 'codex-hook.mjs');
@@ -110,6 +112,41 @@ test('all observational events carry metadata only and return empty JSON', async
   }
 });
 
+test('observer and synchronous preparation register one logical start across retries and keep A/B separate', async t => {
+  const b = await bridge(t, req => req.path === '/v1/events' ? { ok: true } : { httpStatus: 503 });
+  const config = { version: 1, enabled: true, validationMode: true, project: await realpath(b.folder), connection: b.connection };
+  const input = hook('UserPromptSubmit', { cwd: b.folder, prompt: '합성 입력', model: 'fixture-model' });
+  await Promise.all([b.invoke(input), prepare(config, input)]);
+  await b.invoke(input);
+  const starts = b.received.filter(r => r.path === '/v1/events').map(r => r.body);
+  assert.equal(starts.length, 3, 'exercise both independent processes and a delivery retry');
+  assert.equal(new Set(starts.map(e => e.eventId)).size, 1, 'receiver can deduplicate the same turn start');
+  await b.invoke({ ...input, session_id: 'session-b' });
+  await b.invoke({ ...input, turn_id: 'turn-b' });
+  const all = b.received.filter(r => r.path === '/v1/events').map(r => r.body);
+  assert.equal(new Set(all.map(e => e.eventId)).size, 3);
+  assert.ok(all.every(e => !JSON.stringify(e).includes('합성 입력')));
+});
+
+test('terminal hook delivery is synchronous and waits for the receiver before finishing', async t => {
+  const legacy = updateConfig({}, 'install', hookCommands('node', adapter, 'connection'));
+  const bundled = handlers('node', 'user-hook.mjs');
+  assert.notEqual(legacy.hooks.Stop[0].hooks[0].async, true);
+  assert.notEqual(bundled.Stop[0].async, true);
+  let release, arrived;
+  const entered = new Promise(resolve => { arrived = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const b = await bridge(t, async () => { arrived(); await gate; return { ok: true }; });
+  let settled = false;
+  const delivery = b.invoke(hook('Stop')).then(r => { settled = true; return r; });
+  await entered;
+  assert.equal(settled, false);
+  release();
+  const result = await delivery;
+  assertQuiet(result); assert.equal(result.stdout, '{}\n');
+  assert.equal(b.received[0].body.kind, 'turn_finished');
+});
+
 test('subagent stop, malformed identities, and incomplete requests never contact bridge', async (t) => {
   const b = await bridge(t, () => ({ ok: true }));
   for (const input of ['not json', null, [], hook('SubagentStop'), hook('NewUnknownHook'),
@@ -129,6 +166,35 @@ test('oversize input falls through before any metadata is sent', async (t) => {
     assertQuiet(result); assert.equal(result.stdout, '{}\n');
   }
   assert.equal(b.received.length, 0);
+});
+
+test('child tool, start, stop and permission events cannot overwrite the parent event stream', async t => {
+  const b = await bridge(t, () => ({ ok: true }));
+  for (const event of ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'PermissionRequest', 'SubagentStart', 'SubagentStop']) {
+    for (const child of [{ agent_id: 'child-a', agent_type: 'autopets-build-light' }, { agent_id: '' }, { agent_type: 'worker' }]) {
+      const result = await b.invoke(hook(event, { ...child, prompt: 'private child request' }));
+      assertQuiet(result); assert.equal(result.stdout, '{}\n');
+    }
+  }
+  assert.equal(b.received.length, 0);
+  await b.invoke(hook('Stop'));
+  assert.equal(b.received.length, 1, 'ordinary parent observation still works');
+});
+
+test('opt-in child probe delivers only delegated metadata and never interprets a receiver approval', async t => {
+  const b = await bridge(t, () => ({ hookSpecificOutput: { decision: { behavior: 'allow' } } }));
+  const probe = path.join(root, 'integrations/codex/runtime/delegation-hook.mjs');
+  const input = hook('SubagentStart', { cwd: path.resolve(b.folder), agent_id: 'child-a', agent_type: 'autopets-build-light', model: 'gpt-6-luna',
+    prompt: 'private task', last_assistant_message: 'private answer' });
+  const result = await run(probe, ['--connection', b.connection], input);
+  assertQuiet(result); assert.equal(result.stdout, '{}\n');
+  assert.equal(b.received.length, 1); assert.equal(b.received[0].path, '/v1/delegation/events');
+  assert.equal(b.received[0].body.parentSessionId, 'session-a');
+  assert.equal(b.received[0].body.agentId, 'child-a');
+  assert.equal(b.received[0].body.executionSettingsVerified, false);
+  assert.ok(!JSON.stringify(b.received[0].body).includes('private'));
+  await run(probe, ['--connection', b.connection], hook('Stop'));
+  assert.equal(b.received.length, 1, 'parent traffic is not copied into the child receiver');
 });
 
 test('connection file cannot redirect bearer credentials away from exact loopback', async (t) => {
@@ -160,7 +226,7 @@ test('installer dry run, idempotent install, preservation, backup and uninstall'
   for (const event of EVENTS) assert.equal(config.hooks[event].flatMap((group) => group.hooks).filter(isAutoPetsHandler).length, 1);
   assert.equal(config.hooks.PermissionRequest[0].hooks[0].timeout, 5);
   assert.equal(config.hooks.PermissionRequest[0].hooks[0].async, undefined);
-  assert.equal(config.hooks.Stop.at(-1).hooks[0].async, true);
+  assert.equal(config.hooks.Stop.at(-1).hooks[0].async, undefined);
   assert.equal(config.hooks.SessionEnd[0].hooks[0].async, undefined);
   result = await run(installer, args); assert.equal(JSON.parse(result.stdout).changed, false);
   const backups = (await readdir(configDir)).filter((name) => name.includes('backup'));

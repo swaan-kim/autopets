@@ -40,7 +40,8 @@ jobs:
         shell: powershell
         run: |
           ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:RUNNER_TEMP 'AutoPets_0.1.0_x64-setup.exe')
-          if ($LASTEXITCODE -ne 0) { throw 'Native window lifecycle check failed.' }
+          $taskLifecycle = Get-Content work/native-window-lifecycle/result.json -Raw | ConvertFrom-Json
+          if ($taskLifecycle.outcome -ne 'passed') { throw 'Native window lifecycle check failed.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
