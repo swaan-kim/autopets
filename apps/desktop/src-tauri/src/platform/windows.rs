@@ -85,9 +85,7 @@ pub(crate) fn reopen(app: &tauri::AppHandle) {
         }
     }
     if let Some(store) = app.try_state::<SharedStore>() {
-        if let Ok(store) = store.lock() {
-            emit(app, store.snapshot());
-        }
+        let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(app, snapshot));
     }
     show_manager(app.clone(), None, None);
 }
@@ -104,9 +102,7 @@ pub(crate) fn set_pets_visible(
             *hidden = [false; 3];
         }
     }
-    if let Ok(s) = store.lock() {
-        emit(&app, s.snapshot());
-    }
+    let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(&app, snapshot));
 }
 
 pub(crate) fn change_slot_visibility(
