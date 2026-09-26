@@ -20,7 +20,7 @@ import { WORKFLOW_PRESETS } from '../features/workflow/presentation';
 import { RoleStudio } from '../features/roles/RoleStudio';
 
 export function Manager({ snapshot, error, assistance, workflow }: { snapshot: Snapshot; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
-  const [settings, setSettings] = useState<ManagerSection>(() => snapshot.sessions.length ? 'pets' : 'connection');
+  const [settings, setSettings] = useState<ManagerSection>(() => snapshot.sessions.length || snapshot.petLinks?.length ? 'pets' : 'connection');
   const [assistanceSession, setAssistanceSession] = useState<string | null>(null);
   const [assistanceIdentity, setAssistanceIdentity] = useState<ChatIdentity | null>(null);
   const [assistanceRequest, setAssistanceRequest] = useState(0);
@@ -39,7 +39,7 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
   const [taskFilter, setTaskFilter] = useState<'all' | 'working' | 'attention' | 'arrived'>('all');
   const action = useAction();
   const assignedIds = snapshot.slots.map(slot => slot.sessionId);
-  const bound = assignedIds.filter(Boolean).length;
+  const bound = assignedIds.filter(Boolean).length + (snapshot.petLinks?.length ?? 0);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
   const sessions = [...snapshot.sessions].filter(session => `${session.label} ${session.cwd} ${session.id}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.lastSeen - a.lastSeen);
   const pickedSession = snapshot.sessions.find(session => session.id === pickedId);

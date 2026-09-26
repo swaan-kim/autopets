@@ -57,7 +57,7 @@ impl Store {
         if link.revision != expected { return Err("pet-revision-changed".into()); }
         match request {
             Request::Settings{profile,..} => {
-                if link.run.as_ref().is_some_and(|r| matches!(r.state,RunState::Requested | RunState::Working)) { return Err("pet-run-active".into()); }
+                if link.run.as_ref().is_some_and(|r| matches!(r.state,RunState::Requested | RunState::Working | RunState::Unknown | RunState::Returned)) { return Err("pet-run-active-or-unresolved".into()); }
                 link.profile=profile; link.revision+=1; link.run=None;
             },
             Request::Enable{enabled,..} => { link.enabled=enabled; link.revision+=1; if let Some(run)=&mut link.run { if matches!(run.state,RunState::Requested|RunState::Working) { run.state=RunState::Unknown; } } },
