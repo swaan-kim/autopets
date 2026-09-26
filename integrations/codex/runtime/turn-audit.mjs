@@ -6,8 +6,9 @@ const slug = value => typeof value === 'string' && /^[a-z0-9][a-z0-9._:-]{0,127}
 const efforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
 
 /** Read only an explicitly selected test transcript. Never discover or print conversation text. */
-export async function auditTurnSelection(file, expectedThreadId) {
+export async function auditTurnSelection(file, expectedThreadId, expectedParentId = null) {
   if (!path.isAbsolute(file) || !uuid(expectedThreadId)) throw Error('Explicit transcript path and thread UUID required');
+  if (expectedParentId !== null && (!uuid(expectedParentId) || expectedParentId === expectedThreadId)) throw Error('Invalid expected parent');
   const handle = await open(file, 'r');
   let bytes;
   try {
@@ -26,7 +27,9 @@ export async function auditTurnSelection(file, expectedThreadId) {
     try { row = JSON.parse(line); } catch { throw Error('Incomplete transcript record'); }
     const payload = row?.payload;
     if (row.type === 'session_meta') {
-      if (payload?.id !== expectedThreadId || (payload.session_id && payload.session_id !== expectedThreadId)) throw Error('Transcript identity mismatch');
+      const parent = payload?.source?.subagent?.thread_spawn?.parent_thread_id ?? payload?.source?.subAgent?.thread_spawn?.parent_thread_id ?? payload?.parent_thread_id;
+      if (payload?.id !== expectedThreadId || (expectedParentId !== null && (parent !== expectedParentId || (payload.parent_thread_id && payload.parent_thread_id !== expectedParentId)))
+        || (payload.session_id && payload.session_id !== expectedThreadId && (expectedParentId === null || payload.session_id !== expectedParentId))) throw Error('Transcript identity mismatch');
       const observed = payload.originator === 'Codex Desktop' ? 'codex-desktop'
         : payload.originator === 'codex_work_desktop' ? 'work-local' : 'unknown';
       if (identitySeen && surface !== observed) throw Error('Conflicting runtime surface');

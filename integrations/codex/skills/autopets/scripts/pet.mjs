@@ -4,17 +4,18 @@ import path from 'node:path';
 import { readFile, realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
 import { readConnection, requestJson } from './bridge-client.mjs';
 import { withReadOnlyRuntime } from '../../../runtime/rpc.mjs';
 import { summarizeTaskMetadata } from '../../../runtime/task-metadata.mjs';
 import { availableProfile } from '../../../runtime/delegation.mjs';
-import { auditDelegatedTurn } from '../../../runtime/delegation-audit.mjs';
+import { auditDelegatedTurn, resolveDelegatedRecord } from '../../../runtime/delegation-audit.mjs';
 
 const uuid = v => typeof v === 'string' && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/iu.test(v);
 export function parsePetArgs(args) {
   const result = { operation: args[0] };
   if (!['connect','status','settings','prepare','returned','failed','observe','disable','enable','disconnect'].includes(result.operation)) throw Error('invalid-operation');
-  const flags = { '--codex':'executable','--connection':'connection','--profile':'profile','--request':'requestId','--child':'childId','--turn':'turnId','--record':'record' };
+  const flags = { '--codex':'executable','--connection':'connection','--profile':'profile','--request':'requestId','--child':'childId','--turn':'turnId','--record':'record','--agent-path':'agentPath' };
   for(let i=1;i<args.length;i+=2) {
     const key=flags[args[i]];
     if (!key || result[key] !== undefined || !args[i+1]) throw Error('invalid-arguments');
@@ -82,14 +83,19 @@ export async function runPet(args,env=process.env,deps={}) {
     const requestId=o.requestId??randomUUID();
     const result=verify(await call({operation:'prepare',target,expectedRevision,requestId,profile}));
     // Existing reservations, even after a lost response, must not cause another spawn.
-    return {...result,dispatchAllowed:result.dispatchAllowed===true,requestId,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skill};
+    return {...result,dispatchAllowed:result.dispatchAllowed===true,requestId,taskName:`autopets_${requestId.replaceAll('-','')}`,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skill};
   }
   if(['enable','disable','disconnect'].includes(o.operation)) return verify(await call({operation:o.operation==='disconnect'?'disconnect':'enable',target,expectedRevision,...(o.operation==='disconnect'?{}:{enabled:o.operation==='enable'})}));
   if(!o.requestId || current.link.run?.id!==o.requestId) throw Error('pet-run-mismatch');
   let receipt={kind:o.operation};
   if(o.operation==='observe') {
-    if(!o.record || !o.childId || !o.turnId) throw Error('explicit-child-record-required');
-    receipt={kind:'runtime',...await (deps.audit??auditDelegatedTurn)({file:o.record,parentId:target.threadId,childId:o.childId,turnId:o.turnId,cwd:target.cwd,startedAfter:current.link.run.startedAt})};
+    const shared={parentId:target.threadId,cwd:target.cwd,startedAfter:current.link.run.startedAt};
+    let record;
+    if(o.agentPath) {
+      if(o.record || o.childId || o.turnId) throw Error('ambiguous-child-selector');
+      record=await (deps.resolveRecord??resolveDelegatedRecord)({...shared,codexHome:env.CODEX_HOME??path.join(os.homedir(),'.codex'),agentPath:o.agentPath});
+    } else { if(!o.record || !o.childId || !o.turnId) throw Error('explicit-child-record-required'); record={file:o.record,childId:o.childId,turnId:o.turnId}; }
+    receipt={kind:'runtime',...await (deps.audit??auditDelegatedTurn)({...shared,...record})};
   }
   return verify(await call({operation:'report',target,expectedRevision,requestId:o.requestId,receipt}));
 }

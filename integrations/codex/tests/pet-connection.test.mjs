@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs/promises';
+import { DatabaseSync } from 'node:sqlite';
 import { runPet, parsePetArgs } from '../skills/autopets/scripts/pet.mjs';
-import { auditDelegatedTurn } from '../runtime/delegation-audit.mjs';
+import { auditDelegatedTurn, resolveDelegatedRecord } from '../runtime/delegation-audit.mjs';
 const parent='01a0d905-55a5-7061-9d60-151ed3d2b5f3', child='01a0d905-d514-7d31-b05e-02630a284ccb', turn='01a0de13-1b09-7fa0-86e0-35f69dbbc6a8';
 const cwd=path.resolve('fixture'), executable=path.resolve('fixture-codex.exe'), connection=path.resolve('fixture-connection.json');
 function fixture() {
@@ -54,7 +55,7 @@ test('runtime audit binds exact child, parent, turn, time and settings, excludin
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'autopets-child-audit-'));
   t.after(async()=>{assert.equal(path.dirname(dir),os.tmpdir());assert.ok(path.basename(dir).startsWith('autopets-child-audit-'));await fs.rm(dir,{recursive:true,force:true});});
   const file=path.join(dir,'selected.jsonl'), start=Date.now();
-  const rows=[{type:'session_meta',payload:{id:child,cwd,source:{subagent:{thread_spawn:{parent_thread_id:parent}}}}},
+  const rows=[{type:'session_meta',payload:{id:child,session_id:parent,parent_thread_id:parent,cwd,source:{subagent:{thread_spawn:{parent_thread_id:parent}}}}},
     {type:'event_msg',timestamp:new Date(start).toISOString(),payload:{type:'task_started',turn_id:turn}},
     {type:'turn_context',payload:{turn_id:turn,model:'gpt-6-luna',effort:'low'}},
     {type:'response_item',payload:{role:'assistant',content:[{text:'private-fixture'}]}},
@@ -67,4 +68,25 @@ test('runtime audit binds exact child, parent, turn, time and settings, excludin
   rows[0].payload.source.subagent.thread_spawn.parent_thread_id=turn; await write();
   await assert.rejects(auditDelegatedTurn(options),/parent-mismatch/);
   await fs.appendFile(file,'\n{"incomplete":'); await assert.rejects(auditDelegatedTurn(options));
+});
+
+test('local index lookup is exact, bounded, read-only, and rejects reused paths',async t=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'autopets-child-index-'));
+  t.after(async()=>{assert.equal(path.dirname(dir),os.tmpdir());assert.ok(path.basename(dir).startsWith('autopets-child-index-'));await fs.rm(dir,{recursive:true,force:true});});
+  await fs.mkdir(path.join(dir,'sessions'));
+  const file=path.join(dir,'sessions',`rollout-fixture-${child}.jsonl`), startedAfter=Date.now();
+  const rows=[{type:'session_meta',payload:{id:child,session_id:parent,parent_thread_id:parent,cwd,source:{subagent:{thread_spawn:{parent_thread_id:parent}}}}},
+    {type:'event_msg',timestamp:new Date(startedAfter).toISOString(),payload:{type:'task_started',turn_id:turn}},
+    {type:'turn_context',payload:{turn_id:turn,model:'gpt-6-sol',effort:'medium'}}];
+  await fs.writeFile(file,rows.map(r=>JSON.stringify(r)).join('\n'));
+  const db=new DatabaseSync(path.join(dir,'state_5.sqlite'));
+  db.exec('CREATE TABLE threads (id TEXT,rollout_path TEXT,source TEXT,agent_path TEXT,created_at_ms INTEGER)');
+  const source=JSON.stringify(rows[0].payload.source);
+  db.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run(child,file,source,'/root/autopets_fixture',startedAfter);db.close();
+  const options={codexHome:dir,parentId:parent,agentPath:'/root/autopets_fixture',cwd,startedAfter};
+  assert.deepEqual(await resolveDelegatedRecord(options),{file:await fs.realpath(file),childId:child,turnId:turn});
+  await assert.rejects(resolveDelegatedRecord({...options,agentPath:'/root/wrong'}),/not-unique/);
+  const update=new DatabaseSync(path.join(dir,'state_5.sqlite'));
+  update.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run(turn,file,source,'/root/autopets_fixture',startedAfter);update.close();
+  await assert.rejects(resolveDelegatedRecord(options),/not-unique/);
 });
