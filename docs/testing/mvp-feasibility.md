@@ -16,7 +16,11 @@
 | 원래 A 설정/화면 복원 | Astra High와 원래 개발 작업 | 복원 입력 전에 사용자 입력 감지로 중단 | 마지막 관측 Sol/High. 복원 미완료로 명시하며 사용자 후속 변경 보호 |
 | A/B/Work 수신 조회 | 정확한 작업별 기존 기록 확인 | 세 대상 모두 session/event 없음 | 실제 AI 요청은 추가 0회. 수신 준비 완료나 작업 완료 표시 금지 |
 
-설치기 243,401,343 bytes, SHA-256 `306f137edf4be3c2412fd3fd008c2f9cc745b281c52a1300cbe980ff8b0384b5`, `NotSigned`. 검증 설치 묶음의 전체 manifest SHA-256 `38b7bf71da12d905179841a3c92ea88ca639fe7afca9c58c0d0ea5379bdac715`. [원본 빌드](https://github.com/swaan-kim/autopets/actions/runs/36217263513)의 Node/UI/Rust/패키지/bootstrap 통과와 실제 현재 PC 훅 수신을 구분한다. 동일 설치본의 [별도 Windows 재검사](https://github.com/swaan-kim/autopets/actions/runs/36220818881)는 bootstrap 통과, 수명주기 결과는 후속 확정한다.
+후속 입력 없는 관측: 사용자가 원래 개발 작업 화면으로 이동했지만 접근성은 시험 A/메뉴를 계속 반환했다. 이 상태에서 모델 복원 클릭이나 작업 이동을 하지 않았다. 현재 A의 모델을 개발 작업 화면의 모델 표시로 추정하지 않는다.
+
+설치기 243,401,343 bytes, SHA-256 `306f137edf4be3c2412fd3fd008c2f9cc745b281c52a1300cbe980ff8b0384b5`, `NotSigned`. 검증 설치 묶음의 전체 manifest SHA-256 `38b7bf71da12d905179841a3c92ea88ca639fe7afca9c58c0d0ea5379bdac715`. [원본 빌드](https://github.com/swaan-kim/autopets/actions/runs/36217263513)의 Node/UI/Rust/패키지/bootstrap 통과와 실제 현재 PC 훅 수신을 구분한다.
+
+동일 설치본의 [별도 Windows 재검사](https://github.com/swaan-kim/autopets/actions/runs/36220818881)는 **bootstrap 통과, 수명주기 시간 초과**다. 설치, 첫 화면, 재호출, 숨김 복귀, 실제 역할 저장의 산출물이 있고 로그에 첫 정상 종료와 포트/연결 파일 검사 통과가 기록됐다. 종료 후 `before-restart.json`도 생성됐으며 기록·역할·설정과 SQLite integrity `ok`를 확인했다. 그 뒤 재시작 준비 구간에서 15분 job 제한에 도달했고 `after-restart.json`/최종 결과는 없다. 따라서 재시작·제거·재설치 보존 통과로 계산하지 않는다. 앱 재실행과 동기 UI Automation 관측 중 어느 지점이 정체됐는지는 현재 증거로 확정할 수 없다. 다음 검사는 재시작/창 탐색 각각의 제한 시간·진행 기록을 분리하여 같은 설치본으로 수행한다. 원인 분석 없이 동일 검사를 반복하지 않았다. 이전 설치본 및 현재 PC의 완료된 1단계 기록은 별도다.
 
 스킬은 공식 [로컬 스킬 발견 위치](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)에 따라 A에만 준비했다. 파일 SHA-256 `cc47d741bf6f561eabb9cc3b1027d0949a1b9bbec8be74e9122ce070b433847e`, 스킬 버전 1.0.0. [skills/list](https://learn.chatgpt.com/docs/app-server#skills)의 발견 결과와 모델 입력의 실제 skill 로딩은 다른 증거다. 향후 같은 이름의 중복/다른 파일이 있으면 이름만으로 적용 성공을 판정하지 않는다.
 
