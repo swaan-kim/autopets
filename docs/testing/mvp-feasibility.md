@@ -1,6 +1,30 @@
 # MVP 기능 가능성 검사 기록
 
-## 최신 판정 — 실제 웹 응답과 Desktop 직접 입력 (2026-09-26)
+## 최신 판정 — 작은 Codex MVP의 선행 관문 (2026-09-26)
+
+**완성된 MVP 아님.** 사용자가 범위를 기존 Codex 작업 + 제작·구현 펫 하나로 줄였다. 현재 관문은 실제 이벤트, 외부 모델/강도 적용, 실행 전 역할/계획 지침, 스킬 적용이다. 이하 확장·웹 결과는 참고 이력이며 이 관문의 성공을 대신하지 않는다.
+
+환경: 현재 Windows 10.0.26200, Desktop 26.917.6896.0, runtime 0.155.0-alpha.16. 설치/연결 묶음 PR 소스 `ccd03a41e697e752fb64bf53b68caedf0800c81c`, CI merge 소스 `41a416021f48a2a8b56b1336ceeeea9e7419e021`. 현재 PC 설치 앱/DB는 교체하지 않았다.
+
+| 검사·입력 | 예상 | 실제 | 증거 수준·남은 조건 |
+| --- | --- | --- | --- |
+| CI 설치 묶음을 저장소 밖으로 추출, manifest 검증 | 실행 의존 파일 누락 없음 | 파일 126개 SHA-256 일치. Node v24.21.0, setup 및 새 턴 helper import, 동기 Stop 확인 | 배포 도구 독립 실행 검증. Desktop 수신 증거는 아님 |
+| A의 AutoPets 정의 교체 | 다른 사용자 훅/신뢰 저장소 보존 | 관측 8개·동기 지침 3개, `modified` 11개, 오류/경고 0 | 정의 발견 확인. 변경 정의 사용자 검토 대기 |
+| 새 읽기 진단으로 역할 스킬 조회 | 시험 폴더에서 스킬 발견 여부 구분 | 최초 A 0개. 검증 묶음의 스킬 하나를 A에 준비한 뒤 enabled/repo 1개, B 0개 | 별도 runtime의 발견만 검증. 기존 Desktop 로딩/적용 미검증 |
+| A의 화면과 접근성 비교 | 같은 시험 작업/설정 | 검사 도구 초기화 후 일치. 메뉴 변경 직후에는 이전 트리가 반환되어 다시 관측한 뒤 진행 | 지연·캐시 의존 조건이 있는 UI 경로 |
+| Astra High → Sol High → Sol Extra High → Sol High | 모델 및 같은 모델의 강도 선택값 3회 일치 | 화면/접근성 선택 결과 확인. High는 메뉴 접근성에 Extended로 표기됨 | Computer Use 선택값 증거. 배포 어댑터·실행 설정·서버 처리 모델은 미검증 |
+| 원래 A 설정/화면 복원 | Astra High와 원래 개발 작업 | 복원 입력 전에 사용자 입력 감지로 중단 | 마지막 관측 Sol/High. 복원 미완료로 명시하며 사용자 후속 변경 보호 |
+| A/B/Work 수신 조회 | 정확한 작업별 기존 기록 확인 | 세 대상 모두 session/event 없음 | 실제 AI 요청은 추가 0회. 수신 준비 완료나 작업 완료 표시 금지 |
+
+설치기 243,401,343 bytes, SHA-256 `306f137edf4be3c2412fd3fd008c2f9cc745b281c52a1300cbe980ff8b0384b5`, `NotSigned`. 검증 설치 묶음의 전체 manifest SHA-256 `38b7bf71da12d905179841a3c92ea88ca639fe7afca9c58c0d0ea5379bdac715`. [원본 빌드](https://github.com/swaan-kim/autopets/actions/runs/36217263513)의 Node/UI/Rust/패키지/bootstrap 통과와 실제 현재 PC 훅 수신을 구분한다. 동일 설치본의 [별도 Windows 재검사](https://github.com/swaan-kim/autopets/actions/runs/36220818881)는 bootstrap 통과, 수명주기 결과는 후속 확정한다.
+
+스킬은 공식 [로컬 스킬 발견 위치](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)에 따라 A에만 준비했다. 파일 SHA-256 `cc47d741bf6f561eabb9cc3b1027d0949a1b9bbec8be74e9122ce070b433847e`, 스킬 버전 1.0.0. [skills/list](https://learn.chatgpt.com/docs/app-server#skills)의 발견 결과와 모델 입력의 실제 skill 로딩은 다른 증거다. 향후 같은 이름의 중복/다른 파일이 있으면 이름만으로 적용 성공을 판정하지 않는다.
+
+진단 보완의 Node **180/180** 통과: 선택 폴더 한 곳만 조회, 추가 루트/쓰기 거절, 개인 스킬/설명/도구 의존 정보 제외, 실패·미발견에서 실행 지원 승격 방지를 확인했다. 화면/Rust/훅 실행 코드는 이번 진단 변경으로 바꾸지 않았다. 재현 명령은 기존 `runtime-inspection.mjs <runtime.exe> <시험 폴더>`이며, 새 `roleSkills` 결과도 공개 제품 지원 상태에 반영하지 않는다.
+
+원본 진단·정의 백업·턴 원장은 Git 제외 경로에 있다. 실제 AI 11턴 + 관측된 호스트 재시도 2회 = **13/30**, 이번 상한 **18/30**. 다음 필수 조건은 A의 변경 정의 검토, 기존 Desktop 실제 수신, 배포 가능한 설정 제어, 실제 지침/스킬 적용이다.
+
+## 이전 판정 — 실제 웹 응답과 Desktop 직접 입력 (2026-09-26)
 
 소스 `ccd03a4`, 현재 PC Windows 10.0.26200, Desktop 26.917.6896.0/runtime 0.155.0-alpha.16. 로그인된 Chrome의 정확한 기존 합성 작업을 사용했다. 웹 서버 배포 버전은 미확인이다. 설치 앱/신뢰된 훅은 `2059bae`다. 아래 과거 행의 예산·신뢰 대기·웹 로그인 미확인은 이 최신 판정으로 대체한다.
 

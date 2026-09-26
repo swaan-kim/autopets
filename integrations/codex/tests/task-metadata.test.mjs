@@ -60,8 +60,22 @@ test('read-only transport refuses mutation, full history and server approval req
     assert.throws(() => call('turn/start', {}));
     assert.throws(() => call('thread/resume', {}));
     assert.throws(() => call('thread/read', { threadId: a, includeTurns: true }));
+    assert.throws(() => call('skills/config/write', { path: 'fixture', enabled: true }));
+    for (const params of [{}, { cwds: ['C:/other'], forceReload: false }, { cwds: [target.cwd], forceReload: true },
+      { cwds: [target.cwd], forceReload: false, perCwdExtraUserRoots: [] }]) {
+      assert.throws(() => call('skills/list', params), /Current-directory skill read required/);
+    }
   });
   const approval = fakeRuntime(request => request.method === 'initialize' ? { id: request.id, method: 'item/commandExecution/requestApproval', params: { private: true } } : null);
   await assert.rejects(withReadOnlyRuntime({ executable: 'fixture', cwd: target.cwd, spawnProcess: approval.spawnProcess }, async () => {}), /closed/);
   assert.deepEqual(approval.calls.map(call => call.method), ['initialize']);
+});
+
+test('skill discovery is scoped to the selected directory without extra roots or writes', async () => {
+  const fake = fakeRuntime(request => request.id === undefined ? null : { id: request.id, result: request.method === 'initialize' ? {} : { data: [] } });
+  await withReadOnlyRuntime({ executable: 'fixture', cwd: target.cwd, spawnProcess: fake.spawnProcess }, async ({ call }) => {
+    assert.deepEqual(await call('skills/list', { cwds: [target.cwd], forceReload: false }), { data: [] });
+  });
+  assert.deepEqual(fake.calls.map(call => call.method), ['initialize', 'initialized', 'skills/list']);
+  assert.deepEqual(fake.calls[2].params, { cwds: [target.cwd], forceReload: false });
 });

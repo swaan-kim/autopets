@@ -7,6 +7,7 @@ export async function inspectRuntime(options) {
     for (const [method, params] of [
       ['config/read', { cwd: options.cwd, includeLayers: true }], ['configRequirements/read', {}],
       ['hooks/list', { cwds: [options.cwd] }], ['model/list', { includeHidden: false }], ['collaborationMode/list', {}],
+      ['skills/list', { cwds: [options.cwd], forceReload: false }],
     ]) {
       try { result[method] = await call(method, params); }
       catch (error) { result[method] = { inspectionError: error.message }; }
@@ -42,6 +43,16 @@ export function summarizeRuntime(raw) {
       supportedReasoningEfforts: model.supportedReasoningEfforts?.map(e => e.reasoningEffort),
     })),
     modelsNextCursor: models.nextCursor ?? null,
-    inspectionErrors: Object.entries(raw.result).flatMap(([method, value]) => value.inspectionError ? [{ method, error: value.inspectionError }] : []),
+    roleSkills: {
+      // Discovery by this separate process is not loading in an existing Desktop turn.
+      executionVerified: false,
+      inspectionError: raw.result['skills/list']?.inspectionError ?? null,
+      entries: (raw.result['skills/list']?.data ?? []).map(entry => ({
+        cwd: entry.cwd, errorCount: entry.errors?.length ?? 0,
+        skills: (entry.skills ?? []).filter(skill => ['autopets-build-implementation', 'autopets-research-document'].includes(skill.name))
+          .map(skill => ({ name: skill.name, path: skill.path, enabled: skill.enabled === true, scope: skill.scope })),
+      })),
+    },
+    inspectionErrors: Object.entries(raw.result).flatMap(([method, value]) => value?.inspectionError ? [{ method, error: value.inspectionError }] : []),
   };
 }

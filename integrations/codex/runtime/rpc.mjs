@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const METHODS = new Set(['config/read', 'configRequirements/read', 'hooks/list', 'model/list', 'collaborationMode/list', 'thread/read']);
+const METHODS = new Set(['config/read', 'configRequirements/read', 'hooks/list', 'model/list', 'collaborationMode/list', 'thread/read', 'skills/list']);
 
 /** One owned, bounded process. No turns, resume, settings, trust or approval methods. */
 export async function withReadOnlyRuntime({ executable, cwd, timeoutMs = 20000, transport = 'stdio', spawnProcess = spawn }, inspect) {
@@ -44,6 +44,8 @@ export async function withReadOnlyRuntime({ executable, cwd, timeoutMs = 20000, 
   function call(method, params) {
     if (method !== 'initialize' && !METHODS.has(method)) throw new Error('Read-only method required');
     if (method === 'thread/read' && (typeof params?.threadId !== 'string' || params.includeTurns !== false || Object.keys(params).some(key => !['threadId', 'includeTurns'].includes(key)))) throw new Error('Metadata-only thread read required');
+    if (method === 'skills/list' && (!Array.isArray(params?.cwds) || params.cwds.length !== 1 || params.cwds[0] !== cwd
+      || params.forceReload !== false || Object.keys(params).some(key => !['cwds', 'forceReload'].includes(key)))) throw new Error('Current-directory skill read required');
     if (closed) return Promise.reject(new Error('Runtime transport closed'));
     return new Promise((resolve, reject) => {
       const id = ++sequence;
