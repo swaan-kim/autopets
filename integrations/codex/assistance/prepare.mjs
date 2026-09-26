@@ -11,6 +11,7 @@ import { roleGuidance } from '../../../packages/guidance/roles.mjs';
 import { identityFor, preflightSubmission } from './workflow.mjs';
 import { homeFor, digest } from '../bootstrap/files.mjs';
 import { runHookOnce } from '../bootstrap/deduplicate.mjs';
+import { turnStartId } from '../hooks/turn-events.mjs';
 export { identityFor } from './workflow.mjs';
 
 const entry = fileURLToPath(import.meta.url);
@@ -96,7 +97,7 @@ export async function prepare(config, input, request = transport(config)) {
   const identity = identityFor(input.session_id), binding = { sessionId: input.session_id, turnId: input.turn_id, cwd: input.cwd };
   const workflow = await preflightSubmission(input, request);
   if (workflow.decision === 'hold') return { output: { decision: 'block', reason: workflow.reason } };
-  await request('/v1/events', { eventId: randomUUID(), kind: 'turn_started', ...binding, timestamp: Date.now() });
+  await request('/v1/events', { eventId: turnStartId(binding), kind: 'turn_started', ...binding, timestamp: Date.now() });
   if (workflow.error) return { output: {} };
   const data = await assistance(request, 'read', identity, binding);
   const capability = data.capabilities?.codex ?? data.capabilities;

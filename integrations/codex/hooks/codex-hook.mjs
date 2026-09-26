@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { MAX_BODY, isObject, validString, readConnection, requestJson as request } from '../skills/autopets/scripts/bridge-client.mjs';
 import { preflightSubmission } from '../assistance/workflow.mjs';
 import { runHookOnce } from '../bootstrap/deduplicate.mjs';
+import { turnStartId } from './turn-events.mjs';
 
 const EVENTS = Object.freeze({
   SessionStart: 'session_started', UserPromptSubmit: 'turn_started',
@@ -91,7 +92,7 @@ async function observe(input, base, connection) {
     if (workflow.suppressStart) return;
   }
   const plan = observedPlan(input);
-  const event = { ...base, eventId: randomUUID(), kind, timestamp: Date.now(),
+  const event = { ...base, eventId: kind === 'turn_started' ? turnStartId(base) : randomUUID(), kind, timestamp: Date.now(),
     ...(validString(input.tool_name, 256) ? { toolName: input.tool_name } : {}),
     ...(validString(input.tool_use_id) ? { toolCallId: input.tool_use_id } : {}),
     ...(['PreToolUse', 'PostToolUse'].includes(input.hook_event_name) ? { activity: activityFor(input.tool_name) } : {}),
