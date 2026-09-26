@@ -194,12 +194,6 @@ jobs:
           [ordered]@{ sourceCommit = $taskSource; prHead = $taskRun.headSha; harnessCommit = $env:GITHUB_SHA; sha256 = $taskHash; bytes = $taskInstaller.Length; signature = (Get-AuthenticodeSignature -LiteralPath $taskInstaller.FullName).Status.ToString(); originalRun = $env:AUTOPETS_RECHECK_RUN } | ConvertTo-Json | Set-Content work/artifacts/recheck-build.json -Encoding utf8
       - name: Recheck bootstrap using the unchanged installer
         run: ./scripts/test-bootstrap-windows.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe')
-      - name: Verify native lifecycle and data preservation
-        shell: powershell
-        run: |
-          $taskBuild = Get-Content work/artifacts/recheck-build.json -Raw | ConvertFrom-Json
-          ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe') -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
-          if ($LASTEXITCODE -ne 0) { throw 'Lifecycle verification failed.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
@@ -208,6 +202,44 @@ jobs:
             work/artifacts/
             work/bootstrap-windows-evidence.json
             work/native-window-lifecycle/
+          if-no-files-found: warn
+          retention-days: 14
+
+  recheck-lifecycle:
+    needs: bootstrap-recheck
+    if: github.event_name == 'workflow_dispatch' && inputs.bootstrap_recheck_run != '' && needs.bootstrap-recheck.result == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AUTOPETS_RECHECK_RUN: ${{ inputs.bootstrap_recheck_run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download the same verified installer on a fresh runner
+        shell: pwsh
+        run: |
+          if ($env:AUTOPETS_RECHECK_RUN -notmatch '^[0-9]+$') { throw 'Expected numeric run ID.' }
+          gh run download $env:GITHUB_RUN_ID --repo $env:GITHUB_REPOSITORY --name bootstrap-recheck-evidence --dir work/identity
+          if ($LASTEXITCODE -ne 0) { throw 'Verified build identity download failed.' }
+          gh run download $env:AUTOPETS_RECHECK_RUN --repo $env:GITHUB_REPOSITORY --name AutoPets-windows-review --dir work/recheck
+          if ($LASTEXITCODE -ne 0) { throw 'Installer download failed.' }
+      - name: Verify native lifecycle and data preservation
+        shell: powershell
+        run: |
+          $taskBuild = Get-Content work/identity/artifacts/recheck-build.json -Raw | ConvertFrom-Json
+          if ($taskBuild.originalRun -ne $env:AUTOPETS_RECHECK_RUN -or $taskBuild.harnessCommit -ne $env:GITHUB_SHA) { throw 'Build identity mismatch.' }
+          ./scripts/test-native-window-lifecycle.ps1 -Installer (Join-Path $env:GITHUB_WORKSPACE 'work/recheck/AutoPets_0.1.0_x64-setup.exe') -ExpectedSha256 $taskBuild.sha256 -SourceCommit $taskBuild.sourceCommit -Roundtrip -RequireFits
+          if ($LASTEXITCODE -ne 0) { throw 'Lifecycle verification failed.' }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: recheck-lifecycle-evidence
+          path: work/native-window-lifecycle/
           if-no-files-found: warn
           retention-days: 14
 
