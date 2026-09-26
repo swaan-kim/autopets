@@ -16,7 +16,7 @@ async function fixture(t) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-setup-한글 '));
   t.after(async () => { assert.equal(path.dirname(directory), os.tmpdir()); assert.ok(path.basename(directory).startsWith('autopets-setup-')); await fs.rm(directory, { recursive: true, force: true }); });
   const root = path.join(directory, '설치'), pkg = path.join(directory, '패키지');
-  const paths = ['runtime/node.exe', 'runtime/LICENSE', 'integrations/codex/bootstrap/start.mjs', 'integrations/codex/bootstrap/user-hook.mjs', 'app/setup.exe'];
+  const paths = ['runtime/node.exe', 'runtime/LICENSE', 'integrations/codex/bootstrap/start.mjs', 'integrations/codex/bootstrap/user-hook.mjs', 'integrations/codex/skills/autopets/references/explicit-pet.md', 'app/setup.exe'];
   const files = [];
   for (const name of paths) { const data = Buffer.from(name); await fs.mkdir(path.dirname(path.join(pkg, name)), { recursive: true }); await fs.writeFile(path.join(pkg, name), data); files.push({ path: name, sha256: digest(data) }); }
   await atomicJson(path.join(pkg, 'manifest.json'), { version: 1, appVersion: '0.1.0', files, installer: 'app/setup.exe' });
@@ -53,6 +53,16 @@ test('repair copies damaged helper only; a newer package never upgrades implicit
   const file = path.join(f.pkg, 'manifest.json'), m = JSON.parse(await fs.readFile(file, 'utf8')); m.appVersion = '0.2.0'; await atomicJson(file, m);
   const result = await f.run(); assert.equal(result.updateAvailable, '0.2.0');
   assert.equal(f.calls.filter(c => c === 'install').length, 1);
+});
+test('installed skill routes explicit pet requests to its own packaged instructions', async t => {
+  const f = await fixture(t); await f.run();
+  const skill = await fs.readFile(path.join(f.env.CODEX_HOME, 'skills/autopets/SKILL.md'), 'utf8');
+  assert.match(skill, /제작 펫 연결/);
+  const reference = /^펫 작업 안내: (.+)$/mu.exec(skill);
+  assert.ok(reference, 'Installed entrypoint must expose the explicit pet workflow');
+  const file = JSON.parse(reference[1]);
+  assert.equal(file, path.join(f.root, 'connector/integrations/codex/skills/autopets/references/explicit-pet.md'));
+  assert.ok((await fs.readFile(file, 'utf8')).length > 0);
 });
 test('foreign skill is preserved and reported, including disconnect', async t => {
   const f = await fixture(t); const file = path.join(f.env.CODEX_HOME, 'skills/autopets/SKILL.md');

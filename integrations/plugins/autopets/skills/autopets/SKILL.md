@@ -1,6 +1,6 @@
 ---
 name: autopets
-description: AutoPets를 설치하거나 켜 달라는 요청에서 전용 Windows 펫 앱의 시작·연결을 돕는다. 일반 AI 작업에는 적용하지 않는다.
+description: AutoPets를 설치·실행하거나 현재 Codex 작업에 제작 펫을 연결하고 명시적으로 펫 작업을 맡길 때 사용한다.
 ---
 
 # AutoPets 시작

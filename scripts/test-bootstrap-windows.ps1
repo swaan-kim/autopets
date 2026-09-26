@@ -28,7 +28,7 @@ try {
     $taskOpenExit = $LASTEXITCODE
     $taskWatch.Stop()
     # Only public setup status fields: never log connection.json or bearer tokens.
-    $taskDiagnostic = [ordered]@{ exitCode = $taskOpenExit; elapsedMs = $taskWatch.ElapsedMilliseconds; result = ($taskOpened | Select-Object ok, code, phase, appReady, chatConnected, nextAction) }
+    $taskDiagnostic = [ordered]@{ exitCode = $taskOpenExit; elapsedMs = $taskWatch.ElapsedMilliseconds; result = ($taskOpened | Select-Object ok, code, phase, appReady, chatConnected, nextAction, discovery) }
     New-Item -ItemType Directory -Path work/artifacts -Force | Out-Null
     $taskDiagnostic | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath work/artifacts/bootstrap-open.json -Encoding UTF8
     if ($taskOpenExit -ne 0 -or -not $taskOpened.ok -or -not $taskOpened.appReady -or $taskOpened.chatConnected -or $taskOpened.nextAction -ne 'connect-in-app') {
