@@ -96,6 +96,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed.' }
       - name: Test Rust core and bridge
         run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Stage bounded application bridge probe
+        run: |
+          $taskProbeFiles = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/debug/deps' -Filter 'autopets_lib-*.exe' -File)
+          if ($taskProbeFiles.Count -ne 1) { throw 'Expected one compiled app test executable.' }
+          New-Item -ItemType Directory -Path work/bridge-probe -Force | Out-Null
+          Copy-Item -LiteralPath $taskProbeFiles[0].FullName -Destination work/bridge-probe/autopets-bridge-probe.exe
+          $taskProbeHash = (Get-FileHash -LiteralPath work/bridge-probe/autopets-bridge-probe.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          @{ sourceCommit=$env:GITHUB_SHA; sha256=$taskProbeHash; testOnly=$true } | ConvertTo-Json | Set-Content work/bridge-probe/build.json -Encoding utf8
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: AutoPets-bridge-probe
+          path: work/bridge-probe/
+          retention-days: 7
       - name: Stage self-contained installer resources
         run: |
           node scripts/stage-desktop-resources.mjs --node (Get-Command node).Source --license work/NODE-LICENSE.txt --out work/desktop-resources

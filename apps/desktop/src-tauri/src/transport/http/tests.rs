@@ -1,6 +1,25 @@
 use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
+// Real compiled application bridge, without opening windows or touching the installed DB.
+// Explicitly invoked only for the bounded dedicated Desktop connection trial.
+#[tokio::test]
+#[ignore]
+async fn external_pet_bridge_probe() {
+    let dir=std::path::PathBuf::from(std::env::var_os("AUTOPETS_ISOLATED_PROBE_DIR").expect("explicit probe directory"));
+    assert!(dir.is_absolute() && dir.join(".autopets-probe-v1").is_file());
+    let store=Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(&dir).unwrap()));
+    let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
+    std::fs::write(dir.join("ready"),"real-application-bridge-v1").unwrap();
+    let deadline=tokio::time::Instant::now()+Duration::from_secs(300);
+    while tokio::time::Instant::now()<deadline && !dir.join("finish").exists() {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    let links=store.lock().unwrap().snapshot().pet_links;
+    std::fs::write(dir.join("probe-result.json"),serde_json::to_vec_pretty(&links).unwrap()).unwrap();
+    bridge.shutdown();
+}
+
 #[tokio::test]
 async fn explicit_pet_connection_is_authenticated_without_hook_sessions() {
     let dir=tempfile::tempdir().unwrap();
