@@ -17,7 +17,10 @@ impl Store {
             if link.version != 1 || link.slot > 2 || self.pet_links.values().any(|l| l.slot == link.slot) { return Err("invalid-saved-pet-link".into()); }
             link.connected = false;
             if let Some(run) = &mut link.run {
-                if matches!(run.state, RunState::Requested | RunState::Working) { run.state = RunState::Unknown; }
+                if matches!(run.state, RunState::Requested | RunState::Working)
+                    || (matches!(run.state, RunState::Complete | RunState::Waiting) && !run.completion_confirmed()) {
+                    run.state = RunState::Unknown;
+                }
             }
             self.pet_links.insert(link.target.key(), link);
         }
@@ -90,7 +93,7 @@ impl Store {
                 }
                 let (model,effort)=profile.settings();
                 self.db.execute("INSERT INTO explicit_pet_requests_v1(request_id,identity) VALUES(?1,?2)", params![request_id,link.target.key()]).map_err(|_| "pet-request-already-used")?;
-                link.run=Some(Run{id:request_id,settings_revision:link.revision,profile:profile.clone(),model:model.into(),effort:effort.into(),state:RunState::Requested,child_id:None,turn_id:None,observed_model:None,observed_effort:None,evidence:None,started_at:now_ms(),agent_path:None,tracking_closed:false});
+                link.run=Some(Run{id:request_id,settings_revision:link.revision,profile:profile.clone(),model:model.into(),effort:effort.into(),state:RunState::Requested,child_id:None,turn_id:None,observed_model:None,observed_effort:None,evidence:None,started_at:now_ms(),agent_path:None,tracking_closed:false,result_returned:false,runtime_completed:false});
             },
             Request::Report{request_id,receipt,..} => {
                 if !link.connected { return Err("pet-disconnected".into()); }
@@ -106,7 +109,7 @@ impl Store {
                         if run.agent_path.as_ref().is_some_and(|old| old!=&agent_path) { return Err("pet-child-mismatch".into()); }
                         run.agent_path=Some(agent_path);
                     },
-                    Receipt::Returned => { if matches!(run.state,RunState::Requested|RunState::Working) { run.state=RunState::Returned; } },
+                    Receipt::Returned => { run.result_returned=true; run.reconcile_evidence(); },
                     Receipt::Failed => { if !matches!(run.state,RunState::Complete|RunState::Waiting) { run.state=RunState::Failed; } },
                     Receipt::Runtime{parent_id,child_id,turn_id,model,effort,completed} => {
                         if parent_id!=link.target.thread_id || child_id==parent_id || uuid::Uuid::parse_str(&child_id).is_err() || uuid::Uuid::parse_str(&turn_id).is_err()
@@ -117,8 +120,12 @@ impl Store {
                         // Authenticated connector report, not server attestation or a global capability upgrade.
                         run.evidence=Some("connector-runtime-audit".into());
                         if run.model!=model || run.effort!=effort { run.state=RunState::Failed; }
-                        else if completed { run.state=if run.profile==Profile::Plan {RunState::Waiting} else {RunState::Complete}; }
-                        else if !matches!(run.state,RunState::Complete|RunState::Waiting|RunState::Returned) { run.state=RunState::Working; }
+                        else {
+                            // Runtime completion is not proof that the parent received the result.
+                            // Both receipts are monotonic so delayed/duplicate reports cannot regress them.
+                            run.runtime_completed |= completed;
+                            run.reconcile_evidence();
+                        }
                     }
                 }
             },

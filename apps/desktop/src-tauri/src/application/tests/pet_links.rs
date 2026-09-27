@@ -49,6 +49,7 @@ fn disabled_assistance_does_not_discard_inflight_results() {
     store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Standard}).unwrap();
     store.pet_link_request(Request::Enable{target:a.clone(),expected_revision:1,enabled:false}).unwrap();
     assert!(store.pet_link_request(Request::Report{target:a.clone(),expected_revision:1,request_id:C.into(),receipt:Receipt::Returned}).is_err());
+    store.pet_link_request(Request::Report{target:a.clone(),expected_revision:2,request_id:C.into(),receipt:Receipt::Returned}).unwrap();
     let done=store.pet_link_request(Request::Report{target:a.clone(),expected_revision:2,request_id:C.into(),receipt:Receipt::Runtime{parent_id:A.into(),child_id:B.into(),turn_id:C.into(),model:"gpt-6-sol".into(),effort:"low".into(),completed:true}}).unwrap().unwrap();
     assert!(!done.enabled);assert_eq!(done.run.as_ref().unwrap().settings_revision,1);assert_eq!(done.run.unwrap().state,RunState::Complete);
     assert!(store.pet_link_request(Request::Prepare{target:a,expected_revision:2,request_id:B.into(),profile:Profile::Light}).is_err());
@@ -70,7 +71,9 @@ fn reopened_unknown_run_can_be_audited_without_redispatch() {
     store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
     assert!(store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:B.into(),profile:Profile::Light}).is_err());
     let recovered=store.pet_link_request(report(Receipt::Runtime{parent_id:A.into(),child_id:B.into(),turn_id:C.into(),model:"gpt-6-luna".into(),effort:"low".into(),completed:true})).unwrap().unwrap();
-    assert_eq!(recovered.run.unwrap().state,RunState::Waiting);
+    assert_eq!(recovered.run.unwrap().state,RunState::Unknown);
+    let returned=store.pet_link_request(report(Receipt::Returned)).unwrap().unwrap();
+    assert_eq!(returned.run.unwrap().state,RunState::Waiting);
 }
 
 #[test]
@@ -94,11 +97,70 @@ fn old_saved_run_without_recovery_fields_still_opens() {
     store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
     let link=store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Light}).unwrap().unwrap();
     let mut value=serde_json::to_value(link).unwrap();
-    let run=value["run"].as_object_mut().unwrap();run.remove("agentPath");run.remove("trackingClosed");
+    let run=value["run"].as_object_mut().unwrap();run.remove("agentPath");run.remove("trackingClosed");run.remove("resultReturned");run.remove("runtimeCompleted");
     store.db.execute("UPDATE explicit_pet_links_v1 SET value=?1",[value.to_string()]).unwrap();
     drop(store);let mut store=Store::new(dir.path()).unwrap();
     let restored=store.pet_link_request(Request::Read{target:a}).unwrap().unwrap().run.unwrap();
     assert!(!restored.tracking_closed);assert!(restored.agent_path.is_none());assert_eq!(restored.state,RunState::Unknown);
+    assert!(!restored.result_returned);assert!(!restored.runtime_completed);
+}
+
+#[test]
+fn completion_requires_both_receipts_in_either_order_across_restart() {
+    for profile in [Profile::Plan, Profile::Standard] {
+        for runtime_first in [false, true] {
+            let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let mut store=Store::new(dir.path()).unwrap();
+            store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
+            store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:profile.clone()}).unwrap();
+            let report=|receipt|Request::Report{target:a.clone(),expected_revision:1,request_id:C.into(),receipt};
+            let (model,effort)=profile.settings();
+            let runtime=|completed|Receipt::Runtime{parent_id:A.into(),child_id:B.into(),turn_id:C.into(),model:model.into(),effort:effort.into(),completed};
+            let first=if runtime_first {runtime(true)} else {Receipt::Returned};
+            let pending=store.pet_link_request(report(first)).unwrap().unwrap().run.unwrap();
+            assert!(pending.unresolved());assert!(!pending.completion_confirmed());
+            assert!(store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:B.into(),profile:profile.clone()}).is_err());
+            drop(store);let mut store=Store::new(dir.path()).unwrap();
+            store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
+            let second=if runtime_first {Receipt::Returned} else {runtime(true)};
+            let done=store.pet_link_request(report(second)).unwrap().unwrap().run.unwrap();
+            let expected=if profile==Profile::Plan {RunState::Waiting} else {RunState::Complete};
+            assert_eq!(done.state,expected);assert!(done.completion_confirmed());
+            for duplicate in [Receipt::Returned,runtime(false),runtime(true)] {
+                let run=store.pet_link_request(report(duplicate)).unwrap().unwrap().run.unwrap();
+                assert_eq!(run.state,expected);assert!(run.completion_confirmed());
+            }
+            drop(store);let mut store=Store::new(dir.path()).unwrap();
+            let restored=store.pet_link_request(Request::Read{target:a}).unwrap().unwrap().run.unwrap();
+            assert_eq!(restored.state,expected);assert!(restored.completion_confirmed());
+        }
+    }
+}
+
+#[test]
+fn legacy_terminal_record_without_return_evidence_is_not_confirmed() {
+    let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let mut store=Store::new(dir.path()).unwrap();
+    store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
+    let link=store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Plan}).unwrap().unwrap();
+    let mut value=serde_json::to_value(link).unwrap();
+    value["run"]["state"]=serde_json::json!("waiting");
+    value["run"]["observedModel"]=serde_json::json!("gpt-6-luna");
+    value["run"]["observedEffort"]=serde_json::json!("low");
+    let run=value["run"].as_object_mut().unwrap();run.remove("resultReturned");run.remove("runtimeCompleted");
+    store.db.execute("UPDATE explicit_pet_links_v1 SET value=?1",[value.to_string()]).unwrap();
+    drop(store);let mut store=Store::new(dir.path()).unwrap();
+    let restored=store.pet_link_request(Request::Read{target:a}).unwrap().unwrap().run.unwrap();
+    assert_eq!(restored.state,RunState::Unknown);assert!(restored.unresolved());
+}
+
+#[test]
+fn returned_result_cannot_complete_mismatched_or_failed_execution() {
+    let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let mut store=Store::new(dir.path()).unwrap();
+    store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
+    store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Light}).unwrap();
+    let report=|receipt|Request::Report{target:a.clone(),expected_revision:1,request_id:C.into(),receipt};
+    store.pet_link_request(report(Receipt::Runtime{parent_id:A.into(),child_id:B.into(),turn_id:C.into(),model:"gpt-6-sol".into(),effort:"low".into(),completed:true})).unwrap();
+    let returned=store.pet_link_request(report(Receipt::Returned)).unwrap().unwrap().run.unwrap();
+    assert_eq!(returned.state,RunState::Failed);assert!(!returned.completion_confirmed());
 }
 
 #[test]

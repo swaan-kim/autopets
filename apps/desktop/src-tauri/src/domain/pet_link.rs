@@ -41,8 +41,26 @@ pub struct Run {
     pub agent_path: Option<String>,
     #[serde(default)]
     pub tracking_closed: bool,
+    #[serde(default)]
+    pub result_returned: bool,
+    #[serde(default)]
+    pub runtime_completed: bool,
 }
 impl Run {
+    pub fn completion_confirmed(&self) -> bool {
+        self.result_returned && self.runtime_completed
+            && self.observed_model.as_ref() == Some(&self.model)
+            && self.observed_effort.as_ref() == Some(&self.effort)
+            && self.child_id.is_some() && self.turn_id.is_some()
+    }
+    pub fn reconcile_evidence(&mut self) {
+        if self.tracking_closed || self.state == RunState::Failed { return; }
+        self.state = if self.completion_confirmed() {
+            if self.profile == Profile::Plan { RunState::Waiting } else { RunState::Complete }
+        } else if self.result_returned { RunState::Returned }
+        else if self.runtime_completed { RunState::Unknown }
+        else { RunState::Working };
+    }
     pub fn unresolved(&self) -> bool {
         !self.tracking_closed && matches!(self.state, RunState::Requested | RunState::Working | RunState::Returned | RunState::Unknown)
     }
