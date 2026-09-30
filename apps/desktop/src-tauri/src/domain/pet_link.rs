@@ -1,6 +1,6 @@
 //! Explicit local attachment is independent of hook-observed sessions and accounts.
 use serde::{Deserialize, Serialize};
-use super::roles::Template;
+use super::roles::{Skill, Template};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -26,10 +26,24 @@ impl Profile {
     pub fn settings(&self) -> (&'static str, &'static str) {
         match self { Self::Light | Self::Plan => ("gpt-6-luna", "low"), Self::Standard => ("gpt-6-sol", "low"), Self::Careful => ("gpt-6-sol", "medium") }
     }
+    pub fn for_template(template: &Template) -> Result<Self, String> {
+        // Explicit child work currently exposes these profiles, not arbitrary host
+        // model settings. Reject unsupported saved routing instead of substituting.
+        if template.planning.as_ref().is_some_and(|model| (model.model.as_str(), model.reasoning.as_str()) != Self::Plan.settings()) {
+            return Err("pet-template-routing-unsupported".into());
+        }
+        let Some(execution) = &template.execution else { return Ok(Self::Light); };
+        [Self::Light, Self::Standard, Self::Careful].into_iter()
+            .find(|profile| profile.settings() == (execution.model.as_str(), execution.reasoning.as_str()))
+            .ok_or_else(|| "pet-template-routing-unsupported".into())
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum RunState { Requested, Working, Returned, Waiting, Complete, Failed, Unknown }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedPetReference { pub id: String, pub revision: u64 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Run {
@@ -45,6 +59,15 @@ pub struct Run {
     pub result_returned: bool,
     #[serde(default)]
     pub runtime_completed: bool,
+    // Missing on historical requests; never infer new skill evidence for those records.
+    #[serde(default)]
+    pub template: Option<Template>,
+    #[serde(default)]
+    pub saved_pet: Option<SavedPetReference>,
+    #[serde(default)]
+    pub skill_evidence: Vec<Skill>,
+    #[serde(default)]
+    pub figma_used: bool,
 }
 impl Run {
     pub fn completion_confirmed(&self) -> bool {
@@ -70,6 +93,8 @@ impl Run {
 pub struct Link {
     pub version: u8, pub target: Target, pub slot: usize, pub revision: u64, pub enabled: bool,
     pub connected: bool, pub profile: Profile, pub template: Template, pub run: Option<Run>,
+    #[serde(default)]
+    pub saved_pet: Option<SavedPetReference>,
 }
 #[derive(Deserialize)]
 #[serde(tag = "operation", rename_all = "kebab-case", rename_all_fields = "camelCase", deny_unknown_fields)]
@@ -77,6 +102,7 @@ pub enum Request {
     Read { target: Target },
     Connect { target: Target },
     Settings { target: Target, expected_revision: u64, profile: Profile },
+    ApplyPet { target: Target, expected_revision: u64, pet_id: String, pet_revision: u64 },
     Enable { target: Target, expected_revision: u64, enabled: bool },
     Disconnect { target: Target, expected_revision: u64 },
     CloseTracking { target: Target, expected_revision: u64, request_id: String },
@@ -90,4 +116,5 @@ pub enum Receipt {
     Returned,
     Failed,
     Runtime { parent_id: String, child_id: String, turn_id: String, model: String, effort: String, completed: bool },
+    Resources { child_id: String, turn_id: String, skills: Vec<Skill>, figma_used: bool },
 }

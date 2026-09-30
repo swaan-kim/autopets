@@ -14,12 +14,21 @@ pub enum Background { None, Meadow }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Skill { pub id: String, pub version: String }
+pub const FRONTEND_DESIGN_VERSION: &str = "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f";
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Features {
+    #[serde(default)]
+    pub figma_design: bool,
+}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Template {
     pub id: RoleId, pub version: u8, pub name: String, pub instruction: String,
     pub plan_first: bool, pub planning: Option<Model>, pub execution: Option<Model>,
     pub skills: Vec<Skill>, pub prop: Prop, pub background: Background,
+    #[serde(default)]
+    pub features: Features,
 }
 impl Template {
     pub fn validate(&self) -> Result<(), String> {
@@ -33,9 +42,12 @@ impl Template {
             RoleId::ResearchDocument => "autopets-research-document",
             RoleId::BuildImplementation => "autopets-build-implementation",
         };
-        if self.skills != vec![Skill { id: expected.into(), version: "1.0.0".into() }] {
+        let ui_skill = self.id == RoleId::BuildImplementation
+            && self.skills == vec![Skill { id: "frontend-design".into(), version: FRONTEND_DESIGN_VERSION.into() }];
+        if !ui_skill && self.skills != vec![Skill { id: expected.into(), version: "1.0.0".into() }] {
             return Err("Unknown role skill or version".into());
         }
+        if self.features.figma_design && !ui_skill { return Err("Figma requires the UI pet skill".into()); }
         Ok(())
     }
 }

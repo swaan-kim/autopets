@@ -35,6 +35,7 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   const originalTask = structuredClone(workflow.tasks[0]);
   await mockBridge(defaults, fixture, assistanceFixture, workflow);
   await defaults.goto(origin);
+  await defaults.getByText('고급 기능', { exact: true }).click();
   await defaults.getByRole('button', { name: '자동 도움', exact: true }).click();
   assert.equal(await defaults.getByLabel('계획·실행 도움 켜기', { exact: true }).isChecked(), false);
   assert.equal(await defaults.getByRole('radio', { name: '균형 있게', exact: true }).getAttribute('aria-checked'), 'true');
@@ -74,6 +75,7 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   const preview = await newPage();
   await preview.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__previewCopy = text; } } }));
   await preview.goto(origin);
+  await preview.getByText('고급 기능', { exact: true }).click();
   await preview.getByRole('button', { name: '자동 도움', exact: true }).click();
   await preview.getByText('연결 없이 시작하기', { exact: true }).click();
   await preview.getByRole('button', { name: '요청 문구 복사', exact: true }).click();
@@ -87,6 +89,7 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   standalone.tasks = [taskFixture(standaloneIdentity, { observation: { model: 'gpt-6-astra', reasoning: 'high', mode: 'plan', source: 'hook', submissionId: 'unverified', observedAt: Date.now() } }), taskFixture({ ...standaloneIdentity, accountId: 'another-account' })];
   await mockBridge(current, { ...fixture, sessions: [], slots: [] }, { ...assistanceFixture, tasks: [] }, standalone);
   await current.goto(origin);
+  await current.getByText('고급 기능', { exact: true }).click();
   await current.getByRole('button', { name: '자동 도움', exact: true }).click();
   await current.getByRole('tab', { name: '현재 작업', exact: true }).click();
   await current.getByLabel('채팅 선택', { exact: true }).selectOption(JSON.stringify([standaloneIdentity.provider, standaloneIdentity.accountId, standaloneIdentity.chatId]));

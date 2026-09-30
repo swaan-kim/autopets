@@ -3,6 +3,8 @@
 *.ico -text
 *.zip -text
 packages/guidance/vendor/baoyu-infographic/** -text
+integrations/codex/skills/frontend-design/** -text
+integrations/codex/skills/autopets-figma-design/SKILL.md text eol=lf
 docs/demo/index.html text eol=lf
 docs/demo/assets/*.json text eol=lf
 docs/design-source/index.template.html text eol=lf

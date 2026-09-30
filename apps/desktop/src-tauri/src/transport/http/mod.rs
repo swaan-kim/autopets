@@ -199,6 +199,8 @@ pub(crate) fn state_error(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_pet_template;
 
 #[cfg(test)]
 mod artifact_tests;

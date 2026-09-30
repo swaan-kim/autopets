@@ -12,9 +12,10 @@ function fixture() {
   let link=null; const calls=[];
   const deps={cwd,realpath:async v=>v,readConnection:async ()=>({}),
     inspect:async ()=>({node:{cwd},models:[{model:'gpt-6-luna',supportedReasoningEfforts:['low']},{model:'gpt-6-sol',supportedReasoningEfforts:['low','medium']}]}),
-    readFile:async ()=>'name: autopets-build-implementation',request:async (_,url,input)=>{
+    request:async (_,url,input)=>{
       calls.push({url,input});
-      if(input.operation==='connect') { link??={target:input.target,revision:1,profile:'light',enabled:true,connected:true,template:{instruction:'Build small.'},run:null}; link.connected=true; }
+      if(input.operation==='connect') { link??={target:input.target,revision:1,profile:'light',enabled:true,connected:true,template:{instruction:'Build small.',skills:[{id:'autopets-build-implementation',version:'1.0.0'}]},run:null}; link.connected=true; }
+      if(input.operation==='apply-pet') { link.savedPet={id:input.petId,revision:input.petRevision}; link.revision++; }
       if(input.operation==='prepare') link.run={id:input.requestId,startedAt:1000,state:'requested'};
       if(input.operation==='report' && input.receipt.kind==='spawned') link.run.agentPath=input.receipt.agentPath;
       return {ok:true,link:structuredClone(link),dispatchAllowed:input.operation==='prepare'};
@@ -28,6 +29,30 @@ test('explicit connect rereads the same task without hooks, events or model runs
   assert.deepEqual(f.calls.map(c=>c.input.operation),['connect','read']);
   assert.ok(f.calls.every(c=>c.url==='/v1/pet-link'));
   await f.run('connect'); assert.equal((await f.run('status')).link.revision,1);
+});
+
+test('saved pet identity and revision are applied only to the verified current target and reread',async()=>{
+  const f=fixture();
+  const result=await f.run('connect',['--pet','ui-fixture','--pet-revision','3']);
+  assert.deepEqual(f.calls.map(c=>c.input.operation),['connect','read','apply-pet','read']);
+  assert.deepEqual(result.link.savedPet,{id:'ui-fixture',revision:3});
+  assert.equal(f.calls[2].input.target.threadId,parent);
+  assert.throws(()=>parsePetArgs(['connect','--pet','x']),/invalid-saved-pet/);
+  assert.throws(()=>parsePetArgs(['prepare','--pet','x','--pet-revision','3']),/invalid-saved-pet/);
+});
+
+test('selected UI skill and optional companion are packaged, pinned and passed separately',async()=>{
+  const f=fixture(); await f.run('connect');
+  f.edit(link=>{link.template.skills=[{id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'}]; link.template.features={figmaDesign:true};});
+  const result=await f.run('prepare',['--profile','plan']);
+  assert.deepEqual(result.skills.map(s=>s.id),['frontend-design','autopets-figma-design']);
+  assert.equal(result.skillReader.executable,process.execPath);
+  assert.equal(result.skillReader.reads.length,2);
+  assert.ok(Buffer.byteLength(result.instruction)<=3072);
+  assert.ok(!result.instruction.includes('The Elements of Typographic Style'));
+  f.edit(link=>{link.template.skills[0].version='unavailable';});
+  await assert.rejects(f.run('prepare'),/bundled-skill-unavailable/);
+  assert.equal(f.calls.filter(c=>c.input.operation==='prepare').length,1);
 });
 test('no fabricated task flags, absent current identity, or mismatched response',async()=>{
   assert.throws(()=>parsePetArgs(['connect','--thread',parent]));
@@ -76,6 +101,24 @@ test('recovery cannot select another run and an unknown child is not inferred',a
   f.edit(link=>{link.run.trackingClosed=true;});
   await assert.rejects(f.run('recover'),/pet-run-closed/);
   assert.equal(f.calls.filter(c=>c.input.operation==='prepare').length,1);
+});
+
+test('resource evidence follows the exact runtime receipt and uses the reserved template snapshot',async()=>{
+  const f=fixture(); await f.run('connect'); const prepared=await f.run('prepare');
+  f.edit(link=>{link.run.template=structuredClone(link.template);link.template.skills=[{id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'}];link.run.agentPath='/root/autopets_resources';});
+  f.deps.resolveRecord=async()=>({file:path.resolve('fixture-record'),childId:child,turnId:turn});
+  f.deps.audit=async input=>{
+    assert.deepEqual(input.expectedSkills.map(s=>s.id),['autopets-build-implementation']);
+    return {parentId:parent,childId:child,turnId:turn,model:'gpt-6-luna',effort:'low',completed:true,
+      resources:{skills:[{id:'autopets-build-implementation',version:'1.0.0'}],figmaUsed:false,figmaObservation:'not-observed'}};
+  };
+  const before=f.calls.length;
+  const result=await f.run('observe',['--request',prepared.requestId]);
+  assert.deepEqual(f.calls.slice(before).map(c=>c.input.operation),['read','report','report']);
+  assert.equal(f.calls.at(-2).input.receipt.kind,'runtime');
+  assert.equal(f.calls.at(-2).input.receipt.resources,undefined);
+  assert.deepEqual(f.calls.at(-1).input.receipt,{kind:'resources',childId:child,turnId:turn,skills:[{id:'autopets-build-implementation',version:'1.0.0'}],figmaUsed:false});
+  assert.equal(result.resourceObservation.figma,'not-observed');
 });
 test('runtime audit binds exact child, parent, turn, time and settings, excluding content',async t=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'autopets-child-audit-'));

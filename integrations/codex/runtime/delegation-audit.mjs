@@ -2,6 +2,7 @@ import { readFile, stat, realpath } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import { auditTurnSelection } from './turn-audit.mjs';
+import { auditPetResources } from './pet-resource-audit.mjs';
 const uuid=v=>typeof v==='string' && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/iu.test(v);
 const normalized=p=>path.resolve(p).replace(/^\\\\\?\\/u,'').replaceAll('\\','/').toLowerCase();
 
@@ -34,7 +35,7 @@ export async function resolveDelegatedRecord({codexHome,parentId,agentPath,cwd,s
   return {file,childId:selected.id,turnId};
 }
 // Exact selected child only. Never discover transcripts, print content, or trust model self-report.
-export async function auditDelegatedTurn({file,parentId,childId,turnId,cwd,startedAfter}) {
+export async function auditDelegatedTurn({file,parentId,childId,turnId,cwd,startedAfter,expectedSkills,figmaEnabled=false}) {
   if(![parentId,childId,turnId].every(uuid) || parentId===childId || !path.isAbsolute(file) || !path.isAbsolute(cwd) || !Number.isSafeInteger(startedAfter)) throw Error('invalid-child-audit');
   if((await stat(file)).size>32*1024*1024) throw Error('child-record-limit');
   const rows=(await readFile(file,'utf8')).split(/\r?\n/u).filter(l=>l.trim()).map(JSON.parse);
@@ -47,5 +48,6 @@ export async function auditDelegatedTurn({file,parentId,childId,turnId,cwd,start
   if(starts.length!==1 || !Number.isFinite(Date.parse(starts[0].timestamp)) || Date.parse(starts[0].timestamp)<startedAfter-2000) throw Error('stale-child-turn');
   const result=await auditTurnSelection(file,childId,parentId), turn=result.turns.find(t=>t.turnId===turnId);
   if(!turn || !turn.reasoning) throw Error('child-settings-unavailable');
-  return {parentId,childId,turnId,model:turn.model,effort:turn.reasoning,completed:turn.completed};
+  return {parentId,childId,turnId,model:turn.model,effort:turn.reasoning,completed:turn.completed,
+    ...(expectedSkills ? {resources:auditPetResources(rows,turnId,expectedSkills,figmaEnabled)} : {})};
 }

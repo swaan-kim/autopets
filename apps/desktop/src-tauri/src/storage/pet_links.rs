@@ -4,6 +4,9 @@ use std::collections::HashMap;
 #[cfg(test)]
 #[path = "../application/tests/pet_links.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "../application/tests/pet_links_ui.rs"]
+mod ui_tests;
 
 impl Store {
     pub(crate) fn init_pet_links(&mut self) -> Result<(), String> {
@@ -17,6 +20,7 @@ impl Store {
             if link.version != 1 || link.slot > 2 || self.pet_links.values().any(|l| l.slot == link.slot) { return Err("invalid-saved-pet-link".into()); }
             link.connected = false;
             if let Some(run) = &mut link.run {
+                if let Some(template) = &run.template { template.validate()?; }
                 if matches!(run.state, RunState::Requested | RunState::Working)
                     || (matches!(run.state, RunState::Complete | RunState::Waiting) && !run.completion_confirmed()) {
                     run.state = RunState::Unknown;
@@ -50,7 +54,7 @@ impl Store {
         Ok(())
     }
     pub fn pet_link_request(&mut self, request: Request) -> Result<Option<Link>, String> {
-        let target = match &request { Request::Read{target} | Request::Connect{target} | Request::Settings{target,..} | Request::Enable{target,..} | Request::Disconnect{target,..} | Request::CloseTracking{target,..} | Request::Prepare{target,..} | Request::Report{target,..} => target };
+        let target = match &request { Request::Read{target} | Request::Connect{target} | Request::Settings{target,..} | Request::ApplyPet{target,..} | Request::Enable{target,..} | Request::Disconnect{target,..} | Request::CloseTracking{target,..} | Request::Prepare{target,..} | Request::Report{target,..} => target };
         target.validate()?;
         let previous = self.pet_links.get(&target.key()).cloned();
         if previous.as_ref().is_some_and(|l| !l.target.matches(target)) { return Err("pet-target-mismatch".into()); }
@@ -59,18 +63,34 @@ impl Store {
             let mut link = if let Some(link) = previous { link } else {
                 let slot = (0..3).find(|i| self.slots[*i].is_none() && !self.pet_links.values().any(|l| l.slot == *i)).ok_or("slots-full")?;
                 Link { version:1, target, slot, revision:1, enabled:true, connected:false, profile:Profile::Light,
-                    template:crate::domain::roles::templates()?.into_iter().find(|t| t.id == crate::domain::roles::RoleId::BuildImplementation).ok_or("missing-build-pet")?, run:None }
+                    template:crate::domain::roles::templates()?.into_iter().find(|t| t.id == crate::domain::roles::RoleId::BuildImplementation).ok_or("missing-build-pet")?, run:None, saved_pet:None }
             };
             link.connected = true;
             return self.save_link(link).map(Some);
         }
         let mut link = previous.ok_or("pet-not-connected")?;
-        let expected = match &request { Request::Settings{expected_revision,..} | Request::Enable{expected_revision,..} | Request::Disconnect{expected_revision,..} | Request::CloseTracking{expected_revision,..} | Request::Prepare{expected_revision,..} | Request::Report{expected_revision,..} => *expected_revision, _=>unreachable!() };
+        let expected = match &request { Request::Settings{expected_revision,..} | Request::ApplyPet{expected_revision,..} | Request::Enable{expected_revision,..} | Request::Disconnect{expected_revision,..} | Request::CloseTracking{expected_revision,..} | Request::Prepare{expected_revision,..} | Request::Report{expected_revision,..} => *expected_revision, _=>unreachable!() };
         if link.revision != expected { return Err("pet-revision-changed".into()); }
         match request {
             Request::Settings{profile,..} => {
                 if link.run.as_ref().is_some_and(Run::unresolved) { return Err("pet-run-active-or-unresolved".into()); }
                 link.profile=profile; link.revision+=1; link.run=None;
+            },
+            Request::ApplyPet{pet_id,pet_revision,..} => {
+                if !link.connected { return Err("pet-disconnected".into()); }
+                if link.run.as_ref().is_some_and(Run::unresolved) { return Err("pet-run-active-or-unresolved".into()); }
+                let pet=self.saved_pet(&pet_id)?.ok_or("saved-pet-not-found")?;
+                if pet.revision!=pet_revision { return Err("saved-pet-revision-changed".into()); }
+                let profile=Profile::for_template(&pet.template)?;
+                let reference=SavedPetReference{id:pet_id,revision:pet_revision};
+                // Retrying an already-applied selection must not reset a user's profile or plan.
+                if link.saved_pet.as_ref()==Some(&reference) && link.template==pet.template { return Ok(Some(link)); }
+                link.template=pet.template;
+                link.saved_pet=Some(reference);
+                link.profile=profile;
+                link.revision=link.revision.checked_add(1).ok_or("pet-revision-limit")?;
+                // A previous plan belongs to the old settings, never the new pet revision.
+                link.run=None;
             },
             // Assistance controls future dispatch, not observation of an existing child.
             Request::Enable{enabled,..} => { if link.enabled != enabled { link.enabled=enabled; link.revision+=1; } },
@@ -93,7 +113,7 @@ impl Store {
                 }
                 let (model,effort)=profile.settings();
                 self.db.execute("INSERT INTO explicit_pet_requests_v1(request_id,identity) VALUES(?1,?2)", params![request_id,link.target.key()]).map_err(|_| "pet-request-already-used")?;
-                link.run=Some(Run{id:request_id,settings_revision:link.revision,profile:profile.clone(),model:model.into(),effort:effort.into(),state:RunState::Requested,child_id:None,turn_id:None,observed_model:None,observed_effort:None,evidence:None,started_at:now_ms(),agent_path:None,tracking_closed:false,result_returned:false,runtime_completed:false});
+                link.run=Some(Run{id:request_id,settings_revision:link.revision,profile:profile.clone(),model:model.into(),effort:effort.into(),state:RunState::Requested,child_id:None,turn_id:None,observed_model:None,observed_effort:None,evidence:None,started_at:now_ms(),agent_path:None,tracking_closed:false,result_returned:false,runtime_completed:false,template:Some(link.template.clone()),saved_pet:link.saved_pet.clone(),skill_evidence:vec![],figma_used:false});
             },
             Request::Report{request_id,receipt,..} => {
                 if !link.connected { return Err("pet-disconnected".into()); }
@@ -126,6 +146,23 @@ impl Store {
                             run.runtime_completed |= completed;
                             run.reconcile_evidence();
                         }
+                    },
+                    Receipt::Resources{child_id,turn_id,skills,figma_used} => {
+                        if run.child_id.as_ref()!=Some(&child_id) || run.turn_id.as_ref()!=Some(&turn_id) {
+                            return Err("pet-resource-target-mismatch".into());
+                        }
+                        if run.state==RunState::Failed { return Err("pet-run-closed".into()); }
+                        let template=run.template.as_ref().ok_or("pet-resource-snapshot-missing")?;
+                        let mut allowed=template.skills.clone();
+                        if template.features.figma_design {
+                            allowed.push(crate::domain::roles::Skill{id:"autopets-figma-design".into(),version:"1.0.0".into()});
+                        }
+                        if skills.len()>allowed.len() || skills.iter().any(|skill| !allowed.contains(skill))
+                            || (figma_used && !template.features.figma_design) { return Err("invalid-pet-resource-evidence".into()); }
+                        // This records the connector's paired successful calls only. It is not
+                        // an availability declaration, quality score, or host capability grant.
+                        for skill in skills { if !run.skill_evidence.contains(&skill) { run.skill_evidence.push(skill); } }
+                        run.figma_used |= figma_used;
                     }
                 }
             },

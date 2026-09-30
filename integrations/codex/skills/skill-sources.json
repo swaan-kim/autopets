@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "id": "autopets-build-implementation",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "ec8d60797274b2836643a335c520c960443ceeccf8462d3fd4d3f58a27219716"
+    },
+    {
+      "id": "autopets-research-document",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "dab5b3cb85d5afd9e1ab097d09610bca1060f9a9bea601a2dee955901b6d2a1b"
+    },
+    {
+      "id": "autopets-figma-design",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "fb632ddb1f83263fdec26a73fc7c6442f445bbd2128d6bc3abb237ec7512dd96"
+    },
+    {
+      "id": "frontend-design",
+      "version": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f",
+      "publisher": "Anthropic",
+      "source": "https://github.com/anthropics/skills/tree/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/frontend-design",
+      "integrity": "bytes",
+      "sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "license": {
+        "spdx": "Apache-2.0",
+        "file": "LICENSE.txt",
+        "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+      },
+      "modified": false
+    }
+  ]
+}

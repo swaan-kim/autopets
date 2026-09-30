@@ -8,3 +8,14 @@
 .explicit-pet .card-options { flex-wrap: wrap; gap: 8px; }
 .explicit-pet [role="group"] { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 7px; }
 .explicit-pet [role="alert"] { color: #9c3434; }
+.explicit-target { text-align: center; margin-top: -6px; }
+.explicit-progress { list-style: none; display: flex; gap: 4px; padding: 0; margin: 5px 0; }
+.explicit-progress li { flex: 1; padding: 7px 2px; font-size: 9px; text-align: center; color: #758377; border-bottom: 2px solid #dce4db; }
+.explicit-progress li[aria-current="step"] { color: #20543d; border-color: #357354; font-weight: 700; }
+.explicit-pet .explicit-skill { border-radius: 6px; padding: 6px 8px; font-size: 10px; color: #3c654e; background: #e9f1eb; }
+.explicit-evidence { font-size: 11px; line-height: 1.7; }
+.explicit-evidence summary { cursor: pointer; color: #526b55; }
+.explicit-evidence p { margin-top: 6px; }
+.explicit-pet .explicit-next { font-size: 12px; margin: 4px 0; }
+.explicit-pet .explicit-copy { font-size: 11px; color: #40664d; }
+.explicit-copy-input textarea { width: 100%; min-width: 0; background: #fff; border: 1px solid #dce4d7; border-radius: 6px; font-size: 11px; line-height: 1.65; padding: 8px; color: #45614b; resize: vertical; user-select: text; }

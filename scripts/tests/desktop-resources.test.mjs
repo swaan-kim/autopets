@@ -39,6 +39,8 @@ test('installer resources work detached from checkout and contain no installer o
   assert.ok(manifest.files.some(file => file.path === 'packages/guidance/vendor/baoyu-infographic/LICENSE'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/assistance/artifact.mjs'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/autopets-intro/SKILL.md'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/frontend-design/LICENSE.txt'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/skill-sources.json'));
   assert.ok(!manifest.files.some(file => /(^|\/)(tests|node_modules|\.local)(\/|$)|connection\.json|\.sqlite3|setup\.exe/u.test(file.path)));
   const imported = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/bootstrap/start.mjs')).href);
   assert.equal(typeof imported.connectInstalled, 'function');
@@ -49,6 +51,11 @@ test('installer resources work detached from checkout and contain no installer o
   assert.equal(typeof delegated.delegationEvent, 'function');
   const pet = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/skills/autopets/scripts/pet.mjs')).href);
   assert.equal(typeof pet.runPet, 'function');
+  const resolver = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/pet-skills.mjs')).href);
+  const bundled = await resolver.resolvePetSkills({ skills: [{ id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f' }],features:{figmaDesign:true} });
+  assert.equal(bundled.length,2);
+  assert.ok(bundled.every(skill => skill.path.startsWith(f.report.connector)));
+  assert.ok(bundled.every(skill => !skill.path.startsWith(f.root)));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/hooks/scope.mjs'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/runtime/delegation-hook.mjs'));
   const assistance = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/assistance/setup.mjs')).href);

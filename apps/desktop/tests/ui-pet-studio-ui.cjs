@@ -1,0 +1,106 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const templates = require('../../../packages/contracts/data/roles.json');
+const uiTemplate = require('../../../packages/contracts/data/ui-pet.json');
+const hosts = require('../../../packages/contracts/data/connections.json');
+
+exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
+  const page = await newPage({ width: 1120, height: 900 });
+  const value = { ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), petLinks: [], setup: {
+    version: 1, appReady: true, hosts, connections: [{ hostId: 'codex-windows-local', configured: false, status: 'disconnected', settingsVerified: {} }],
+  } };
+  await mockBridge(page, value); await page.goto(origin);
+  await page.getByRole('heading', { name: /내 일에 맞게/ }).waitFor();
+  assert.equal(await page.getByRole('checkbox', { name: 'Figma 시안 활용' }).isChecked(), false);
+  assert.equal(await page.getByRole('button', { name: '자동 도움', exact: true }).isVisible(), false);
+  assert.equal(await page.locator('.pet-journey li').count(), 5);
+  assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), []);
+  const initial = path.join(screenshotDir, 'native-ui-ui-pet-first-use.png');
+  await page.screenshot({ path: initial, fullPage: true });
+  await page.getByRole('button', { name: 'Codex 연결 준비', exact: true }).click();
+  await page.getByRole('button', { name: '저장하고 시작 요청 복사', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.__uiTest.state.petLinks.length), 0);
+  await page.getByRole('button', { name: '저장하고 시작 요청 복사', exact: true }).click();
+  await page.getByText(/시작 요청을 복사했어요/).waitFor();
+  const first = await page.evaluate(() => ({ clipboard: window.__uiTest.clipboard, pets: window.__uiTest.roles.pets, calls: window.__uiTest.calls }));
+  assert.ok(first.clipboard.includes('petId=ui-pet-0, petRevision=1'));
+  assert.ok(first.clipboard.includes('계획만 세워줘'));
+  assert.equal(first.pets[0].template.features.figmaDesign, false);
+  assert.deepEqual(first.calls.map(call => call.name), ['connect_ai', 'save_pet']);
+  await page.getByRole('button', { name: '저장하고 시작 요청 복사', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.__uiTest.roles.pets.length), 1);
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 1);
+  await page.getByRole('checkbox', { name: 'Figma 시안 활용' }).check();
+  await page.getByRole('link', { name: '공식 Figma 플러그인 연결 안내 ↗' }).waitFor();
+  assert.equal(await page.getByText('Figma 연결됨', { exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'Figma 안내 주소 복사' }).click();
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), 'https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/#codex');
+  await page.evaluate(() => { window.__uiTest.clipboardError = true; });
+  await page.getByRole('button', { name: '저장하고 시작 요청 복사', exact: true }).click();
+  await page.getByText(/자동 복사가 되지 않았어요/).waitFor();
+  const prompt = await page.getByLabel('Codex에 보낼 시작 요청', { exact: true }).inputValue();
+  assert.ok(prompt.includes('petRevision=2'));
+  assert.ok(prompt.includes('프레임 링크를 나에게 먼저 확인'));
+  assert.equal(await page.evaluate(() => window.__uiTest.roles.pets[0].template.features.figmaDesign), true);
+  checks.push('UI pet first use saves versioned skill/features, prepares Codex without claiming connection, copies only once and preserves selectable text when clipboard fails');
+
+  await page.evaluate(templates => {
+    window.__uiTest.state.petLinks = ['fixture-ui-a', 'fixture-ui-b'].map((threadId, slot) => ({ version: 1, target: { sourceId: 'codex-windows-local', threadId, cwd: 'C:/UI fixture only' }, slot, revision: 1, connected: true, enabled: true, profile: 'careful', template: templates[1], run: null }));
+    window.__uiTest.emitEvent('autopets://snapshot', window.__uiTest.state);
+  }, templates);
+  await page.locator('.pet-card-0').waitFor();
+  assert.equal(await page.locator('.pet-card').count(), 2);
+  assert.equal(await page.getByRole('button', { name: '＋ 작업 연결', exact: true }).count(), 0);
+  if (await page.locator('.ui-pet-config').getAttribute('open') === null) await page.locator('.ui-pet-config > summary').click();
+  await page.getByText('이미 연결한 채팅에 이 구성 적용', { exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '저장하고 선택 채팅에 적용' }).isEnabled(), false);
+  const a = JSON.stringify(['codex-windows-local', 'fixture-ui-a', 'C:/UI fixture only']);
+  await page.getByLabel('UI 펫을 적용할 채팅', { exact: true }).selectOption(a);
+  await page.getByRole('button', { name: '저장하고 선택 채팅에 적용' }).click();
+  await page.getByText(/선택한 채팅의 다음 펫 작업에 저장했어요/).waitFor();
+  const applied = await page.evaluate(() => window.__uiTest.state.petLinks);
+  assert.equal(applied[0].template.features.figmaDesign, true);
+  assert.equal(applied[0].profile, 'light');
+  assert.equal(applied[1].profile, 'careful');
+  assert.equal(applied[1].revision, 1);
+  await page.evaluate(() => {
+    window.__uiTest.state.petLinks[0].run = { id: 'ui-plan', state: 'waiting', model: 'gpt-6-luna', effort: 'low' };
+    window.__uiTest.emitEvent('autopets://snapshot', window.__uiTest.state);
+    window.__uiTest.clipboardError = false;
+  });
+  const card = page.locator('.pet-card-0');
+  await card.getByRole('button', { name: '구현 요청 복사' }).click();
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '그대로 구현해줘');
+  await card.getByText('실행 설정·스킬 확인', { exact: true }).click();
+  await card.getByText('스킬 읽기: 미확인', { exact: true }).waitFor();
+  await card.getByText('이번 작업의 Figma 사용: 미확인', { exact: true }).waitFor();
+  await page.evaluate(uiTemplate => {
+    window.__uiTest.state.petLinks[0].run = { ...window.__uiTest.state.petLinks[0].run, state: 'complete', observedModel: 'gpt-6-luna', observedEffort: 'low', skillEvidence: uiTemplate.skills, figmaUsed: true };
+    window.__uiTest.emitEvent('autopets://snapshot', window.__uiTest.state);
+  }, uiTemplate);
+  await card.getByText('스킬 읽기: frontend-design 확인', { exact: true }).waitFor();
+  await card.getByText('이번 작업의 Figma 사용: 확인됨', { exact: true }).waitFor();
+  await page.evaluate(() => { window.__uiTest.state.petLinks[0].connected = false; window.__uiTest.emitEvent('autopets://snapshot', window.__uiTest.state); });
+  await card.getByText('저장됨 · 채팅에서 연결을 다시 확인해 주세요', { exact: true }).waitFor();
+  assert.equal(await card.getByText('펫 작업 완료', { exact: true }).count(), 0);
+  assert.equal(await card.locator('[aria-current="step"]').count(), 0);
+  await card.getByRole('button', { name: '상태 확인 요청 복사' }).click();
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '펫 상태 확인');
+  checks.push('UI pet exact-target apply leaves B unchanged; plan CTA only copies; usage evidence remains independent; disconnected saved success never appears as current completion');
+  await page.setViewportSize({ width: 430, height: 900 });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 430));
+  const mobile = path.join(screenshotDir, 'native-ui-ui-pet-mobile.png');
+  await page.screenshot({ path: mobile, fullPage: true });
+  await page.keyboard.press('Tab');
+  assert.ok(await page.evaluate(() => document.activeElement !== document.body));
+  await page.evaluate(uiTemplate => {
+    window.__uiTest.roles.pets.push({ id: 'unsupported-ui', revision: 1, template: { ...uiTemplate, planning: { model: 'gpt-6-astra', reasoning: 'high' } } });
+    window.__uiTest.emitEvent('autopets://roles-changed', {});
+  }, uiTemplate);
+  await page.getByLabel('저장한 구성', { exact: true }).selectOption('unsupported-ui');
+  await page.getByRole('alert').filter({ hasText: '이 구성의 모델 조합은 아직 연결할 수 없어요' }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '저장하고 시작 요청 복사', exact: true }).isEnabled(), false);
+  await page.getByText('Astra · high', { exact: true }).waitFor();
+  checks.push('saved unsupported routing is shown exactly and cannot be copied or applied with a silent model fallback');
+  return [initial, mobile];
+};

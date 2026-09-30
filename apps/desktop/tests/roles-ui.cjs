@@ -55,6 +55,7 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   await page.evaluate(() => {
     if (!window.__TAURI_INTERNALS__) throw Error('missing mock bridge');
   });
+  await page.getByText('고급 기능', { exact: true }).click();
   await page.getByRole('button', { name: '역할과 내 펫', exact: true }).click();
   await page.getByRole('heading', { name: /필요한 역할을 고르고/ }).waitFor();
   await page.getByRole('button', { name: '제작·구현', exact: true }).click();

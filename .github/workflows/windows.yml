@@ -136,6 +136,7 @@ jobs:
           Copy-Item -LiteralPath work/product-site -Destination $taskArtifactDir -Recurse
           Copy-Item -LiteralPath work/ui-smoke.png, work/native-ui-overlay.png, work/native-ui-assistance.png, work/native-ui-assistance-compact.png, work/native-ui-workflow-presets.png, work/native-ui-workflow-task.png, work/assistance-evaluation.json -Destination $taskArtifactDir
           Copy-Item -LiteralPath work/native-ui-intro-templates.png, work/native-ui-intro-versions.png, work/native-ui-intro-compact.png -Destination $taskArtifactDir
+          Copy-Item -LiteralPath work/native-ui-ui-pet-first-use.png, work/native-ui-ui-pet-mobile.png -Destination $taskArtifactDir
           Copy-Item -LiteralPath work/intro-evaluation -Destination $taskArtifactDir -Recurse
           Copy-Item -LiteralPath release/chatgpt/AutoPets-chatgpt-extension.zip, release/chatgpt/AutoPets-chatgpt-companion.zip, release/chatgpt/package-status.json -Destination $taskArtifactDir
           node scripts/package-companion.mjs

@@ -5,6 +5,22 @@ import { rolePrompt, roleGuidance } from '../roles.mjs';
 import { buildWorkflowGuidance } from '../workflow.mjs';
 import { defaultPreferences, emptyContext } from '../../contracts/index.mjs';
 const templates = JSON.parse(await readFile(new URL('../../contracts/data/roles.json', import.meta.url), 'utf8'));
+const uiTemplate = JSON.parse(await readFile(new URL('../../contracts/data/ui-pet.json', import.meta.url), 'utf8'));
+test('server-default features preserve legacy roles and accept only pinned UI features', () => {
+  for (const template of templates) {
+    assert.equal(rolePrompt({ ...template, features: { figmaDesign: false } }), rolePrompt(template));
+    const identity = { provider: 'codex', accountId: 'test', chatId: 'a' };
+    assert.ok(roleGuidance({ identity, enabled: true, revision: 1, petRevision: 1,
+      template: { ...template, features: { figmaDesign: false } } }, identity));
+    assert.throws(() => rolePrompt({ ...template, features: { figmaDesign: true } }));
+  }
+  assert.match(rolePrompt(uiTemplate), /frontend-design@41bbe19/);
+  assert.match(rolePrompt({ ...uiTemplate, features: { figmaDesign: true } }), /Figma 시안 활용 선택/);
+  for (const features of [null, [], { figmaDesign: 'yes' }, { figmaDesign: false, arbitrary: true }]) {
+    assert.throws(() => rolePrompt({ ...uiTemplate, features }));
+  }
+  assert.throws(() => rolePrompt({ ...uiTemplate, skills: [{ id: 'frontend-design', version: 'latest' }] }));
+});
 test('both roles have bounded independent instructions and pinned existing skills', async () => {
   for (const template of templates) {
     const prompt = rolePrompt(template);

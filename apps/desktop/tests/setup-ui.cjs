@@ -14,6 +14,7 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   const page = await newPage();
   await mockBridge(page, { ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), setup });
   await page.goto(origin);
+  await page.getByRole('button', { name: '연결 설정', exact: true }).click();
   await page.getByRole('heading', { name: 'AI 연결', exact: true }).waitFor();
   assert.equal(await page.locator('.setup-step').count(), 3);
   assert.equal(await page.locator('.setup-default strong').textContent(), '균형 있게');
