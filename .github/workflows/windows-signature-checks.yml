@@ -1,6 +1,8 @@
 name: Windows signature audit checks
 
 on:
+  push:
+    branches: ['test/windows-signature-audit']
   workflow_dispatch:
 
 permissions:
