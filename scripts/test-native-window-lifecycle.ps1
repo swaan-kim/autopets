@@ -72,7 +72,7 @@ $taskNode = Join-Path $taskAppDirectory 'connector/runtime/node.exe'
 $taskConnectionFile = Join-Path $taskDataDirectory 'connection.json'
 $taskTitle = [regex]::Unescape('AutoPets \u00b7 \uc791\uc740 \uc791\uc5c5 \ub3d9\ub8cc')
 $taskQuitName = [regex]::Unescape('AutoPets \uc885\ub8cc')
-$taskReadyName = [regex]::Unescape('\uc571 \uc900\ube44')
+$taskReadyName = [regex]::Unescape('Codex \uc5f0\uacb0 \uc900\ube44')
 $taskWindow = $null
 $taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SHA; installerSha256 = $ExpectedSha256; sourceCommit = $SourceCommit; environment = 'GitHub-hosted Windows'; automation = 'UI Automation InvokePattern'; forcedTerminationUsed = $false; screenshots = @(); steps = @() }
 $taskOriginalPath = $env:PATH
@@ -144,7 +144,11 @@ function Wait-ReadyWindow($Process, [bool]$Fresh) {
         $taskHandle = [IntPtr]$taskFound.Current.NativeWindowHandle
         $taskQuit = Find-Button $taskFound $taskQuitName
         if ([AutoPetsNativeCheck]::IsWindowVisible($taskHandle) -and -not [AutoPetsNativeCheck]::IsIconic($taskHandle) -and $taskQuit -and $taskQuit.Current.IsEnabled) {
-            if (-not $Fresh -or (Find-Name $taskFound $taskReadyName)) { return $true }
+            # Fresh installs now open the pet start screen, not connection settings.
+            # Observe its enabled control only; never configure the AI during lifecycle checks.
+            if (-not $Fresh) { return $true }
+            $taskReady = Find-Button $taskFound $taskReadyName
+            if ($taskReady -and $taskReady.Current.IsEnabled -and -not $taskReady.Current.IsOffscreen) { return $true }
         }
         return $false
     } 'Window appeared, but the rendered app controls were not ready.' 60)
@@ -269,10 +273,26 @@ function Read-Fixture {
 
 function Save-RoleFixture($Window) {
     Set-LifecyclePhase 'save-role' 60
+    $taskAdvancedNav = [regex]::Unescape('\uace0\uae09 \uae30\ub2a5')
     $taskRoleNav = [regex]::Unescape('\uc5ed\ud560\uacfc \ub0b4 \ud3ab')
     $taskRoleSave = [regex]::Unescape('\ub0b4 \ud3ab \uc800\uc7a5')
     $taskRoleSaved = [regex]::Unescape('\ub0b4 \ud3ab \ubcc0\uacbd \uc800\uc7a5')
-    Invoke-Button (Find-Button $Window $taskRoleNav)
+    # The role editor remains available inside the initially collapsed advanced section.
+    $taskAdvanced = Find-Name $Window $taskAdvancedNav
+    if (-not $taskAdvanced) { throw 'Advanced navigation is missing.' }
+    $taskExpand = $null
+    if ($taskAdvanced.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$taskExpand)) {
+        $taskExpansion = [System.Windows.Automation.ExpandCollapsePattern]$taskExpand
+        if ($taskExpansion.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) { $taskExpansion.Expand() }
+    } else {
+        Invoke-Button $taskAdvanced
+    }
+    $taskRole = Wait-Until {
+        $taskButton = Find-Button $Window $taskRoleNav
+        if ($taskButton -and $taskButton.Current.IsEnabled -and -not $taskButton.Current.IsOffscreen) { return $taskButton }
+        return $null
+    } 'Expanded role navigation did not become visible.' 10
+    Invoke-Button $taskRole
     $taskSave = Wait-Until {
         $taskButton = Find-Button $Window $taskRoleSave
         if ($taskButton -and $taskButton.Current.IsEnabled) { return $taskButton }
@@ -327,7 +347,7 @@ try {
     $taskConnection = $taskLaunch.connection
     $taskStartTimer.Stop()
     $taskHandle = [long]$taskWindow.Current.NativeWindowHandle
-    $taskResult.steps += [pscustomobject]@{ step = 'first-render'; seconds = [Math]::Round($taskStartTimer.Elapsed.TotalSeconds, 3); nativeWindowVisible = $true; renderedSetupHeadingFound = $true; quitButtonFound = $true }
+    $taskResult.steps += [pscustomobject]@{ step = 'first-render'; seconds = [Math]::Round($taskStartTimer.Elapsed.TotalSeconds, 3); nativeWindowVisible = $true; renderedPetStartControlFound = $true; quitButtonFound = $true }
     Save-WindowImage $taskWindow 'first-window'
     Set-LifecyclePhase 'measure-idle-resources' 30
     $taskResult.resources = @((Measure-NativeResources $taskOriginal.Id 'manager-no-task'))
