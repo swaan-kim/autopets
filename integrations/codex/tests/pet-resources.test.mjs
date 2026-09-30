@@ -16,7 +16,7 @@ test('missing or tampered packaged skill fails before dispatch, including detach
   await fs.cp(SKILL_ROOT,dir,{recursive:true});
   const options={root:dir},template={skills:[ref]};
   const selected=await resolvePetSkills(template,options);
-  assert.ok(selected[0].path.startsWith(dir));
+  assert.equal(path.relative(await fs.realpath(dir),selected[0].path),path.join('frontend-design','SKILL.md'));
   await fs.appendFile(path.join(dir,'frontend-design/SKILL.md'),'changed');
   await assert.rejects(resolvePetSkills(template,options),/integrity/);
   await fs.copyFile(path.join(SKILL_ROOT,'frontend-design/SKILL.md'),path.join(dir,'frontend-design/SKILL.md'));

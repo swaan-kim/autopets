@@ -54,8 +54,12 @@ test('installer resources work detached from checkout and contain no installer o
   const resolver = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/pet-skills.mjs')).href);
   const bundled = await resolver.resolvePetSkills({ skills: [{ id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f' }],features:{figmaDesign:true} });
   assert.equal(bundled.length,2);
-  assert.ok(bundled.every(skill => skill.path.startsWith(f.report.connector)));
-  assert.ok(bundled.every(skill => !skill.path.startsWith(f.root)));
+  const realConnector = await fs.realpath(f.report.connector), realRoot = await fs.realpath(f.root);
+  for (const skill of bundled) {
+    assert.equal(path.relative(realConnector,skill.path),path.join('integrations','codex','skills',skill.id,'SKILL.md'));
+    const checkoutRelative = path.relative(realRoot,skill.path);
+    assert.ok(checkoutRelative.startsWith(`..${path.sep}`) || path.isAbsolute(checkoutRelative));
+  }
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/hooks/scope.mjs'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/runtime/delegation-hook.mjs'));
   const assistance = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/assistance/setup.mjs')).href);
