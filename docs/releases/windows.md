@@ -30,7 +30,7 @@
 | Tauri build | 타입 검사·프런트엔드 번들·Rust 릴리스·현재 사용자용 NSIS 설치 파일 생성 |
 | Artifact | 설치 파일, companion ZIP, UI 검증 캡처, SHA-256, 빌드 commit과 검증 한계 |
 
-Tauri의 Windows 배포는 NSIS `-setup.exe`를 지원하며, Windows에서 Tauri CLI로 생성한다. WebView2가 없으면 기본 설치 동작에서 부트스트래퍼를 내려받는다. [Tauri Windows installer 문서](https://v2.tauri.app/distribute/windows-installer/)
+Tauri의 Windows 배포는 NSIS `-setup.exe`를 지원하며, Windows에서 Tauri CLI로 생성한다. 현재 AutoPets는 `webviewInstallMode: offlineInstaller`로 WebView2 설치 구성요소를 포함한다. [Tauri Windows installer 문서](https://v2.tauri.app/distribute/windows-installer/)
 
 ### 로컬 PowerShell 빌드 도구
 
@@ -69,7 +69,24 @@ GitHub CLI 인증과 대상 저장소 설정은 별개다. 이 문서와 workflo
 
 2026-09-20에 SignPath Foundation의 무료 지원 조건을 확인했다. OSI 라이선스, 유지보수와 문서화, 서명할 형태의 기존 릴리스가 필요하고, 인증서 지원에는 프로젝트의 검증 가능한 활동 이력과 검토 절차 등 추가 조건이 있다. AutoPets는 MIT 라이선스지만 신규 저장소이므로 즉시 지원 대상이라고 확정할 수 없다. 지원은 심사에 달려 있으며 현재 신청·계약·인증서 발급은 수행하지 않았다. 첫 CI 산출물은 서명되지 않은 검토용 설치 파일이다. [SignPath Foundation 조건](https://signpath.org/terms)
 
-Smart App Control용 서명은 신뢰할 수 있는 공급자의 RSA 인증서를 사용해야 한다. 클라우드에서 빌드했다는 사실만으로 서명되거나 PC의 실행 차단이 해소되지는 않는다. 무료 지원 승인이나 적합한 인증서가 확보되지 않은 상태에서는 실행 차단 해결 여부를 미검증으로 남긴다. [Microsoft 서명 안내](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/code-signing-for-smart-app-control)
+2026-09-30 재확인: Smart App Control용 서명은 신뢰할 수 있는 공급자의 유효한 코드 서명 인증서를 사용해야 한다. 2026-09-28 갱신된 Microsoft 문서는 RSA와 ECC를 모두 지원한다고 명시한다. 클라우드에서 빌드했다는 사실만으로 서명되거나 PC의 실행 차단이 해소되지는 않는다. 무료 지원 승인이나 적합한 인증서가 확보되지 않은 상태에서는 실행 차단 해결 여부를 미검증으로 남긴다. [Microsoft 서명 안내](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/code-signing-for-smart-app-control)
+
+### 현재 차단 해결 준비 (2026-09-30)
+
+새 UI 펫 설치기 `b6068870…451be042`는 `NotSigned`이며 현재 PC에서 Code Integrity 3033/3077로 실행이 차단됐다. Windows 11 25H2 빌드 26200.9457에서 Smart App Control 상태는 켜짐(1)이다. 사용자/컴퓨터 인증서 저장소에 사용 가능한 코드 서명 인증서가 없고, 저장소의 서명 관련 GitHub secret도 확인되지 않았다. CI는 서명 상태를 기록할 뿐 실제 서명을 수행하지 않는다. 기존 앱 실행은 가능하며 새 설치본을 우회 실행하지 않았다.
+
+현재 검토 가능한 배포 경로는 다음과 같다. 가입·신원 확인·결제·신청은 아직 진행하지 않았다.
+
+| 경로 | 현재 조건 | 다음 필요한 조치 |
+| --- | --- | --- |
+| SignPath Foundation 무료 OSS | MIT 공개 저장소라는 조건은 확인. 프로젝트 평판·기존 릴리스·운영/승인 정책 등 심사는 미확정 | 공개 프로젝트 자료와 서명 승인 절차 준비 후 프로젝트 소유자가 신청. 승인 뒤 CI 연결 |
+| Microsoft Artifact Signing | 한국 조직은 지원 지역에 포함. 개인은 미국·캐나다 지원으로, 한국 개인 명의의 즉시 이용 경로로 가정할 수 없음 | 실제 신청 자격 확인, Azure 구독·신원 검증 후 공개 신뢰 서명 프로필 구성 |
+| Microsoft Store MSIX | Store가 검토 후 서명하는 경로. 현재 NSIS EXE가 자동 서명되는 것은 아님 | 개발자 본인 등록·검증, MSIX 전환과 데이터·연결 호환성 검사, 제출·심사 |
+| 일반 신뢰 공급자의 인증서 | 현재 보유 인증서 없음. 개인/조직·지역·키 보관 방식·가격은 공급자별 확인 필요 | 공급자 결정과 본인 확인·발급 후 앱/설치기 서명 및 실제 정책 호환성 검사 |
+
+근거: [SignPath 조건](https://signpath.org/terms), [Artifact Signing 자격 조건](https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart), [Windows 서명 선택지](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options), [개인 Store 개발자 등록](https://learn.microsoft.com/en-us/windows/apps/publish/whats-new-individual-developer).
+
+Smart App Control에는 앱 하나만 통과시키는 예외 기능이 없다. 기능을 끄는 선택은 PC 전체에 영향을 주며 서명된 제품 배포를 대신하지 않는다. 최신 Microsoft FAQ는 최근 Windows 업데이트에서 재설치 없이 다시 켤 수 있다고 설명하므로, 예전의 '항상 재설치해야 한다'는 안내를 반복하지 않는다. 실제 기기의 설정 가능 여부는 별도로 확인한다. 사용자는 **보호를 유지하고 서명 배포를 준비**하는 방향을 선택했다. 신청 자료·파일 검증·CI 연결 조건은 [서명 배포 준비](code-signing.md)에 정리하며 보안 설정은 그대로 유지한다. [Microsoft FAQ](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions)
 
 ### 사용자 PC 및 Codex 연결
 

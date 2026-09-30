@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Inactive preparation example. This file is not connected to a workflow or
+  SignPath account. XSD validation does not prove service approval or signing.
+
+  Current version parameter example: version: "0.1.0"
+  For a later release, review its version, actual PE metadata and exact artifact
+  paths before supplying the new version. Do not relax the matching constraints.
+
+  The uploaded GitHub artifact must contain these two files at its ZIP root.
+  Export uninstall.exe before submission, then include the returned signed
+  executables without recompiling or regenerating them in the final NSIS build.
+  This configuration does not sign or verify third-party components.
+-->
+<artifact-configuration
+  xmlns="http://signpath.io/artifact-configuration/v1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://signpath.io/artifact-configuration/v1 https://app.signpath.io/Web/artifact-configuration/v1.xsd">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="autopets.exe" product-name="AutoPets" product-version="${version}" min-matches="1" max-matches="1">
+      <authenticode-sign hash-algorithm="sha256" />
+    </pe-file>
+    <pe-file path="uninstall.exe" product-name="AutoPets" product-version="${version}" min-matches="1" max-matches="1">
+      <authenticode-sign hash-algorithm="sha256" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -1,0 +1,29 @@
+name: Windows signature audit checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-tests:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify read-only signature audit decisions
+        run: |
+          node --test scripts/tests/windows-signatures.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Signature audit tests failed.' }
+      # This job has no signing credential, external signing request, installer
+      # execution, release upload, or certificate/policy store mutation.
