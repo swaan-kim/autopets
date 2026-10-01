@@ -331,24 +331,30 @@ function Assert-QuitVisible($Window) {
 function Invoke-Button($Button, [switch]$Expand) {
     if (-not $Button -or -not $Button.Current.IsEnabled) { throw 'Required button is unavailable.' }
     $taskPattern = $null
-    # WebView2 exposes aria-expanded buttons as ExpandCollapse controls. Use
-    # that documented UIA action only where this test explicitly opens a card.
-    if ($Expand -and $Button.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$taskPattern)) {
-        $taskExpandPattern = [System.Windows.Automation.ExpandCollapsePattern]$taskPattern
-        $taskExpandState = $taskExpandPattern.Current.ExpandCollapseState
-        if ($taskExpandState -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed) { $taskExpandPattern.Expand() }
-        elseif ($taskExpandState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) { throw 'Required card cannot be expanded.' }
-        $taskResult.steps += [pscustomobject]@{ step = 'open-accessible-card'; name = $Button.Current.Name; pattern = 'ExpandCollapse'; before = $taskExpandState.ToString() }
+    $taskButtonName = $Button.Current.Name
+    $taskSupported = @($Button.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+    if ($Button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$taskPattern)) {
+        $taskResult.steps += [pscustomobject]@{ step = 'accessible-button-action'; name = $taskButtonName; pattern = 'Invoke'; supportedPatterns = $taskSupported }
+        Save-LifecycleResult
+        ([System.Windows.Automation.InvokePattern]$taskPattern).Invoke()
         return
     }
     $taskPattern = $null
-    if (-not $Button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$taskPattern)) {
-        $taskSupported = @($Button.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
-        $taskResult.steps += [pscustomobject]@{ step = 'button-pattern-unavailable'; name = $Button.Current.Name; type = $Button.Current.ControlType.ProgrammaticName; patterns = $taskSupported; requestedExpand = [bool]$Expand }
+    # aria-expanded controls can expose ExpandCollapse without Invoke. Use it
+    # only where the test explicitly opens a card; never replace a working Invoke.
+    if ($Expand -and $Button.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$taskPattern)) {
+        $taskExpandPattern = [System.Windows.Automation.ExpandCollapsePattern]$taskPattern
+        $taskExpandState = $taskExpandPattern.Current.ExpandCollapseState
+        $taskResult.steps += [pscustomobject]@{ step = 'accessible-button-action'; name = $taskButtonName; pattern = 'ExpandCollapse'; before = $taskExpandState.ToString(); supportedPatterns = $taskSupported }
         Save-LifecycleResult
-        throw ('Button has no suitable accessible action: ' + $Button.Current.Name)
+        if ($taskExpandState -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed) { $taskExpandPattern.Expand() }
+        elseif ($taskExpandState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) { throw 'Required card cannot be expanded.' }
+        $taskResult.steps += [pscustomobject]@{ step = 'open-accessible-card'; name = $taskButtonName; pattern = 'ExpandCollapse'; before = $taskExpandState.ToString() }
+        return
     }
-    ([System.Windows.Automation.InvokePattern]$taskPattern).Invoke()
+    $taskResult.steps += [pscustomobject]@{ step = 'button-pattern-unavailable'; name = $taskButtonName; type = $Button.Current.ControlType.ProgrammaticName; patterns = $taskSupported; requestedExpand = [bool]$Expand }
+    Save-LifecycleResult
+    throw ('Button has no suitable accessible action: ' + $taskButtonName)
 }
 function Assert-PetVisibility([int]$ProcessId, [int]$VisibleCount, [string]$Step) {
     $taskVisibility = Wait-Until {
