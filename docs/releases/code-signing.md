@@ -1,5 +1,42 @@
 # Windows 서명 배포 준비
 
+**최신 상태 (2026-10-01 18:40 KST):** 사용자가 Smart App Control을 끈 뒤 동일한 최신 미서명 설치기가 22.899초에 정상 설치됐고 새 앱 화면·로컬 통신·기존 데이터 보존을 확인했다. 앱은 실행 중이다. 에이전트가 보호 설정을 변경하지 않았으며 Defender는 켜져 있다. [실제 검사](../testing/mvp-feasibility.md). 현재 PC의 개발 검사는 진행할 수 있지만 보호가 켜진 일반 사용자 배포는 아래 서명/Store 관문을 유지한다. 아래 ‘차단/종료 상태’는 이날 이전 시점의 기록이다.
+
+## 일반 사용자 설치 경로 재검토 — 2026-10-01
+
+**현재 PC의 최신 설치·실행은 미완료다.** 최신 제품 소스 `2b4420c`, 설치기 SHA256 `a92db31056cba7ff7f026b1a9c11b8ed3b9935b6a887d2c42490b18b4db43628`를 17:14 KST에 일반 실행했으나 Windows 애플리케이션 제어에 차단됐다. 과거 미서명 파일의 설치 성공은 있었지만 다른 파일·PC에서도 허용된다는 보장은 아니다. 기존 프로그램·데이터 보존과 실제 오류는 [검사 기록](../testing/mvp-feasibility.md)에 있다. 원본과 백업은 Git 제외 `work/mvp-goal/20261001-install-retry/`에 둔다.
+
+사용자 요구는 보호 설정을 유지한 일반 사용자 설치·실행이다. 아래는 **조사한 선택지**이며, 계정 등록·구매·신청·Store 제출이나 배포 형식 전환을 완료한 것이 아니다. 기존 EXE 배포 계약은 유지한다.
+
+| 경로 | 확인한 사실 | AutoPets의 남은 조건 |
+| --- | --- | --- |
+| Microsoft Store **MSIX** | 심사 통과 후 Microsoft가 패키지 서명. 새 개인 개발자 등록 무료. 아직 공개하지 않은 앱은 Private audience로 제한 시험 가능 | 소유자 계정·본인 확인, 앱 이름/Identity 예약, MSIX 호환성 개발·검사와 심사. 무료 우선 후보 |
+| Microsoft Store **EXE/MSI** | Microsoft가 대신 서명하지 않음. 설치기와 포함된 실행 파일의 공인 서명 필요 | 현재 EXE를 올리기만 해서는 차단 해결 안 됨 |
+| 기존 EXE + 개인 공인 서명 | SSL.com IV는 개인용 인증서와 클라우드 서명 제공. 조회한 인증서 가격 $129/년, 서명 구독 별도 | 구매 결정, 한국 개인 서류 수락 확인, 본인 확인/발급, 자체 앱·제거기·설치기 서명 및 재검사. 기존 구조 유지 후보 |
+| Azure Artifact Signing | 서비스의 최신 quickstart는 한국 **조직** 지원, 개인은 미국·캐나다만 지원한다고 명시 | 한국 개인 자격으로 진행 불가. 실제 조직 자격이 있는지는 미확인 |
+| SignPath Foundation | 기존 공개 출시·검증 가능한 평판·프로젝트 심사가 필요 | 현재 공개 릴리스 없는 프로젝트의 자격 미확정. 즉시 무료 서명 가능으로 안내하지 않음 |
+
+근거: [Microsoft 서명 방식 비교](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options), [개인 개발자 등록](https://learn.microsoft.com/en-us/windows/apps/publish/whats-new-individual-developer), [비공개 시험 배포](https://learn.microsoft.com/en-us/windows/apps/publish/beta-testing-and-targeted-distribution), [SSL.com 현재 상품](https://www.ssl.com/products/software-integrity/signing-service/), [발급 검증](https://www.ssl.com/how-to/validation-process-for-document-signing-code-signing-and-ev-code-signing-certificates/), [Azure 최신 자격](https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart), [SignPath 조건](https://signpath.org/terms.html). 일반 Windows 비교 문서의 Azure 국가 목록보다 해당 서비스 quickstart의 최신 목록을 우선한다. 가격과 지역 자격은 신청 시 재확인한다.
+
+### 무료 Store 후보의 실제 준비 순서
+
+1. 소유자가 [무료 등록의 공식 입구](https://storedeveloper.microsoft.com/)에서 개인 계정을 선택하고 직접 본인 확인한다. 신분증과 셀피는 Microsoft에만 제출하며 저장소나 대화에 보관하지 않는다. 이미 계정이 있으면 기존 계정을 사용한다.
+2. 앱 이름을 예약한 뒤 실제 Package Identity Name·Publisher·Publisher Display Name을 확인한다. 임의 값으로 서명본이나 배포 완료를 꾸미지 않는다. Store 패키지 식별자와 기존 앱 내부 `local.autopets.desktop`은 별개로 관리한다.
+3. 별도 MSIX 검증 빌드를 준비한다. 현재 `installedRoot()`의 `%LOCALAPPDATA%/AutoPets` 가정, `connection.json` 공유, 설정·DB의 제거 후 보존, 설치된 스킬의 실행 경로를 먼저 해결한다. 패키지 업데이트로 경로가 바뀌어도 기존 채팅이 같은 앱을 찾는지 검사한다.
+4. 번들 Node·WebView2·리소스 포함, 일반 권한의 로컬 통신, 트레이·투명 오버레이·Codex 복귀를 시험한다. AppData 가상화에 대한 manifest 선언은 필요한 폴더만 검토하고 Store의 제한 기능 심사를 거친다. 기존 EXE와 동시 실행·공유 DB 충돌을 방지한다. 단순 형식 변환을 설치 성공으로 계산하지 않는다.
+5. 설명·실제 화면·개인정보 안내·제한 기능 설명을 작성해 소유자가 검토할 제출안을 만든다. **Private audience**와 무료 가격을 명시하고 시험 Microsoft 계정만 지정한다. 기본 공개 설정을 그대로 제출하지 않는다. 제출/공개는 별도 소유자 지시 후에 한다.
+6. 심사와 서명 이후 Store의 실제 배포본으로 현재 PC 설치 → 실행/통신 → Codex 연결 → 종료/재시작 → 데이터 보존을 검사한다. 서명 전 패키지, self-signed 로컬 테스트, 기존 EXE CI 결과로 이 단계를 대체하지 않는다.
+
+MSIX 파일 접근 동작의 근거: [Microsoft flexible virtualization](https://learn.microsoft.com/en-us/windows/msix/desktop/flexible-virtualization). 현재 부트스트랩은 `integrations/codex/bootstrap/files.mjs`, 앱의 연결 도구 호출은 `apps/desktop/src-tauri/src/platform/connection_setup.rs`에 있다. 파일 가상화/공유 데이터와 Store 설치 경로는 실제 패키지에서 별도 검증해야 한다.
+
+추가 코드 조사 결과: `bootstrap/start.mjs`는 EXE의 HKCU 제거 등록을 조회하고 설치 스킬에 Node의 절대 경로를 넣는다. `files.mjs`의 단일 하드링크 검사도 MSIX의 파일 공유 방식과 충돌할 가능성이 있다. 이 검사를 통째로 완화하지 않고 패키지 신원·경로·무결성 검증을 분리해야 한다. 현재 NSIS가 수행하는 WebView2 런타임 준비도 MSIX에서 자동 재사용되지 않는다. **MSIX는 별도 호환성 실증이 필요한 후보**이며, 위 항목을 모두 해결했다고 표시하지 않는다. [MSIX 실행·파일 구조](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes), [WebView2 배포](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution).
+
+### 현재 중단 조건과 다음 입력
+
+조사와 기존 준비 도구는 사용할 수 있으나 **발급된 인증서도 Store의 서명된 패키지도 없다.** 다음 필요한 입력은 Store 개발자 계정 보유 여부와 무료 Store/기존 EXE 서명 경로 선택이다. 무료 Store는 본인 확인·호환성 작업·심사가 필요하며 즉시 설치 가능하다고 약속하지 않는다. 기존 앱도 현재 종료 상태다. 기존 앱 재호출 명령은 자동 승인 검토가 `blocked by policy`로 실행 전에 거절했으며, Windows가 기존 앱 자체를 차단했다고 해석하지 않는다.
+
+아래는 2026-09-30 당시 준비 기록이며 최신 설치기와 혼동하지 않는다.
+
 2026-09-30 사용자 선택: Windows 보호 설정을 유지하고 서명 배포를 준비한다. **서명 신청·승인·인증서 발급·서명 실행은 아직 하지 않았다. 현재 PC의 새 설치본 차단도 미해결이다.**
 
 ## 준비 상태
