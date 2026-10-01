@@ -24,11 +24,54 @@
 .ui-pet-preview p { color: var(--studio-muted); margin: 0 0 13px; }
 .ui-pet-tag { color: #54745f; font-size: 11px; font-weight: 600; letter-spacing: .1px; }
 .ui-pet-source { font-size: 11px; }
-.ui-pet-benefits { list-style: none; padding: 22px 0 0; margin: 22px 0 27px; border-top: 1px solid var(--studio-line); display: grid; gap: 19px; }
-.ui-pet-benefits li { display: flex; gap: 14px; align-items: flex-start; }
-.ui-pet-benefits svg { width: 22px; height: 22px; color: #44815b; flex-shrink: 0; margin-top: 1px; }
-.ui-pet-benefits strong { display: block; font-size: 14px; font-weight: 600; color: #283c30; }
-.ui-pet-benefits li span { display: block; font-size: 12px; color: var(--studio-muted); line-height: 1.65; margin-top: 4px; }
+.pet-favorite-button { display: inline-flex; align-items: center; gap: 7px; width: fit-content; border: 1px solid #dce6dd; border-radius: 20px; padding: 7px 12px; background: #fff; color: #506757; font-size: 12px; cursor: pointer; min-height: 36px; }
+.pet-favorite-button > span { font-size: 18px; line-height: 1; }
+.pet-favorite-button[aria-pressed='true'] { background: #eff6ec; border-color: #a7c2a4; color: #315b3b; }
+.pet-favorite-button:disabled { opacity: .6; cursor: default; }
+.ui-pet-introduction .pet-favorite-button { display: flex; margin-top: 15px; }
+.pet-fit { display: grid; gap: 9px; margin: 0 0 23px; padding: 17px 19px; border-radius: 14px; background: #f7f9f6; }
+.pet-fit > div { display: grid; grid-template-columns: 70px 1fr; gap: 9px; font-size: 12px; line-height: 1.7; }
+.pet-fit dt { font-weight: 650; color: #385b44; }
+.pet-fit dd { margin: 0; color: #5c695f; word-break: keep-all; overflow-wrap: anywhere; }
+.pet-transformation { margin: 22px 0; }
+.pet-transformation > header, .pet-favorites > header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.pet-transformation h2, .pet-favorites h2 { font-size: 15px; margin: 0; font-weight: 650; color: #2c4434; }
+.pet-transformation > header > span, .pet-favorites > header > span { color: #748075; font-size: 11px; }
+.pet-example-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pet-example-pair > div { padding: 17px; border: 1px solid #e3e9e2; border-radius: 16px; min-width: 0; }
+.pet-example-before { background: #fafaf7; }
+.pet-example-label { display: block; font-size: 10px; font-weight: 600; color: #788270; margin-bottom: 17px; }
+.pet-example-before > strong { font-size: 14px; line-height: 1.7; color: #596353; }
+.pet-example-before > p { font-size: 12px; line-height: 1.8; color: #7d8679; margin-bottom: 0; }
+.pet-example-after { background: #edf4ec; }
+.pet-example-after .pet-example-label { color: #4e7256; }
+.pet-example-page { background: #fff; padding: 15px; border-radius: 7px; box-shadow: 0 4px 15px #315b3b0a; color: #2b4b35; }
+.pet-example-page > span:first-child { font-size: 8px; }
+.pet-example-page > strong { display: block; font-size: 19px; letter-spacing: -.6px; line-height: 1.4; margin: 7px 0 11px; }
+.pet-example-page > div { display: flex; gap: 7px; margin-bottom: 10px; }
+.pet-example-page > div > span { background: #f1f5ee; border-radius: 4px; padding: 7px; font-size: 9px; flex: 1; }
+.pet-example-page .pet-example-cta { display: block; text-align: center; background: #2d5e40; color: #fff; padding: 6px; border-radius: 4px; font-size: 9px; }
+.pet-transformation > p { font-size: 11px; color: #7a847b; margin: 9px 0 0; }
+.pet-chat-promise { display: flex; gap: 12px; margin: 24px 0; padding: 19px 0; border-top: 1px solid #e8ede9; border-bottom: 1px solid #e8ede9; }
+.pet-chat-promise > span { font-size: 24px; color: #3d7852; }
+.pet-chat-promise strong { font-size: 15px; color: #2c4837; }
+.pet-chat-promise p { font-size: 12px; color: #657267; margin: 6px 0; }
+.pet-chat-promise small { font-size: 10px; margin-top: 4px; }
+.pet-task-input { display: grid; gap: 9px; margin-top: 24px; color: #3e5847; font-size: 13px; font-weight: 600; }
+.pet-task-input textarea { width: 100%; min-height: 100px; border: 1px solid #cddace; border-radius: 12px; padding: 12px 14px; font: inherit; font-weight: 400; line-height: 1.7; color: #354b3d; background: #fff; resize: vertical; }
+.pet-task-input > span { color: #748077; font-size: 11px; font-weight: 400; line-height: 1.6; }
+.ui-pet-prompt .pet-favorite-button { margin-top: 14px; }
+.pet-favorites { margin: 28px 0 18px; }
+.pet-favorites-empty { border: 1px dashed #d7e2d5; border-radius: 17px; padding: 23px; color: #788375; font-size: 12px; line-height: 1.8; background: #fafcf8; }
+.pet-favorite-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.pet-favorite-item { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid #e1e8dd; border-radius: 18px; background: #fff; padding: 18px; }
+.pet-favorite-item > .pet-art { flex-shrink: 0; }
+.pet-favorite-item > div { flex: 1; min-width: 130px; }
+.pet-favorite-item strong { font-size: 14px; color: #37513f; }
+.pet-favorite-item p { font-size: 11px; color: #778271; margin: 6px 0; }
+.pet-favorite-item .text-button { font-size: 12px; color: #326447; padding: 6px 0; }
+.pet-favorite-item .pet-favorite-button { font-size: 11px; padding: 6px 9px; }
+.pet-favorites button:focus-visible { outline: 3px solid #5d9374; outline-offset: 3px; }
 .ui-pet-profiles { padding: 0; margin: 0; border: 0; min-width: 0; }
 .ui-pet-profiles legend { font-size: 14px; font-weight: 600; padding: 0; margin-bottom: 11px; }
 .ui-pet-profiles > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
@@ -39,9 +82,6 @@
 .ui-pet-profile strong { font-size: 13px; line-height: 1.4; font-weight: 600; }
 .ui-pet-profile small { font-size: 11px; margin-top: 5px; line-height: 1.5; }
 .ui-pet-profiles:disabled .ui-pet-profile { cursor: wait; opacity: .65; }
-.ui-pet-step .ui-pet-example { display: flex; flex-wrap: wrap; gap: 7px 10px; font-size: 12px; color: #69766c; margin: 18px 0; line-height: 1.6; }
-.ui-pet-example > span { color: #507359; }
-.ui-pet-example strong { font-weight: 500; color: #55635a; }
 .ui-pet-detail { border-top: 1px solid var(--studio-line); padding-top: 10px; font-size: 12px; margin-top: 16px; }
 .ui-pet-detail summary { color: #5b6c61; font-size: 12px; cursor: pointer; padding: 8px 0; }
 .ui-pet-detail p { color: #617466; font-size: 12px; }
@@ -109,6 +149,12 @@
   .ui-pet-profile { gap: 7px; padding: 12px 8px; }
 }
 @media (max-width: 700px) {
+  .ui-pet-introduction .pet-favorite-button { margin-left: auto; margin-right: auto; }
+  .pet-example-pair { grid-template-columns: 1fr; }
+  .pet-example-before > p br { display: none; }
+  .pet-example-page > strong br { display: none; }
+  .pet-fit { padding: 14px; }
+  .pet-fit > div { grid-template-columns: 62px 1fr; gap: 6px; }
   .ui-pet-studio { margin-top: 12px; }
   .ui-pet-wizard { border-radius: 22px; max-height: calc(100dvh - 192px); min-height: min(360px, calc(100dvh - 192px)); }
   .ui-pet-wizard-top { padding: 15px 17px; gap: 8px; }

@@ -1,80 +1,81 @@
 # AutoPets
 
-**쓰던 Codex 채팅에서 펫에게 계획과 구현을 맡기고, 진행과 결과를 가까이에서 확인합니다.**
+**쓰던 Codex 채팅에서 펫에게 계획과 구현을 맡기고, 진행과 결과를 확인하는 Windows 앱입니다.**
 
-모델·작업 지침·스킬을 반복해서 고르는 대신, 저장한 펫 설정으로 작은 작업을 맡기는 Windows 앱입니다. 현재 대상은 **Windows 로컬 Codex의 명시적 펫 호출**입니다. 요청과 계획 확인은 기존 Codex 채팅에서 하고, AutoPets는 펫 작업의 상태와 확인된 실행 설정을 보여줍니다.
+펫에 일하는 방법과 실행 설정을 저장합니다. 사용자는 펫을 부르고 할 일을 말한 뒤 계획을 확인합니다. AutoPets는 저장된 설정에 맞는 하위 작업과 펫의 상태를 연결합니다. 현재 대상은 **Windows 로컬 Codex의 명시적 펫 호출**입니다.
 
-## 현재 구현과 검증 상태
+[개발 미리보기 다운로드](https://github.com/swaan-kim/autopets/releases) · [남은 개발 계획](docs/roadmap/mvp-execution.md) · [실제 사용자 검사](docs/testing/oneflow-happy.md) · [검증 기록](docs/testing/mvp-feasibility.md)
 
-현재 개발하는 첫 체험은 **UI 제작 펫으로 가상 학과 행사 소개 웹페이지 한 장 만들기**입니다. `Anthropic frontend-design` 기반 스킬을 사용하며, Figma 시안 활용은 기본 꺼짐인 선택 기능입니다. [사용 안내와 제품 범위](docs/product/ui-pet-mvp.md) · [현재 실행 계획](docs/roadmap/mvp-execution.md) · [실제 검증 기록](docs/testing/mvp-feasibility.md)
+> **개발 미리보기입니다.** 설치 파일은 미서명이며 Windows 보안 정책에 따라 차단될 수 있습니다. 서명된 일반 사용자 배포와 최신 UI 펫의 전체 사용자 흐름 검증은 아직 남아 있습니다. 보안 설정 해제를 설치 조건으로 안내하지 않습니다.
 
-| 항목 | 상태 |
-|---|---|
-| 기존 설치형 제작 펫 `5ec2fd0` | 현재 PC에서 일반 입력의 계획·구현·검토, 모델·강도, 두 채팅 격리, 도움 끄기·정상 재시작 확인 |
-| 새 UI 제작 펫과 3단계 시작 화면 | Node·화면·Windows Rust·빌드 통과. 별도 Windows 설치·종료·데이터 보존 확인. 개별 펫 숨김 메뉴 자동 검사와 실제 Codex 원플로우는 미검증 |
-| 선택형 Figma 시안 활용 | 연결 안내·사용 근거 확인 구현. 시험 시안 읽기 사전 확인과 실제 펫 제작 흐름은 별도 검증 |
-| 펫에서 기존 Codex 채팅 열기 | 저장된 출처·전체 채팅 ID·폴더·개정을 확인한 뒤 OS에 링크 전달. 실제 도착한 채팅은 별도 확인 필요 |
-| 새 설치본의 현재 PC 실행 | 애플리케이션 제어 정책으로 차단. 보안을 유지하며 서명 배포 준비 중 |
-| 공개 배포·다른 PC·Work | 별도 검증 대기. 리뷰 빌드의 공개 업데이트는 비활성 |
+## 어떤 도움을 주나요?
 
-**새 UI 제작 펫의 설치형 전체 흐름은 아직 미통과입니다.** Windows 빌드와 개별 검사 통과는 현재 PC의 보안 정책 허용이나 실제 Codex·Figma 연결 성공을 뜻하지 않습니다. 기존 앱과 데이터는 보존하며, 서명 준비를 차단 해결로 표시하지 않습니다. [서명 배포 준비](docs/releases/code-signing.md)
+- **펫을 보고 선택** — 한 줄 설명, 잘하는 일과 한계, 결과 예시로 맡길 일을 이해합니다. UI 제작 펫은 출처와 버전을 고정한 `Anthropic frontend-design` 스킬을 사용합니다.
+- **즐겨찾기로 다시 부르기** — 자주 쓰는 펫과 저장한 구성을 모아 두고 다시 사용합니다.
+- **쓰던 채팅에서 작업** — 준비한 요청을 기존 Codex 채팅에 보내 계획과 구현을 이어갑니다. 새 채팅 서비스를 만들거나 작업을 자동 전송하지 않습니다.
+- **설정을 반복해서 고르지 않기** — 가볍게·표준·꼼꼼하게를 저장하고, 펫의 하위 작업에 적용합니다. 실제 실행 기록으로 적용 여부를 확인합니다.
+- **진행과 다음 행동 확인** — 계획 확인 필요, 제작 중, 결과 확인, 완료를 구분합니다. 펫에서 연결된 Codex 작업 열기를 요청할 수 있습니다.
 
-## 첫 사용 흐름
+![펫 소개, 즐겨찾기, 기존 채팅에서 시작하는 개발 화면](docs/images/mvp-20261002/overview.png)
 
-1. **이 펫으로 시작** — UI 제작 펫의 역할과 기반 스킬을 확인합니다. 상세에서 제작 설정을 고를 수 있습니다.
-2. **Codex에 펫 준비** — 이 PC에 펫 호출 스킬을 준비합니다. 이미 준비됐다면 재연결 없이 다음 단계로 갑니다. Figma는 필요한 경우에만 선택하고 Codex에서 연결합니다.
-3. **시작 요청 복사** — 정확한 저장 펫 ID·개정이 담긴 요청을 사용할 Codex 채팅에 직접 보냅니다. 복사는 전송이나 연결 완료가 아닙니다.
-4. **계획 확인 → 구현 요청** — 같은 채팅에서 계획을 읽고 `그대로 구현해줘`라고 요청합니다. 펫 설정에 맞는 하위 작업이 실행되며 부모 채팅 모델은 유지됩니다.
-5. **상태 확인 → 결과 확인** — 펫에서 진행·확인 대기·완료를 보고, **Codex 작업 열기**로 기존 채팅의 열기를 요청합니다. 결과 파일은 Codex가 반환한 링크에서 확인합니다. 링크 전달 성공과 실제 채팅 도착은 구분합니다.
+*실제 앱 화면 코드에 발표용 예시 데이터를 넣어 촬영한 이미지입니다. 계획·제작·완료 화면은 실제 AI 실행이나 효과 비교의 증거가 아닙니다. [화면 원본과 설명](docs/images/mvp-20261002/README.md)*
 
-자연어로 스킬이 호출되지 않으면 Codex에서 **AutoPets 스킬을 직접 선택**합니다. 재방문하면 연결된 펫을 먼저 보여주며, **펫 준비**로 다른 채팅에 사용할 구성을 만들 수 있습니다. 연결 복구·해제는 **연결 설정**, 프로필 변경·도움 끄기는 **펫 설정과 관리**에서 합니다. 펫 숨기기와 앱 종료도 지원합니다.
+## 처음 사용하는 흐름
 
-| 작업 단계 | 현재 제공 설정 |
+1. **이 펫으로 시작** — UI 제작 펫의 역할을 확인합니다. 첫 예시는 가상 학과 행사 소개 웹페이지 한 장입니다.
+2. **Codex에 펫 준비** — 앱에서 펫 호출 스킬을 준비합니다. Figma는 기본 꺼짐인 선택 기능이며 기본 제작에는 필요하지 않습니다.
+3. **맡길 일 → 시작 요청 복사** — 원하는 작업을 적고, 요청을 사용할 Codex 채팅에 직접 보냅니다. 저장한 펫 ID·개정과 계획 지침이 포함됩니다. 복사만으로 연결되지는 않습니다.
+4. **계획 확인 → “그대로 구현해줘”** — 같은 채팅에서 요청합니다. 자연어로 호출되지 않으면 **AutoPets 스킬을 직접 선택**합니다.
+5. **펫 상태 → Codex 작업 열기 → 결과 확인** — 결과는 Codex가 반환한 링크에서 확인합니다. OS에 열기를 요청한 것과 정확한 채팅에 도착한 것은 구분합니다.
+
+마음에 드는 구성을 즐겨찾기에 저장하면 다음에도 다시 준비할 수 있습니다. 도움 끄기·숨기기·종료·연결 복구는 앱에서 관리합니다. [상세 사용 안내](docs/product/ui-pet-mvp.md)
+
+| 단계·선택 | 펫의 하위 작업 설정 |
 |---|---|
 | 계획 | Luna · low |
 | 제작 — 가볍게 | Luna · low |
 | 제작 — 표준 | Sol · low |
 | 제작 — 꼼꼼하게 | Sol · medium |
 
-실행 전에 해당 조합의 가용성을 확인하며 사용할 수 없는 모델을 임의로 대체하지 않습니다. 요청한 설정·호스트 실행 기록·결과 반환을 구분합니다. 계획 중 파일을 바꾸지 않는 것은 **계획 프롬프트 이행**이며 실제 Plan 모드 강제가 아닙니다. 토큰 절감·품질 향상 수치는 아직 주장하지 않습니다.
+해당 호스트에서 사용 가능한 조합인지 실행 전에 확인하며, 사용할 수 없으면 임의로 대체하지 않습니다. **부모 채팅의 모델은 유지됩니다.** 계획 중 파일을 바꾸지 않는 동작은 계획 프롬프트 이행이며 실제 Plan 모드 강제가 아닙니다. 사용량 절감이나 품질 향상 수치는 아직 주장하지 않습니다.
 
-모든 요청 자동 처리, 훅 자동화, 부모 채팅 모델 변경, 실제 Plan 강제, 자동 제출·재전송은 현재 사용 경로에 포함하지 않습니다. Work·다른 펫·Jev·공유 사이트는 후속 범위입니다. 펫 표시를 위한 반복 모델 호출이나 이미지 생성은 없습니다.
+## 현재 개발 상황 — 2026-10-02
 
-## 배포 안내와 이전 구현
+| 항목 | 확인한 범위 | 남은 확인 |
+|---|---|---|
+| 기존 제작 펫 `5ec2fd0` | 현재 PC에서 일반 입력 계획·구현·검토, 실제 모델·강도, A/B 격리, 도움 끄기·정상 재시작 통과 | 다른 PC·다른 호스트로 확대하지 않음 |
+| 간결한 시작 화면과 채팅 복귀 `928186e` | Windows CI, 현재 PC 설치·실행, 저장 구성·연결 안내·요청 복사 확인 | 최신 UI 펫의 실제 계획부터 결과까지, 정확한 채팅 도착·초안 보존 |
+| 즐겨찾기·소개·내 작업 입력 | 화면 구현, 재사용·저장 실패·한글 여러 줄·오래된 개정 보호 검사 | 새 설치본의 실제 사용자 흐름 |
+| 최신 화면 변경의 로컬 검사 | Node **222 통과 / 조건부 1 건너뜀**, UI **57개 / 페이지 오류 0**, 화면 빌드·구조 검사 통과 | Windows 결과·정확한 설치본 해시는 각 Release에 기록 |
+| Figma 선택 기능 | 연결 안내·프레임 입력·사용 근거 표시 구현, 시험 시안 읽기 사전 확인 | 펫의 실제 계획·구현에서 시안 반영 |
+| 배포 | GitHub 소스와 미서명 개발 미리보기 | 공인 서명·보안 정책 유지·다른 PC 설치/업데이트 검증 |
 
-설치 버튼과 “AutoPets 설치하고 켜줘”는 같은 설치 EXE를 사용하는 두 입구로 설계했습니다. 공개 설치 경로는 배포 관문을 통과한 뒤 제공합니다. [제품 소개 원본](docs/start/index.html) · [시작 안내와 현재 배포 상태](docs/releases/start.md) · [Windows 검사와 빌드](https://github.com/swaan-kim/autopets/actions/workflows/windows.yml)
+10월 1일 현재 PC 설치 성공은 **사용자가 Smart App Control을 끈 조건**에서 확인했습니다. 보호가 켜진 일반 사용자 PC의 설치 성공으로 계산하지 않습니다. 최신 UI 변경은 이전 설치본과 구분하며, 설치 파일의 버전 표시가 같아도 **Release 태그·소스·SHA-256**으로 식별합니다.
 
-공유용 경로는 `/start/`로 준비하며 기존 루트 체험 주소는 유지합니다. [공개 소개·체험 목업](https://swaan-kim.github.io/autopets/)은 **시연 데이터로 만든 콘셉트**이며 실제 앱 연결을 의미하지 않습니다. [홍보 이미지](docs/images/00-overview-wide.png) · [오프라인 목업](docs/demo/index.html) · [제작 방법](docs/design-source/README-제작.md)
+**최신 UI 제작 펫의 설치형 전체 흐름은 아직 미통과입니다.** 실제 AI 시험은 42/55턴을 사용했으며, 현재 다음 단계는 전용 A 채팅의 일반 입력으로 계획 요청을 보내는 것입니다. 이번 화면 개선·스크린샷·배포 정리는 새 AI 시험을 사용하지 않습니다.
 
-고급 화면과 이전 개발에는 소개 자료 PNG·버전 비교·스타일 재사용, 채팅별 지침과 계획·실행 정책, 작업 목록·훅 관측·ChatGPT 확장 코드가 남아 있습니다. 이 구현들의 자동 연결·보호 기능을 현재 명시적 펫 호출의 지원 범위로 표시하지 않습니다.
+자동 훅 처리, 모든 요청의 자동 라우팅, 부모 모델 변경, 실제 Plan 강제, 자동 재전송, Work·Chat·Jev·공유 사이트는 현재 지원 범위에 포함하지 않습니다. 기존 실험 코드가 있어도 지원이 확인됐다는 뜻은 아닙니다.
 
-- 소개 자료: [제품 범위](docs/product/intro-artifacts.md) · [구조](docs/architecture/intro-artifacts.md) · [검수·효과 평가](docs/testing/intro-evaluation.md) · [구현 검수](docs/testing/intro-implementation.md)
-- 이전 계획·도움 기능: [설정과 보호의 약속](docs/product/planning-execution.md) · [앱 검수 기록](docs/testing/assistance-implementation.md) · [제품 방향](docs/product/direction.md)
-- 이전 합성 화면: [설정 카드](docs/images/app-workflow-presets.png) · [계획과 설정 불일치](docs/images/app-workflow-task.png) · [시작 화면](docs/images/app-setup.png)
-- 기록과 단계: [검수 상태 파일](docs/implementation-status.json) · [단계별 구현 기록](docs/roadmap/implementation.md)
+## 남은 계획
 
-## 디렉터리
+| 순서 | 할 일 | 끝내는 기준 |
+|---|---|---|
+| **1. 기본 사용자 흐름** | 최신 설치본에서 펫 준비 → 계획 → 명시적 구현 → 결과 페이지 → 같은 채팅 복귀 | 계획 Luna/low·파일 불변, 구현 Sol/low·자식 1회, 실제 지침/스킬 근거·결과물·A/B 격리 확인 |
+| **2. 재사용과 복구** | 즐겨찾기 재호출, 꼼꼼하게 검토, 도움 끄기, 정상 종료·재시작, 숨김·배율 | Sol/medium 검토·파일 불변, 꺼짐 시 새 작업 0회, 설정·기록·초안 보존, 잘못된 완료 표시 0건 |
+| **3. 선택형 Figma** | 전용 B에서 준비된 프레임으로 계획·구현 | 실제 시안 읽기와 결과 반영 확인. 기본 제작 통과와 별도 판정 |
+| **4. 일반 사용자 배포** | 서명 경로 확정, 앱·제거기·설치기 검증, 다른 PC 설치·업데이트·복구 | 보안 정책을 유지한 설치, 개발 도구 없는 PC·일반 권한·한글 경로·데이터 보존 확인 |
+| **5. 사용자 편익 확인** | 소규모 첫 사용자 체험과 기본 AI 사용 비교, 용어 최종 정리 | 완료 여부·설정 조작·재작업·품질·시간을 기록하고 막힌 부분 개선 |
+| **그 이후** | 두 번째 펫 → MCP 하나 → Work → Jev 판단 연결·공유 사이트 | 단계마다 실제 연결과 실행을 따로 통과한 뒤 확대 |
 
-| 위치 | 책임 |
-|---|---|
-| apps/desktop | React 화면·Tauri/Rust·펫 자산·화면 검사 |
-| integrations/codex | 관측 훅·준비/기록·스킬·연결 검사 |
-| integrations/chatgpt | Chrome 확장·Native Messaging·연결 검사 |
-| integrations/plugins/autopets | 미등록 스킬 중심 플러그인 소스 |
-| packages/contracts | 공통 데이터 형식·검증 |
-| packages/guidance | 작업 절차·지침·라우팅/점검 정책·평가 |
-| scripts | 루트 실행·검수·패키징 진입점 |
-| docs | 제품·구조·계획·검수·배포·과거 기록·소개 자료 |
-| hooks · skills | 이전 설치 경로를 위한 호환 진입점 |
-| .github | Windows 검사·Pages 배포·Issue 양식 |
+1~3의 실제 AI 검사는 **남은 13턴 안에서** 진행합니다. 기존 완료 요청을 반복하지 않고, 같은 원인은 수정 후 최대 두 번만 재검사합니다. 로그인·신뢰 검토·서명 자격 같은 외부 조건은 우회하지 않습니다. 기본 흐름과 Figma, 서명 배포의 판정은 각각 남기며, GitHub 업로드를 MVP 전체 통과로 계산하지 않습니다. [세부 체크포인트와 중단 기준](docs/roadmap/mvp-execution.md)
 
-[내부 모듈 구조](docs/architecture/layout.md) · [역할별 개발 인계](docs/roadmap/parallel-development.md) · [작업 목록](https://github.com/swaan-kim/autopets/issues)
+## 설치 파일과 개발
 
-## 개발·검수
+[GitHub Releases](https://github.com/swaan-kim/autopets/releases)에서 **Pre-release**의 설치 EXE, SHA-256과 빌드 기록을 함께 확인하세요. 차단되면 해당 파일 실행은 중단하고 서명된 배포본을 기다립니다. 안정판 채널과 자동 업데이트는 아직 비활성입니다. [배포 안내](docs/releases/start.md) · [서명 준비](docs/releases/code-signing.md) · [Windows 빌드](https://github.com/swaan-kim/autopets/actions/workflows/windows.yml)
 
-Node.js 24와 pnpm 11.19.0을 사용합니다. JavaScript 의존성은 루트 pnpm-lock.yaml로 관리합니다. 네이티브 빌드는 Rust MSVC, Microsoft C++ Build Tools·Windows SDK, WebView2가 필요합니다.
+개발에는 Node.js 24와 pnpm 11.19.0을 사용합니다. 네이티브 빌드에는 Rust MSVC, Microsoft C++ Build Tools·Windows SDK와 WebView2가 필요합니다.
 
-~~~powershell
+```powershell
 pnpm install --frozen-lockfile
 pnpm verify:layout
 pnpm test
@@ -82,14 +83,19 @@ pnpm build
 pnpm test:ui
 pnpm test:rust
 node scripts/validate-release.mjs
-node scripts/build-product-site.mjs --out work/product-site
-node scripts/package-plugin.mjs
-~~~
+```
 
-개발 화면은 pnpm dev, 네이티브 개발 실행은 pnpm desktop입니다. 로컬 보안 정책이 실행을 차단하면 설정을 끄지 않고 Windows CI로 검수합니다. [빌드·배포 안내](docs/releases/windows.md)
+`pnpm dev`는 개발 화면, `pnpm desktop`은 네이티브 개발 실행입니다. 설치 패키지는 런타임과 연결 도구를 포함합니다. [빌드 안내](docs/releases/windows.md)
 
-앱 ID와 데이터 위치는 기존 local.autopets.desktop을 유지합니다. 구조 정리는 기존 앱·확장·훅 신뢰·계정을 변경하거나 설치하지 않습니다. connection.json, SQLite, 인증 정보, 개인 업무 기록을 저장소에 올리지 않습니다.
+| 위치 | 내용 |
+|---|---|
+| `apps/desktop` | React 화면·Tauri/Rust·펫 자산·화면 검사 |
+| `integrations/codex` | 스킬·연결·실행 관측·검사 |
+| `integrations/chatgpt` | 별도 검증 중인 확장·Native Messaging |
+| `packages/contracts`, `packages/guidance` | 공통 형식·지침·라우팅 정책 |
+| `scripts`, `.github` | 검사·패키징·CI |
+| `docs` | 제품·구조·계획·검증·배포 기록 |
 
-[Codex 연결 도구](integrations/codex/assistance/README.md) · [ChatGPT 검증 패키지](integrations/chatgpt/README.md) · [환경별 실제 연결 검수](docs/testing/m1-evidence.md)
+기존 앱 ID `local.autopets.desktop`과 데이터 위치를 유지합니다. DB·인증값·개인 작업·로컬 진단은 Git에 올리지 않습니다. [내부 구조](docs/architecture/layout.md) · [기존 단계 기록](docs/roadmap/implementation.md)
 
-[두 입구 제품 설계](docs/product/distribution.md) · [배포/업데이트 계약](docs/architecture/distribution.md) · [공개 전 검수](docs/testing/unified-distribution.md)
+[공개 소개·체험 목업](https://swaan-kim.github.io/autopets/)은 시연 데이터로 만든 콘셉트입니다. 실제 앱의 연결이나 배포 상태는 이 README와 Release를 기준으로 확인하세요.

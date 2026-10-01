@@ -12,6 +12,7 @@ const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
+const { runPetDiscoveryChecks } = require('./pet-discovery-ui.cjs');
 const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
@@ -281,6 +282,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_DISCOVERY_ONLY === '1') {
+      const screenshots = await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_INTRO_ONLY === '1') {
       const screenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
@@ -618,6 +625,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await runPetTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
     const toolScreenshots = await runToolActivityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
