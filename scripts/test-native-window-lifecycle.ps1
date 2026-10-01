@@ -70,6 +70,8 @@ public static class AutoPetsNativeCheck {
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr handle);
+  public static uint WindowOwner(IntPtr handle) { uint owner; GetWindowThreadProcessId(handle, out owner); return owner; }
   public static long[] PetHandles(uint processId) {
     var result = new List<long>();
     var names = new[] { "AutoPets \u00b7 \ubaa8\uc2a4", "AutoPets \u00b7 \ub8e8\ub098", "AutoPets \u00b7 \ud1a0\ud53c" };
@@ -83,6 +85,50 @@ public static class AutoPetsNativeCheck {
     }, IntPtr.Zero);
     result.Sort();
     return result.ToArray();
+  }
+}
+'@
+# A real STA message loop keeps the fixture responsive while the worker reads
+# product/UIA state. It is created only inside this GitHub-hosted-only script.
+Add-Type -ReferencedAssemblies @([Windows.Forms.Form].Assembly.Location, [Drawing.Size].Assembly.Location) @'
+using System;
+using System.Threading;
+using System.Windows.Forms;
+public sealed class AutoPetsFocusFixture : IDisposable {
+  private readonly ManualResetEventSlim ready = new ManualResetEventSlim(false);
+  private readonly Thread thread;
+  private Form form;
+  private IntPtr handle;
+  private Exception startupError;
+  public IntPtr Handle { get { return handle; } }
+  public AutoPetsFocusFixture() {
+    thread = new Thread(new ThreadStart(Run));
+    thread.IsBackground = true;
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    if (!ready.Wait(TimeSpan.FromSeconds(10))) throw new InvalidOperationException("Focus fixture message loop did not become ready.");
+    if (startupError != null) throw new InvalidOperationException("Focus fixture failed to initialize.", startupError);
+    if (handle == IntPtr.Zero) throw new InvalidOperationException("Focus fixture did not create a native window.");
+  }
+  private void Run() {
+    try {
+      form = new Form();
+      form.Text = "AutoPets onboarding focus fixture";
+      form.ShowInTaskbar = true;
+      form.Width = 240;
+      form.Height = 140;
+      form.Shown += delegate { handle = form.Handle; ready.Set(); };
+      Application.Run(form);
+    } catch (Exception error) { startupError = error; ready.Set(); }
+  }
+  public void Activate() {
+    if (form == null || form.IsDisposed) throw new InvalidOperationException("Focus fixture is unavailable.");
+    form.BeginInvoke(new Action(delegate { form.WindowState = FormWindowState.Normal; form.Show(); form.Activate(); }));
+  }
+  public void Dispose() {
+    if (form != null && !form.IsDisposed) form.BeginInvoke(new Action(delegate { form.Close(); }));
+    if (!thread.Join(3000)) throw new InvalidOperationException("Focus fixture message loop did not close.");
+    ready.Dispose();
   }
 }
 '@
@@ -159,12 +205,35 @@ function Find-Button($Window, [string]$Name) {
     ))
     $Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $taskCondition)
 }
-function Assert-NativeForeground([long]$Handle) {
-    [void][AutoPetsNativeCheck]::SetForegroundWindow([IntPtr]$Handle)
-    [void](Wait-Until {
+function Assert-NativeForeground([long]$Handle, [bool]$RequestActivation = $true) {
+    $taskActivation = if ($RequestActivation) { [AutoPetsNativeCheck]::SetForegroundWindow([IntPtr]$Handle) } else { $null }
+    $taskSamples = [Collections.Generic.List[object]]::new()
+    $taskExpectedOwner = [AutoPetsNativeCheck]::WindowOwner([IntPtr]$Handle)
+    $taskDeadline = [DateTime]::UtcNow.AddSeconds(10)
+    $taskStableSamples = 0
+    while ([DateTime]::UtcNow -lt $taskDeadline) {
         [Windows.Forms.Application]::DoEvents()
-        return [AutoPetsNativeCheck]::GetForegroundWindow().ToInt64() -eq $Handle
-    } 'The expected native window did not become the foreground window.' 10)
+        $taskForeground = [AutoPetsNativeCheck]::GetForegroundWindow()
+        $taskForegroundOwner = [AutoPetsNativeCheck]::WindowOwner($taskForeground)
+        $taskSample = [pscustomobject]@{
+            expectedHandle = $Handle; expectedOwner = $taskExpectedOwner
+            expectedValid = [AutoPetsNativeCheck]::IsWindow([IntPtr]$Handle)
+            expectedVisible = [AutoPetsNativeCheck]::IsWindowVisible([IntPtr]$Handle)
+            actualHandle = $taskForeground.ToInt64(); actualOwner = $taskForegroundOwner
+            actualIsPetWindow = @([AutoPetsNativeCheck]::PetHandles($taskForegroundOwner)) -contains $taskForeground.ToInt64()
+        }
+        $taskSamples.Add($taskSample)
+        if ($taskSample.expectedValid -and $taskSample.expectedVisible -and $taskSample.actualHandle -eq $Handle -and $taskSample.actualOwner -eq $taskExpectedOwner) { $taskStableSamples++ }
+        else { $taskStableSamples = 0 }
+        if ($taskStableSamples -ge 5) {
+            $taskResult.steps += [pscustomobject]@{ step = 'native-foreground-confirmed'; phase = $taskResult.phase.name; requestedActivation = $RequestActivation; activationReturned = $taskActivation; expectedHandle = $Handle; expectedOwner = $taskExpectedOwner; stableSamples = $taskStableSamples }
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    $taskResult.steps += [pscustomobject]@{ step = 'native-foreground-failed'; phase = $taskResult.phase.name; requestedActivation = $RequestActivation; activationReturned = $taskActivation; expectedHandle = $Handle; expectedOwner = $taskExpectedOwner; samples = $taskSamples.ToArray() }
+    Save-LifecycleResult
+    throw 'The expected native window did not remain the exact foreground window.'
 }
 function Wait-ReadyWindow($Process, [bool]$Fresh) {
     $taskFound = Wait-Until { Get-MainWindow $Process.Id } 'Main window was not exposed by UI Automation.' 60
@@ -365,16 +434,16 @@ function Test-OnboardingPetVisibility($Window, $Process, [long]$Handle) {
     $taskBeforeSuppression = Read-Fixture
     # A fixture window owned by this CI worker stands in for another foreground
     # app. No Codex account, real chat or other user application is opened.
-    $taskFocusFixture = [Windows.Forms.Form]::new()
+    $taskFocusFixture = [AutoPetsFocusFixture]::new()
     try {
-        $taskFocusFixture.Text = 'AutoPets onboarding focus fixture'
-        $taskFocusFixture.ShowInTaskbar = $false
-        $taskFocusFixture.Size = [Drawing.Size]::new(240, 140)
-        $taskFocusFixture.Show()
+        if ([AutoPetsNativeCheck]::WindowOwner($taskFocusFixture.Handle) -ne $PID) { throw 'Focus fixture is not owned by the lifecycle worker.' }
+        $taskFocusFixture.Activate()
         Assert-NativeForeground ($taskFocusFixture.Handle.ToInt64())
         [void](Assert-PetVisibility $Process.Id 1 'background-onboarding-restores-assigned-pet')
+        # Showing the pet must not steal focus back from the fixture. This
+        # second assertion observes only; it never reactivates the fixture.
+        Assert-NativeForeground ($taskFocusFixture.Handle.ToInt64()) $false
     } finally {
-        $taskFocusFixture.Close()
         $taskFocusFixture.Dispose()
     }
     Assert-NativeForeground $Handle
