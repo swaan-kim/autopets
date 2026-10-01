@@ -6,14 +6,41 @@ mod storage;
 mod transport;
 
 use transport::commands;
+use transport::workflow_commands;
 
 pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            platform::windows::show_manager(app.clone(), None, None)
+            platform::windows::reopen(app)
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            commands::set_pet_link_enabled,
+            commands::set_pet_link_profile,
+            commands::apply_pet_link_template,
+            commands::close_pet_tracking,
+            commands::open_local_task,
+            commands::open_pet_task,
+            commands::set_onboarding_active,
+            transport::task_graph_commands::task_graph_snapshot,
+            transport::role_commands::roles_snapshot,
+            transport::role_commands::save_pet,
+            transport::role_commands::apply_pet,
+            commands::get_setup_state,
+            transport::setup_commands::connect_ai,
+            transport::setup_commands::disconnect_ai,
+            platform::updater::check_app_update,
+            platform::updater::install_app_update,
+            workflow_commands::workflow_snapshot,
+            transport::artifact_commands::artifact_snapshot,
+            transport::artifact_commands::artifact_dispatch,
+            transport::artifact_commands::artifact_image,
+            transport::artifact_commands::artifact_export,
+            workflow_commands::save_workflow_preferences,
+            workflow_commands::configure_workflow_task,
+            workflow_commands::approve_workflow_plan,
+            workflow_commands::allow_workflow_once,
             commands::get_assistance,
             commands::save_preferences,
             commands::set_chat_assistance,

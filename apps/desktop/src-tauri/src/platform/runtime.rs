@@ -10,6 +10,9 @@ use tauri::{Emitter, Manager, PhysicalPosition};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(window) = app.get_webview_window("main") {
+        super::main_window::show_fitted(&window)?;
+    }
     let data_dir = match std::env::var_os("AUTOPETS_DATA_DIR") {
         Some(path) => PathBuf::from(path),
         None => app.path().app_local_data_dir()?,
@@ -24,6 +27,10 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(store.clone());
     app.manage(Desktop {
         visible: AtomicBool::new(true),
+        // Hold overlays until the manager reports whether its first-use guide
+        // is open. This is transient and never changes saved display choices.
+        onboarding_active: AtomicBool::new(true),
+        onboarding_initialized: AtomicBool::new(false),
         hidden_slots: Mutex::new([false; 3]),
         positions: Mutex::new(positions.clone()),
         data_dir: data_dir.clone(),
@@ -80,9 +87,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         *slot = Some(server);
                     };
                 }
-                if let Ok(s) = store.lock() {
-                    emit(&handle, s.snapshot());
-                };
+                let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(&handle, snapshot));
             }
             Err(error) => {
                 eprintln!("AutoPets bridge failed: {error}");
@@ -98,6 +103,10 @@ pub(crate) fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent
         tauri::WindowEvent::CloseRequested { api, .. } => {
             api.prevent_close();
             let _ = window.hide();
+            if window.label() == "main" { refresh_pet_visibility(window.app_handle()); }
+        }
+        tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(_) if window.label() == "main" => {
+            refresh_pet_visibility(window.app_handle());
         }
         tauri::WindowEvent::Moved(position) if window.label().starts_with("pet-") => {
             if let Some(desktop) = window.app_handle().try_state::<Desktop>() {

@@ -1,6 +1,273 @@
 use super::*;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
+// Real compiled application bridge, without opening windows or touching the installed DB.
+// Explicitly invoked only for the bounded dedicated Desktop connection trial.
+#[tokio::test]
+#[ignore]
+async fn external_pet_bridge_probe() {
+    let dir=std::path::PathBuf::from(std::env::var_os("AUTOPETS_ISOLATED_PROBE_DIR").expect("explicit probe directory"));
+    assert!(dir.is_absolute() && dir.join(".autopets-probe-v1").is_file());
+    let store=Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(&dir).unwrap()));
+    let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
+    std::fs::write(dir.join("ready"),"real-application-bridge-v1").unwrap();
+    let deadline=tokio::time::Instant::now()+Duration::from_secs(300);
+    while tokio::time::Instant::now()<deadline && !dir.join("finish").exists() {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    let links=store.lock().unwrap().snapshot().pet_links;
+    std::fs::write(dir.join("probe-result.json"),serde_json::to_vec_pretty(&links).unwrap()).unwrap();
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn explicit_pet_connection_is_authenticated_without_hook_sessions() {
+    let dir=tempfile::tempdir().unwrap();
+    let store=Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge=start(store.clone(),Arc::new(|_|{})).await.unwrap();
+    let info:ConnectionInfo=serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth=format!("Authorization: Bearer {}\r\n",info.token);
+    let target=serde_json::json!({"sourceId":"codex-windows-local","threadId":"11111111-1111-4111-8111-111111111111","cwd":dir.path().to_string_lossy()});
+    let body=serde_json::json!({"operation":"connect","target":target});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link","",body.clone()).await.0,401);
+    let connected=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,body.clone()).await;
+    assert_eq!(connected.0,200);assert_eq!(connected.1["accountIdentity"],"unknown");assert_eq!(connected.1["liveHooksVerified"],false);
+    assert_eq!(connected.1["link"]["connected"],true);assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    let mut forged=body;forged["externalRoutingVerified"]=true.into();
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,forged).await.0,422);
+    let prepared=serde_json::json!({"operation":"prepare","target":target,"expectedRevision":1,"requestId":"33333333-3333-4333-8333-333333333333","profile":"light"});
+    let first=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared.clone()).await;
+    assert_eq!(first.0,200);assert_eq!(first.1["dispatchAllowed"],true);
+    let repeat=json_http(&bridge.base_url,"POST","/v1/pet-link",&auth,prepared).await;
+    assert_eq!(repeat.0,200);assert_eq!(repeat.1["dispatchAllowed"],false);
+    bridge.shutdown();
+    assert!(tokio::net::TcpStream::connect(bridge.base_url.trim_start_matches("http://")).await.is_err() || *bridge.stop_signal.borrow());
+    let mut reopened=crate::application::store::Store::new(dir.path()).unwrap();
+    let read=serde_json::from_value(serde_json::json!({"operation":"read","target":target})).unwrap();
+    let link=reopened.pet_link_request(read).unwrap().unwrap();
+    assert!(!link.connected);assert_eq!(link.run.unwrap().state,crate::domain::pet_link::RunState::Unknown);
+}
+
+#[tokio::test]
+async fn task_graph_is_authenticated_revision_bound_and_never_enables_live_control() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"expectedRevision":0,"report":crate::domain::task_graph::fixture()});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph","",body.clone()).await.0,401);
+    let browser = format!("{auth}Origin: http://127.0.0.1\r\n");
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&browser,body.clone()).await.0,403);
+    let result = json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,body.clone()).await;
+    assert_eq!(result.0,200); assert_eq!(result.1["revision"],1);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,body).await.0,409);
+    let mut forged = serde_json::json!({"expectedRevision":1,"report":crate::domain::task_graph::fixture()});
+    forged["report"]["controlEnabled"] = serde_json::json!(true);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/task-graph",&auth,forged).await.0,422);
+    assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    assert!(!store.lock().unwrap().workflow.preferences().unwrap().enabled);
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn setup_is_authenticated_and_does_not_fabricate_sessions() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(
+        crate::application::store::Store::new(dir.path()).unwrap(),
+    ));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo =
+        serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":"setup-chat","cwd":dir.path().to_string_lossy()});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/setup", "", body.clone())
+            .await
+            .0,
+        401
+    );
+    let result = json_http(&bridge.base_url, "POST", "/v1/setup", &auth, body).await;
+    assert_eq!(result.0, 200);
+    assert_eq!(result.1["phase"], "connecting");
+    assert_eq!(result.1["protection"]["model"], false);
+    assert!(store.lock().unwrap().snapshot().sessions.is_empty());
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn disconnect_is_authenticated_and_preserves_task_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let body = serde_json::json!({"hostId":"codex-windows-local"});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup/disconnect","",body.clone()).await.0, 401);
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup/disconnect",&auth,serde_json::json!({"hostId":"work-local"})).await.0, 409);
+    let setup = serde_json::json!({"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":null,"cwd":null,"entryPoint":"desktop"});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup",&auth,setup).await.0,200);
+    let (_, result) = json_http(&bridge.base_url,"POST","/v1/setup/disconnect",&auth,body).await;
+    assert_eq!(result["connections"][0]["configured"],false);
+    assert_eq!(result["chatConnected"],false);
+    assert!(store.lock().unwrap().workflow.preferences().unwrap().enabled);
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn chatgpt_read_cannot_complete_codex_first_task_setup() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo = serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let setup = serde_json::json!({"installedVersion":env!("CARGO_PKG_VERSION"),"sessionId":null,"cwd":null});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/setup",&auth,setup).await.0,200);
+    let read = serde_json::json!({"operation":"read","identity":{"provider":"chatgpt","accountId":"browser-account","chatId":"unrelated-web-chat"}});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/assistance",&auth,read).await.0,200);
+    assert_eq!(store.lock().unwrap().setup_status().unwrap()["chatConnected"],false);
+    let other_event = serde_json::json!({"provider":"chatgpt","eventId":"wrong-provider","sessionId":"unrelated-web-chat","turnId":"turn","kind":"turn_started","cwd":dir.path().to_string_lossy(),"timestamp":crate::domain::activity::now_ms()});
+    assert_eq!(json_http(&bridge.base_url,"POST","/v1/events",&auth,other_event).await.0,422);
+    assert!(store.lock().unwrap().sessions.is_empty());
+    bridge.shutdown();
+}
+
+#[tokio::test]
+async fn workflow_preflight_is_authenticated_cwd_bound_and_never_invents_started_turns() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(std::sync::Mutex::new(
+        crate::application::store::Store::new(dir.path()).unwrap(),
+    ));
+    store
+        .lock()
+        .unwrap()
+        .workflow
+        .save_preferences(crate::domain::workflow::Preferences {
+            enabled: true,
+            ..Default::default()
+        })
+        .unwrap();
+    let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+    let info: ConnectionInfo =
+        serde_json::from_slice(&std::fs::read(&bridge.connection_path).unwrap()).unwrap();
+    let auth = format!("Authorization: Bearer {}\r\n", info.token);
+    let identity = serde_json::json!({"provider":"codex","accountId":format!("session:{:x}",Sha256::digest(b"flow")),"chatId":"flow"});
+    let binding = serde_json::json!({"sessionId":"flow","cwd":"C:/workflow","turnId":"first"});
+    let read = serde_json::json!({"operation":"read","identity":identity,"binding":binding});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", "", read.clone())
+            .await
+            .0,
+        401
+    );
+    assert_eq!(
+        json_http(
+            &bridge.base_url,
+            "POST",
+            "/v1/workflow",
+            &format!("{auth}Origin: https://chatgpt.com\r\n"),
+            read.clone()
+        )
+        .await
+        .0,
+        403
+    );
+    let result = json_http(
+        &bridge.base_url,
+        "POST",
+        "/v1/workflow",
+        &auth,
+        read.clone(),
+    )
+    .await;
+    assert_eq!(result.0, 200);
+    assert_eq!(result.1["task"]["enabled"], true);
+    assert_eq!(result.1["capabilities"]["modelObservation"], false);
+    let mut wrong = read.clone();
+    wrong["binding"]["cwd"] = serde_json::json!("C:/other");
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, wrong)
+            .await
+            .0,
+        409
+    );
+    let mut scope = read.clone();
+    scope["identity"]["accountId"] = serde_json::json!("arbitrary-account");
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, scope)
+            .await
+            .0,
+        409
+    );
+    let preflight = serde_json::json!({"operation":"preflight","identity":identity,"binding":binding,
+        "expectedSettingsRevision":0,"expectedPlanRevision":0,"submissionId":"first","requestFingerprint":"a".repeat(64),"intent":"new-work",
+        "observation":{"model":"gpt-6-astra","reasoning":null,"mode":null,"source":"hook","observedAt":crate::domain::activity::now_ms(),"submissionId":"first"}});
+    let result = json_http(
+        &bridge.base_url,
+        "POST",
+        "/v1/workflow",
+        &auth,
+        preflight.clone(),
+    )
+    .await;
+    assert_eq!(result.0, 200);
+    assert_eq!(result.1["decision"], "passthrough");
+    assert!(result.1["task"]["observation"].is_null());
+    let mut elevated = preflight.clone();
+    elevated["capabilities"] =
+        serde_json::json!({"verification":"verified","modelObservation":true});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, elevated)
+            .await
+            .0,
+        422
+    );
+    let mut missing_turn = preflight;
+    missing_turn["binding"]
+        .as_object_mut()
+        .unwrap()
+        .remove("turnId");
+    assert_eq!(
+        json_http(
+            &bridge.base_url,
+            "POST",
+            "/v1/workflow",
+            &auth,
+            missing_turn
+        )
+        .await
+        .0,
+        400
+    );
+    // The existing endpoint still demands a genuinely observed active turn.
+    assert_eq!(
+        assistance_http(&bridge.base_url, &auth, read.clone())
+            .await
+            .0,
+        409
+    );
+    let record = serde_json::json!({"operation":"recordPlan","identity":identity,"binding":binding,"expectedSettingsRevision":0,"expectedPlanRevision":0,
+        "plan":{"summary":"관측하지 않은 계획","steps":[],"completionCriteria":[]}});
+    assert_eq!(
+        json_http(&bridge.base_url, "POST", "/v1/workflow", &auth, record)
+            .await
+            .0,
+        409
+    );
+    {
+        let store = store.lock().unwrap();
+        assert!(store.snapshot().sessions.is_empty());
+        assert!(store
+            .snapshot()
+            .slots
+            .iter()
+            .all(|s| s.session_id.is_none()));
+        assert!(store.assistance.overview().unwrap().tasks.is_empty());
+        assert!(!store.assistance.preferences().unwrap().enabled);
+    }
+    bridge.shutdown();
+}
+
 async fn http(base_url: &str, method: &str, path: &str, headers: &str, body: &str) -> u16 {
     let address = base_url.strip_prefix("http://").unwrap();
     let mut socket = tokio::net::TcpStream::connect(address).await.unwrap();
@@ -23,7 +290,7 @@ async fn assistance_http(
     json_http(base_url, "POST", "/v1/assistance", headers, body).await
 }
 
-async fn json_http(
+pub(super) async fn json_http(
     base_url: &str,
     method: &str,
     path: &str,

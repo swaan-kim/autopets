@@ -1,0 +1,182 @@
+[
+  {
+    "execution": "local",
+    "provider": "openai",
+    "id": "codex-windows-local",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "implemented-unverified",
+      "submission": "implemented-unverified",
+      "status": "implemented-unverified",
+      "model": "unsupported",
+      "settingsObservation": "implemented-unverified"
+    },
+    "stage": "implementation",
+    "surface": "codex-desktop",
+    "connectAvailable": true,
+    "label": "Codex · Windows"
+  },
+  {
+    "execution": "local",
+    "provider": "openai",
+    "id": "work-local",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "planned",
+      "submission": "unsupported",
+      "status": "planned",
+      "model": "unsupported",
+      "settingsObservation": "planned"
+    },
+    "stage": "compatibility",
+    "surface": "work",
+    "connectAvailable": false,
+    "label": "ChatGPT Work · 로컬"
+  },
+  {
+    "execution": "local",
+    "provider": "openai",
+    "id": "codex-vscode",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "planned",
+      "submission": "unsupported",
+      "status": "planned",
+      "model": "unsupported",
+      "settingsObservation": "planned"
+    },
+    "stage": "compatibility",
+    "surface": "codex-vscode",
+    "connectAvailable": false,
+    "label": "Codex · VS Code"
+  },
+  {
+    "execution": "local",
+    "provider": "anthropic",
+    "id": "claude-code-desktop",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "planned",
+      "submission": "unsupported",
+      "status": "planned",
+      "model": "unsupported",
+      "settingsObservation": "planned"
+    },
+    "stage": "planned",
+    "surface": "code-desktop",
+    "connectAvailable": false,
+    "label": "Claude Code · Desktop"
+  },
+  {
+    "execution": "local",
+    "provider": "anthropic",
+    "id": "claude-code-vscode",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "planned",
+      "submission": "unsupported",
+      "status": "planned",
+      "model": "unsupported",
+      "settingsObservation": "planned"
+    },
+    "stage": "planned",
+    "surface": "code-vscode",
+    "connectAvailable": false,
+    "label": "Claude Code · VS Code"
+  },
+  {
+    "execution": "local",
+    "provider": "google",
+    "id": "antigravity-local",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "planned",
+      "submission": "unsupported",
+      "status": "planned",
+      "model": "unsupported",
+      "settingsObservation": "planned"
+    },
+    "stage": "planned",
+    "surface": "antigravity",
+    "connectAvailable": false,
+    "label": "Antigravity · 로컬"
+  },
+  {
+    "execution": "cloud",
+    "provider": "openai",
+    "id": "chatgpt-web",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "guidance-only",
+      "submission": "unsupported",
+      "status": "unsupported",
+      "model": "unsupported",
+      "settingsObservation": "unsupported"
+    },
+    "stage": "guidance",
+    "surface": "web-chat",
+    "connectAvailable": false,
+    "label": "ChatGPT · 웹"
+  },
+  {
+    "execution": "cloud",
+    "provider": "anthropic",
+    "id": "claude-web",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "guidance-only",
+      "submission": "unsupported",
+      "status": "unsupported",
+      "model": "unsupported",
+      "settingsObservation": "unsupported"
+    },
+    "stage": "guidance",
+    "surface": "web-chat",
+    "connectAvailable": false,
+    "label": "Claude · 웹"
+  },
+  {
+    "execution": "cloud",
+    "provider": "google",
+    "id": "gemini-web",
+    "features": {
+      "planMode": "unsupported",
+      "reasoning": "unsupported",
+      "usage": "unsupported",
+      "returnToTask": "guidance-only",
+      "guidance": "guidance-only",
+      "submission": "unsupported",
+      "status": "unsupported",
+      "model": "unsupported",
+      "settingsObservation": "unsupported"
+    },
+    "stage": "guidance",
+    "surface": "web-chat",
+    "connectAvailable": false,
+    "label": "Gemini · 웹"
+  }
+]

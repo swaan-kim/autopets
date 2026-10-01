@@ -1,2 +1,9 @@
 export type * from './tasks';
 export type * from './assistance';
+export type * from './workflow';
+export type * from './setup';
+export type * from './connections';
+export type * from './artifacts';
+export type * from './roles';
+export type * from './task-graph';
+export type * from './pet-link';

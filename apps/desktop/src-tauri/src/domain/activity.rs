@@ -13,6 +13,7 @@ pub fn now_ms() -> u64 {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
+    pub pet_links: Vec<super::pet_link::Link>,
     pub sessions: Vec<Session>,
     pub slots: Vec<Slot>,
     pub approvals: Vec<Approval>,
@@ -20,6 +21,7 @@ pub struct Snapshot {
     pub connection_path: String,
     pub now: u64,
     pub capabilities: Capabilities,
+    pub setup: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -71,6 +73,8 @@ pub struct Slot {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+// This legacy endpoint is the Codex hook protocol. Future providers must use a
+// provider/surface-scoped adapter rather than submit an untyped legacy event.
 pub struct EventInput {
     pub event_id: String,
     pub session_id: String,

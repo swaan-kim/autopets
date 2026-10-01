@@ -19,33 +19,89 @@ pub(crate) struct Position {
 }
 pub(crate) struct Desktop {
     pub(crate) visible: AtomicBool,
+    pub(crate) onboarding_active: AtomicBool,
+    pub(crate) onboarding_initialized: AtomicBool,
     pub(crate) hidden_slots: Mutex<[bool; 3]>,
     pub(crate) positions: Mutex<HashMap<String, Position>>,
     pub(crate) data_dir: PathBuf,
     pub(crate) bridge: Mutex<Option<bridge::BridgeHandle>>,
 }
 
+fn pet_has_content(snapshot: &Snapshot, slot: usize) -> bool {
+    if slot > 2 { return false; }
+    let assigned = snapshot.slots.iter().any(|s| s.session_id.is_some()) || !snapshot.pet_links.is_empty();
+    snapshot.slots.iter().any(|s| s.index == slot && s.session_id.is_some())
+        || snapshot.pet_links.iter().any(|link| link.slot == slot)
+        || (slot == 0 && !assigned)
+}
+
+fn onboarding_suppressed(active: bool, initialized: bool, manager_visible: bool, manager_minimized: bool, manager_focused: bool) -> bool {
+    // Before the first frontend report, avoid a flash over the loading guide.
+    // Once initialized, a guide behind Codex must not hide the working pet.
+    manager_visible && !manager_minimized && (!initialized || (active && manager_focused))
+}
+
+fn overlays_suppressed(app: &tauri::AppHandle) -> bool {
+    let (active, initialized) = app.try_state::<Desktop>()
+        .map(|state| (state.onboarding_active.load(Ordering::Relaxed), state.onboarding_initialized.load(Ordering::Relaxed)))
+        .unwrap_or((false, true));
+    app.get_webview_window("main").is_some_and(|window| onboarding_suppressed(
+        active, initialized, window.is_visible().unwrap_or(true), window.is_minimized().unwrap_or(false), window.is_focused().unwrap_or(false),
+    ))
+}
+
+fn pet_should_show(visible: bool, hidden: bool, has_content: bool, suppressed: bool) -> bool {
+    visible && !hidden && has_content && !suppressed
+}
+
+fn require_onboarding_manager(label: &str) -> Result<(), String> {
+    if label == "main" { Ok(()) } else { Err("안내 화면에서만 표시 상태를 바꿀 수 있습니다.".into()) }
+}
+
+fn set_onboarding_flag(desktop: &Desktop, active: bool) {
+    desktop.onboarding_active.store(active, Ordering::Relaxed);
+    desktop.onboarding_initialized.store(true, Ordering::Relaxed);
+}
+
+pub(crate) fn set_onboarding_active(window: &tauri::WebviewWindow, active: bool) -> Result<(), String> {
+    require_onboarding_manager(window.label())?;
+    let desktop = window.app_handle().try_state::<Desktop>().ok_or("앱 표시 상태를 읽을 수 없습니다.")?;
+    set_onboarding_flag(&desktop, active);
+    refresh_pet_visibility(window.app_handle());
+    Ok(())
+}
+
 pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
     let _ = app.emit("autopets://snapshot", &snapshot);
+    apply_pet_visibility(app, &snapshot);
+}
+
+// Window lifecycle events restore the user's existing choices even when the
+// frontend did not get a chance to run its onboarding cleanup.
+pub(crate) fn refresh_pet_visibility(app: &tauri::AppHandle) {
+    if let Some(store) = app.try_state::<SharedStore>() {
+        let snapshot = store.lock().ok().map(|state| state.snapshot());
+        if let Some(snapshot) = snapshot { apply_pet_visibility(app, &snapshot); }
+    }
+}
+
+fn apply_pet_visibility(app: &tauri::AppHandle, snapshot: &Snapshot) {
     let visible = app
         .try_state::<Desktop>()
         .map(|s| s.visible.load(Ordering::Relaxed))
         .unwrap_or(true);
-    let has_assignments = snapshot.slots.iter().any(|slot| slot.session_id.is_some());
     let hidden_slots = app
         .try_state::<Desktop>()
         .map(|s| s.hidden_slots.lock().map(|h| *h).unwrap_or([false; 3]))
         .unwrap_or([false; 3]);
+    let suppressed = overlays_suppressed(app);
     for slot in &snapshot.slots {
         if let Some(window) = app.get_webview_window(&format!("pet-{}", slot.index)) {
-            if visible
-                && !hidden_slots[slot.index]
-                && (slot.session_id.is_some() || (!has_assignments && slot.index == 0))
-            {
+            if pet_should_show(visible, hidden_slots[slot.index], pet_has_content(snapshot, slot.index), suppressed) {
                 if !window.is_visible().unwrap_or(false) {
                     let _ = window.show();
                 }
-            } else {
+            } else if window.is_visible().unwrap_or(true) {
                 let _ = window.hide();
             }
         }
@@ -61,6 +117,7 @@ pub(crate) fn show_manager(
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+        refresh_pet_visibility(&app);
         if section.as_deref() == Some("assistance") {
             let _ = window.emit(
                 "autopets://open-assistance",
@@ -68,6 +125,11 @@ pub(crate) fn show_manager(
             );
         }
     }
+}
+
+pub(crate) fn reopen(app: &tauri::AppHandle) {
+    // Reopening the manager is not the explicit "show all pets" action.
+    show_manager(app.clone(), None, None);
 }
 
 pub(crate) fn set_pets_visible(
@@ -82,9 +144,7 @@ pub(crate) fn set_pets_visible(
             *hidden = [false; 3];
         }
     }
-    if let Ok(s) = store.lock() {
-        emit(&app, s.snapshot());
-    }
+    let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(&app, snapshot));
 }
 
 pub(crate) fn change_slot_visibility(
@@ -143,15 +203,12 @@ pub(crate) fn open_pet(
         .lock()
         .map_err(|_| "작업을 읽을 수 없습니다.")?
         .snapshot();
-    let has_assignments = snapshot.slots.iter().any(|s| s.session_id.is_some());
-    let bound = snapshot
-        .slots
-        .iter()
-        .any(|s| s.index == slot && s.session_id.is_some());
-    if !bound && !(slot == 0 && !has_assignments) {
+    if !pet_has_content(&snapshot, slot) {
         return Err("먼저 작업을 연결해주세요.".into());
     }
     change_slot_visibility(&desktop, slot, true)?;
+    apply_pet_visibility(&app, &snapshot);
+    if overlays_suppressed(&app) { return Ok(()); }
     if let Some(window) = app.get_webview_window(&format!("pet-{slot}")) {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;

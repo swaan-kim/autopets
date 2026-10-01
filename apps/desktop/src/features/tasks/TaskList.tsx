@@ -1,4 +1,5 @@
 import type { Session, Snapshot } from '@autopets/contracts/types';
+import { TaskGraph } from './TaskGraph';
 import { isDesktop } from '../../bridge/command';
 import { shortPath } from '../../app/shared/format';
 import { Clock } from '../../app/shared/Clock';
@@ -31,5 +32,6 @@ export function TaskList({ snapshot, disconnected, taskFilter, setTaskFilter, bu
                 <div className="task-binding">{slot ? <span className="task-pet-label">{PET_NAMES[slot.index]} 연결됨</span> : <><span className="task-pet-label unbound">목록에서 확인</span><button type="button" className="text-button" disabled={!isDesktop || !availableSlot || busy} title={!availableSlot ? '기존 펫 연결을 먼저 해제해주세요.' : '빈 펫에 이 작업을 연결해요.'} aria-label={`${session.label} 펫 연결`} onClick={() => { if (availableSlot) { onConnect(availableSlot.index, session.id); } }}>펫 연결</button></>}</div>
               </div>;
             })}</div>}
+          <TaskGraph sessions={snapshot.sessions} disconnected={disconnected} now={snapshot.now} onDetails={onDetails} />
         </section>;
 }

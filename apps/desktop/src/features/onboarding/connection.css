@@ -1,0 +1,33 @@
+.connection-guide { max-width: 780px; }
+.setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 28px 0 25px; }
+.setup-heading h1 { font-size: 29px; line-height: 1.3; margin: 8px 0; }
+.setup-heading p { margin: 8px 0; }
+.setup-heading > .button { flex-shrink: 0; }
+.connection-manage-card { background: #fff; border: 1px solid #e1e8e2; border-radius: 17px; padding: 26px; }
+.setup-step-title { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.setup-step-title h2 { margin: 0; font-size: 18px; letter-spacing: -.5px; }
+.connection-manage-card p, .connection-advanced p { color: #6a7a6e; line-height: 1.8; font-size: 12px; margin: 12px 0; }
+.connection-manage-card small { display: block; font-size: 11px; color: #7a887e; line-height: 1.7; }
+.setup-status { font-size: 11px; color: #547660; padding: 6px 10px; border-radius: 20px; background: #edf4ee; white-space: nowrap; }
+.setup-actions { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin: 22px 0; }
+.setup-actions summary { cursor: pointer; color: #76847a; font-size: 11px; }
+.setup-actions details .text-button { display: block; margin-top: 6px; }
+.setup-help { margin: 17px 0 0; }
+.setup-help summary, .connection-advanced > summary { font-size: 12px; color: #587562; cursor: pointer; }
+.setup-help .path-code { white-space: normal; overflow-wrap: anywhere; }
+.setup-guidance .text-button { display: block; margin-top: 8px; }
+.connection-manage-card .setup-notice { border-left: 2px solid #8ab297; padding-left: 12px; color: #385e45; }
+.connection-advanced { margin: 25px 0; border-top: 1px solid #e2e9e1; padding-top: 19px; }
+.connection-advanced .text-input { width: 100%; height: 42px; min-height: 42px; resize: none; background: #fff; }
+.connection-advanced .field-label { display: block; margin: 18px 0 7px; }
+.connection-advanced .setup-host-stage { font-size: 10px; margin: 7px 0 15px; }
+.connection-detail-list { display: grid; gap: 10px; font-size: 11px; margin: 20px 0; }
+.connection-detail-list > div { display: flex; gap: 15px; }
+.connection-detail-list dt { color: #819081; min-width: 100px; }
+.connection-detail-list dd { margin: 0; color: #526b57; }
+.setup-default { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; font-size: 11px; margin-top: 20px; }
+.setup-default strong { margin-left: 9px; color: #4e693b; }
+.setup-update { margin: 22px 0; padding-top: 15px; border-top: 1px solid var(--line); font-size: 11px; }
+.setup-update summary { cursor: pointer; color: #647d50; }
+.setup-update .button { margin: 12px 8px 0 0; }
+@media (max-width: 700px) { .setup-heading { flex-wrap: wrap; } .connection-manage-card { padding: 20px; } .setup-step-title { align-items: flex-start; flex-wrap: wrap; gap: 8px; } }

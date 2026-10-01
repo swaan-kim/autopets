@@ -18,7 +18,12 @@ use tokio::{
 };
 
 mod auth;
+mod artifacts;
 mod handlers;
+mod workflow;
+mod task_graph;
+mod pet_link;
+use workflow::workflow;
 use crate::legacy::http::{abandon, approvals, returned, wait};
 use auth::*;
 use handlers::*;
@@ -106,15 +111,21 @@ pub async fn start(
     };
     let app = Router::new()
         .route("/v1/events", post(events))
+        .route("/v1/pet-link", post(pet_link::dispatch))
+        .route("/v1/task-graph", get(task_graph::read).post(task_graph::import))
         .route("/v1/task-context", get(task_context))
         .route("/v1/task-config", post(task_config))
         .route("/v1/assistance", post(assistance))
         .route("/v1/assistance-status", get(assistance_status))
+        .route("/v1/workflow", post(workflow))
+        .route("/v1/setup", get(setup_status).post(setup_start))
+        .route("/v1/setup/disconnect", post(setup_disconnect))
         .route("/v1/approvals", post(approvals))
         .route("/v1/approvals/{request_id}/wait", get(wait))
         .route("/v1/approvals/{request_id}/returned", post(returned))
         .route("/v1/approvals/{request_id}/abandon", post(abandon))
         .layer(DefaultBodyLimit::max(256 * 1024))
+        .route("/v1/artifacts", post(artifacts::artifacts).layer(DefaultBodyLimit::max(25 * 1024 * 1024)))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate))
         .with_state(state.clone());
     let info = ConnectionInfo {
@@ -188,3 +199,14 @@ pub(crate) fn state_error(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_pet_template;
+
+#[cfg(test)]
+mod artifact_tests;
+
+#[cfg(test)]
+mod lifecycle_tests;
+
+#[cfg(test)]
+mod role_tests;

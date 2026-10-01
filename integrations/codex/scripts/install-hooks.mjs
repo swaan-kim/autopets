@@ -61,7 +61,7 @@ export function updateConfig(config, operation, commands) {
     for (const event of EVENTS) {
       const handler = { type: 'command', ...commands, statusMessage: STATUS,
         timeout: ['Interrupt', 'SessionEnd'].includes(event) ? 3 : 5,
-        ...(!['PermissionRequest', 'SessionEnd'].includes(event) ? { async: true } : {}),
+        ...(!['PermissionRequest', 'Stop', 'SessionEnd'].includes(event) ? { async: true } : {}),
       };
       (updated.hooks[event] ??= []).push({ hooks: [handler] });
     }

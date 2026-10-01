@@ -4,6 +4,10 @@
 import { isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { MAX_BODY, isObject, validString, readConnection, requestJson as request } from '../skills/autopets/scripts/bridge-client.mjs';
+import { preflightSubmission } from '../assistance/workflow.mjs';
+import { runHookOnce } from '../bootstrap/deduplicate.mjs';
+import { turnStartId } from './turn-events.mjs';
+import { isChildHook } from './scope.mjs';
 
 const EVENTS = Object.freeze({
   SessionStart: 'session_started', UserPromptSubmit: 'turn_started',
@@ -70,7 +74,7 @@ function observedPlan(input) {
 }
 
 function baseEvent(input) {
-  if (!isObject(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
+  if (!isObject(input) || isChildHook(input) || !validString(input.session_id) || !validString(input.cwd, 32768)
     || !validString(input.hook_event_name, 64)) return null;
   if (input.turn_id !== undefined && !validString(input.turn_id)) return null;
   return { sessionId: input.session_id, cwd: input.cwd,
@@ -84,8 +88,12 @@ async function observe(input, base, connection) {
   if (['PreToolUse', 'PostToolUse'].includes(input.hook_event_name)
     && (!validString(input.tool_name, 256) || !validString(input.tool_use_id))) return;
   if (input.hook_event_name === 'PermissionRequest' && !validString(input.tool_name, 256)) return;
+  if (input.hook_event_name === 'UserPromptSubmit') {
+    const workflow = await preflightSubmission(input, (url, body) => request(connection, url, body, 1400, 16384));
+    if (workflow.suppressStart) return;
+  }
   const plan = observedPlan(input);
-  const event = { ...base, eventId: randomUUID(), kind, timestamp: Date.now(),
+  const event = { ...base, eventId: kind === 'turn_started' ? turnStartId(base) : randomUUID(), kind, timestamp: Date.now(),
     ...(validString(input.tool_name, 256) ? { toolName: input.tool_name } : {}),
     ...(validString(input.tool_use_id) ? { toolCallId: input.tool_use_id } : {}),
     ...(['PreToolUse', 'PostToolUse'].includes(input.hook_event_name) ? { activity: activityFor(input.tool_name) } : {}),
@@ -102,7 +110,7 @@ try {
   const base = baseEvent(input);
   if (base && Object.hasOwn(EVENTS, input.hook_event_name)) {
     const connection = await connectionFromArgs();
-    await observe(input, base, connection);
+    await runHookOnce(input, 'observe', async () => { await observe(input, base, connection); return { output: {} }; });
   }
 } catch { /* Exit successfully with no decision or added model context. */ }
 // v1 is observation-only, including permission attention. No control reply.
