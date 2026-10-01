@@ -21,6 +21,8 @@ pub fn run() {
             commands::apply_pet_link_template,
             commands::close_pet_tracking,
             commands::open_local_task,
+            commands::open_pet_task,
+            commands::set_onboarding_active,
             transport::task_graph_commands::task_graph_snapshot,
             transport::role_commands::roles_snapshot,
             transport::role_commands::save_pet,

@@ -12,6 +12,7 @@ const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
+const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
@@ -56,7 +57,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const workflow = structuredClone(initialWorkflow);
     const artifacts = structuredClone(initialArtifacts);
     const calls = [];
-    window.__uiTest = { state, assistance, workflow, artifacts, roles: { templates: roleTemplates, pets: [], bindings: [] }, artifactImages: {}, calls, clipboard: '', petVisibility: [true, true, true] };
+    window.__uiTest = { state, assistance, workflow, artifacts, roles: { templates: roleTemplates, pets: [], bindings: [] }, artifactImages: {}, calls, clipboard: '', petVisibility: [true, true, true], onboardingCalls: [], onboardingActive: false };
     const callbacks = new Map(); const eventHandlers = new Map(); let callbackId = 0;
     window.__uiTest.emitEvent = (name, payload) => { for (const handler of eventHandlers.get(name) || []) callbacks.get(handler)?.({ event: name, id: 1, payload }); };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { if (window.__uiTest.clipboardError) throw Error('fixture clipboard denied'); window.__uiTest.clipboard = text; } } });
@@ -76,8 +77,15 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'artifact_snapshot') return structuredClone(artifacts);
         if (name === 'plugin:event|listen') { eventHandlers.set(args.event, [...(eventHandlers.get(args.event) || []), args.handler]); return 1; }
         if (name.startsWith('plugin:event|')) return null;
+        if (name === 'set_onboarding_active') {
+          window.__uiTest.onboardingCalls.push(structuredClone(args));
+          window.__uiTest.onboardingActive = args.active;
+          return null;
+        }
         calls.push({ name, args });
         if (name === 'save_pet') {
+          if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
+          if (window.__uiTest.holdSavePet) await new Promise(resolve => { window.__uiTest.releaseSavePet = resolve; });
           const previous = window.__uiTest.roles.pets.find(pet => pet.id === args.id);
           if ((previous?.revision ?? 0) !== args.expectedRevision) throw Error('saved-pet-revision-changed');
           const pet = { id: previous?.id ?? `ui-pet-${window.__uiTest.roles.pets.length}`, revision: args.expectedRevision + 1, template: structuredClone(args.template), updatedAt: Date.now() };
@@ -90,13 +98,21 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           const pet = window.__uiTest.roles.pets.find(item => item.id === args.petId && item.revision === args.petRevision);
           if (!link || link.revision !== args.expectedRevision || !pet) throw Error('pet-revision-changed');
           if (link.run && !link.run.trackingClosed && ['requested','working','returned','unknown'].includes(link.run.state)) throw Error('pet-run-active-or-unresolved');
-          link.template = structuredClone(pet.template); link.savedPet = { id: pet.id, revision: pet.revision }; link.profile = 'light'; link.revision++; link.run = null;
+          link.template = structuredClone(pet.template); link.savedPet = { id: pet.id, revision: pet.revision }; link.profile = pet.template.execution?.model === 'gpt-6-sol' ? (pet.template.execution.reasoning === 'medium' ? 'careful' : 'standard') : 'light'; link.revision++; link.run = null;
           window.__uiTest.emitEvent('autopets://snapshot', structuredClone(state));
           return structuredClone(link);
         }
         if (name === 'open_local_task') {
           if (window.__uiTest.returnError) throw Error(window.__uiTest.returnError);
           return { status: 'dispatched', sessionId: window.__uiTest.returnWrongTarget ? 'wrong-task' : args.sessionId, targetVerified: false };
+        }
+        if (name === 'open_pet_task') {
+          const link = state.petLinks?.find(item => JSON.stringify(item.target) === JSON.stringify(args.target));
+          if (!link || link.revision !== args.expectedRevision) throw Error('pet-revision-changed');
+          const receipt = { status: 'dispatched', sessionId: window.__uiTest.returnWrongTarget ? 'wrong-task' : args.target.threadId, targetVerified: false };
+          if (window.__uiTest.returnError) throw Error(window.__uiTest.returnError);
+          if (window.__uiTest.holdPetReturn) await new Promise(resolve => { window.__uiTest.releasePetReturn = resolve; });
+          return receipt;
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
@@ -137,6 +153,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'check_app_update') return window.__uiTest.update || { status: 'disabled', message: '이 빌드에서는 공개 업데이트를 제공하지 않아요.' };
         if (name === 'install_app_update') return null;
         if (name === 'connect_ai' || name === 'disconnect_ai') {
+          if (window.__uiTest.holdConnection) await new Promise(resolve => { window.__uiTest.releaseConnection = resolve; });
           if (args?.hostId !== 'codex-windows-local') throw Error('지원하지 않는 연결입니다.');
           if (window.__uiTest.connectionError) throw Error(window.__uiTest.connectionError);
           const connection = state.setup.connections.find(item => item.hostId === args.hostId);
@@ -274,11 +291,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await empty.goto(origin);
     await empty.getByRole('heading', { name: /내 일에 맞게/ }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
-    assert.equal(await empty.getByRole('button', { name: 'Codex 연결 준비' }).isEnabled(), false);
+    await empty.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
+    assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
     await empty.getByText('브라우저 미리보기 · 연결 없음', { exact: true }).waitFor();
-    await empty.getByRole('button', { name: '연결 설정·도움 보기 →' }).click();
-    await empty.getByRole('heading', { name: /펫과 함께 시작해요/ }).waitFor();
-    assert.equal(await empty.locator('input[type=checkbox]').count(), 0);
+    await empty.getByRole('button', { name: '연결 도움', exact: true }).click();
+    await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
+    assert.equal(await empty.locator('input[type=checkbox]:visible').count(), 0);
     assert.equal(await empty.getByRole('button', { name: /허용|거절|승인/ }).count(), 0);
     await empty.getByText('고급 기능', { exact: true }).click();
     await empty.getByRole('button', { name: '자동 도움', exact: true }).click();
@@ -575,14 +593,14 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await mockBridge(setupPage, setupFixture);
     await setupPage.goto(origin);
     await setupPage.getByRole('button', { name: '연결 설정', exact: true }).click();
-    await setupPage.getByRole('heading', { name: '앱 준비', exact: true }).waitFor();
-    await setupPage.getByRole('heading', { name: '첫 작업 확인', exact: true }).waitFor();
+    await setupPage.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
+    await setupPage.getByText('다른 환경과 연결 상세', { exact: true }).click();
     await setupPage.getByText('실제 설정 확인', { exact: true }).click();
     await setupPage.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
     await setupPage.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 시연 데이터 · 실제 연결 미검증'; });
     await setupPage.evaluate(() => { window.__uiTest.state.setup.chatConnected = true; window.__uiTest.state.setup.phase = 'ready'; });
-    await setupPage.getByText('자동 도움 전달 · 미확인', { exact: true }).waitFor();
-    assert.equal(await setupPage.locator('.setup-step').nth(2).locator('.setup-status').textContent(), '확인 전');
+    assert.equal(await setupPage.locator('.connection-detail-list div').filter({ hasText: '자동 도움 전달' }).locator('dd').textContent(), '미확인');
+    assert.equal(await setupPage.locator('.setup-status').textContent(), '연결 전');
     checks.push('legacy setup remains readable without promoting a global observed-chat flag into host-specific first-task evidence');
 
     const waitingPet = await newPage({ width: 220, height: 250 });
@@ -600,6 +618,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await runPetTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
     const toolScreenshots = await runToolActivityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });

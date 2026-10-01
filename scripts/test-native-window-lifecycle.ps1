@@ -58,11 +58,31 @@ if (-not $Worker) {
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes,WindowsBase,System.Windows.Forms,System.Drawing
 Add-Type @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class AutoPetsNativeCheck {
+  private delegate bool EnumWindowsProc(IntPtr handle, IntPtr parameter);
+  [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+  [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr handle, StringBuilder text, int count);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
+  public static long[] PetHandles(uint processId) {
+    var result = new List<long>();
+    var names = new[] { "AutoPets \u00b7 \ubaa8\uc2a4", "AutoPets \u00b7 \ub8e8\ub098", "AutoPets \u00b7 \ud1a0\ud53c" };
+    EnumWindows((handle, parameter) => {
+      uint owner; GetWindowThreadProcessId(handle, out owner);
+      if (owner == processId) {
+        var title = new StringBuilder(128); GetWindowText(handle, title, title.Capacity);
+        if (Array.IndexOf(names, title.ToString()) >= 0) result.Add(handle.ToInt64());
+      }
+      return true;
+    }, IntPtr.Zero);
+    result.Sort();
+    return result.ToArray();
+  }
 }
 '@
 $taskAppDirectory = Join-Path $env:LOCALAPPDATA 'AutoPets'
@@ -72,7 +92,7 @@ $taskNode = Join-Path $taskAppDirectory 'connector/runtime/node.exe'
 $taskConnectionFile = Join-Path $taskDataDirectory 'connection.json'
 $taskTitle = [regex]::Unescape('AutoPets \u00b7 \uc791\uc740 \uc791\uc5c5 \ub3d9\ub8cc')
 $taskQuitName = [regex]::Unescape('AutoPets \uc885\ub8cc')
-$taskReadyName = [regex]::Unescape('Codex \uc5f0\uacb0 \uc900\ube44')
+$taskReadyName = [regex]::Unescape('\uc774 \ud3ab\uc73c\ub85c \uc2dc\uc791')
 $taskWindow = $null
 $taskResult = [ordered]@{ outcome = 'incomplete'; harnessCommit = $env:GITHUB_SHA; installerSha256 = $ExpectedSha256; sourceCommit = $SourceCommit; environment = 'GitHub-hosted Windows'; automation = 'UI Automation InvokePattern'; forcedTerminationUsed = $false; screenshots = @(); steps = @() }
 $taskOriginalPath = $env:PATH
@@ -175,6 +195,25 @@ function Invoke-Button($Button) {
     $taskPattern = $null
     if (-not $Button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$taskPattern)) { throw 'Button has no accessible InvokePattern.' }
     ([System.Windows.Automation.InvokePattern]$taskPattern).Invoke()
+}
+function Assert-PetVisibility([int]$ProcessId, [int]$VisibleCount, [string]$Step) {
+    $taskVisibility = Wait-Until {
+        # UIA omits hidden top-level windows. Read only HWND visibility for the
+        # three known pet windows owned by this exact disposable app process.
+        $taskHandles = @([AutoPetsNativeCheck]::PetHandles([uint32]$ProcessId))
+        if ($taskHandles.Count -ne 3) { return $null }
+        $taskShown = @($taskHandles | Where-Object { [AutoPetsNativeCheck]::IsWindowVisible([IntPtr]$_) })
+        if ($taskShown.Count -ne $VisibleCount) { return $null }
+        return [pscustomobject]@{ handles = $taskHandles; visible = $taskShown }
+    } ("Pet visibility mismatch: " + $Step) 10
+    $taskResult.steps += [pscustomobject]@{ step = $Step; petWindowCount = @($taskVisibility.handles).Count; visiblePetCount = @($taskVisibility.visible).Count; observedVia = 'native HWND visibility' }
+    return $taskVisibility
+}
+function Hide-MainByCaption($Window, [long]$Handle) {
+    $taskClose = $Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'Close'))
+    Invoke-Button $taskClose
+    [void](Wait-Until { -not [AutoPetsNativeCheck]::IsWindowVisible([IntPtr]$Handle) } 'Caption X did not hide the manager.' 10)
 }
 function Save-WindowImage($Window, [string]$Name) {
     [void][AutoPetsNativeCheck]::SetForegroundWindow([IntPtr]$Window.Current.NativeWindowHandle)
@@ -308,6 +347,67 @@ function Save-RoleFixture($Window) {
     $taskResult.steps += [pscustomobject]@{ step = 'save-role'; actualUi = $true; template = 'research-document' }
 }
 
+function Test-OnboardingPetVisibility($Window, $Process, [long]$Handle) {
+    Set-LifecyclePhase 'onboarding-stored-pet-visibility' 60
+    [void](Assert-PetVisibility $Process.Id 1 'role-view-restores-assigned-pet')
+    Invoke-Button (Find-Button $Window ([regex]::Unescape('\ub098\uc758 \ud3ab')))
+    [void](Wait-Until { Find-Button $Window ([regex]::Unescape('\ud3ab \uc900\ube44 \ub2eb\uae30')) } 'Open pet preparation guide was not restored.' 10)
+    [void](Assert-PetVisibility $Process.Id 0 'onboarding-hides-assigned-pet')
+    $taskBeforeSuppression = Read-Fixture
+    $taskWindowPattern = $null
+    if (-not $Window.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$taskWindowPattern)) { throw 'Main window has no accessible WindowPattern.' }
+    ([System.Windows.Automation.WindowPattern]$taskWindowPattern).SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Minimized)
+    [void](Wait-Until { [AutoPetsNativeCheck]::IsIconic([IntPtr]$Handle) } 'Manager did not minimize.' 10)
+    [void](Assert-PetVisibility $Process.Id 1 'minimized-onboarding-restores-assigned-pet')
+    $Window = Invoke-Recall $Process $Handle 'recall-minimized-onboarding'
+    [void](Assert-PetVisibility $Process.Id 0 'restored-onboarding-hides-assigned-pet')
+    Set-LifecyclePhase 'onboarding-caption-visibility' 45
+    Hide-MainByCaption $Window $Handle
+    [void](Assert-PetVisibility $Process.Id 1 'hidden-onboarding-restores-assigned-pet')
+    $Window = Invoke-Recall $Process $Handle 'recall-hidden-onboarding'
+    [void](Assert-PetVisibility $Process.Id 0 'reopened-onboarding-hides-assigned-pet')
+    if ((Read-Fixture) -cne $taskBeforeSuppression) { throw 'Onboarding window transitions changed stored data or positions.' }
+
+    # Exercise the real user's per-pet hide action. Onboarding and single-instance
+    # recall must not silently reset it. No native test-only command is injected.
+    Set-LifecyclePhase 'onboarding-hidden-pet-preference' 60
+    Invoke-Button (Find-Button $Window ([regex]::Unescape('\ud3ab \uc900\ube44 \ub2eb\uae30')))
+    $taskVisible = Assert-PetVisibility $Process.Id 1 'closed-guide-restores-assigned-pet'
+    $taskPetHandle = [IntPtr]([long]$taskVisible.visible[0])
+    [void][AutoPetsNativeCheck]::SetForegroundWindow($taskPetHandle)
+    $taskPetWindow = [System.Windows.Automation.AutomationElement]::FromHandle($taskPetHandle)
+    $taskMenuSuffix = [regex]::Unescape('\uc791\uc5c5 \uce74\ub4dc \uc5f4\uae30')
+    $taskPetButton = Wait-Until {
+        $taskButtons = $taskPetWindow.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
+        for ($taskIndex = 0; $taskIndex -lt $taskButtons.Count; $taskIndex++) {
+            if ($taskButtons[$taskIndex].Current.Name.EndsWith($taskMenuSuffix)) { return $taskButtons[$taskIndex] }
+        }
+        return $null
+    } 'Assigned pet card button is unavailable.' 10
+    Invoke-Button $taskPetButton
+    $taskPetMenu = Wait-Until { Find-Button $taskPetWindow ([regex]::Unescape('\ud3ab \uce74\ub4dc \uba54\ub274')) } 'Pet card menu is unavailable.' 10
+    Invoke-Button $taskPetMenu
+    $taskHidePet = Wait-Until { Find-Button $taskPetWindow ([regex]::Unescape('\uc774 \ud3ab \uc228\uae30\uae30')) } 'Per-pet hide button is unavailable.' 10
+    Invoke-Button $taskHidePet
+    [void](Assert-PetVisibility $Process.Id 0 'user-hid-assigned-pet')
+    $taskBeforeHidden = Read-Fixture
+    Invoke-Button (Find-Button $Window ([regex]::Unescape('\ud3ab \uc900\ube44')))
+    [void](Wait-Until { Find-Button $Window ([regex]::Unescape('\ud3ab \uc900\ube44 \ub2eb\uae30')) } 'Pet preparation did not reopen.' 10)
+    Hide-MainByCaption $Window $Handle
+    [void](Assert-PetVisibility $Process.Id 0 'hidden-manager-preserves-hidden-pet')
+    $Window = Invoke-Recall $Process $Handle 'recall-with-user-hidden-pet'
+    [void](Assert-PetVisibility $Process.Id 0 'recalled-manager-preserves-hidden-pet')
+    Set-LifecyclePhase 'onboarding-restore-user-choice' 45
+    Invoke-Button (Find-Button $Window ([regex]::Unescape('\ud3ab \uc900\ube44 \ub2eb\uae30')))
+    [void](Assert-PetVisibility $Process.Id 0 'closed-guide-preserves-hidden-pet')
+    if ((Read-Fixture) -cne $taskBeforeHidden) { throw 'Onboarding reset the hidden pet fixture or its positions.' }
+    Invoke-Button (Find-Button $Window ([regex]::Unescape('\ubc14\ud0d5\ud654\uba74\uc5d0 \ubaa8\ub450 \ud45c\uc2dc \u2197')))
+    [void](Assert-PetVisibility $Process.Id 1 'explicit-show-restores-assigned-pet')
+    $taskResult.steps += [pscustomobject]@{ step = 'onboarding-overlay-regression'; storedSession = $true; minimizeRestore = $true; captionHideRecall = $true; userHiddenPreferencePreserved = $true; positionsAndDataPreserved = $true; aiConnectionConfigured = $false }
+    return $Window
+}
+
 try {
     Set-LifecyclePhase 'preflight' 120
     if (-not [Environment]::UserInteractive) { throw 'Runner has no interactive desktop; no GUI pass can be claimed.' }
@@ -348,6 +448,7 @@ try {
     $taskStartTimer.Stop()
     $taskHandle = [long]$taskWindow.Current.NativeWindowHandle
     $taskResult.steps += [pscustomobject]@{ step = 'first-render'; seconds = [Math]::Round($taskStartTimer.Elapsed.TotalSeconds, 3); nativeWindowVisible = $true; renderedPetStartControlFound = $true; quitButtonFound = $true }
+    [void](Assert-PetVisibility $taskOriginal.Id 0 'first-onboarding-overlays-hidden')
     Save-WindowImage $taskWindow 'first-window'
     Set-LifecyclePhase 'measure-idle-resources' 30
     $taskResult.resources = @((Measure-NativeResources $taskOriginal.Id 'manager-no-task'))
@@ -370,6 +471,7 @@ try {
     [void](Request-Bridge $taskConnection '/v1/events' @{ eventId = 'gui-start'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; kind = 'turn_started'; cwd = $taskFixtureDirectory; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() })
     [void](Request-Bridge $taskConnection '/v1/task-config' @{ requestId = 'gui-config'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; cwd = $taskFixtureDirectory; completionCriterion = 'GUI restart must preserve this test record'; interventionMode = 'milestones'; elapsedAlertMinutes = 7 })
     Save-RoleFixture $taskWindow
+    $taskWindow = Test-OnboardingPetVisibility $taskWindow $taskOriginal $taskHandle
     Set-LifecyclePhase 'measure-working-resources' 30
     $taskResult.resources += Measure-NativeResources $taskOriginal.Id 'manager-with-synthetic-working-pet'
     Quit-ThroughButton $taskWindow $taskOriginal $taskConnection 'normal-exit'

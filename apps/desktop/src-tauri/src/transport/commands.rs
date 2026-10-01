@@ -19,6 +19,24 @@ pub(crate) fn open_local_task(
 }
 
 #[tauri::command]
+pub(crate) fn open_pet_task(
+    store: tauri::State<SharedStore>,
+    target: crate::domain::pet_link::Target,
+    expected_revision: u64,
+) -> Result<crate::platform::task_return::DispatchReceipt, String> {
+    let uri = {
+        let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
+        crate::platform::task_return::pet_task_uri(&state, &target, expected_revision)?
+    };
+    crate::platform::task_return::dispatch(&target.thread_id, &uri)
+}
+
+#[tauri::command]
+pub(crate) fn set_onboarding_active(window: tauri::WebviewWindow, active: bool) -> Result<(), String> {
+    crate::platform::windows::set_onboarding_active(&window, active)
+}
+
+#[tauri::command]
 pub(crate) fn get_setup_state(
     store: tauri::State<SharedStore>,
 ) -> Result<serde_json::Value, String> {

@@ -15,12 +15,11 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   await mockBridge(page, { ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), setup });
   await page.goto(origin);
   await page.getByRole('button', { name: '연결 설정', exact: true }).click();
-  await page.getByRole('heading', { name: 'AI 연결', exact: true }).waitFor();
-  assert.equal(await page.locator('.setup-step').count(), 3);
-  assert.equal(await page.locator('.setup-default strong').textContent(), '균형 있게');
-  assert.equal(await page.locator('.setup-step input').count(), 0);
+  await page.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
+  assert.equal(await page.getByLabel('사용할 AI', { exact: true }).isVisible(), false);
+  assert.equal(await page.locator('.connection-manage-card input').count(), 0);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), []);
-  await page.getByText('희망 설정과 AI의 실제 모델·추론 설정은 별도예요.', { exact: true }).waitFor();
+  await page.waitForFunction(() => !window.__uiTest.onboardingActive);
   await page.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 실제 연결 미검증'; });
   const initial = path.join(screenshotDir, 'native-ui-setup.png');
   await page.screenshot({ path: initial, fullPage: true, animations: 'disabled' });
@@ -42,26 +41,30 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   checks.push('main-window exit remains visible and callable on short and narrow screens');
 
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
-  await page.getByText('채팅에서 호출 대기', { exact: true }).waitFor();
-  await page.getByText(/이 연결에는 훅 허용이 필요하지 않아요/).waitFor();
-  assert.equal(await page.locator('.setup-step').nth(2).locator('.setup-status').textContent(), '확인 전');
-  assert.equal(await page.getByRole('button', { name: '연결 설정 준비됨', exact: true }).isEnabled(), false);
+  await page.getByText('호출 준비됨', { exact: true }).waitFor();
+  await page.getByText('펫이 연결되지 않나요?', { exact: true }).click();
+  await page.getByText(/펫 호출에는 새 훅 허용이 필요하지 않아요/).waitFor();
+  assert.equal(await page.getByText('펫 연결됨', { exact: true }).count(), 0);
+  await page.getByRole('button', { name: '연결 복구', exact: true }).waitFor();
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [{ name: 'connect_ai', args: { hostId: 'codex-windows-local' } }]);
   const pending = path.join(screenshotDir, 'native-ui-unified-pending.png');
   await page.screenshot({ path: pending, fullPage: true, animations: 'disabled' });
-  checks.push('first launch has three steps, no forced questions or mutations; explicit connect waits for trust/restart and a real first task');
+  checks.push('connection management does not mutate on entry; configured calling skill is distinct from a linked pet; other hosts and technical details are collapsed');
 
-  await page.evaluate(() => { const connection = window.__uiTest.state.setup.connections[0]; connection.status = 'connected'; connection.firstTask = { sessionId: 'fixture-first-task', lastEventAt: Date.now() }; });
-  await page.getByText('활동 확인됨', { exact: true }).waitFor();
-  await page.getByText('자동 도움 전달 · 미확인', { exact: true }).waitFor();
+  await page.evaluate(() => { const connection = window.__uiTest.state.setup.connections[0]; connection.status = 'connected'; connection.firstTask = { sessionId: 'fixture-first-task', lastEventAt: Date.now() }; window.__uiTest.state.now = Date.now(); window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); });
+  await page.getByText('다른 환경과 연결 상세', { exact: true }).click();
+  await page.getByText('수신 확인', { exact: true }).waitFor();
+  assert.equal(await page.locator('.connection-detail-list div').filter({ hasText: '자동 도움 전달' }).locator('dd').textContent(), '미확인');
+  assert.equal(await page.getByText('펫 연결됨', { exact: true }).count(), 0);
+  assert.equal(await page.locator('.setup-default strong').textContent(), '균형 있게');
   await page.getByText('실제 설정 확인', { exact: true }).click();
   await page.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('work-local');
   await page.getByText('호환성 확인 전', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).count(), 0);
-  assert.equal(await page.locator('.setup-step').nth(2).locator('.setup-status').textContent(), '확인 전');
+  assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('chatgpt-web');
-  await page.getByText(/웹·클라우드 채팅은 이 PC와 자동 연결되지 않아요/).waitFor();
+  await page.getByText(/이 웹·클라우드 환경은 아직 펫과 연결되지 않아요/).waitFor();
   assert.equal(await page.evaluate(() => window.__uiTest.calls.length), 1);
   await page.setViewportSize({ width: 430, height: 1000 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 430), JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > 430).map(element => ({ tag: element.tagName, class: element.className, right: element.getBoundingClientRect().right })))));
@@ -70,13 +73,13 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   checks.push('first task does not imply guidance or setting verification, and another host never inherits the selected host evidence');
 
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('codex-windows-local');
-  await page.getByText('연결 관리', { exact: true }).click();
+  await page.getByText('연결 해제', { exact: true }).click();
   await page.getByRole('button', { name: '이 AI 연결 해제', exact: true }).click();
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).waitFor();
   await page.evaluate(() => { window.__uiTest.connectionError = '검수용 연결 실패'; });
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: '검수용 연결 실패' }).waitFor();
-  assert.equal(await page.locator('.setup-step').nth(2).locator('.setup-status').textContent(), '확인 전');
+  await page.getByRole('alert').filter({ hasText: '연결 설정을 바꾸지 못했어요' }).waitFor();
+  assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).isEnabled(), true);
   checks.push('disconnect and failed setup leave a retryable connection and never fabricate a first task');
 

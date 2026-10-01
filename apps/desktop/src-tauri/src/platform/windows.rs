@@ -19,6 +19,7 @@ pub(crate) struct Position {
 }
 pub(crate) struct Desktop {
     pub(crate) visible: AtomicBool,
+    pub(crate) onboarding_active: AtomicBool,
     pub(crate) hidden_slots: Mutex<[bool; 3]>,
     pub(crate) positions: Mutex<HashMap<String, Position>>,
     pub(crate) data_dir: PathBuf,
@@ -33,8 +34,53 @@ fn pet_has_content(snapshot: &Snapshot, slot: usize) -> bool {
         || (slot == 0 && !assigned)
 }
 
+fn onboarding_suppressed(active: bool, manager_visible: bool, manager_minimized: bool) -> bool {
+    active && manager_visible && !manager_minimized
+}
+
+fn overlays_suppressed(app: &tauri::AppHandle) -> bool {
+    let active = app.try_state::<Desktop>()
+        .is_some_and(|state| state.onboarding_active.load(Ordering::Relaxed));
+    app.get_webview_window("main").is_some_and(|window| onboarding_suppressed(
+        active, window.is_visible().unwrap_or(true), window.is_minimized().unwrap_or(false),
+    ))
+}
+
+fn pet_should_show(visible: bool, hidden: bool, has_content: bool, suppressed: bool) -> bool {
+    visible && !hidden && has_content && !suppressed
+}
+
+fn require_onboarding_manager(label: &str) -> Result<(), String> {
+    if label == "main" { Ok(()) } else { Err("안내 화면에서만 표시 상태를 바꿀 수 있습니다.".into()) }
+}
+
+fn set_onboarding_flag(desktop: &Desktop, active: bool) {
+    desktop.onboarding_active.store(active, Ordering::Relaxed);
+}
+
+pub(crate) fn set_onboarding_active(window: &tauri::WebviewWindow, active: bool) -> Result<(), String> {
+    require_onboarding_manager(window.label())?;
+    let desktop = window.app_handle().try_state::<Desktop>().ok_or("앱 표시 상태를 읽을 수 없습니다.")?;
+    set_onboarding_flag(&desktop, active);
+    refresh_pet_visibility(window.app_handle());
+    Ok(())
+}
+
 pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
     let _ = app.emit("autopets://snapshot", &snapshot);
+    apply_pet_visibility(app, &snapshot);
+}
+
+// Window lifecycle events restore the user's existing choices even when the
+// frontend did not get a chance to run its onboarding cleanup.
+pub(crate) fn refresh_pet_visibility(app: &tauri::AppHandle) {
+    if let Some(store) = app.try_state::<SharedStore>() {
+        let snapshot = store.lock().ok().map(|state| state.snapshot());
+        if let Some(snapshot) = snapshot { apply_pet_visibility(app, &snapshot); }
+    }
+}
+
+fn apply_pet_visibility(app: &tauri::AppHandle, snapshot: &Snapshot) {
     let visible = app
         .try_state::<Desktop>()
         .map(|s| s.visible.load(Ordering::Relaxed))
@@ -43,16 +89,14 @@ pub(crate) fn emit(app: &tauri::AppHandle, snapshot: Snapshot) {
         .try_state::<Desktop>()
         .map(|s| s.hidden_slots.lock().map(|h| *h).unwrap_or([false; 3]))
         .unwrap_or([false; 3]);
+    let suppressed = overlays_suppressed(app);
     for slot in &snapshot.slots {
         if let Some(window) = app.get_webview_window(&format!("pet-{}", slot.index)) {
-            if visible
-                && !hidden_slots[slot.index]
-                && pet_has_content(&snapshot, slot.index)
-            {
+            if pet_should_show(visible, hidden_slots[slot.index], pet_has_content(snapshot, slot.index), suppressed) {
                 if !window.is_visible().unwrap_or(false) {
                     let _ = window.show();
                 }
-            } else {
+            } else if window.is_visible().unwrap_or(true) {
                 let _ = window.hide();
             }
         }
@@ -67,6 +111,7 @@ pub(crate) fn show_manager(
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
+        refresh_pet_visibility(&app);
         let _ = window.set_focus();
         if section.as_deref() == Some("assistance") {
             let _ = window.emit(
@@ -78,15 +123,7 @@ pub(crate) fn show_manager(
 }
 
 pub(crate) fn reopen(app: &tauri::AppHandle) {
-    if let Some(desktop) = app.try_state::<Desktop>() {
-        desktop.visible.store(true, Ordering::Relaxed);
-        if let Ok(mut hidden) = desktop.hidden_slots.lock() {
-            *hidden = [false; 3];
-        }
-    }
-    if let Some(store) = app.try_state::<SharedStore>() {
-        let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(app, snapshot));
-    }
+    // Reopening the manager is not the explicit "show all pets" action.
     show_manager(app.clone(), None, None);
 }
 
@@ -165,6 +202,8 @@ pub(crate) fn open_pet(
         return Err("먼저 작업을 연결해주세요.".into());
     }
     change_slot_visibility(&desktop, slot, true)?;
+    apply_pet_visibility(&app, &snapshot);
+    if overlays_suppressed(&app) { return Ok(()); }
     if let Some(window) = app.get_webview_window(&format!("pet-{slot}")) {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;

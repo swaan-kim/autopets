@@ -27,6 +27,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(store.clone());
     app.manage(Desktop {
         visible: AtomicBool::new(true),
+        // Hold overlays until the manager reports whether its first-use guide
+        // is open. This is transient and never changes saved display choices.
+        onboarding_active: AtomicBool::new(true),
         hidden_slots: Mutex::new([false; 3]),
         positions: Mutex::new(positions.clone()),
         data_dir: data_dir.clone(),
@@ -99,6 +102,10 @@ pub(crate) fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent
         tauri::WindowEvent::CloseRequested { api, .. } => {
             api.prevent_close();
             let _ = window.hide();
+            if window.label() == "main" { refresh_pet_visibility(window.app_handle()); }
+        }
+        tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(_) if window.label() == "main" => {
+            refresh_pet_visibility(window.app_handle());
         }
         tauri::WindowEvent::Moved(position) if window.label().starts_with("pet-") => {
             if let Some(desktop) = window.app_handle().try_state::<Desktop>() {

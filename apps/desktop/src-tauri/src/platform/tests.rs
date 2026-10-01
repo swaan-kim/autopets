@@ -47,6 +47,7 @@ fn pet_card_fits_work_area_at_common_dpi_and_negative_monitor_positions() {
 fn individual_visibility_preserves_other_hidden_pets_and_global_hide() {
     let desktop = Desktop {
         visible: AtomicBool::new(true),
+        onboarding_active: AtomicBool::new(false),
         hidden_slots: Mutex::new([false; 3]),
         positions: Mutex::new(HashMap::new()),
         data_dir: PathBuf::new(),
@@ -61,4 +62,48 @@ fn individual_visibility_preserves_other_hidden_pets_and_global_hide() {
     change_slot_visibility(&desktop, 0, true).unwrap();
     assert_eq!(*desktop.hidden_slots.lock().unwrap(), [false, true, false]);
     assert!(change_slot_visibility(&desktop, 3, true).is_err());
+}
+
+#[test]
+fn onboarding_only_suppresses_pets_while_manager_is_visible_and_not_minimized() {
+    for active in [false, true] {
+        for visible in [false, true] {
+            for minimized in [false, true] {
+                assert_eq!(onboarding_suppressed(active, visible, minimized), active && visible && !minimized);
+            }
+        }
+    }
+    for (manager_visible, minimized, expected) in [(true, false, false), (false, false, true), (true, true, true), (true, false, false)] {
+        let suppressed = onboarding_suppressed(true, manager_visible, minimized);
+        assert_eq!(pet_should_show(true, false, true, suppressed), expected);
+        assert!(!pet_should_show(false, false, true, suppressed));
+        assert!(!pet_should_show(true, true, true, suppressed));
+        assert!(!pet_should_show(true, false, false, suppressed));
+    }
+    assert!(require_onboarding_manager("main").is_ok());
+    for other in ["pet-0", "pet-1", "pet-2", "other"] { assert!(require_onboarding_manager(other).is_err()); }
+}
+
+#[test]
+fn onboarding_begin_end_and_manager_reopen_preserve_user_visibility_and_positions() {
+    let desktop = Desktop {
+        visible: AtomicBool::new(false),
+        onboarding_active: AtomicBool::new(true),
+        hidden_slots: Mutex::new([false, true, false]),
+        positions: Mutex::new(HashMap::from([("pet-0".into(), Position { x: -120, y: 240 })])),
+        data_dir: PathBuf::new(),
+        bridge: Mutex::new(None),
+    };
+    let before = serde_json::to_value(&*desktop.positions.lock().unwrap()).unwrap();
+    for active in [true, false, true, false] {
+        set_onboarding_flag(&desktop, active);
+        assert_eq!(desktop.onboarding_active.load(Ordering::Relaxed), active);
+        for (visible, minimized) in [(true, false), (false, false), (true, true), (true, false)] {
+            let suppression = onboarding_suppressed(active, visible, minimized);
+            assert!(!pet_should_show(desktop.visible.load(Ordering::Relaxed), false, true, suppression));
+        }
+        assert!(!desktop.visible.load(Ordering::Relaxed));
+        assert_eq!(*desktop.hidden_slots.lock().unwrap(), [false, true, false]);
+        assert_eq!(serde_json::to_value(&*desktop.positions.lock().unwrap()).unwrap(), before);
+    }
 }
