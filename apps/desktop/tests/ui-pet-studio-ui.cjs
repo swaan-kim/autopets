@@ -56,6 +56,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await wizard.getByRole('radio', { name: '표준', exact: true }).check();
   await wizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click(); await waitStep(2);
   assert.equal(await wizard.getByRole('checkbox', { name: 'Figma 시안 활용', exact: true }).isChecked(), false);
+  const connectionsImage = path.join(screenshotDir, 'native-ui-ui-pet-connections.png');
+  await page.screenshot({ path: connectionsImage, fullPage: true }); images.push(connectionsImage);
   await wizard.getByRole('button', { name: '← 이전', exact: true }).click(); await waitStep(1);
   await toggleDetail('모델과 저장한 구성');
   assert.equal(await wizard.getByRole('radio', { name: '표준', exact: true }).isChecked(), true);
@@ -76,6 +78,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await waitStep(3);
   assert.equal(await page.evaluate(() => window.__uiTest.state.petLinks.length), 0);
   await wizard.getByText('채팅 연결 대기 · 복사는 아직 전송이 아니에요.', { exact: true }).waitFor();
+  const startImage = path.join(screenshotDir, 'native-ui-ui-pet-ready.png');
+  await page.screenshot({ path: startImage, fullPage: true }); images.push(startImage);
 
   await page.evaluate(() => { window.__uiTest.savePetError = 'fixture save unavailable'; });
   await wizard.getByRole('button', { name: /^시작 요청 (다시 )?복사$/ }).click();
@@ -90,6 +94,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await callCount('save_pet'), 2);
   await page.evaluate(() => { window.__uiTest.holdSavePet = false; window.__uiTest.releaseSavePet(); });
   await wizard.getByText('복사했어요. 사용할 Codex 채팅에 붙여넣고 보내주세요.', { exact: true }).waitFor();
+  const copiedImage = path.join(screenshotDir, 'native-ui-ui-pet-copied.png');
+  await page.screenshot({ path: copiedImage, fullPage: true }); images.push(copiedImage);
   const first = await page.evaluate(() => ({ clipboard: window.__uiTest.clipboard, pets: window.__uiTest.roles.pets }));
   assert.ok(first.clipboard.includes('petId=ui-pet-0, petRevision=1'));
   assert.ok(first.clipboard.includes('계획만 세워줘'));
