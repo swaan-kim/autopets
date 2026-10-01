@@ -328,10 +328,26 @@ function Assert-QuitVisible($Window) {
     $taskWorkArea = [Windows.Forms.Screen]::FromHandle([IntPtr]$Window.Current.NativeWindowHandle).WorkingArea
     if ($taskQuit.Current.IsOffscreen -or -not $taskWorkArea.Contains($taskRectangle)) { throw 'Quit button requires scrolling or extends outside the work area.' }
 }
-function Invoke-Button($Button) {
+function Invoke-Button($Button, [switch]$Expand) {
     if (-not $Button -or -not $Button.Current.IsEnabled) { throw 'Required button is unavailable.' }
     $taskPattern = $null
-    if (-not $Button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$taskPattern)) { throw 'Button has no accessible InvokePattern.' }
+    # WebView2 exposes aria-expanded buttons as ExpandCollapse controls. Use
+    # that documented UIA action only where this test explicitly opens a card.
+    if ($Expand -and $Button.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$taskPattern)) {
+        $taskExpandPattern = [System.Windows.Automation.ExpandCollapsePattern]$taskPattern
+        $taskExpandState = $taskExpandPattern.Current.ExpandCollapseState
+        if ($taskExpandState -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed) { $taskExpandPattern.Expand() }
+        elseif ($taskExpandState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) { throw 'Required card cannot be expanded.' }
+        $taskResult.steps += [pscustomobject]@{ step = 'open-accessible-card'; name = $Button.Current.Name; pattern = 'ExpandCollapse'; before = $taskExpandState.ToString() }
+        return
+    }
+    $taskPattern = $null
+    if (-not $Button.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$taskPattern)) {
+        $taskSupported = @($Button.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+        $taskResult.steps += [pscustomobject]@{ step = 'button-pattern-unavailable'; name = $Button.Current.Name; type = $Button.Current.ControlType.ProgrammaticName; patterns = $taskSupported; requestedExpand = [bool]$Expand }
+        Save-LifecycleResult
+        throw ('Button has no suitable accessible action: ' + $Button.Current.Name)
+    }
     ([System.Windows.Automation.InvokePattern]$taskPattern).Invoke()
 }
 function Assert-PetVisibility([int]$ProcessId, [int]$VisibleCount, [string]$Step) {
@@ -549,9 +565,9 @@ function Test-OnboardingPetVisibility($Window, $Process, [long]$Handle) {
         }
         return $null
     } 'Assigned pet card button is unavailable.' 10
-    Invoke-Button $taskPetButton
+    Invoke-Button $taskPetButton -Expand
     $taskPetMenu = Wait-Until { Find-Button $taskPetWindow ([regex]::Unescape('\ud3ab \uce74\ub4dc \uba54\ub274')) } 'Pet card menu is unavailable.' 10
-    Invoke-Button $taskPetMenu
+    Invoke-Button $taskPetMenu -Expand
     $taskHidePet = Wait-Until { Find-Button $taskPetWindow ([regex]::Unescape('\uc774 \ud3ab \uc228\uae30\uae30')) } 'Per-pet hide button is unavailable.' 10
     Invoke-Button $taskHidePet
     [void](Assert-PetVisibility $Process.Id 0 'user-hid-assigned-pet')
