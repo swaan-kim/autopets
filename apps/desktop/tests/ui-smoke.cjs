@@ -289,16 +289,16 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     const empty = await newPage();
     await empty.goto(origin);
-    await empty.getByRole('heading', { name: /내 일에 맞게/ }).waitFor();
+    await empty.getByRole('heading', { name: '아이디어를 웹페이지로.', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await empty.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
     assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
-    await empty.getByText('브라우저 미리보기 · 연결 없음', { exact: true }).waitFor();
+    await empty.getByText('미리보기 · 연결 없음', { exact: true }).waitFor();
     await empty.getByRole('button', { name: '연결 도움', exact: true }).click();
     await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
     assert.equal(await empty.locator('input[type=checkbox]:visible').count(), 0);
     assert.equal(await empty.getByRole('button', { name: /허용|거절|승인/ }).count(), 0);
-    await empty.getByText('고급 기능', { exact: true }).click();
+    await empty.getByText('더 보기', { exact: true }).click();
     await empty.getByRole('button', { name: '자동 도움', exact: true }).click();
     await empty.getByText('브라우저 미리보기 · 연결 없음. 설정은 저장되지 않아요.', { exact: true }).waitFor();
     assert.equal(await empty.getByRole('button', { name: '추천 설정으로 켜기' }).isEnabled(), false);
@@ -382,7 +382,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     checks.push('only actual plan text is rendered, token unavailable, task return stays manual, snooze does not pause work');
 
     await manager.getByRole('button', { name: '닫기', exact: true }).click();
-    await manager.getByText('고급 기능', { exact: true }).click();
+    await manager.getByText('더 보기', { exact: true }).click();
     await manager.getByRole('button', { name: '자동 도움', exact: true }).click();
     await manager.getByRole('button', { name: '추천 설정으로 켜기' }).click();
     await manager.getByText('설정을 저장했어요. 다음 메시지부터 전달을 시도해요.', { exact: true }).waitFor();
@@ -629,7 +629,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     compactAssistance.preferences.enabled = true;
     await mockBridge(compact, fixture, compactAssistance);
     await compact.goto(origin);
-    await compact.getByText('고급 기능', { exact: true }).click();
+    await compact.getByText('더 보기', { exact: true }).click();
     await compact.getByRole('button', { name: '자동 도움', exact: true }).click();
     await compact.getByRole('radio', { name: /^자동/ }).waitFor();
     assert.equal(await compact.locator('.assistance-details[open]').count(), 0);

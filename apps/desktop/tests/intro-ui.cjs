@@ -21,7 +21,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   const screenshots = [];
   const preview = await newPage({ width: 1120, height: 950 });
   await preview.goto(origin);
-  await preview.getByText('고급 기능', { exact: true }).click();
+  await preview.getByText('더 보기', { exact: true }).click();
   await preview.getByRole('button', { name: '소개 자료', exact: true }).click();
   await preview.getByRole('heading', { name: '한 장 소개 자료 만들기' }).waitFor();
   assert.equal(await preview.locator('.intro-template').count(), 3);
@@ -36,7 +36,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   const observedIdentity = { provider: 'codex', accountId: 'observed-local-fixture', chatId: 'fixture-native-only' };
   await mockBridge(observedPage, { ...fixture, sessions: [], slots: [] }, { ...assistanceFixture, tasks: [] }, undefined, { ...emptyArtifacts, observedChats: [observedIdentity] });
   await observedPage.goto(origin);
-  await observedPage.getByText('고급 기능', { exact: true }).click();
+  await observedPage.getByText('더 보기', { exact: true }).click();
   await observedPage.getByRole('button', { name: '소개 자료', exact: true }).click();
   await observedPage.getByLabel('이 자료를 만들 Codex 채팅', { exact: true }).selectOption(identityKey(observedIdentity));
   await observedPage.getByTestId('intro-editor').waitFor();
@@ -49,7 +49,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   assistance.tasks.push(sameChatOtherAccount);
   await mockBridge(page, fixture, assistance);
   await page.goto(origin);
-  await page.getByText('고급 기능', { exact: true }).click();
+  await page.getByText('더 보기', { exact: true }).click();
   await page.getByRole('button', { name: '소개 자료', exact: true }).click();
   const picker = page.getByLabel('이 자료를 만들 Codex 채팅', { exact: true });
   await picker.selectOption(identityKey(assistance.tasks[0].identity));

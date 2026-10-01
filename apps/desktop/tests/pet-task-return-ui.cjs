@@ -40,7 +40,7 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
     state.petLinks[0].target.threadId = threadId; state.petLinks[0].revision++;
     state.now = Date.now(); window.__uiTest.emitEvent('autopets://snapshot', structuredClone(state));
   }, C);
-  await a.getByText(`채팅 ${C.slice(0, 8)}`, { exact: true }).waitFor();
+  await a.getByText(`채팅 · ${C.slice(-8)}`, { exact: true }).waitFor();
   await page.evaluate(() => { window.__uiTest.holdPetReturn = false; window.__uiTest.releasePetReturn(); });
   await page.waitForFunction(() => !document.querySelector('.pet-card-0 [data-testid="pet-task-return"] button').disabled);
   assert.equal(await a.getByText(/Codex에 열기를 요청했어요/).count(), 0, 'old target receipt must not label the replacement pet');

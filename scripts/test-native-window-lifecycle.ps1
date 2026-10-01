@@ -487,12 +487,14 @@ function Read-Fixture {
 
 function Save-RoleFixture($Window) {
     Set-LifecyclePhase 'save-role' 60
-    $taskAdvancedNav = [regex]::Unescape('\uace0\uae09 \uae30\ub2a5')
+    $taskAdvancedNav = [regex]::Unescape('\ub354 \ubcf4\uae30')
     $taskRoleNav = [regex]::Unescape('\uc5ed\ud560\uacfc \ub0b4 \ud3ab')
     $taskRoleSave = [regex]::Unescape('\ub0b4 \ud3ab \uc800\uc7a5')
     $taskRoleSaved = [regex]::Unescape('\ub0b4 \ud3ab \ubcc0\uacbd \uc800\uc7a5')
     # The role editor remains available inside the initially collapsed advanced section.
     $taskAdvanced = Find-Name $Window $taskAdvancedNav
+    # Historical installer rechecks keep their original label.
+    if (-not $taskAdvanced) { $taskAdvanced = Find-Name $Window ([regex]::Unescape('\uace0\uae09 \uae30\ub2a5')) }
     if (-not $taskAdvanced) { throw 'Advanced navigation is missing.' }
     $taskExpand = $null
     if ($taskAdvanced.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$taskExpand)) {

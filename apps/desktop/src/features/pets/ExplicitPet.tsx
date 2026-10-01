@@ -35,6 +35,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
   const runTemplate = link.run?.template ?? link.template;
   const runUiPet = runTemplate.skills.some(skill => skill.id === 'frontend-design');
   const runFigma = runTemplate.features?.figmaDesign === true;
+  const taskFolder = link.target.cwd.split(/[\\/]/).filter(Boolean).pop() || link.target.cwd;
   const nextPrompt = !link.connected || disconnected || unresolved ? '펫 상태 확인' : state === 'waiting' ? '그대로 구현해줘' : '제작 펫으로 다음 작업의 계획만 세워줘. 원하는 결과와 필요한 조건을 먼저 물어보고, 파일 변경 없이 내 구현 요청을 기다려줘.';
   const copyNext = async () => {
     if (copyPending.current) return;
@@ -58,15 +59,17 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
     : '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.';
   return <div className="explicit-pet" aria-label="연결된 제작 펫">
-    {showPet && <Pet index={link.slot} activity={state === 'working' ? 'working' : 'idle'} paused={!active}
-      motion={state === 'complete' ? 'celebrate' : state === 'failed' ? 'angry' : state === 'waiting' ? 'dizzy' : undefined} />}
-    <header className="explicit-heading"><strong>{uiPet ? link.template.name : '제작 펫'}</strong><span>Codex</span></header>
-    <div className="explicit-location"><p className="card-path" title={link.target.cwd}>{link.target.cwd.split(/[\\/]/).filter(Boolean).pop()}</p><small className="explicit-target" title={link.target.threadId}>채팅 {link.target.threadId.slice(0, 8)}</small></div>
-    <div className="explicit-status-panel" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status">{status}</p><p className="explicit-help">{help}</p></div>
+    {showPet && <div className="explicit-pet-preview"><Pet index={link.slot} activity={state === 'working' ? 'working' : 'idle'} paused={!active}
+      motion={state === 'complete' ? 'celebrate' : state === 'failed' ? 'angry' : state === 'waiting' ? 'dizzy' : undefined} /></div>}
+    <div className="explicit-identity">
+      <header className="explicit-heading"><strong>{uiPet ? link.template.name : '제작 펫'}</strong><span>Codex</span></header>
+      <div className="explicit-location"><p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>
+    </div>
+    <div className="explicit-status-panel" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p><p className="explicit-help">{help}</p></div>
     <PetTaskReturn link={link} />
     <button className="text-button explicit-next" disabled={copying || (!link.enabled && !unresolved && link.connected)} onClick={() => void copyNext()}>{!link.connected || disconnected || unresolved ? '상태 확인 요청 복사' : state === 'waiting' ? '구현 요청 복사' : '다음 계획 요청 복사'}</button>
     {copyNotice && <p className="explicit-copy" role="status">{copyNotice}</p>}{copyText && <label className="explicit-copy-input">Codex에 보낼 문장<textarea readOnly rows={3} value={copyText} onFocus={event => event.currentTarget.select()} /></label>}
-    <details className="explicit-settings"><summary>펫 설정과 관리</summary><div className="explicit-settings-body">
+    <details className="explicit-settings"><summary><span>펫 설정과 관리</span><span className="explicit-settings-value">{!link.enabled ? '도움 꺼짐' : profiles[link.profile]}</span></summary><div className="explicit-settings-body">
       <label>다음 펫 작업 설정 <select aria-label="다음 펫 작업 설정" value={link.profile} disabled={action.busy || disconnected || unresolved}
         onChange={event => void action.run('set_pet_link_profile', { target: link.target, expectedRevision: link.revision, profile: event.target.value })}>
         {Object.entries(profiles).filter(([value]) => value !== 'plan' || link.profile === 'plan').map(([value, label]) => <option key={value} value={value} disabled={value === 'plan'}>{label}</option>)}
