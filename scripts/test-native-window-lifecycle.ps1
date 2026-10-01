@@ -62,6 +62,13 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 public static class AutoPetsNativeCheck {
+  [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
+  [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+  [StructLayout(LayoutKind.Sequential)] private struct MouseInput { public int Dx, Dy; public uint MouseData, Flags, Time; public UIntPtr ExtraInfo; }
+  [StructLayout(LayoutKind.Sequential)] private struct NativeInput { public uint Type; public MouseInput Mouse; }
+  public sealed class FixtureClickEvidence {
+    public long Handle, HitHandle; public uint Owner, InputsSent; public int X, Y, ClientWidth, ClientHeight, LastError;
+  }
   private delegate bool EnumWindowsProc(IntPtr handle, IntPtr parameter);
   [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
   [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
@@ -71,7 +78,56 @@ public static class AutoPetsNativeCheck {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr handle);
+  [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr handle, out NativeRect rect);
+  [DllImport("user32.dll")] private static extern bool ClientToScreen(IntPtr handle, ref NativePoint point);
+  [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(NativePoint point);
+  [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr handle, uint flags);
+  [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] private static extern bool GetCursorPos(out NativePoint point);
+  [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, NativeInput[] inputs, int size);
   public static uint WindowOwner(IntPtr handle) { uint owner; GetWindowThreadProcessId(handle, out owner); return owner; }
+  public static FixtureClickEvidence ClickOwnedFixture(IntPtr handle, uint expectedOwner) {
+    // This is test input on an empty, worker-owned form, never on product UI.
+    if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true" ||
+        Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted" ||
+        Environment.GetEnvironmentVariable("RUNNER_OS") != "Windows" ||
+        Environment.GetEnvironmentVariable("GITHUB_REPOSITORY") != "swaan-kim/autopets")
+      throw new InvalidOperationException("Fixture input is restricted to disposable Windows CI.");
+    var title = new StringBuilder(128); GetWindowText(handle, title, title.Capacity);
+    if (!IsWindow(handle) || !IsWindowVisible(handle) || IsIconic(handle) ||
+        WindowOwner(handle) != expectedOwner || expectedOwner != (uint)System.Diagnostics.Process.GetCurrentProcess().Id ||
+        title.ToString() != "AutoPets onboarding focus fixture")
+      throw new InvalidOperationException("Fixture input target identity is invalid.");
+    NativeRect rect;
+    if (!GetClientRect(handle, out rect) || rect.Right - rect.Left < 40 || rect.Bottom - rect.Top < 40)
+      throw new InvalidOperationException("Fixture client bounds are unavailable.");
+    var point = new NativePoint { X = (rect.Left + rect.Right) / 2, Y = (rect.Top + rect.Bottom) / 2 };
+    if (!ClientToScreen(handle, ref point)) throw new InvalidOperationException("Fixture client coordinates are unavailable.");
+    var hit = GetAncestor(WindowFromPoint(point), 2);
+    if (hit != handle || WindowOwner(hit) != expectedOwner)
+      throw new InvalidOperationException("Fixture click point is covered by a different window: " + hit.ToInt64());
+    if (!SetCursorPos(point.X, point.Y)) throw new InvalidOperationException("Fixture cursor placement failed.");
+    NativePoint cursor; NativeRect currentRect;
+    var currentCenter = new NativePoint { X = (rect.Left + rect.Right) / 2, Y = (rect.Top + rect.Bottom) / 2 };
+    if (!GetCursorPos(out cursor) || cursor.X != point.X || cursor.Y != point.Y ||
+        !GetClientRect(handle, out currentRect) || currentRect.Left != rect.Left || currentRect.Top != rect.Top ||
+        currentRect.Right != rect.Right || currentRect.Bottom != rect.Bottom ||
+        !ClientToScreen(handle, ref currentCenter) || currentCenter.X != point.X || currentCenter.Y != point.Y ||
+        !IsWindow(handle) || !IsWindowVisible(handle) || WindowOwner(handle) != expectedOwner ||
+        GetAncestor(WindowFromPoint(cursor), 2) != handle)
+      throw new InvalidOperationException("Fixture click target changed before input; no click was sent.");
+    var inputs = new[] {
+      new NativeInput { Type = 0, Mouse = new MouseInput { Flags = 0x0002 } },
+      new NativeInput { Type = 0, Mouse = new MouseInput { Flags = 0x0004 } }
+    };
+    var sent = SendInput(2, inputs, Marshal.SizeOf(typeof(NativeInput)));
+    var error = sent == 2 ? 0 : Marshal.GetLastWin32Error();
+    // Release only if Windows accepted the down event without its paired up.
+    if (sent == 1) SendInput(1, new[] { inputs[1] }, Marshal.SizeOf(typeof(NativeInput)));
+    return new FixtureClickEvidence { Handle = handle.ToInt64(), HitHandle = hit.ToInt64(), Owner = expectedOwner,
+      X = point.X, Y = point.Y, ClientWidth = rect.Right - rect.Left, ClientHeight = rect.Bottom - rect.Top,
+      InputsSent = sent, LastError = error };
+  }
   public static long[] PetHandles(uint processId) {
     var result = new List<long>();
     var names = new[] { "AutoPets \u00b7 \ubaa8\uc2a4", "AutoPets \u00b7 \ub8e8\ub098", "AutoPets \u00b7 \ud1a0\ud53c" };
@@ -124,6 +180,10 @@ public sealed class AutoPetsFocusFixture : IDisposable {
   public void Activate() {
     if (form == null || form.IsDisposed) throw new InvalidOperationException("Focus fixture is unavailable.");
     form.BeginInvoke(new Action(delegate { form.WindowState = FormWindowState.Normal; form.Show(); form.Activate(); }));
+  }
+  public void RaiseForClick() {
+    if (form == null || form.IsDisposed) throw new InvalidOperationException("Focus fixture is unavailable.");
+    form.Invoke(new Action(delegate { form.WindowState = FormWindowState.Normal; form.TopMost = true; form.Show(); form.BringToFront(); }));
   }
   public void Dispose() {
     if (form != null && !form.IsDisposed) form.BeginInvoke(new Action(delegate { form.Close(); }));
@@ -438,7 +498,17 @@ function Test-OnboardingPetVisibility($Window, $Process, [long]$Handle) {
     try {
         if ([AutoPetsNativeCheck]::WindowOwner($taskFocusFixture.Handle) -ne $PID) { throw 'Focus fixture is not owned by the lifecycle worker.' }
         $taskFocusFixture.Activate()
-        Assert-NativeForeground ($taskFocusFixture.Handle.ToInt64())
+        $taskActivation = [AutoPetsNativeCheck]::SetForegroundWindow($taskFocusFixture.Handle)
+        $taskResult.steps += [pscustomobject]@{ step = 'fixture-programmatic-activation'; activationReturned = $taskActivation; expectedHandle = $taskFocusFixture.Handle.ToInt64(); actualHandle = [AutoPetsNativeCheck]::GetForegroundWindow().ToInt64() }
+        # Windows may deny foreground activation from this hidden worker. One
+        # guarded click in the empty fixture provides ordinary input activation.
+        # The helper refuses input unless the exact owned HWND is under the point.
+        $taskFocusFixture.RaiseForClick()
+        $taskClick = [AutoPetsNativeCheck]::ClickOwnedFixture($taskFocusFixture.Handle, [uint32]$PID)
+        $taskResult.steps += [pscustomobject]@{ step = 'fixture-owned-client-click'; evidence = $taskClick; expectedOwner = $PID }
+        Save-LifecycleResult
+        if ($taskClick.InputsSent -ne 2) { throw 'Windows did not accept the paired fixture input events.' }
+        Assert-NativeForeground ($taskFocusFixture.Handle.ToInt64()) $false
         [void](Assert-PetVisibility $Process.Id 1 'background-onboarding-restores-assigned-pet')
         # Showing the pet must not steal focus back from the fixture. This
         # second assertion observes only; it never reactivates the fixture.
@@ -565,7 +635,15 @@ try {
     [void](Request-Bridge $taskConnection '/v1/events' @{ eventId = 'gui-start'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; kind = 'turn_started'; cwd = $taskFixtureDirectory; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() })
     [void](Request-Bridge $taskConnection '/v1/task-config' @{ requestId = 'gui-config'; sessionId = 'gui-fixture'; turnId = 'fixture-turn'; cwd = $taskFixtureDirectory; completionCriterion = 'GUI restart must preserve this test record'; interventionMode = 'milestones'; elapsedAlertMinutes = 7 })
     Save-RoleFixture $taskWindow
-    $taskWindow = Test-OnboardingPetVisibility $taskWindow $taskOriginal $taskHandle
+    try {
+        $taskWindow = Test-OnboardingPetVisibility $taskWindow $taskOriginal $taskHandle
+    } catch {
+        # Preserve a failed overlay check, but still exercise independent normal
+        # shutdown and durable-data roundtrips. Never turn partial evidence green.
+        $taskResult.onboardingFailure = [pscustomobject]@{ phase = $taskResult.phase.name; message = $_.Exception.Message }
+        Save-LifecycleResult
+        $taskWindow = Invoke-Recall $taskOriginal $taskHandle 'recover-for-independent-lifecycle'
+    }
     Set-LifecyclePhase 'measure-working-resources' 30
     $taskResult.resources += Measure-NativeResources $taskOriginal.Id 'manager-with-synthetic-working-pet'
     Quit-ThroughButton $taskWindow $taskOriginal $taskConnection 'normal-exit'
@@ -619,6 +697,8 @@ try {
     Assert-StateFiles $taskAiBaseline @(Get-StateFiles $taskAiDirectory) 'AI settings'
     $taskResult.aiConfigurationUnchanged = $true
     $taskResult.windowFitRequired = [bool]$RequireFits
+    $taskResult.independentLifecyclePassed = $true
+    if ($taskResult.onboardingFailure) { throw 'Independent lifecycle completed, but onboarding verification failed; see onboardingFailure.' }
     $taskResult.outcome = 'passed'
 } catch {
     $taskResult.outcome = 'failed'
