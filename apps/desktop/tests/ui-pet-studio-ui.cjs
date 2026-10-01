@@ -189,5 +189,74 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await wizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).isEnabled(), false);
   await wizard.getByText('Astra · high', { exact: true }).waitFor();
   checks.push('saved unsupported routing is shown exactly and cannot advance or be copied/applied with a silent fallback');
+
+  const stalePage = await newPage({ width: 992, height: 688 });
+  const preparedValue = structuredClone(value);
+  preparedValue.setup.connectionMode = 'explicit-pet';
+  preparedValue.setup.connections[0].configured = true;
+  await mockBridge(stalePage, preparedValue); await stalePage.goto(origin);
+  const staleWizard = stalePage.locator('.ui-pet-wizard');
+  await staleWizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
+  await staleWizard.getByRole('button', { name: '채팅에서 시작하기', exact: true }).click();
+  await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+  await staleWizard.getByText('복사했어요. 사용할 Codex 채팅에 붙여넣고 보내주세요.', { exact: true }).waitFor();
+  const firstCopy = await stalePage.evaluate(() => window.__uiTest.clipboard);
+  await stalePage.evaluate(() => {
+    // Deliberately omit roles-changed: copying must verify with the host,
+    // not depend on the last event having arrived at the UI.
+    window.__uiTest.roles.pets[0].revision = 2;
+    window.__uiTest.roles.pets[0].template.execution = { model: 'gpt-6-sol', reasoning: 'medium' };
+  });
+  await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+  await staleWizard.getByRole('alert').filter({ hasText: '저장한 펫이 다른 곳에서 바뀌었어요' }).waitFor();
+  assert.equal(await staleWizard.getByLabel('Codex에 보낼 시작 요청', { exact: true }).count(), 0);
+  assert.equal(await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).isDisabled(), true);
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.clipboard), firstCopy);
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 1);
+  await staleWizard.getByRole('button', { name: '저장한 펫 다시 선택', exact: true }).click();
+  await staleWizard.getByLabel('저장한 구성', { exact: true }).selectOption('ui-pet-0');
+  await staleWizard.getByText('작업 방식과 저장한 펫', { exact: true }).click();
+  assert.equal(await staleWizard.getByLabel('UI 펫 제작 설정', { exact: true }).inputValue(), 'careful');
+  await staleWizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
+  await staleWizard.getByRole('button', { name: '채팅에서 시작하기', exact: true }).click();
+  await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+  await staleWizard.getByText('복사했어요. 사용할 Codex 채팅에 붙여넣고 보내주세요.', { exact: true }).waitFor();
+  assert.ok((await stalePage.evaluate(() => window.__uiTest.clipboard)).includes('petRevision=2'));
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 1);
+
+  const verifiedCopy = await stalePage.evaluate(() => window.__uiTest.clipboard);
+  await stalePage.evaluate(() => {
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    let failOnce = true;
+    window.__TAURI_INTERNALS__.invoke = async (name, args) => {
+      if (name === 'roles_snapshot' && failOnce) { failOnce = false; return null; }
+      return invoke(name, args);
+    };
+  });
+  await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+  await staleWizard.getByRole('alert').filter({ hasText: '처리하지 못했어요' }).waitFor();
+  assert.equal(await staleWizard.getByLabel('Codex에 보낼 시작 요청', { exact: true }).count(), 0);
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.clipboard), verifiedCopy);
+  await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+  await staleWizard.getByText('복사했어요. 사용할 Codex 채팅에 붙여넣고 보내주세요.', { exact: true }).waitFor();
+
+  await staleWizard.getByRole('button', { name: '← 이전', exact: true }).click();
+  await staleWizard.getByRole('checkbox', { name: 'Figma 시안 활용', exact: true }).check();
+  await staleWizard.getByRole('button', { name: '채팅에서 시작하기', exact: true }).click();
+  await stalePage.evaluate(() => {
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    window.__TAURI_INTERNALS__.invoke = async (name, args) => {
+      const result = await invoke(name, args);
+      if (name === 'save_pet') window.__uiTest.roles.pets.find(pet => pet.id === result.id).revision++;
+      return result;
+    };
+  });
+  await staleWizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+  await staleWizard.getByRole('alert').filter({ hasText: '저장한 펫이 다른 곳에서 바뀌었어요' }).waitFor();
+  assert.equal(await staleWizard.getByLabel('Codex에 보낼 시작 요청', { exact: true }).count(), 0);
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.clipboard), verifiedCopy);
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.roles.pets[0].revision), 4);
+  assert.equal(await stalePage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 2);
+  checks.push('every first/repeated copy requires a fresh matching host revision: missing events, unavailable snapshots and changes immediately after save cannot emit stale requests; explicit latest selection recovers without overwriting external changes');
   return images;
 };

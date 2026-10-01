@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PetLink, PetRoleTemplate, SavedPet, SetupState, WorkflowModel } from '@autopets/contracts/types';
+import type { PetLink, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, WorkflowModel } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
 import { command, isDesktop } from '../../bridge/command';
 import { useRoles } from '../../bridge/useRoles';
@@ -40,6 +40,7 @@ export function UiPetStudio({ links, setup, onConnection, active = true, initial
   const [draft, setDraft] = useState<PetRoleTemplate>(() => structuredClone(template) as PetRoleTemplate);
   const [saved, setSaved] = useState<SavedPet | null>(null);
   const [dirty, setDirty] = useState(true);
+  const [staleSaved, setStaleSaved] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState('');
   const [localSetup, setLocalSetup] = useState<SetupState | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -68,27 +69,39 @@ export function UiPetStudio({ links, setup, onConnection, active = true, initial
   const currentSetup = localSetup ?? setup;
   const prepared = explicitSetupReady(currentSetup);
   const target = links.find(link => targetKey(link) === selectedTarget);
-  const matchingLinks = saved && !dirty ? links.filter(link => link.connected && link.savedPet?.id === saved.id && link.savedPet.revision === saved.revision) : [];
+  const matchingLinks = saved && !dirty && !staleSaved ? links.filter(link => link.connected && link.savedPet?.id === saved.id && link.savedPet.revision === saved.revision) : [];
   const uiPets = library.snapshot.pets.filter(pet => pet.template.skills.some(skill => skill.id === 'frontend-design'));
-  const disabled = busy || !isDesktop || !library.loaded || Boolean(library.error);
+  const disabled = busy || staleSaved || !isDesktop || !library.loaded || Boolean(library.error);
   const figma = draft.features?.figmaDesign === true;
   const routingSupported = supportedRouting(draft);
   const executionProfile = executionProfiles.find(profile => profile.model === (draft.execution?.model ?? 'gpt-6-luna') && profile.reasoning === (draft.execution?.reasoning ?? 'low'));
   const editDraft = (next: PetRoleTemplate) => { setDraft(next); setDirty(true); setPrompt(''); setNotice(''); };
   const run = async (operation: () => Promise<void>) => {
     if (working.current) return;
-    working.current = true; setBusy(true); setError(''); setNotice('');
+    working.current = true; setBusy(true); setError(''); setNotice(''); setPrompt('');
     try { await operation(); }
     catch (cause) {
       const value = String(cause);
-      setError(/revision|stale|conflict/.test(value) ? '다른 곳에서 설정이 바뀌었어요. 저장한 구성을 다시 선택하고 확인해 주세요.' : '처리하지 못했어요. 연결 설정을 확인하고 다시 시도해 주세요.');
+      const changed = /revision|stale|conflict/.test(value);
+      const savedChanged = /saved[- ]pet.*(?:revision|stale|changed|not-found)/i.test(value);
+      if (savedChanged) setStaleSaved(true);
+      setError(savedChanged ? '저장한 펫이 다른 곳에서 바뀌었어요. 최신 구성을 다시 선택해 주세요.' : changed ? '채팅 설정이 바뀌었어요. 대상을 다시 확인해 주세요.' : '처리하지 못했어요. 연결 설정을 확인하고 다시 시도해 주세요.');
       await library.refresh();
     } finally { working.current = false; setBusy(false); }
   };
   const save = async () => {
-    if (saved && !dirty) return saved;
-    const result = await command<SavedPet>('save_pet', { id: saved?.id ?? null, expectedRevision: saved?.revision ?? 0, template: draft });
-    setSaved(result); setDraft(structuredClone(result.template)); setDirty(false); await library.refresh();
+    let result = saved;
+    if (!result || dirty) {
+      result = await command<SavedPet>('save_pet', { id: saved?.id ?? null, expectedRevision: saved?.revision ?? 0, template: draft });
+      setSaved(result); setDraft(structuredClone(result.template)); setDirty(false);
+    }
+    // A previous copy is only reusable while this exact saved revision still exists.
+    // Query the host again, including after a save; React's last event may be stale.
+    const current = await command<PetRoleSnapshot>('roles_snapshot');
+    if (!current || !Array.isArray(current.pets) || !Array.isArray(current.templates) || !Array.isArray(current.bindings)) throw Error('saved-pet-verification-unavailable');
+    const latest = current.pets.find(pet => pet.id === result.id);
+    if (!latest || latest.revision !== result.revision) throw Error('saved-pet-revision-changed');
+    await library.refresh();
     return result;
   };
   const copy = async (value: string) => {
@@ -127,12 +140,12 @@ export function UiPetStudio({ links, setup, onConnection, active = true, initial
         {step === 1 && <>
           <div className="ui-pet-preview"><Pet activity="idle" /><div><span className="ui-pet-tag">화면 구성 · 웹페이지 제작</span><h2>UI 제작 펫</h2><p>만들고 싶은 화면을 함께 정리하고,<br />계획을 확인한 뒤 작은 결과물로 만들어요.</p><a className="ui-pet-source" href={SKILL_SOURCE} target="_blank" rel="noreferrer">Anthropic frontend-design 기반 ↗</a></div></div>
           <p className="ui-pet-example">첫 체험은 <strong>가상 학과 행사 소개 웹페이지</strong>예요.</p>
-          <details className="ui-pet-detail"><summary>작업 방식과 저장한 펫</summary>
+          <details className="ui-pet-detail" open={staleSaved || undefined}><summary>작업 방식과 저장한 펫</summary>
             <p>계획은 Luna · low로 시작해요. 제작에 사용할 설정을 고를 수 있어요.</p>
             <label className="ui-pet-select">제작 설정<select aria-label="UI 펫 제작 설정" value={executionProfile?.id ?? 'unsupported'} disabled={busy} onChange={event => { const profile = executionProfiles.find(item => item.id === event.target.value); if (profile) editDraft({ ...draft, planning: { model: 'gpt-6-luna', reasoning: 'low' }, execution: { model: profile.model, reasoning: profile.reasoning } }); }}>{!executionProfile && <option value="unsupported" disabled>{settingLabel(draft.execution)}</option>}{executionProfiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label} · {settingLabel(profile)}</option>)}</select></label>
             <p className="ui-pet-route">계획 <strong>{settingLabel(draft.planning)}</strong><span aria-hidden="true">→</span>제작 <strong>{settingLabel(draft.execution)}</strong></p>
             <small>가용 모델은 실행 전에 확인해요. 원래 채팅 모델은 유지돼요.</small>
-            {uiPets.length > 0 && <label className="ui-pet-select">저장한 구성<select aria-label="저장한 구성" value={saved?.id ?? ''} disabled={busy} onChange={event => { const item = uiPets.find(pet => pet.id === event.target.value); setSaved(item ?? null); setDraft(structuredClone(item?.template ?? template) as PetRoleTemplate); setDirty(!item); setPrompt(''); setNotice(''); }}><option value="">새 구성</option>{uiPets.map(pet => <option key={pet.id} value={pet.id}>{pet.template.name} · {pet.template.features?.figmaDesign ? 'Figma 활용' : '기본 제작'} · 수정 {pet.revision}</option>)}</select></label>}
+            {(uiPets.length > 0 || saved) && <label className="ui-pet-select">저장한 구성<select aria-label="저장한 구성" value={staleSaved ? '__stale__' : saved?.id ?? ''} disabled={busy} onChange={event => { const item = uiPets.find(pet => pet.id === event.target.value); setSaved(item ?? null); setDraft(structuredClone(item?.template ?? template) as PetRoleTemplate); setDirty(!item); setStaleSaved(false); setError(''); setPrompt(''); setNotice(''); }}>{staleSaved && <option value="__stale__" disabled>최신 구성이나 새 구성을 선택해 주세요</option>}<option value="">새 구성</option>{uiPets.map(pet => <option key={pet.id} value={pet.id}>{pet.template.name} · {pet.template.features?.figmaDesign ? 'Figma 활용' : '기본 제작'} · 수정 {pet.revision}</option>)}</select></label>}
             <button className="text-button" onClick={() => void copyReference(SKILL_SOURCE)}>스킬 원본 주소 복사</button><small>스킬은 AI가 참고하는 작업 방법이에요. 결과와 접근성은 함께 확인해 주세요.</small>
           </details>
         </>}
@@ -153,9 +166,9 @@ export function UiPetStudio({ links, setup, onConnection, active = true, initial
         {!routingSupported && <p className="error" role="alert">이 구성의 모델 조합은 아직 연결할 수 없어요. 작업 방식에서 지원하는 제작 설정을 선택해 주세요.</p>}
         {!isDesktop && <p className="ui-pet-optional">브라우저 미리보기 · 실제 저장과 연결은 설치된 앱에서 사용해요.</p>}
         {referenceNotice && <div className="ui-pet-prompt"><p role="status">{referenceNotice}</p>{referenceFallback && <label>참고 링크 주소<textarea readOnly rows={3} value={referenceFallback} onFocus={event => event.currentTarget.select()} /></label>}</div>}
-        {(error || library.error) && <p className="error" role="alert">{error || library.error}</p>}{overlayError && <p className="ui-pet-optional" role="status">{overlayError}</p>}{notice && <p className="ui-pet-notice" role="status">{notice}</p>}
+        {(error || library.error) && <p className="error" role="alert">{error || library.error}</p>}{staleSaved && step !== 1 && <button className="button secondary" disabled={busy} onClick={() => goTo(1)}>저장한 펫 다시 선택</button>}{overlayError && <p className="ui-pet-optional" role="status">{overlayError}</p>}{notice && <p className="ui-pet-notice" role="status">{notice}</p>}
       </div>
-      <footer className="ui-pet-wizard-footer"><div>{step > 1 && <button className="text-button" disabled={busy} onClick={() => goTo(step === 3 ? 2 : 1)}>← 이전</button>}<button className="text-button" disabled={busy} onClick={onConnection}>연결 도움</button></div><button className="button primary ui-pet-primary" disabled={step === 1 ? busy || !routingSupported : disabled || !routingSupported || (step === 3 && !prepared)} onClick={() => { if (step === 1) goTo(2); else if (step === 2) prepare(); else void saveAndCopy(); }}>{busy ? '준비하는 중…' : step === 1 ? '이 펫으로 시작' : step === 2 ? prepared ? '채팅에서 시작하기' : 'Codex에 펫 준비' : '시작 요청 복사'}</button></footer>
+      <footer className="ui-pet-wizard-footer"><div>{step > 1 && <button className="text-button" disabled={busy} onClick={() => goTo(step === 3 ? 2 : 1)}>← 이전</button>}<button className="text-button" disabled={busy} onClick={onConnection}>연결 도움</button></div><button className="button primary ui-pet-primary" disabled={step === 1 ? busy || staleSaved || !routingSupported : disabled || !routingSupported || (step === 3 && !prepared)} onClick={() => { if (step === 1) goTo(2); else if (step === 2) prepare(); else void saveAndCopy(); }}>{busy ? '준비하는 중…' : step === 1 ? '이 펫으로 시작' : step === 2 ? prepared ? '채팅에서 시작하기' : 'Codex에 펫 준비' : '시작 요청 복사'}</button></footer>
     </div>
   </section>;
 }

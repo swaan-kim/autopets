@@ -48,6 +48,7 @@ fn individual_visibility_preserves_other_hidden_pets_and_global_hide() {
     let desktop = Desktop {
         visible: AtomicBool::new(true),
         onboarding_active: AtomicBool::new(false),
+        onboarding_initialized: AtomicBool::new(true),
         hidden_slots: Mutex::new([false; 3]),
         positions: Mutex::new(HashMap::new()),
         data_dir: PathBuf::new(),
@@ -65,16 +66,18 @@ fn individual_visibility_preserves_other_hidden_pets_and_global_hide() {
 }
 
 #[test]
-fn onboarding_only_suppresses_pets_while_manager_is_visible_and_not_minimized() {
+fn onboarding_only_suppresses_pets_while_guide_is_in_the_foreground() {
     for active in [false, true] {
         for visible in [false, true] {
             for minimized in [false, true] {
-                assert_eq!(onboarding_suppressed(active, visible, minimized), active && visible && !minimized);
+                for focused in [false, true] {
+                    assert_eq!(onboarding_suppressed(active, true, visible, minimized, focused), active && visible && !minimized && focused);
+                }
             }
         }
     }
-    for (manager_visible, minimized, expected) in [(true, false, false), (false, false, true), (true, true, true), (true, false, false)] {
-        let suppressed = onboarding_suppressed(true, manager_visible, minimized);
+    for (manager_visible, minimized, focused, expected) in [(true, false, true, false), (true, false, false, true), (true, false, true, false), (false, false, false, true), (true, true, false, true)] {
+        let suppressed = onboarding_suppressed(true, true, manager_visible, minimized, focused);
         assert_eq!(pet_should_show(true, false, true, suppressed), expected);
         assert!(!pet_should_show(false, false, true, suppressed));
         assert!(!pet_should_show(true, true, true, suppressed));
@@ -82,6 +85,10 @@ fn onboarding_only_suppresses_pets_while_manager_is_visible_and_not_minimized() 
     }
     assert!(require_onboarding_manager("main").is_ok());
     for other in ["pet-0", "pet-1", "pet-2", "other"] { assert!(require_onboarding_manager(other).is_err()); }
+    assert!(onboarding_suppressed(true, false, true, false, false));
+    assert!(onboarding_suppressed(false, false, true, false, false));
+    assert!(!onboarding_suppressed(true, false, false, false, false));
+    assert!(!onboarding_suppressed(true, false, true, true, false));
 }
 
 #[test]
@@ -89,6 +96,7 @@ fn onboarding_begin_end_and_manager_reopen_preserve_user_visibility_and_position
     let desktop = Desktop {
         visible: AtomicBool::new(false),
         onboarding_active: AtomicBool::new(true),
+        onboarding_initialized: AtomicBool::new(false),
         hidden_slots: Mutex::new([false, true, false]),
         positions: Mutex::new(HashMap::from([("pet-0".into(), Position { x: -120, y: 240 })])),
         data_dir: PathBuf::new(),
@@ -98,8 +106,9 @@ fn onboarding_begin_end_and_manager_reopen_preserve_user_visibility_and_position
     for active in [true, false, true, false] {
         set_onboarding_flag(&desktop, active);
         assert_eq!(desktop.onboarding_active.load(Ordering::Relaxed), active);
-        for (visible, minimized) in [(true, false), (false, false), (true, true), (true, false)] {
-            let suppression = onboarding_suppressed(active, visible, minimized);
+        assert!(desktop.onboarding_initialized.load(Ordering::Relaxed));
+        for (visible, minimized, focused) in [(true, false, true), (true, false, false), (false, false, false), (true, true, false), (true, false, true)] {
+            let suppression = onboarding_suppressed(active, true, visible, minimized, focused);
             assert!(!pet_should_show(desktop.visible.load(Ordering::Relaxed), false, true, suppression));
         }
         assert!(!desktop.visible.load(Ordering::Relaxed));

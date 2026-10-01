@@ -20,6 +20,7 @@ pub(crate) struct Position {
 pub(crate) struct Desktop {
     pub(crate) visible: AtomicBool,
     pub(crate) onboarding_active: AtomicBool,
+    pub(crate) onboarding_initialized: AtomicBool,
     pub(crate) hidden_slots: Mutex<[bool; 3]>,
     pub(crate) positions: Mutex<HashMap<String, Position>>,
     pub(crate) data_dir: PathBuf,
@@ -34,15 +35,18 @@ fn pet_has_content(snapshot: &Snapshot, slot: usize) -> bool {
         || (slot == 0 && !assigned)
 }
 
-fn onboarding_suppressed(active: bool, manager_visible: bool, manager_minimized: bool) -> bool {
-    active && manager_visible && !manager_minimized
+fn onboarding_suppressed(active: bool, initialized: bool, manager_visible: bool, manager_minimized: bool, manager_focused: bool) -> bool {
+    // Before the first frontend report, avoid a flash over the loading guide.
+    // Once initialized, a guide behind Codex must not hide the working pet.
+    manager_visible && !manager_minimized && (!initialized || (active && manager_focused))
 }
 
 fn overlays_suppressed(app: &tauri::AppHandle) -> bool {
-    let active = app.try_state::<Desktop>()
-        .is_some_and(|state| state.onboarding_active.load(Ordering::Relaxed));
+    let (active, initialized) = app.try_state::<Desktop>()
+        .map(|state| (state.onboarding_active.load(Ordering::Relaxed), state.onboarding_initialized.load(Ordering::Relaxed)))
+        .unwrap_or((false, true));
     app.get_webview_window("main").is_some_and(|window| onboarding_suppressed(
-        active, window.is_visible().unwrap_or(true), window.is_minimized().unwrap_or(false),
+        active, initialized, window.is_visible().unwrap_or(true), window.is_minimized().unwrap_or(false), window.is_focused().unwrap_or(false),
     ))
 }
 
@@ -56,6 +60,7 @@ fn require_onboarding_manager(label: &str) -> Result<(), String> {
 
 fn set_onboarding_flag(desktop: &Desktop, active: bool) {
     desktop.onboarding_active.store(active, Ordering::Relaxed);
+    desktop.onboarding_initialized.store(true, Ordering::Relaxed);
 }
 
 pub(crate) fn set_onboarding_active(window: &tauri::WebviewWindow, active: bool) -> Result<(), String> {
@@ -111,8 +116,8 @@ pub(crate) fn show_manager(
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
-        refresh_pet_visibility(&app);
         let _ = window.set_focus();
+        refresh_pet_visibility(&app);
         if section.as_deref() == Some("assistance") {
             let _ = window.emit(
                 "autopets://open-assistance",

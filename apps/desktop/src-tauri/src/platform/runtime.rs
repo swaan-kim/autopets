@@ -30,6 +30,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         // Hold overlays until the manager reports whether its first-use guide
         // is open. This is transient and never changes saved display choices.
         onboarding_active: AtomicBool::new(true),
+        onboarding_initialized: AtomicBool::new(false),
         hidden_slots: Mutex::new([false; 3]),
         positions: Mutex::new(positions.clone()),
         data_dir: data_dir.clone(),

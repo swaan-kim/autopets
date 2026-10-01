@@ -69,6 +69,7 @@ public static class AutoPetsNativeCheck {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr handle);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   public static long[] PetHandles(uint processId) {
     var result = new List<long>();
     var names = new[] { "AutoPets \u00b7 \ubaa8\uc2a4", "AutoPets \u00b7 \ub8e8\ub098", "AutoPets \u00b7 \ud1a0\ud53c" };
@@ -158,6 +159,13 @@ function Find-Button($Window, [string]$Name) {
     ))
     $Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $taskCondition)
 }
+function Assert-NativeForeground([long]$Handle) {
+    [void][AutoPetsNativeCheck]::SetForegroundWindow([IntPtr]$Handle)
+    [void](Wait-Until {
+        [Windows.Forms.Application]::DoEvents()
+        return [AutoPetsNativeCheck]::GetForegroundWindow().ToInt64() -eq $Handle
+    } 'The expected native window did not become the foreground window.' 10)
+}
 function Wait-ReadyWindow($Process, [bool]$Fresh) {
     $taskFound = Wait-Until { Get-MainWindow $Process.Id } 'Main window was not exposed by UI Automation.' 60
     [void](Wait-Until {
@@ -181,6 +189,7 @@ function Wait-ReadyWindow($Process, [bool]$Fresh) {
         } 'Main window extends outside the monitor work area.' 10)
         Assert-QuitVisible $taskFound
     }
+    Assert-NativeForeground ([long]$taskFound.Current.NativeWindowHandle)
     return $taskFound
 }
 function Assert-QuitVisible($Window) {
@@ -354,6 +363,22 @@ function Test-OnboardingPetVisibility($Window, $Process, [long]$Handle) {
     [void](Wait-Until { Find-Button $Window ([regex]::Unescape('\ud3ab \uc900\ube44 \ub2eb\uae30')) } 'Open pet preparation guide was not restored.' 10)
     [void](Assert-PetVisibility $Process.Id 0 'onboarding-hides-assigned-pet')
     $taskBeforeSuppression = Read-Fixture
+    # A fixture window owned by this CI worker stands in for another foreground
+    # app. No Codex account, real chat or other user application is opened.
+    $taskFocusFixture = [Windows.Forms.Form]::new()
+    try {
+        $taskFocusFixture.Text = 'AutoPets onboarding focus fixture'
+        $taskFocusFixture.ShowInTaskbar = $false
+        $taskFocusFixture.Size = [Drawing.Size]::new(240, 140)
+        $taskFocusFixture.Show()
+        Assert-NativeForeground ($taskFocusFixture.Handle.ToInt64())
+        [void](Assert-PetVisibility $Process.Id 1 'background-onboarding-restores-assigned-pet')
+    } finally {
+        $taskFocusFixture.Close()
+        $taskFocusFixture.Dispose()
+    }
+    Assert-NativeForeground $Handle
+    [void](Assert-PetVisibility $Process.Id 0 'foreground-onboarding-hides-assigned-pet')
     $taskWindowPattern = $null
     if (-not $Window.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$taskWindowPattern)) { throw 'Main window has no accessible WindowPattern.' }
     ([System.Windows.Automation.WindowPattern]$taskWindowPattern).SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Minimized)
@@ -404,7 +429,7 @@ function Test-OnboardingPetVisibility($Window, $Process, [long]$Handle) {
     if ((Read-Fixture) -cne $taskBeforeHidden) { throw 'Onboarding reset the hidden pet fixture or its positions.' }
     Invoke-Button (Find-Button $Window ([regex]::Unescape('\ubc14\ud0d5\ud654\uba74\uc5d0 \ubaa8\ub450 \ud45c\uc2dc \u2197')))
     [void](Assert-PetVisibility $Process.Id 1 'explicit-show-restores-assigned-pet')
-    $taskResult.steps += [pscustomobject]@{ step = 'onboarding-overlay-regression'; storedSession = $true; minimizeRestore = $true; captionHideRecall = $true; userHiddenPreferencePreserved = $true; positionsAndDataPreserved = $true; aiConnectionConfigured = $false }
+    $taskResult.steps += [pscustomobject]@{ step = 'onboarding-overlay-regression'; storedSession = $true; foregroundSwitch = $true; minimizeRestore = $true; captionHideRecall = $true; userHiddenPreferencePreserved = $true; positionsAndDataPreserved = $true; aiConnectionConfigured = $false }
     return $Window
 }
 

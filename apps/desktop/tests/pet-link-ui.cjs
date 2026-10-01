@@ -7,7 +7,7 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   const value = {
     ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })),
     petLinks: [{
-      version: 1, target: { sourceId: 'codex-windows-local', threadId: 'fixture-parent', cwd: 'C:/UI fixture only' },
+      version: 1, target: { sourceId: 'codex-windows-local', threadId: '11111111-2222-4333-8444-555555555555', cwd: 'C:/UI fixture only' },
       slot: 0, revision: 1, enabled: true, connected: true, profile: 'light', template: templates[1], run: null,
     }],
   };
