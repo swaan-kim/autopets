@@ -207,16 +207,31 @@ $taskOriginalPath = $env:PATH
 . (Join-Path $PSScriptRoot 'measure-native-resources.ps1')
 . (Join-Path $PSScriptRoot 'native-bridge-readiness.ps1')
 
+function Write-LifecycleCheckpoint([string]$Path, $Value, [int]$Depth = 10) {
+    $taskJson = $Value | ConvertTo-Json -Depth $Depth
+    # PowerShell 5.1 Set-Content may probe an existing BOM through a write-only
+    # stream when a reader holds the file. This writer never reads the file.
+    # Keep the UTF-8 BOM for Windows PowerShell readers. The watchdog retries
+    # partial phase JSON while a checkpoint is being written.
+    $taskStream = [IO.File]::Open($Path, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+    $taskWriter = $null
+    try {
+        $taskWriter = [IO.StreamWriter]::new($taskStream, [Text.UTF8Encoding]::new($true))
+        $taskWriter.Write($taskJson)
+    } finally {
+        if ($taskWriter) { $taskWriter.Dispose() } else { $taskStream.Dispose() }
+    }
+}
 function Save-LifecycleResult {
     $taskPendingResult = Join-Path $taskOut 'result.pending.json'
-    $taskResult | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $taskPendingResult -Encoding UTF8
+    Write-LifecycleCheckpoint $taskPendingResult $taskResult
     Move-Item -LiteralPath $taskPendingResult -Destination (Join-Path $taskOut 'result.json') -Force
 }
 function Set-LifecyclePhase([string]$Name, [int]$Seconds = 30) {
     $taskPhase = [pscustomobject]@{ name = $Name; startedAt = [DateTime]::UtcNow.ToString('O'); timeoutSeconds = $Seconds }
     $taskResult.phase = $taskPhase
     Save-LifecycleResult
-    $taskPhase | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskOut 'phase.json') -Encoding UTF8
+    Write-LifecycleCheckpoint (Join-Path $taskOut 'phase.json') $taskPhase
     Write-Host "Native checkpoint: $Name"
 }
 
