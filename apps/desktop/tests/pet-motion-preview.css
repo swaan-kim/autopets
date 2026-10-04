@@ -1,0 +1,11 @@
+body { margin: 0; background: #f8faf7; color: #213c2c; font-family: 'Segoe UI', sans-serif; }
+.motion-preview { max-width: 1140px; margin: 0 auto; padding: 45px; }
+.motion-preview header > span { font-size: 13px; color: #558066; }
+.motion-preview h1 { font-size: 30px; letter-spacing: -1px; margin: 12px 0; }
+.motion-preview header p, .motion-preview footer { color: #6b7d6e; font-size: 12px; }
+.motion-preview section { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 30px 0; }
+.motion-preview article { padding: 15px 12px 24px; border: 1px solid #e3eae0; border-radius: 25px; text-align: center; background: white; }
+.motion-preview .pet-art { --frame: 180px; }
+.motion-preview h2 { font-size: 17px; margin: 0 0 8px; }
+.motion-preview article p { font-size: 12px; color: #647769; margin: 0; }
+@media (max-width: 650px) { .motion-preview { padding: 20px; } .motion-preview section { grid-template-columns: repeat(2, 1fr); } .motion-preview .pet-art { --frame: 128px; } }

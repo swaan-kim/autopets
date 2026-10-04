@@ -84,6 +84,7 @@ fn legacy_session_json_and_sqlite_migrate_with_realistic_defaults() {
     let store = Store::new(dir.path()).unwrap();
     let view = &store.snapshot().sessions[0].supervision;
     assert_eq!(view.elapsed_alert_minutes, Some(10));
+    assert!(view.tool_activity_v1.is_none());
     assert!(view.plan_steps.is_empty());
     assert!(view.turn_started_at.is_none());
     assert_eq!(store.snapshot().capabilities.token_usage, "unavailable");

@@ -51,6 +51,8 @@ packages/guidance/evaluation-cases.mjs에는 한국어 합성 요청24건(요약
 
 ## 현재 앱 화면
 
+후속 구현: [계획·실행 설정 검수](planning-execution.md). 세 프리셋·계획 확인·제출 보호의 코드/화면 검사와 실제 연결 관문을 별도로 기록한다. 아래 구조 정리 수치는 해당 과거 커밋에 대한 증거다.
+
 다음은 실제 서비스 연결이 아닌 fixture 데이터로 검수한 구현 화면이다. 소개 목업과 구분한다.
 
 [작은 펫 카드](../images/app-pet-card.png) · [기본 설정](../images/app-settings.png)

@@ -2,6 +2,19 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { emptyWorkflow, runWorkflowChecks } = require('./workflow-ui.cjs');
+const { runSetupChecks } = require('./setup-ui.cjs');
+const { runProductSiteChecks } = require('./product-site-ui.cjs');
+const { emptyArtifacts, runIntroChecks } = require('./intro-ui.cjs');
+const { runRoleChecks } = require('./roles-ui.cjs');
+const { runTaskReturnChecks } = require('./task-return-ui.cjs');
+const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
+const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
+const { runPetLinkChecks } = require('./pet-link-ui.cjs');
+const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
+const { runPetDiscoveryChecks } = require('./pet-discovery-ui.cjs');
+const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
+const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -38,25 +51,157 @@ const assistanceFixture = {
   })),
 };
 
-async function mockBridge(page, initial, initialAssistance = assistanceFixture) {
-  await page.addInitScript(({ initial, initialAssistance }) => {
+async function mockBridge(page, initial, initialAssistance = assistanceFixture, initialWorkflow = emptyWorkflow, initialArtifacts = emptyArtifacts) {
+  await page.addInitScript(({ initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates }) => {
     const state = structuredClone(initial);
     const assistance = structuredClone(initialAssistance);
+    const workflow = structuredClone(initialWorkflow);
+    const artifacts = structuredClone(initialArtifacts);
     const calls = [];
-    window.__uiTest = { state, assistance, calls, clipboard: '', petVisibility: [true, true, true] };
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__uiTest.clipboard = text; } } });
+    window.__uiTest = { state, assistance, workflow, artifacts, roles: { templates: roleTemplates, pets: [], bindings: [] }, artifactImages: {}, calls, clipboard: '', petVisibility: [true, true, true], onboardingCalls: [], onboardingActive: false };
+    const callbacks = new Map(); const eventHandlers = new Map(); let callbackId = 0;
+    window.__uiTest.emitEvent = (name, payload) => { for (const handler of eventHandlers.get(name) || []) callbacks.get(handler)?.({ event: name, id: 1, payload }); };
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { if (window.__uiTest.clipboardError) throw Error('fixture clipboard denied'); window.__uiTest.clipboard = text; } } });
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
     window.__TAURI_INTERNALS__ = {
       metadata: { currentWindow: { label: 'pet-0' }, currentWebview: { label: 'pet-0' } },
-      transformCallback: () => 1, unregisterCallback: () => {},
+      transformCallback: callback => { callbacks.set(++callbackId, callback); return callbackId; }, unregisterCallback: id => callbacks.delete(id),
       invoke: async (name, args) => {
         if (name === 'get_snapshot') return { ...structuredClone(state), now: Date.now() };
+        if (name === 'task_graph_snapshot') {
+          if (window.__uiTest.graphError) throw Error('fixture graph unavailable');
+          return structuredClone(window.__uiTest.taskGraph || []);
+        }
         if (name === 'get_assistance') return structuredClone(assistance);
-        if (name === 'plugin:event|listen') return 1;
+        if (name === 'workflow_snapshot') return structuredClone(workflow);
+        if (name === 'roles_snapshot') return structuredClone(window.__uiTest.roles);
+        if (name === 'artifact_snapshot') return structuredClone(artifacts);
+        if (name === 'plugin:event|listen') { eventHandlers.set(args.event, [...(eventHandlers.get(args.event) || []), args.handler]); return 1; }
         if (name.startsWith('plugin:event|')) return null;
+        if (name === 'set_onboarding_active') {
+          window.__uiTest.onboardingCalls.push(structuredClone(args));
+          window.__uiTest.onboardingActive = args.active;
+          return null;
+        }
         calls.push({ name, args });
+        if (name === 'save_pet') {
+          if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
+          if (window.__uiTest.holdSavePet) await new Promise(resolve => { window.__uiTest.releaseSavePet = resolve; });
+          const previous = window.__uiTest.roles.pets.find(pet => pet.id === args.id);
+          if ((previous?.revision ?? 0) !== args.expectedRevision) throw Error('saved-pet-revision-changed');
+          const pet = { id: previous?.id ?? `ui-pet-${window.__uiTest.roles.pets.length}`, revision: args.expectedRevision + 1, template: structuredClone(args.template), updatedAt: Date.now() };
+          if (previous) window.__uiTest.roles.pets.splice(window.__uiTest.roles.pets.indexOf(previous), 1, pet); else window.__uiTest.roles.pets.push(pet);
+          window.__uiTest.emitEvent('autopets://roles-changed', {});
+          return structuredClone(pet);
+        }
+        if (name === 'apply_pet_link_template') {
+          const link = state.petLinks?.find(item => JSON.stringify(item.target) === JSON.stringify(args.target));
+          const pet = window.__uiTest.roles.pets.find(item => item.id === args.petId && item.revision === args.petRevision);
+          if (!link || link.revision !== args.expectedRevision || !pet) throw Error('pet-revision-changed');
+          if (link.run && !link.run.trackingClosed && ['requested','working','returned','unknown'].includes(link.run.state)) throw Error('pet-run-active-or-unresolved');
+          link.template = structuredClone(pet.template); link.savedPet = { id: pet.id, revision: pet.revision }; link.profile = pet.template.execution?.model === 'gpt-6-sol' ? (pet.template.execution.reasoning === 'medium' ? 'careful' : 'standard') : 'light'; link.revision++; link.run = null;
+          window.__uiTest.emitEvent('autopets://snapshot', structuredClone(state));
+          return structuredClone(link);
+        }
+        if (name === 'open_local_task') {
+          if (window.__uiTest.returnError) throw Error(window.__uiTest.returnError);
+          return { status: 'dispatched', sessionId: window.__uiTest.returnWrongTarget ? 'wrong-task' : args.sessionId, targetVerified: false };
+        }
+        if (name === 'open_pet_task') {
+          const link = state.petLinks?.find(item => JSON.stringify(item.target) === JSON.stringify(args.target));
+          if (!link || link.revision !== args.expectedRevision) throw Error('pet-revision-changed');
+          const receipt = { status: 'dispatched', sessionId: window.__uiTest.returnWrongTarget ? 'wrong-task' : args.target.threadId, targetVerified: false };
+          if (window.__uiTest.returnError) throw Error(window.__uiTest.returnError);
+          if (window.__uiTest.holdPetReturn) await new Promise(resolve => { window.__uiTest.releasePetReturn = resolve; });
+          return receipt;
+        }
+        if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
+        if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
+        if (name === 'artifact_dispatch') {
+          if (window.__uiTest.artifactError) throw Error(window.__uiTest.artifactError);
+          const request = args.request;
+          const key = identity => JSON.stringify([identity.provider, identity.accountId, identity.chatId]);
+          let project = artifacts.projects.find(item => key(item.identity) === key(request.identity || {}));
+          if (window.__uiTest.artifactConflictNext) { project.revision++; project.brief.message = '다른 창에서 저장한 내용'; window.__uiTest.artifactConflictNext = false; throw Error('artifact revision conflict'); }
+          if (request.operation === 'delete-style') { artifacts.styles = artifacts.styles.filter(item => item.id !== request.styleId); return structuredClone(artifacts); }
+          if ((project?.revision || 0) !== request.expectedRevision) throw Error('artifact revision conflict');
+          if (!project && request.operation !== 'save-brief') throw Error('artifact missing project');
+          if (request.operation === 'delete-project') { artifacts.projects = artifacts.projects.filter(item => item !== project); return structuredClone(artifacts); }
+          if (request.operation === 'save-brief') {
+            if (!project) { project = { identity: request.identity, revision: 0, versions: [], pendingRevision: null, favorite: false }; artifacts.projects.push(project); }
+            Object.assign(project, { templateId: request.templateId, brief: structuredClone(request.brief), style: structuredClone(request.style) });
+          }
+          const version = project.versions.find(item => item.id === request.versionId);
+          if (request.operation === 'import-version') {
+            const id = `fixture-version-${project.versions.length + 1}-${project.identity.accountId}`;
+            window.__uiTest.artifactImages[id] = request.pngBytes;
+            project.versions.push({ id, createdAt: Date.now(), width: 1200, height: 800, brief: structuredClone(project.brief), style: structuredClone(project.style), templateId: project.templateId, renderedText: request.renderedText, revisionRequest: project.pendingRevision, checks: [{ id: 'png', status: 'pass', detail: 'PNG 파일과 크기 확인 · UI 검수용', method: 'code' }, { id: 'text', status: 'warning', detail: '문구가 원문과 일치하는지 직접 확인해주세요.', method: 'code' }], review: { readability: 'pending', layout: 'pending', fidelity: 'pending' }, acceptedAt: null });
+            project.pendingRevision = null;
+          }
+          if (request.operation === 'review-version') { if (!version || version.acceptedAt) throw Error('immutable version'); version.review = structuredClone(request.review); }
+          if (request.operation === 'accept-version') { if (!version || Object.values(version.review).some(item => item !== 'pass')) throw Error('review required'); version.acceptedAt = Date.now(); }
+          if (request.operation === 'request-revision') { const base = project.versions.find(item => item.id === request.revisionRequest.baseVersionId); if (!base) throw Error('invalid revision base'); project.brief = structuredClone(base.brief); project.style = structuredClone(base.style); project.templateId = base.templateId; project.pendingRevision = structuredClone(request.revisionRequest); }
+          if (request.operation === 'set-favorite') project.favorite = request.favorite;
+          if (request.operation === 'save-style') {
+            if (!version?.acceptedAt) throw Error('approved style required');
+            const saved = { id: request.styleId || `fixture-style-${artifacts.styles.length + 1}`, name: request.name, templateId: version.templateId, style: structuredClone(version.style), updatedAt: Date.now() };
+            const index = artifacts.styles.findIndex(item => item.id === saved.id);
+            if (index < 0) artifacts.styles.push(saved); else artifacts.styles[index] = saved;
+          }
+          project.revision++; project.updatedAt = Date.now();
+          return structuredClone(artifacts);
+        }
+        if (name === 'check_app_update') return window.__uiTest.update || { status: 'disabled', message: '이 빌드에서는 공개 업데이트를 제공하지 않아요.' };
+        if (name === 'install_app_update') return null;
+        if (name === 'connect_ai' || name === 'disconnect_ai') {
+          if (window.__uiTest.holdConnection) await new Promise(resolve => { window.__uiTest.releaseConnection = resolve; });
+          if (args?.hostId !== 'codex-windows-local') throw Error('지원하지 않는 연결입니다.');
+          if (window.__uiTest.connectionError) throw Error(window.__uiTest.connectionError);
+          const connection = state.setup.connections.find(item => item.hostId === args.hostId);
+          connection.configured = name === 'connect_ai';
+          connection.status = connection.configured ? 'waiting-for-event' : 'disconnected';
+          connection.firstTask = null;
+          connection.guidanceDelivered = false;
+          connection.settingsVerified = { model: false, reasoning: false, submission: false };
+          state.setup.currentHostId = args.hostId;
+          state.setup.connectionMode = 'explicit-pet';
+          return structuredClone(state.setup);
+        }
+        if (['set_pet_link_profile','set_pet_link_enabled','close_pet_tracking'].includes(name)) {
+          const link=state.petLinks?.find(item=>item.target.threadId===args.target.threadId);
+          if(!link || link.revision!==args.expectedRevision) throw Error('pet-revision-changed');
+          if(name==='set_pet_link_profile') { link.profile=args.profile;link.run=null; }
+          if(name==='set_pet_link_enabled') link.enabled=args.enabled;
+          if(name==='close_pet_tracking') { link.run.trackingClosed=true;link.run.state='unknown'; }
+          link.revision++;
+          state.now=Date.now();
+          window.__uiTest.emitEvent('autopets://snapshot',structuredClone(state));
+        }
         const session = state.sessions.find(session => session.id === args?.sessionId);
         const task = assistance.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
+        const workflowTask = workflow.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
+        if (name === 'save_workflow_preferences') {
+          if (workflow.preferences.revision !== args.preferences.revision) throw Error('workflow preference conflict');
+          workflow.preferences = { ...structuredClone(args.preferences), revision: workflow.preferences.revision + 1 };
+        }
+        if (name === 'configure_workflow_task') {
+          if (!workflowTask || workflowTask.settingsRevision !== args.expectedRevision) throw Error('workflow task conflict');
+          Object.assign(workflowTask, structuredClone(args.configuration), { settingsRevision: workflowTask.settingsRevision + 1, approval: null, observation: null, onceAvailable: false });
+          workflowTask.guard = { status: 'pending', reason: '', submissionId: null, requestFingerprint: null, checkedAt: null };
+          workflowTask.phase = workflowTask.planFirst ? 'planning' : 'unknown';
+          if (!args.configuration.enabled && task) task.enabled = false;
+        }
+        if (name === 'approve_workflow_plan') {
+          if (!workflowTask || !workflowTask.enabled || !['planning', 'ready'].includes(workflowTask.phase) || workflowTask.planRevision !== args.expectedPlanRevision || workflowTask.settingsRevision !== args.expectedSettingsRevision) throw Error('workflow approval conflict');
+          workflowTask.approval = { planRevision: args.expectedPlanRevision, settingsRevision: args.expectedSettingsRevision, approvedAt: Date.now() };
+          workflowTask.phase = 'ready';
+          workflowTask.guard = { status: 'pending', reason: '', submissionId: null, requestFingerprint: null, checkedAt: null };
+          workflowTask.observation = null; workflowTask.onceAvailable = false;
+        }
+        if (name === 'allow_workflow_once') {
+          if (!workflowTask || workflowTask.guard.status !== 'held' || workflowTask.onceAvailable || workflowTask.guard.submissionId !== args.submissionId || workflowTask.planRevision !== args.expectedPlanRevision || workflowTask.settingsRevision !== args.expectedSettingsRevision) throw Error('invalid workflow exception');
+          workflowTask.onceAvailable = true;
+        }
         if (name === 'save_preferences') {
           if (args.preferences.revision !== assistance.preferences.revision) throw Error('preferences revision conflict');
           Object.assign(assistance.preferences, args.preferences, { revision: assistance.preferences.revision + 1 });
@@ -65,6 +210,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
         if (name === 'set_chat_assistance') {
           if (!task) throw Error('unknown identity');
           task.enabled = args.enabled;
+          if (!args.enabled && workflowTask) workflowTask.enabled = false;
           task.assistance.status = args.enabled ? 'pending' : 'off';
         }
         if (name === 'save_task_context') {
@@ -117,11 +263,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
           else session.attention.snoozedUntil = Date.now() + args.minutes * 60000;
         }
         if (name === 'acknowledge') session.unread = false;
+        if (['configure_workflow_task', 'approve_workflow_plan', 'allow_workflow_once'].includes(name)) return structuredClone(workflowTask);
         if (/approval|pause|stop|open_task/.test(name)) throw Error('unsupported operation called');
         return null;
       },
     };
-  }, { initial, initialAssistance });
+  }, { initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates });
 }
 
 (async () => {
@@ -130,31 +277,67 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
   const checks = [];
   const newPage = async (viewport = { width: 1120, height: 880 }) => {
     const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
+    page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_DISCOVERY_ONLY === '1') {
+      const screenshots = await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_INTRO_ONLY === '1') {
+      const screenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     const empty = await newPage();
     await empty.goto(origin);
-    await empty.locator('.pet-grid').waitFor();
-    assert.equal(await empty.locator('.pet-card').count(), 3);
-    assert.equal(await empty.getByRole('button', { name: '＋ 작업 연결' }).first().isEnabled(), false);
-    await empty.getByText('브라우저 미리보기 · 연결 없음', { exact: true }).waitFor();
-    await empty.getByRole('button', { name: '연결 안내 →' }).click();
-    await empty.getByRole('heading', { name: 'Codex와 연결하기' }).waitFor();
-    assert.equal(await empty.locator('input[type=checkbox]').count(), 0);
+    await empty.getByRole('heading', { name: '아이디어를 웹페이지로.', exact: true }).waitFor();
+    assert.equal(await empty.locator('.pet-card').count(), 0);
+    await empty.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
+    assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
+    await empty.getByText('미리보기 · 연결 없음', { exact: true }).waitFor();
+    await empty.getByRole('button', { name: '연결 도움', exact: true }).click();
+    await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
+    assert.equal(await empty.locator('input[type=checkbox]:visible').count(), 0);
     assert.equal(await empty.getByRole('button', { name: /허용|거절|승인/ }).count(), 0);
+    await empty.getByText('더 보기', { exact: true }).click();
     await empty.getByRole('button', { name: '자동 도움', exact: true }).click();
     await empty.getByText('브라우저 미리보기 · 연결 없음. 설정은 저장되지 않아요.', { exact: true }).waitFor();
     assert.equal(await empty.getByRole('button', { name: '추천 설정으로 켜기' }).isEnabled(), false);
     checks.push('empty/offline UI has no fabricated activity or approval controls');
+    const setupScreenshots = await runSetupChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const siteScreenshots = await runProductSiteChecks({ newPage, screenshotDir: path.dirname(screenshot), checks });
 
     const missing = await newPage();
+    await missing.route('**/assets/soft-pet/poses.png', route => route.abort());
     await missing.route('**/assets/motions/sprite.png', route => route.abort());
     await missing.goto(origin);
     await missing.getByRole('img', { name: '펫 이미지 없음' }).first().waitFor();
     assert.equal(await missing.locator('.pet-sprite').count(), 0);
     checks.push('missing PNG produces an explicit image placeholder');
+
+    const fallbackPet = await newPage();
+    await fallbackPet.route('**/assets/soft-pet/poses.png', route => route.abort());
+    await fallbackPet.goto(origin);
+    await fallbackPet.locator('[data-asset="legacy"]').first().waitFor();
+    assert.equal(await fallbackPet.locator('.pet-placeholder').count(), 0);
+    const softPet = await newPage();
+    await softPet.goto(origin);
+    await softPet.locator('[data-asset="soft"]').first().waitFor();
+    assert.equal(await softPet.locator('.pet-soft').first().evaluate(el => getComputedStyle(el).imageRendering), 'auto');
+    await softPet.emulateMedia({ reducedMotion: 'reduce' });
+    await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    await softPet.emulateMedia({ reducedMotion: 'no-preference' });
+    await softPet.waitForFunction(() => getComputedStyle(document.querySelector('.pet-soft')).animationName === 'soft-pet-breathe');
+    await softPet.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    checks.push('soft pet is smooth, obeys reduced motion and hidden windows, and restores legacy art if unavailable');
+    await fallbackPet.close(); await softPet.close();
 
     const manager = await newPage();
     await mockBridge(manager, fixture);
@@ -225,6 +408,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     checks.push('only actual plan text is rendered, token unavailable, task return stays manual, snooze does not pause work');
 
     await manager.getByRole('button', { name: '닫기', exact: true }).click();
+    await manager.getByText('더 보기', { exact: true }).click();
     await manager.getByRole('button', { name: '자동 도움', exact: true }).click();
     await manager.getByRole('button', { name: '추천 설정으로 켜기' }).click();
     await manager.getByText('설정을 저장했어요. 다음 메시지부터 전달을 시도해요.', { exact: true }).waitFor();
@@ -351,6 +535,30 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     await overlays[2].locator('.sprite-celebrate').waitFor();
     const pet = overlays[0];
     await pet.bringToFront();
+    await pet.evaluate(template => {
+      window.__uiTest.roles.bindings = [{ identity: window.__uiTest.assistance.tasks[0].identity,
+        template: { ...template, prop: 'notebook', background: 'meadow' }, revision: 1, petRevision: 1, enabled: true }];
+      window.__uiTest.emitEvent('autopets://roles-changed', {});
+    }, roleTemplates[0]);
+    await pet.getByLabel('노트 소품', { exact: true }).waitFor();
+    await pet.getByLabel('풀밭 배경', { exact: true }).waitFor();
+    assert.equal(await overlays[1].getByLabel('노트 소품', { exact: true }).count(), 0);
+    assert.ok(await pet.locator('.pet-notebook').evaluate(element => {
+      const decoration = element.getBoundingClientRect(), hit = document.querySelector('.pet-hit').getBoundingClientRect();
+      return getComputedStyle(element).pointerEvents === 'none' && decoration.left >= hit.left && decoration.right <= hit.right
+        && decoration.top >= hit.top && decoration.bottom <= hit.bottom;
+    }));
+    await pet.evaluate(() => {
+      window.__uiTest.roles.bindings[0].identity = { ...window.__uiTest.roles.bindings[0].identity, accountId: 'different-source' };
+      window.__uiTest.emitEvent('autopets://roles-changed', {});
+    });
+    await pet.getByLabel('노트 소품', { exact: true }).waitFor({ state: 'hidden' });
+    await pet.evaluate(() => {
+      window.__uiTest.roles.bindings[0].identity = window.__uiTest.assistance.tasks[0].identity;
+      window.__uiTest.emitEvent('autopets://roles-changed', {});
+    });
+    await pet.getByLabel('노트 소품', { exact: true }).waitFor();
+    checks.push('saved decorations follow the exact task/source, remain inside the pet hit area and do not intercept pointer input');
     await pet.getByRole('button', { name: '근거 자료 조사 · 작업 카드 열기', exact: true }).click();
     await pet.locator('.pet-quick-card').waitFor();
     assert.equal(await pet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'show_manager')), false);
@@ -406,11 +614,49 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     await pet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
     checks.push('quick card stays within a smaller viewport while details remain reachable by scrolling');
 
+    const setupPage = await newPage({ width: 1120, height: 1040 });
+    const setupFixture = { ...structuredClone(fixture), setup: { version: 1, installedVersion: '0.1.0', phase: 'connecting', appReady: true, chatConnected: false, guidanceDelivered: false, protection: { model: false, reasoning: false, submission: false }, retryable: true, nextAction: 'review-hooks' } };
+    await mockBridge(setupPage, setupFixture);
+    await setupPage.goto(origin);
+    await setupPage.getByRole('button', { name: '연결 설정', exact: true }).click();
+    await setupPage.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
+    await setupPage.getByText('다른 환경과 연결 상세', { exact: true }).click();
+    await setupPage.getByText('실제 설정 확인', { exact: true }).click();
+    await setupPage.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
+    await setupPage.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 시연 데이터 · 실제 연결 미검증'; });
+    await setupPage.evaluate(() => { window.__uiTest.state.setup.chatConnected = true; window.__uiTest.state.setup.phase = 'ready'; });
+    assert.equal(await setupPage.locator('.connection-detail-list div').filter({ hasText: '자동 도움 전달' }).locator('dd').textContent(), '미확인');
+    assert.equal(await setupPage.locator('.setup-status').textContent(), '연결 전');
+    checks.push('legacy setup remains readable without promoting a global observed-chat flag into host-specific first-task evidence');
+
+    const waitingPet = await newPage({ width: 220, height: 250 });
+    await mockBridge(waitingPet, { ...setupFixture, sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+    await waitingPet.goto(`${origin}/?pet=0`);
+    await waitingPet.getByText('채팅 연결 대기', { exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).click();
+    assert.ok(await waitingPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
+    checks.push('first pet waits without a fabricated task and keeps exit reachable');
+
+    await runTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
+    const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await runPetTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
+    const toolScreenshots = await runToolActivityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const introScreenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+
     const compact = await newPage({ width: 1120, height: 1120 });
     const compactAssistance = structuredClone(assistanceFixture);
     compactAssistance.preferences.enabled = true;
     await mockBridge(compact, fixture, compactAssistance);
     await compact.goto(origin);
+    await compact.getByText('더 보기', { exact: true }).click();
     await compact.getByRole('button', { name: '자동 도움', exact: true }).click();
     await compact.getByRole('radio', { name: /^자동/ }).waitFor();
     assert.equal(await compact.locator('.assistance-details[open]').count(), 0);
@@ -421,6 +667,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture) 
     });
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png')], checks, pageErrors: errors }, null, 2));
-  } finally { await browser.close(); }
+    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...graphScreenshots, ...toolScreenshots, ...roleScreenshots, ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
+  } finally { if (errors.length) console.error('Browser page errors:', errors); await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

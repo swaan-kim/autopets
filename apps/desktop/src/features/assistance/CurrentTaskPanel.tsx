@@ -1,23 +1,31 @@
-import type { AssistanceSnapshot, AssistanceTask } from '@autopets/contracts/types';
+import type { AssistanceSnapshot, AssistanceTask, ChatIdentity } from '@autopets/contracts/types';
 import type { AssistanceAction } from '../../bridge/actionTypes';
-import { identityKey } from './identity';
+import { identityKey, uniqueIdentities } from './identity';
 import { assistanceLabel } from './presentation';
 import { ContextEditor } from '../context/ContextEditor';
 import { WORK_STYLES as styles } from '../settings/workStyles';
+import type { useWorkflow } from '../../bridge/useWorkflow';
+import { WorkflowTaskPanel } from '../workflow/WorkflowTaskPanel';
 
-export function CurrentTaskPanel({ snapshot, sessions, selected, selectedTask, disabled, hidden, setSelected, setNotice, run }: {
+export function CurrentTaskPanel({ snapshot, sessions, selected, selectedTask, disabled, hidden, setSelected, setNotice, run, workflow }: {
   snapshot: AssistanceSnapshot; sessions: { id: string; label: string }[]; selected: string; selectedTask: AssistanceTask | undefined;
   disabled: boolean; hidden: boolean; setSelected: (value: string) => void; setNotice: (value: string) => void; run: AssistanceAction;
+  workflow: ReturnType<typeof useWorkflow>;
 }) {
-  const label = (task: AssistanceTask) => {
-    const uniqueNativeMatch = task.identity.provider === 'codex' && snapshot.tasks.filter(other => other.identity.provider === 'codex' && other.identity.chatId === task.identity.chatId).length === 1;
-    return (uniqueNativeMatch && sessions.find(session => session.id === task.identity.chatId)?.label) || task.context.goal || task.identity.chatId;
+  const identities = uniqueIdentities(snapshot.tasks, workflow.snapshot.tasks);
+  const selectedWorkflow = workflow.snapshot.tasks.find(task => identityKey(task.identity) === selected);
+  const label = (identity: ChatIdentity) => {
+    const uniqueNativeMatch = identity.provider === 'codex' && identities.filter(other => other.provider === 'codex' && other.chatId === identity.chatId).length === 1;
+    const task = snapshot.tasks.find(task => identityKey(task.identity) === identityKey(identity));
+    return (uniqueNativeMatch && sessions.find(session => session.id === identity.chatId)?.label) || task?.context.goal || identity.chatId;
   };
   return <section id="assistance-panel-current" role="tabpanel" aria-labelledby="assistance-tab-current" className="assistance-card" hidden={hidden}>
       <h2>현재 채팅의 도움</h2>
-      {snapshot.tasks.length ? <><label className="field-label" htmlFor="assistance-task">채팅 선택</label><select id="assistance-task" className="text-input" value={selected} onChange={event => { setSelected(event.target.value); setNotice(''); }}><option value="">채팅을 선택하세요</option>{snapshot.tasks.map(task => <option key={identityKey(task.identity)} value={identityKey(task.identity)}>{task.identity.provider === 'codex' ? 'Codex' : 'ChatGPT'} · {label(task)} · {task.identity.accountId}</option>)}</select>
+      {identities.length ? <><label className="field-label" htmlFor="assistance-task">채팅 선택</label><select id="assistance-task" className="text-input" value={selected} onChange={event => { setSelected(event.target.value); setNotice(''); }}><option value="">채팅을 선택하세요</option>{identities.map(identity => <option key={identityKey(identity)} value={identityKey(identity)}>{identity.provider === 'codex' ? 'Codex' : 'ChatGPT'} · {label(identity)} · {identity.accountId}</option>)}</select>
+        {selectedWorkflow && <WorkflowTaskPanel key={identityKey(selectedWorkflow.identity)} task={selectedWorkflow} capabilities={workflow.snapshot.capabilities[selectedWorkflow.identity.provider]} loaded={workflow.loaded} error={workflow.error} refresh={workflow.refresh} />}
+        {selected && !selectedWorkflow && <p className="small-note">이 채팅의 계획 연결은 아직 확인되지 않았어요.</p>}
         {selectedTask && <div className="chat-assistance" key={identityKey(selectedTask.identity)}>
-          <div className="chat-assistance-status"><span className={`status-badge ${selectedTask.assistance.status}`} data-testid="assistance-state">{assistanceLabel(selectedTask, snapshot.preferences.enabled)}</span><button className="text-button" disabled={disabled} onClick={() => void run('set_chat_assistance', { identity: selectedTask.identity, enabled: !selectedTask.enabled }, selectedTask.enabled ? '이번 채팅의 자동 도움을 껐어요. 기록은 남아 있어요.' : '이번 채팅의 자동 도움을 켰어요. 전달 상태를 확인해주세요.')}>{selectedTask.enabled ? '이번 채팅 도움 끄기' : '이번 채팅 도움 켜기'}</button></div>
+          <div className="chat-assistance-status"><span className={`status-badge ${selectedTask.assistance.status}`} data-testid="assistance-state">{assistanceLabel(selectedTask, snapshot.preferences.enabled)}</span><button className="text-button" disabled={disabled} onClick={() => void run('set_chat_assistance', { identity: selectedTask.identity, enabled: !(selectedTask.enabled || selectedWorkflow?.enabled) }, (selectedTask.enabled || selectedWorkflow?.enabled) ? '이번 채팅의 자동 도움을 껐어요. 기록은 남아 있어요.' : '이번 채팅의 자동 도움을 켰어요. 전달 상태를 확인해주세요.')}>{(selectedTask.enabled || selectedWorkflow?.enabled) ? '이번 채팅 도움 끄기' : '이번 채팅 도움 켜기'}</button></div>
           <p className="current-help-copy">{selectedTask.assistance.reason || '아직 적용된 도움 내역이 없어요.'}</p>
           {selectedTask.context.goal && <p className="task-goal-summary"><span>목표</span>{selectedTask.context.goal}</p>}
           <label className="field-label" htmlFor="task-work-style">이번 채팅 작업 방식</label>

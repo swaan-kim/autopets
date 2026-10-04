@@ -1,10 +1,15 @@
-name: Publish AutoPets demo
+name: Publish AutoPets product page and demo
 
 on:
   push:
     branches: [main]
     paths:
       - 'docs/demo/**'
+      - 'docs/start/**'
+      - 'docs/releases/channel.json'
+      - 'scripts/build-product-site.mjs'
+      - 'scripts/validate-release.mjs'
+      - 'packages/contracts/release.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -32,15 +37,17 @@ jobs:
           persist-credentials: false
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-      - name: Package self-contained demo
+      - name: Package product page and preserve demo
         run: |
           mkdir -p _site
           cp docs/demo/index.html _site/index.html
+          cp -R docs/demo _site/demo
+          node scripts/build-product-site.mjs --out _site/start
           touch _site/.nojekyll
-      - name: Upload demo
+      - name: Upload site
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: _site
-      - name: Publish demo
+      - name: Publish site
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

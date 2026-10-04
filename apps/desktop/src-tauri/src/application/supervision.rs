@@ -76,7 +76,7 @@ impl Store {
             .slots
             .iter()
             .position(|s| s.as_deref() == Some(input.session_id.as_str()))
-            .or_else(|| self.slots.iter().position(Option::is_none))
+            .or_else(|| (0..3).find(|i| self.slots[*i].is_none() && !self.pet_links.values().any(|l| l.slot == *i)))
             .ok_or("slots-full")?;
         let session_id = input.session_id.clone();
         self.with_session_transaction(&session_id, |store| {

@@ -5,6 +5,7 @@ import { currentAction, dueAttention } from './presentation';
 import { Badge } from './StatusBadge';
 import { AttentionCard } from './AttentionCard';
 import { TaskReturn } from './TaskReturn';
+import { ToolActivity } from './ToolActivity';
 
 export function TaskDetails({ session, now, disconnected }: { session: Session; now: number; disconnected: boolean }) {
   const action = useAction();
@@ -24,6 +25,7 @@ export function TaskDetails({ session, now, disconnected }: { session: Session; 
     <div className="observation-stats"><div><span>이번 작업 관측 시간</span><strong>{elapsed === null ? '—' : elapsed < 1 ? '1분 미만' : `${elapsed}분`}</strong></div><div><span>시간 알림</span><strong>{session.elapsedAlertMinutes === null ? '끔' : `${session.elapsedAlertMinutes ?? 10}분`}</strong></div><div><span>토큰 사용량</span><strong>측정 불가</strong></div></div>
     {session.unread && <button className="text-button" disabled={action.busy} onClick={() => void action.run('acknowledge', { sessionId: session.id })}>응답 확인했어요</button>}
     {action.error && <p className="error" role="alert">{action.error}</p>}
+    <ToolActivity session={session} disconnected={disconnected} />
     <TaskReturn session={session} />
   </div>;
 }

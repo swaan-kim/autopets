@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import type { Snapshot, TaskConfiguration } from '@autopets/contracts/types';
+import type { ChatIdentity, Snapshot, TaskConfiguration } from '@autopets/contracts/types';
 import { isDesktop } from '../bridge/command';
 import { useAction } from '../bridge/useAction';
 import { useAssistance } from '../bridge/useAssistance';
+import type { useWorkflow } from '../bridge/useWorkflow';
 import { PetGrid } from '../features/pets/PetGrid';
 import { PET_NAMES } from '../features/pets/constants';
 import { AssistancePanel } from '../features/assistance/AssistancePanel';
@@ -11,19 +12,24 @@ import { ConfigurationForm } from '../features/tasks/ConfigurationForm';
 import { TaskDetails } from '../features/tasks/TaskDetails';
 import { formatTime, shortPath } from './shared/format';
 import { Modal } from './shared/Modal';
-import { AppShell } from './AppShell';
+import { AppShell, type ManagerSection } from './AppShell';
+import { IntroStudio } from '../features/intro/IntroStudio';
 import { ConnectionGuide } from '../features/onboarding/ConnectionGuide';
 import { TaskList } from '../features/tasks/TaskList';
+import { WORKFLOW_PRESETS } from '../features/workflow/presentation';
+import { RoleStudio } from '../features/roles/RoleStudio';
+import { UiPetStudio } from '../features/pets/UiPetStudio';
 
-export function Manager({ snapshot, error, assistance }: { snapshot: Snapshot; error: string; assistance: ReturnType<typeof useAssistance> }) {
-  const [settings, setSettings] = useState<'pets' | 'connection' | 'assistance'>('pets');
+export function Manager({ snapshot, error, assistance, workflow }: { snapshot: Snapshot; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
+  const [settings, setSettings] = useState<ManagerSection>('pets');
   const [assistanceSession, setAssistanceSession] = useState<string | null>(null);
+  const [assistanceIdentity, setAssistanceIdentity] = useState<ChatIdentity | null>(null);
   const [assistanceRequest, setAssistanceRequest] = useState(0);
   useEffect(() => {
     if (!isDesktop) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen<{ sessionId?: string }>('autopets://open-assistance', event => { setAssistanceSession(event.payload.sessionId || null); setAssistanceRequest(value => value + 1); setSettings('assistance'); }).then(dispose => { if (disposed) dispose(); else unlisten = dispose; }).catch(() => { /* Snapshot controls remain usable if the window event listener is unavailable. */ });
+    void listen<{ sessionId?: string }>('autopets://open-assistance', event => { setAssistanceIdentity(null); setAssistanceSession(event.payload.sessionId || null); setAssistanceRequest(value => value + 1); setSettings('assistance'); }).then(dispose => { if (disposed) dispose(); else unlisten = dispose; }).catch(() => { /* Snapshot controls remain usable if the window event listener is unavailable. */ });
     return () => { disposed = true; unlisten?.(); };
   }, []);
   const [picker, setPicker] = useState<number | null>(null);
@@ -34,7 +40,8 @@ export function Manager({ snapshot, error, assistance }: { snapshot: Snapshot; e
   const [taskFilter, setTaskFilter] = useState<'all' | 'working' | 'attention' | 'arrived'>('all');
   const action = useAction();
   const assignedIds = snapshot.slots.map(slot => slot.sessionId);
-  const bound = assignedIds.filter(Boolean).length;
+  const bound = assignedIds.filter(Boolean).length + (snapshot.petLinks?.length ?? 0);
+  const [preparingPet, setPreparingPet] = useState(bound === 0);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
   const sessions = [...snapshot.sessions].filter(session => `${session.label} ${session.cwd} ${session.id}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.lastSeen - a.lastSeen);
   const pickedSession = snapshot.sessions.find(session => session.id === pickedId);
@@ -48,8 +55,14 @@ export function Manager({ snapshot, error, assistance }: { snapshot: Snapshot; e
     {editSession && <Modal title="작업 설정" close={() => { if (!action.busy) setEditId(null); }}>{action.error && <p className="error" role="alert">{action.error}</p>}<ConfigurationForm key={editSession.id} session={editSession} busy={action.busy} submitLabel="설정 저장" onSave={async config => { if (await configure(editSession.id, config)) setEditId(null); }} /></Modal>}
     {detailSession && <Modal title={detailSession.label} close={() => setDetailId(null)} wide><p className="overlay-path">{shortPath(detailSession.cwd)}</p><TaskDetails session={detailSession} now={snapshot.now} disconnected={disconnected} /></Modal>}
   </>}>
-      {settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} /> : settings === 'connection' ? <ConnectionGuide connectionPath={snapshot.connectionPath} onBack={() => setSettings('pets')} /> : <><div className="page-heading"><span className="eyebrow">A LITTLE COMPANY, A LITTLE CLARITY</span><h1>작업은 맡기고,<br />흐름은 가까이 두세요<span className="heading-spark" aria-hidden="true">✳</span></h1><p>펫 하나에 작업 하나. 실제 활동과 필요한 알림을 한눈에.</p></div><div className="section-title"><h2>나의 펫 <span>{bound} / 3</span></h2><button className="text-button" disabled={!isDesktop} onClick={() => void action.run('set_pets_visible', { visible: true })}>바탕화면에 모두 표시 ↗</button></div>
-        <PetGrid snapshot={snapshot} disconnected={disconnected} busy={action.busy} onDetails={setDetailId} onEdit={setEditId} onUnassign={slot => void action.run('unassign_session', { slot })} onOpen={slot => void action.run('open_pet', { slot })} onConnect={slot => { setPicker(slot); setQuery(''); setPickedId(null); }} />
-        <TaskList snapshot={snapshot} disconnected={disconnected} taskFilter={taskFilter} setTaskFilter={setTaskFilter} busy={action.busy} onDetails={setDetailId} onConnect={(slot, sessionId) => { setPicker(slot); setQuery(''); setPickedId(sessionId); }} onConnection={() => setSettings('connection')} /><footer><span className="footer-leaf" aria-hidden="true">✳</span><span>펫의 알림을 확인해도 Codex 작업은 계속돼요.</span><span className="footer-mode">활동 관측 · 로컬 저장</span></footer></>}
+      {settings === 'roles' ? <RoleStudio workflow={workflow.snapshot} sessions={snapshot.sessions} refreshWorkflow={workflow.refresh} /> : settings === 'intro' ? <IntroStudio assistance={assistance.snapshot} workflow={workflow.snapshot} sessions={snapshot.sessions} onWorkflow={identity => { setAssistanceIdentity(identity); setAssistanceSession(identity.chatId); setAssistanceRequest(value => value + 1); setSettings('assistance'); }} /> : settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} initialIdentity={assistanceIdentity} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} workflow={workflow} /> : settings === 'connection' ? <ConnectionGuide petLinks={snapshot.petLinks} setup={snapshot.setup} connectionPath={snapshot.connectionPath} defaultLabel={WORKFLOW_PRESETS.find(item => item.id === workflow.snapshot.preferences.preset)?.title} onBack={() => setSettings('pets')} onPreferences={() => setSettings('assistance')} /> : null}
+      <div className={`pets-workspace ${preparingPet ? 'preparing-pet' : ''}`} hidden={settings !== 'pets'}>
+        <div className="pets-dashboard" hidden={preparingPet}>
+        {bound > 0 && <><div className="page-heading pets-page-heading"><span className="eyebrow">함께하는 작업</span><h1>펫과 이어서 해볼까요?</h1><p>지금 필요한 확인부터, 끝난 작업의 결과까지.</p></div><div className="section-title"><h2>연결한 펫 <span>{bound} / 3</span></h2><button className="text-button" disabled={!isDesktop} onClick={() => void action.run('set_pets_visible', { visible: true })}>바탕화면에 모두 표시 ↗</button></div></>}
+        {bound > 0 && <PetGrid snapshot={snapshot} disconnected={disconnected} busy={action.busy} onDetails={setDetailId} onEdit={setEditId} onUnassign={slot => void action.run('unassign_session', { slot })} onOpen={slot => void action.run('open_pet', { slot })} onConnect={slot => { setPicker(slot); setQuery(''); setPickedId(null); }} />}
+        </div>
+        <UiPetStudio active={settings === 'pets'} initiallyOpen={bound === 0} onOpenChange={setPreparingPet} links={snapshot.petLinks ?? []} setup={snapshot.setup} onConnection={() => setSettings('connection')} />
+        <div hidden={preparingPet}>{(snapshot.sessions.length > 0) && <TaskList snapshot={snapshot} disconnected={disconnected} taskFilter={taskFilter} setTaskFilter={setTaskFilter} busy={action.busy} onDetails={setDetailId} onConnect={(slot, sessionId) => { setPicker(slot); setQuery(''); setPickedId(sessionId); }} onConnection={() => setSettings('connection')} />}<footer className="workspace-footer"><span>작업과 결과는 Codex 채팅에 그대로 있어요.</span><span className="footer-mode">AutoPets</span></footer></div>
+      </div>
   </AppShell>;
 }

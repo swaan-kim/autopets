@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "style": "pre-rendered-soft-toy",
+  "width": 1536,
+  "height": 1024,
+  "columns": 3,
+  "rows": 2,
+  "cellSize": 512,
+  "poses": { "idle": 0, "planning": 1, "waiting": 2, "working": 3, "complete": 4, "error": 5 },
+  "source": "Generated during development from the existing AutoPets puppy; no runtime generation.",
+  "fallback": "/assets/motions/sprite.png"
+}

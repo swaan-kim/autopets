@@ -1,0 +1,17 @@
+.pet-sprite.pet-soft {
+  image-rendering: auto;
+  transform-origin: 50% 88%;
+  animation: soft-pet-breathe 5s ease-in-out infinite;
+}
+.pet-soft.pose-planning { animation: soft-pet-think 6s ease-in-out infinite; }
+.pet-soft.pose-working { animation: soft-pet-work 3.6s ease-in-out infinite; }
+.pet-soft.pose-waiting { animation: soft-pet-attention 900ms ease-out 1; }
+.pet-soft.pose-complete { animation: soft-pet-greet 1200ms ease-out 1; }
+.pet-soft.pose-error { animation: soft-pet-attention 900ms ease-out 1; }
+.pet-sprite.pet-soft.sprite-paused { animation: none; transform: none; }
+@keyframes soft-pet-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.008, 1.014); } }
+@keyframes soft-pet-think { 0%, 70%, 100% { transform: rotate(0); } 35% { transform: rotate(-1deg); } }
+@keyframes soft-pet-work { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(1px) rotate(.6deg); } }
+@keyframes soft-pet-attention { 0%, 100% { transform: rotate(0); } 45% { transform: rotate(-1.5deg); } }
+@keyframes soft-pet-greet { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(-2deg); } 65% { transform: rotate(1deg); } }
+@media (prefers-reduced-motion: reduce) { .pet-sprite.pet-soft { animation: none; transform: none; } }

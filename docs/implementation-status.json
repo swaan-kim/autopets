@@ -1,23 +1,23 @@
 {
-  "date": "2026-09-21",
-  "scope": "Repository and module restructuring; existing app identity, data and external contracts preserved.",
-  "phase": "implemented-foundation-awaiting-live-connection-and-quality-evidence",
+  "date": "2026-09-22",
+  "scope": "Unified single EXE, explicit in-app AI connection, product site, skill/plugin entry, host capability catalog and signed update path. No installation or publication on the user PC.",
+  "phase": "implemented-unified-entry-awaiting-live-verification",
   "installedThisChange": false,
   "liveRoutingEnabled": false,
   "runtimeModelCallsForPet": 0,
   "automaticQualityRepairEnabled": false,
   "frontendTypecheck": "passed",
   "frontendProductionBuild": "passed",
-  "rustFormatCheck": "passed",
+  "rustFormatCheck": "local-tool-blocked-by-windows-policy",
   "localRustTests": "blocked-before-project-check-by-time-macros-E0463",
   "nodeTests": {
-    "passed": 102,
+    "passed": 142,
     "failed": 0,
-    "evidence": "Windows CI and fresh checkout"
+    "evidence": "Local complete suite including installed-resource repair, shared entrypoints and publication-gate fixtures."
   },
   "browserNativeUiChecks": {
     "usesFixtures": true,
-    "passed": 14,
+    "passed": 31,
     "pageErrors": 0
   },
   "evaluation": {
@@ -27,30 +27,10 @@
     "mode": "local-rules-only"
   },
   "currentImplementationCI": {
-    "status": "success",
-    "commit": "1315d19c5cbbfe82cbf5eb7a4716310575a35ff8",
-    "runId": 35594357064,
-    "url": "https://github.com/swaan-kim/autopets/actions/runs/35594357064",
-    "pullRequest": "https://github.com/swaan-kim/autopets/pull/8",
-    "nodeTests": {
-      "passed": 102,
-      "failed": 0
-    },
-    "uiChecks": {
-      "passed": 14,
-      "pageErrors": 0
-    },
-    "rustTests": {
-      "passed": 52,
-      "failed": 0
-    },
-    "promoTests": {
-      "passed": 22,
-      "failed": 0
-    },
-    "nsisBuild": "passed",
-    "companionPackaging": "passed",
-    "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
+    "status": "tracked-in-current-branch-checks",
+    "branch": "feat/unified-distribution",
+    "url": "https://github.com/swaan-kim/autopets/pull/16/checks",
+    "note": "PR #16 exact-commit checks cover Rust, NSIS and isolated EXE install/connect/repair/removal. They do not prove live AI support or user-PC signing policy."
   },
   "realConnection": {
     "codex": "unverified",
@@ -82,7 +62,42 @@
       "conclusion": "success",
       "url": "https://github.com/swaan-kim/autopets/actions/runs/35462024271"
     },
-    "date": "2026-09-20"
+    "date": "2026-09-20",
+    "restructuringCI": {
+      "status": "success",
+      "commit": "1315d19c5cbbfe82cbf5eb7a4716310575a35ff8",
+      "runId": 35594357064,
+      "url": "https://github.com/swaan-kim/autopets/actions/runs/35594357064",
+      "pullRequest": "https://github.com/swaan-kim/autopets/pull/8",
+      "nodeTests": {
+        "passed": 102,
+        "failed": 0
+      },
+      "uiChecks": {
+        "passed": 14,
+        "pageErrors": 0
+      },
+      "rustTests": {
+        "passed": 52,
+        "failed": 0
+      },
+      "promoTests": {
+        "passed": 22,
+        "failed": 0
+      },
+      "nsisBuild": "passed",
+      "companionPackaging": "passed",
+      "note": "Evidence is for this exact recorded code commit. Subsequent documentation commits and main checks are visible on the pull request and Actions."
+    },
+    "oneCallCI": {
+      "commit": "fd7f8b0704ee37150a4d7aae151054b3cc19d6ec",
+      "url": "https://github.com/swaan-kim/autopets/actions/runs/35631416604",
+      "conclusion": "success",
+      "nodeTests": 127,
+      "uiChecks": 25,
+      "rustTests": 73,
+      "note": "Prior ZIP bootstrap only; not evidence for unified EXE or actual Codex trust."
+    }
   },
   "limitations": [
     "Production connector capabilities remain false until observed in the actual service.",
@@ -127,12 +142,60 @@
     "existingRustTestsPreserved": 52,
     "uniqueSqlStatementsUnchanged": 26,
     "appDataIdentityUnchanged": true,
-    "newDatabaseMigration": false,
+    "newDatabaseMigration": "additive-workflow-v1-tables-only",
     "liveWindowPositionRestore": "not-tested"
   },
   "localBuildHelpers": {
     "powerShellParseChecks": 3,
     "explicitToolchainPathChecks": 10,
     "systemSettingsChanged": false
+  },
+  "planningExecution": {
+    "presets": [
+      "light",
+      "balanced",
+      "complex"
+    ],
+    "defaultOptIn": false,
+    "localSettingsAndConfirmation": "implemented",
+    "stageGuidanceLimitBytes": 3072,
+    "independentModelReasoningModeEvidence": true,
+    "productionSubmissionHold": false,
+    "productionRequestIdentity": false,
+    "productionAutomaticSwitching": false,
+    "preservedLegacyPreferenceJson": true,
+    "scope": "Implementation and isolated fixtures only",
+    "actualCodexVerification": "not-performed",
+    "attachmentIdentity": "unavailable-in-documented-hook",
+    "uiChecks": 23,
+    "stageGuidanceBytesWithoutContextOrHelper": {
+      "review": 635,
+      "planning": 721,
+      "execution": 934
+    }
+  },
+  "oneCallSetup": {
+    "publicRelease": null,
+    "publicOneCallVerified": false,
+    "bundledRuntime": "Node 24 with LICENSE",
+    "userProfileChanged": false,
+    "isolatedNativeInstall": "tracked-in-PR-16-checks",
+    "screen": "docs/images/app-setup.png"
+  },
+  "unifiedDistribution": {
+    "installerFormat": "single-nsis-exe",
+    "firstRun": "app-ready / AI-connect / first-real-event",
+    "siteSource": "docs/start/index.html",
+    "sitePublishedThisChange": false,
+    "pluginSource": "integrations/plugins/autopets",
+    "pluginDirectorySubmitted": false,
+    "storeSubmitted": false,
+    "publicRelease": null,
+    "codexLiveConnection": "unverified",
+    "otherProviderAdapters": "catalog-only-not-enabled",
+    "updatePolicy": "embedded-key-required / signed-version-required / no-downgrade",
+    "actualSignedUpdate": "not-tested",
+    "signerLimitation": "Locked Tauri CLI 2.11.4 does not embed the version in its signature; a verified version-aware signer is required before public updates.",
+    "screen": "docs/images/product-start.png"
   }
 }

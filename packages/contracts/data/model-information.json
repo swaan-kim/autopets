@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "reviewAfterDays": 30,
+  "entries": [
+    {
+      "model": "gpt-6-sol",
+      "surfaces": ["codex", "work-local"],
+      "axis": "공식 권장 작업 유형",
+      "summary": "복잡한 코딩과 여러 단계의 에이전트 작업",
+      "sourceUrl": "https://learn.chatgpt.com/docs/changelog#codex-2026-09-22-gpt-6-sol-luna",
+      "sourceTitle": "OpenAI · GPT-6 Sol and Luna in Codex and ChatGPT Work",
+      "publishedAt": "2026-09-22",
+      "reviewedAt": "2026-09-26",
+      "conditions": "제공사의 제품 안내를 요약한 자료입니다. 추론 수준별 비교 실험과 AutoPets에서의 성능·절감 효과는 평가하지 않았습니다."
+    },
+    {
+      "model": "gpt-6-luna",
+      "surfaces": ["codex", "work-local"],
+      "axis": "공식 권장 작업 유형",
+      "summary": "범위가 명확하고 많이 반복하는 작업",
+      "sourceUrl": "https://learn.chatgpt.com/docs/changelog#codex-2026-09-22-gpt-6-sol-luna",
+      "sourceTitle": "OpenAI · GPT-6 Sol and Luna in Codex and ChatGPT Work",
+      "publishedAt": "2026-09-22",
+      "reviewedAt": "2026-09-26",
+      "conditions": "제공사의 제품 안내를 요약한 자료입니다. 추론 수준별 비교 실험과 AutoPets에서의 성능·절감 효과는 평가하지 않았습니다."
+    }
+  ]
+}

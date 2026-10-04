@@ -26,3 +26,13 @@ test('evaluation rejects partial cost and duplicate results; fixtures cannot bec
   assert.throws(() => compareMeasurements([row('autopets'), row('autopets')]));
   assert.equal(compareMeasurements([row('native-default', { source: 'fixture' }), row('autopets', { source: 'fixture' })]).comparisons[0].livePairCount, 0);
 });
+test('stage overhead and subscription credits stay separate from tokens and unknown costs', () => {
+  const stages = Object.fromEntries(['planning', 'guidance', 'execution', 'review', 'retries'].map(stage => [stage, { totalTokens: 20, elapsedMs: 200, subscriptionCredits: null }]));
+  const report = compareMeasurements([row('native-default', { stages }), row('autopets', { stages })]);
+  assert.equal(report.comparisons[0].stages.planning.totalTokens.baselineMedian, 20);
+  assert.equal(report.comparisons[0].subscriptionCredits.availablePairs, 0);
+  assert.equal(report.comparisons[0].subscriptionCredits.autopetsPerAcceptableResult, null);
+  assert.equal(compareMeasurements([row('autopets')]).comparisons[0].stages.execution.totalTokens.autopetsMedian, null);
+  assert.throws(() => compareMeasurements([row('autopets', { stages: { planning: stages.planning } })]), /measurement-stages/);
+  assert.throws(() => compareMeasurements([row('autopets', { stages, metrics: { totalTokens: 10, elapsedMs: 1000, settingsActions: 0, reworkCount: 0 } })]), /stage-total/);
+});

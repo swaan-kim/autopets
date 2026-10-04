@@ -1,0 +1,18 @@
+{
+  "name": "autopets",
+  "version": "0.1.0",
+  "description": "AutoPets 앱을 실행하고 지원되는 로컬 AI 작업에 연결하는 시작 입구입니다.",
+  "author": {
+    "name": "swaan-kim"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AutoPets",
+    "shortDescription": "쓰던 AI는 그대로, 준비와 설정은 펫과 함께.",
+    "longDescription": "전용 Windows 앱의 실행과 연결을 안내합니다. 플러그인 설치만으로 데스크톱 앱이나 훅이 설치되지는 않습니다. 공개 배포와 실제 AI 연결은 별도 검증 중입니다.",
+    "developerName": "swaan-kim",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "AutoPets 켜줘."
+  }
+}

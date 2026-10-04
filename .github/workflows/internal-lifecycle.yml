@@ -1,0 +1,49 @@
+name: Internal lifecycle checks (Windows)
+
+on:
+  push:
+    branches: ['test/internal-shutdown-preservation']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: '11.19.0'
+          cache: true
+      - name: Prepare compile-time frontend assets
+        run: |
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
+          pnpm build
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend assets failed.' }
+          rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain setup failed.' }
+      - name: Node regression checks
+        run: |
+          pnpm test
+          if ($LASTEXITCODE -ne 0) { throw 'Node tests failed.' }
+      - name: Verify shutdown and nonempty data preservation
+        run: |
+          cargo +stable test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --lib transport::http::lifecycle_tests -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'Internal lifecycle checks failed.' }
+      - name: Rust regression checks
+        run: |
+          cargo +stable test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Rust regression checks failed.' }

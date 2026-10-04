@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { defaultPreferences, emptyContext, unverifiedCapabilities } from '../../../packages/contracts/index.mjs';
 import { prepare, record, loadConfig, identityFor } from '../assistance/prepare.mjs';
+const roleTemplates = JSON.parse(await readFile(new URL('../../../packages/contracts/data/roles.json', import.meta.url), 'utf8'));
 
 async function fixture(t) {
   const project = await mkdtemp(path.join(tmpdir(), 'autopets-assistance-한글-'));
@@ -21,6 +22,12 @@ async function fixture(t) {
     calls.push({ url, body });
     if (url.startsWith('/v1/task-context?')) return { sessionId: new URL(url, 'http://localhost').searchParams.get('sessionId'), turnId, cwd: project };
     if (url === '/v1/events') { turnId = body.turnId; return { ok: true }; }
+    if (url === '/v1/workflow') {
+      const task = { enabled: false, planFirst: true, phase: 'unknown', settingsRevision: 0, planRevision: 0,
+        planning: { model: 'gpt-5.6-sol', reasoning: 'medium' }, execution: { model: 'gpt-5.6-terra', reasoning: 'medium' } };
+      return body.operation === 'read' ? { task, capabilities: { verification: 'unverified' } }
+        : { ok: true, decision: 'passthrough', reason: '보호 확인 불가', task, duplicate: false, target: null };
+    }
     const key = JSON.stringify(body.identity);
     let task = records.get(key);
     if (!task) { task = { identity: body.identity, enabled: true, revision: 0, workStyleOverride: null, settingsRevision: 0, context: emptyContext() }; records.set(key, task); }
@@ -47,6 +54,49 @@ test('Codex unverified production is inert; explicitly configured validation emi
   assert.ok(!JSON.stringify(f.calls).includes('PRIVATE'));
   assert.ok(!JSON.stringify(result.output).includes('PRIVATE'));
   assert.ok(!('model' in result.output));
+});
+
+test('selected role reaches only its exact chat and deduplicates at immutable role revisions', async t => {
+  const f = await fixture(t);
+  const role = { identity: identityFor('chat-a'), enabled: true, revision: 1, petRevision: 1,
+    template: { ...roleTemplates[0], instruction: '선택한 역할의 고유 지침 ROLE_ONLY_A' } };
+  const request = async (url, body) => {
+    const result = await f.request(url, body);
+    if (url === '/v1/assistance' && body.operation === 'read' && body.identity.chatId === 'chat-a') return { ...result, role };
+    return result;
+  };
+  const result = await prepare(f.config, f.input(), request);
+  assert.match(result.output.hookSpecificOutput.additionalContext, /ROLE_ONLY_A/);
+  assert.equal(result.receipt.identity.chatId, 'chat-a');
+  assert.ok(Buffer.byteLength(result.output.hookSpecificOutput.additionalContext) <= 3072);
+  assert.deepEqual((await prepare(f.config, f.input('chat-a', '경쟁사 비교', 'turn-2'), request)).output, {});
+  assert.doesNotMatch((await prepare(f.config, f.input('chat-b'), request)).output.hookSpecificOutput.additionalContext, /ROLE_ONLY_A/);
+  role.revision++; role.petRevision++;
+  f.records.get(JSON.stringify(role.identity)).settingsRevision++;
+  assert.ok((await prepare(f.config, f.input(), request)).receipt);
+  role.enabled = false; role.revision++;
+  f.records.get(JSON.stringify(role.identity)).settingsRevision++;
+  assert.doesNotMatch((await prepare(f.config, f.input(), request)).output.hookSpecificOutput.additionalContext, /ROLE_ONLY_A/);
+  role.enabled = true; role.identity = identityFor('wrong-chat');
+  await assert.rejects(prepare(f.config, f.input(), request), /role binding/);
+});
+
+test('maximum Korean role instruction remains intact and a role change after read rejects stale preparation', async t => {
+  const f = await fixture(t);
+  const role = { identity: identityFor('chat-a'), enabled: true, revision: 1, petRevision: 1,
+    template: { ...roleTemplates[1], instruction: '한'.repeat(512) } };
+  let race = false;
+  const request = async (url, body) => {
+    if (race && body?.operation === 'prepare') f.records.get(JSON.stringify(role.identity)).settingsRevision++;
+    const result = await f.request(url, body);
+    return url === '/v1/assistance' && body.operation === 'read' ? { ...result, role } : result;
+  };
+  const result = await prepare(f.config, f.input(), request);
+  assert.ok(Buffer.byteLength(result.output.hookSpecificOutput.additionalContext) <= 3072);
+  assert.ok(result.output.hookSpecificOutput.additionalContext.includes(role.template.instruction));
+  assert.deepEqual((await prepare({ ...f.config, validationMode: false }, f.input(), request)).output, {}, 'role never promotes production capability');
+  race = true;
+  await assert.rejects(prepare(f.config, f.input(), request), /stale-settings/);
 });
 test('Codex unchanged guidance deduplicates; preference and compaction changes restore bounded guidance', async t => {
   const f = await fixture(t);
