@@ -51,7 +51,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     const outside = (event: PointerEvent) => { if (event.target === overlay.current || event.target === document.body || event.target === document.documentElement) setExpanded(false); };
     const blur = () => setExpanded(false);
     document.addEventListener('keydown', key); document.addEventListener('pointerdown', outside); window.addEventListener('blur', blur);
-    overlay.current?.querySelector<HTMLButtonElement>('.pet-quick-card button')?.focus();
+    // Native resizing finishes after this effect; focusing must not scroll the compact window.
+    overlay.current?.querySelector<HTMLButtonElement>('.pet-quick-card button')?.focus({ preventScroll: true });
     return () => { document.removeEventListener('keydown', key); document.removeEventListener('pointerdown', outside); window.removeEventListener('blur', blur); };
   }, [expanded]);
   useEffect(() => {

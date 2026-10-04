@@ -79,8 +79,23 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   const image = path.join(screenshotDir, 'native-ui-explicit-pet.png');
   await page.screenshot({ path: image, fullPage: true });
 
-  const overlay = await newPage({ width: 420, height: 640 });
+  const overlay = await newPage({ width: 180, height: 230 });
   await mockBridge(overlay, value); await overlay.goto(`${origin}/?pet=0`);
+  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.waitForFunction(() => document.activeElement?.textContent === 'Codex 작업 열기');
+  // The native window expands asynchronously, after the card receives keyboard focus.
+  await overlay.setViewportSize({ width: 328, height: 600 });
+  const openedCard = await overlay.evaluate(() => ({
+    headingTop: document.querySelector('.explicit-heading').getBoundingClientRect().top,
+    scrollTop: document.querySelector('.quick-card-stack').scrollTop,
+    focusedAction: document.activeElement.textContent,
+  }));
+  assert.ok(openedCard.headingTop >= 0, 'opening a compact pet keeps its task heading visible');
+  assert.equal(openedCard.scrollTop, 0, 'opening a pet does not scroll away its identity');
+  assert.equal(openedCard.focusedAction, 'Codex 작업 열기');
+  await overlay.keyboard.press('Escape');
+  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).waitFor();
+  assert.equal(await overlay.locator('.quick-card-stack').count(), 0);
   await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
   await overlay.locator('.explicit-settings summary').click();
   await overlay.getByRole('button', { name: '도움 끄기', exact: true }).waitFor();
@@ -90,6 +105,6 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   });
   await overlay.locator('.explicit-status').filter({ hasText: /^연결 확인 필요$/ }).waitFor();
   await overlay.getByText('저장된 채팅을 열고 “펫 상태 확인”을 보내주세요.', { exact: true }).waitFor();
-  checks.push('explicit pet: collapsed management; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings lock; disabled assistance keeps observing; deliberate tracking closure; disconnected recovery');
+  checks.push('explicit pet: collapsed management; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings lock; disabled assistance keeps observing; deliberate tracking closure; compact-window expansion keeps task heading visible and keyboard focus; Escape closes; disconnected recovery');
   return [image];
 };

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
@@ -16,9 +17,11 @@ const ready = { appReady: true, chatConnected: false, guidanceDelivered: false }
 
 async function check(t, respond, { seconds = 6, processChanged = false, processDies = false } = {}) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-readiness-한글 '));
+  const exitSignal = path.join(directory, 'exit-after-request');
   const requests = [];
   const server = http.createServer((req, res) => {
     requests.push({ method: req.method, url: req.url });
+    if (processDies) writeFileSync(exitSignal, 'exit');
     respond(res, requests.length);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -35,9 +38,12 @@ async function check(t, respond, { seconds = 6, processChanged = false, processD
   const fakeToken = 'synthetic-token-never-in-evidence';
   await fs.writeFile(connection, JSON.stringify({ version: 1, baseUrl: `http://127.0.0.1:${server.address().port}`, token: fakeToken }));
   // The helper observes this test PowerShell process, never an installed app.
+  // Wait for the first HTTP observation before exiting, even during a cold startup.
+  const childCommand = `$taskDeadline = (Get-Date).AddSeconds(20); while (-not (Test-Path -LiteralPath ${quote(exitSignal)}) -and (Get-Date) -lt $taskDeadline) { Start-Sleep -Milliseconds 25 }`;
+  const childCommandBase64 = Buffer.from(childCommand, 'utf16le').toString('base64');
   await fs.writeFile(driver, `\ufeff$ErrorActionPreference = 'Stop'
 . ${quote(path.join(root, 'scripts/native-bridge-readiness.ps1'))}
-$taskSelf = ${processDies ? "Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList @('-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Milliseconds 500') -WindowStyle Hidden -PassThru" : 'Get-Process -Id $PID'}
+$taskSelf = ${processDies ? `Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', '${childCommandBase64}') -WindowStyle Hidden -PassThru` : 'Get-Process -Id $PID'}
 try {
   $taskStartedAt = $taskSelf.StartTime${processChanged ? '.AddSeconds(-1)' : ''}
   $null = Wait-NativeBridgeReady -AppProcessId $taskSelf.Id -AppStartedAt $taskStartedAt -AppPath $taskSelf.Path -ConnectionFile ${quote(connection)} -EvidenceFile ${quote(evidence)} -Seconds ${seconds}
