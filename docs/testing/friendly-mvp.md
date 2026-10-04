@@ -4,7 +4,7 @@
 
 **최신 설치본은 `a250f0c`의 카드 스크롤 수정본이다.** [Windows 전체 검사](https://github.com/swaan-kim/autopets/actions/runs/37233967139), 현재 PC 업데이트·실행·데이터 보존·실제 카드 확장/Esc 검사를 통과했다. [PR #20](https://github.com/swaan-kim/autopets/pull/20)을 `e73ec93`으로 병합하고 [별도 개발 Pre-release](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005.1)를 공개했다. 아래 설치 이력과 구분한다. 전체 일반 입력 흐름·정확한 채팅 복귀·서명된 일반 배포를 완료했다는 의미는 아니다.
 
-시작 기준 소스는 `fddaa0e809e29e6025505a1723c3922fdaa742cb`였다. 최신 제품 head `079a1e1`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/37230799141)가 성공했고, [PR #19](https://github.com/swaan-kim/autopets/pull/19)는 `ef44b66`으로 병합했다. [미서명 개발 Pre-release](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005)를 공개했다. 서명된 일반 배포와 설치형 전체 사용자 흐름은 별도 관문이다.
+시작 기준 소스는 `fddaa0e809e29e6025505a1723c3922fdaa742cb`였다. 직전 제품 head `079a1e1`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/37230799141)가 성공했고, [PR #19](https://github.com/swaan-kim/autopets/pull/19)는 `ef44b66`으로 병합했다. [첫 미서명 개발 Pre-release](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005)는 이력으로 보존한다. 서명된 일반 배포와 설치형 전체 사용자 흐름은 별도 관문이다.
 
 현재 PC에 같은 설치본을 업데이트하고 새 화면·입체 펫·인증된 로컬 통신을 확인했다. 재시작 후 과거 기록을 현재 연결 성공으로 표시하지 않았다. 설치 차단을 해결하기 위한 보안 설정 변경은 수행하지 않았다. 이 PC는 사용자가 이전에 Smart App Control을 끈 환경이다.
 

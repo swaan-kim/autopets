@@ -1,10 +1,12 @@
 # Windows 서명 배포 준비
 
-**최신 상태 (2026-10-01 18:40 KST):** 사용자가 Smart App Control을 끈 뒤 동일한 최신 미서명 설치기가 22.899초에 정상 설치됐고 새 앱 화면·로컬 통신·기존 데이터 보존을 확인했다. 앱은 실행 중이다. 에이전트가 보호 설정을 변경하지 않았으며 Defender는 켜져 있다. [실제 검사](../testing/mvp-feasibility.md). 현재 PC의 개발 검사는 진행할 수 있지만 보호가 켜진 일반 사용자 배포는 아래 서명/Store 관문을 유지한다. 아래 ‘차단/종료 상태’는 이날 이전 시점의 기록이다.
+**최신 상태 (2026-10-05):** [미서명 개발 Pre-release](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005.1)를 공개했다. 제품 head `a250f0c`의 Windows 검사와 현재 PC 설치·실행·데이터 보존이 통과했다. 설치기 SHA-256은 `c04423f241a96d9793f0b44b64893d043c228fb763d9fb5d4855832dcd263341`, 서명은 `NotSigned`다. 설치 22.543초, 실행 후 인증된 준비 응답 1.728초였으며 [실제 검사 기록](../testing/friendly-mvp.md)에 근거를 남겼다.
+
+이 PC는 사용자가 10월 1일 Smart App Control을 끈 환경이다. 에이전트가 보호 설정을 변경하지 않았으며 이 설치 성공을 보호가 켜진 PC의 성공으로 확대하지 않는다. 발급된 인증서·서비스 승인·서명된 배포본은 아직 없고, 안정판과 자동 업데이트는 비활성이다. 아래 9월 30일·10월 1일의 차단 기록과 자격/가격 조사는 당시 이력이며, 신청 전 최신 조건을 다시 확인한다.
 
 ## 일반 사용자 설치 경로 재검토 — 2026-10-01
 
-**현재 PC의 최신 설치·실행은 미완료다.** 최신 제품 소스 `2b4420c`, 설치기 SHA256 `a92db31056cba7ff7f026b1a9c11b8ed3b9935b6a887d2c42490b18b4db43628`를 17:14 KST에 일반 실행했으나 Windows 애플리케이션 제어에 차단됐다. 과거 미서명 파일의 설치 성공은 있었지만 다른 파일·PC에서도 허용된다는 보장은 아니다. 기존 프로그램·데이터 보존과 실제 오류는 [검사 기록](../testing/mvp-feasibility.md)에 있다. 원본과 백업은 Git 제외 `work/mvp-goal/20261001-install-retry/`에 둔다.
+**10월 1일 17:14 KST 당시 차단 기록이다.** 제품 소스 `2b4420c`, 설치기 SHA256 `a92db31056cba7ff7f026b1a9c11b8ed3b9935b6a887d2c42490b18b4db43628`를 일반 실행했으나 Windows 애플리케이션 제어에 차단됐다. 과거 미서명 파일의 설치 성공은 있었지만 다른 파일·PC에서도 허용된다는 보장은 아니다. 기존 프로그램·데이터 보존과 실제 오류는 [검사 기록](../testing/mvp-feasibility.md)에 있다. 원본과 백업은 Git 제외 `work/mvp-goal/20261001-install-retry/`에 둔다.
 
 사용자 요구는 보호 설정을 유지한 일반 사용자 설치·실행이다. 아래는 **조사한 선택지**이며, 계정 등록·구매·신청·Store 제출이나 배포 형식 전환을 완료한 것이 아니다. 기존 EXE 배포 계약은 유지한다.
 
@@ -14,7 +16,7 @@
 | Microsoft Store **EXE/MSI** | Microsoft가 대신 서명하지 않음. 설치기와 포함된 실행 파일의 공인 서명 필요 | 현재 EXE를 올리기만 해서는 차단 해결 안 됨 |
 | 기존 EXE + 개인 공인 서명 | SSL.com IV는 개인용 인증서와 클라우드 서명 제공. 조회한 인증서 가격 $129/년, 서명 구독 별도 | 구매 결정, 한국 개인 서류 수락 확인, 본인 확인/발급, 자체 앱·제거기·설치기 서명 및 재검사. 기존 구조 유지 후보 |
 | Azure Artifact Signing | 서비스의 최신 quickstart는 한국 **조직** 지원, 개인은 미국·캐나다만 지원한다고 명시 | 한국 개인 자격으로 진행 불가. 실제 조직 자격이 있는지는 미확인 |
-| SignPath Foundation | 기존 공개 출시·검증 가능한 평판·프로젝트 심사가 필요 | 현재 공개 릴리스 없는 프로젝트의 자격 미확정. 즉시 무료 서명 가능으로 안내하지 않음 |
+| SignPath Foundation | 기존 공개 출시·검증 가능한 평판·프로젝트 심사가 필요 | 개발 Pre-release는 게시됨. 이것이 심사 조건을 충족하는지와 프로젝트 자격은 미확정이며 무료 서명 가능으로 안내하지 않음 |
 
 근거: [Microsoft 서명 방식 비교](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options), [개인 개발자 등록](https://learn.microsoft.com/en-us/windows/apps/publish/whats-new-individual-developer), [비공개 시험 배포](https://learn.microsoft.com/en-us/windows/apps/publish/beta-testing-and-targeted-distribution), [SSL.com 현재 상품](https://www.ssl.com/products/software-integrity/signing-service/), [발급 검증](https://www.ssl.com/how-to/validation-process-for-document-signing-code-signing-and-ev-code-signing-certificates/), [Azure 최신 자격](https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart), [SignPath 조건](https://signpath.org/terms.html). 일반 Windows 비교 문서의 Azure 국가 목록보다 해당 서비스 quickstart의 최신 목록을 우선한다. 가격과 지역 자격은 신청 시 재확인한다.
 
@@ -33,13 +35,13 @@ MSIX 파일 접근 동작의 근거: [Microsoft flexible virtualization](https:/
 
 ### 현재 중단 조건과 다음 입력
 
-조사와 기존 준비 도구는 사용할 수 있으나 **발급된 인증서도 Store의 서명된 패키지도 없다.** 다음 필요한 입력은 Store 개발자 계정 보유 여부와 무료 Store/기존 EXE 서명 경로 선택이다. 무료 Store는 본인 확인·호환성 작업·심사가 필요하며 즉시 설치 가능하다고 약속하지 않는다. 기존 앱도 현재 종료 상태다. 기존 앱 재호출 명령은 자동 승인 검토가 `blocked by policy`로 실행 전에 거절했으며, Windows가 기존 앱 자체를 차단했다고 해석하지 않는다.
+조사와 기존 준비 도구는 사용할 수 있으나 **발급된 인증서도 Store의 서명된 패키지도 없다.** 현재 EXE 구조를 유지하며, 소유자가 기존 인증서 또는 서명 서비스 자격과 담당자를 확인해야 한다. 무료 Store 경로는 별도 선택·본인 확인·호환성 작업·심사가 필요하며 자동으로 전환하지 않는다. 과거 앱 재호출의 `blocked by policy`는 자동 승인 검토가 실행 전에 거절한 기록이며 Windows의 바이너리 차단과 구분한다. 최신 앱의 설치·실행 결과는 이 문서 상단을 따른다.
 
 아래는 2026-09-30 당시 준비 기록이며 최신 설치기와 혼동하지 않는다.
 
 2026-09-30 사용자 선택: Windows 보호 설정을 유지하고 서명 배포를 준비한다. **서명 신청·승인·인증서 발급·서명 실행은 아직 하지 않았다. 현재 PC의 새 설치본 차단도 미해결이다.**
 
-## 준비 상태
+## 2026-09-30 당시 준비 상태
 
 | 항목 | 확인 결과 |
 | --- | --- |
@@ -107,7 +109,7 @@ NSIS의 외부 서명 절차를 사용하려면 제거기를 내보내 서명한
 3. 앱·제거기·최종 설치기를 서명하고 각각 서명 결과와 원래 빌드 출처를 대조한다. 서명 실패·시간 초과·승인 대기 시 미서명 파일로 계속 배포하지 않는다.
 4. 서명 후 최종 바이트의 SHA256·크기·발행자·타임스탬프를 새로 기록한다. 기존 미서명 설치기의 해시를 재사용하지 않는다.
 5. 서명 검사 후 별도 Windows에서 실제 설치 파일을 설치한다. 설치된 앱·제거기의 해시가 SignPath 반환 파일과 일치하는지, 외부 구성요소의 발행자·원본 해시가 검토한 공급자 자료와 일치하는지 대조한다. 설치·정상 종료·데이터 보존·제거도 다시 검사한다.
-6. Smart App Control이 켜진 현재 PC에서 일반 설치와 실행을 재확인한다. 이때도 보안 설정을 변경하지 않는다.
+6. Smart App Control이 켜진 별도 Windows 환경에서 일반 설치와 실행을 확인한다. 현재 개발 PC의 보호 설정을 변경해 시험 조건을 만들지 않는다.
 7. 남은 UI 펫의 실제 A/B·Figma 흐름을 확인한다. 공개 배포와 자동 업데이트는 각각 기존 계약의 추가 관문을 따른다.
 
 업데이트용 Tauri 서명은 Windows Authenticode와 다르다. 현 검증본의 업데이트 비활성·공개 manifest `null`을 유지하며 [배포 계약](../architecture/distribution.md)을 변경하지 않는다.
@@ -116,4 +118,4 @@ SignPath GitHub 연동은 공식 `signpath/github-action-submit-signing-request`
 
 ## 지금 소유자에게 남은 일
 
-무료 후보를 계속 검토한다면 먼저 [신청 자료](signpath-application.md)의 연락처와 담당자·프로젝트 이력 정보를 본인이 확인해야 한다. 공개 릴리스가 아직 없다는 사실을 숨기지 않고 신청 자격을 문의한다. 승인 전에는 실제 CI 서명 요청이나 후원 표기를 활성화하지 않는다. 신청이 거절되거나 맞지 않으면 보유/발급 가능한 신뢰 인증서 또는 Store 경로를 별도 결정한다.
+무료 후보를 계속 검토한다면 먼저 [신청 자료](signpath-application.md)의 연락처와 담당자·프로젝트 이력 정보를 본인이 확인해야 한다. 게시된 것은 미서명 개발 Pre-release이며 안정판이나 서비스 적격성 검증이 아니라는 점을 명시해 신청 자격을 문의한다. 승인 전에는 실제 CI 서명 요청이나 후원 표기를 활성화하지 않는다. 신청이 거절되거나 맞지 않으면 보유/발급 가능한 신뢰 인증서 또는 Store 경로를 별도 결정한다.

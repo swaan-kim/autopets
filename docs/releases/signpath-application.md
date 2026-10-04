@@ -1,6 +1,6 @@
 # SignPath 신청 전 확인 자료
 
-상태: **미제출 초안**. 프로젝트 소유자의 연락처, 서명 승인 담당자, 활동 이력은 본인이 확인해야 한다. 계정 생성·약관 동의·외부 연락·프로젝트 권한 부여를 수행하지 않았다.
+상태: **2026-10-05 갱신한 미제출 초안**. 프로젝트 소유자의 연락처, 서명 승인 담당자, 활동 이력은 본인이 확인해야 한다. 계정 생성·약관 동의·외부 연락·프로젝트 권한 부여를 수행하지 않았다.
 
 ## 프로젝트 자료
 
@@ -9,8 +9,9 @@
 - 라이선스: MIT. 선택한 frontend-design 스킬은 고정 원본과 Apache-2.0 라이선스 파일을 포함한다.
 - 설명: 기존 로컬 Codex 채팅에 명시적으로 연결한 펫이 사용자가 맡긴 작업의 설정·진행·결과를 이해하기 쉽게 보여주는 Windows 앱.
 - 배포 형태: Tauri Windows 앱, 현재 사용자용 NSIS EXE, 번들 Node.js 및 WebView2 설치 구성요소.
-- 현재 검증: [코드·설치 검사](https://github.com/swaan-kim/autopets/actions/runs/36691297174), [같은 설치본 정상 종료·재설치·보존](https://github.com/swaan-kim/autopets/actions/runs/36694514381).
-- 미확정 조건: 게시된 릴리스 없음, 신규 프로젝트 활동 이력에 대한 지원 적격성, 서명 프로젝트/정책. 번들 WebView2 오프라인 설치 구성요소의 System Libraries 예외 해당 여부와 NSIS 외부 DLL의 허용·출처 검증 기준도 서비스에 확인해야 한다.
+- 현재 검증: `a250f0c`의 [코드·설치·연결·복구·제거 CI](https://github.com/swaan-kim/autopets/actions/runs/37233967139), [현재 PC 업데이트·정상 종료·데이터 보존 기록](../testing/friendly-mvp.md). 현재 PC는 사용자가 Smart App Control을 끈 환경이며 보호가 켜진 PC의 통과 증거가 아니다.
+- 게시된 배포: [v0.1.0-dev.20261005.1](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005.1). 미서명 개발 Pre-release이며 안정판이 아니다.
+- 미확정 조건: 개발 Pre-release와 신규 프로젝트 활동 이력이 지원 심사에 충분한지, 서명 프로젝트/정책. 번들 WebView2 오프라인 설치 구성요소의 System Libraries 예외 해당 여부와 NSIS 외부 DLL의 허용·출처 검증 기준도 서비스에 확인해야 한다.
 - 제출 전 본인 기입: 담당자 이름·이메일, 프로젝트 운영 시작일/활동 자료, 작성·검토·서명 승인 담당자, MFA 설정 확인.
 
 ## 문의 초안
@@ -21,7 +22,9 @@ Hello SignPath Foundation team,
 
 I maintain AutoPets, a public MIT-licensed Windows project at https://github.com/swaan-kim/autopets. It provides a pet interface for explicitly requested work in an existing local Codex chat.
 
-Our GitHub Actions build produces a Tauri/NSIS installer. We have verified installation, normal shutdown, reinstallation and data preservation on a disposable Windows runner. The build is currently unsigned and blocked by application control on our development PC. We have no published release yet and do not claim to meet your reputation or release requirements.
+Our GitHub Actions build produces a Tauri/NSIS installer. We have verified installation, normal shutdown, reinstallation and data preservation on a disposable Windows runner. An unsigned development pre-release is published at https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005.1, with build provenance and checksums. It is not a stable release, and we do not claim that it satisfies your release or reputation requirements.
+
+The current development PC can install and run this build, but its owner previously disabled Smart App Control. Earlier unsigned builds were blocked there while application control was enabled. We have not verified the current release on a protected PC and do not present disabling security as a distribution solution.
 
 Could you advise whether this early project is eligible, or which additional release and project-history evidence is needed? We also need to confirm a supported workflow for signing our application, NSIS uninstaller and final installer while preserving third-party signatures and verified build provenance.
 
