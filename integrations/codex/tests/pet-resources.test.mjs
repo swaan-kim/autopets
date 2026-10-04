@@ -48,6 +48,26 @@ test('a skill read needs the paired tool result with the exact complete pinned c
   assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
 });
 
+test('nested Windows reader calls retain exact content, path and single-result requirements',async()=>{
+  const skills=await resolvePetSkills({skills:[ref]});
+  const content=await readPinnedSkill(ref.id,ref.version);
+  const command=`node C:\\bundle\\autopets\\scripts\\read-skill.mjs --id ${ref.id} --version ${ref.version}`;
+  const call={type:'custom_tool_call',name:'exec',call_id:'windows-read',input:`const r = await tools.exec_command(${JSON.stringify({cmd:command})}); text(r.output);`};
+  const output={type:'custom_tool_call_output',call_id:'windows-read',output:[{type:'text',text:JSON.stringify(content)}]};
+  const rows=[{type:'turn_context',payload:{turn_id:turn}},row(call),row(output)];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[ref]);
+  // A second JSON envelope can add another level of escaped path separators.
+  call.input=JSON.stringify({code:call.input});
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[ref]);
+  output.output=[{type:'text',text:JSON.stringify({...content,path:path.join(path.dirname(content.path),'other.md')})}];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
+  output.output=[{type:'text',text:JSON.stringify({...content,text:content.text.slice(0,-1)})}];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
+  output.output=[{type:'text',text:JSON.stringify(content)}];
+  rows.push(row(output));
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
+});
+
 test('other turns and ordinary assistant text cannot create skill evidence',async()=>{
   const skills=await resolvePetSkills({skills:[ref]});
   const content=await readPinnedSkill(ref.id,ref.version);

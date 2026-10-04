@@ -2,6 +2,10 @@ import path from 'node:path';
 import { skillDigest } from './pet-skills.mjs';
 
 const normalized = value => value.replaceAll('\\\\', '\\').replaceAll('\\', '/').toLowerCase();
+// A shell command can be nested in JavaScript and JSON. Collapse escaped command
+// separators only; the returned file path and complete content remain exact checks.
+const commandSource = value => (typeof value === 'string' ? value : JSON.stringify(value ?? ''))
+  .replace(/\\+/gu, '/').toLowerCase();
 const canonical = text => text.replaceAll('\r\n', '\n');
 
 function objects(value, depth = 0) {
@@ -71,7 +75,7 @@ export function auditPetResources(rows, turnId, expectedSkills, figmaEnabled = f
       || invalidCalls.has(p.call_id) || completedCalls.has(p.call_id)) continue;
     completedCalls.add(p.call_id);
     const call = calls.get(p.call_id);
-    const source = normalized(typeof call.arguments === 'string' ? call.arguments : JSON.stringify(call.arguments ?? call.input ?? ''));
+    const source = commandSource(call.arguments ?? call.input);
     const resultObjects = objects(p.output);
     for (const skill of expectedSkills) {
       // Reader input and complete file output must agree. Neither the requested command
