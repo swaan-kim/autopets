@@ -2,11 +2,21 @@ import type { PetLink } from '@autopets/contracts/types';
 import { command } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
 import { useEffect, useRef, useState } from 'react';
-import { Pet } from './Pet';
+import { Pet, type PetMotion } from './Pet';
 import { PetTaskReturn } from './PetTaskReturn';
 import './explicit-pet.css';
 const profiles = { light: '가볍게', standard: '표준', careful: '꼼꼼하게', plan: '계획만' };
 export const unresolvedPetRun = (link: PetLink) => Boolean(link.run && !link.run.trackingClosed && ['requested', 'working', 'returned', 'unknown'].includes(link.run.state));
+export function explicitPetMotion(link: PetLink, disconnected = false): PetMotion {
+  if (disconnected || !link.connected || link.run?.trackingClosed) return 'idle';
+  const run = link.run;
+  if (!run) return 'idle';
+  if (run.state === 'failed' || run.state === 'unknown') return 'angry';
+  if (run.state === 'complete') return 'celebrate';
+  if (run.state === 'waiting' || run.state === 'returned') return 'dizzy';
+  if (run.state === 'working') return run.profile === 'plan' ? 'thinking' : 'writing';
+  return 'idle';
+}
 export function explicitPetStatus(link: PetLink, disconnected = false): string {
   if (disconnected || !link.connected) return '연결 확인 필요';
   if (link.run?.trackingClosed) return '추적 종료';
@@ -60,7 +70,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     : '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.';
   return <div className="explicit-pet" aria-label="연결된 제작 펫">
     {showPet && <div className="explicit-pet-preview"><Pet index={link.slot} activity={state === 'working' ? 'working' : 'idle'} paused={!active}
-      motion={state === 'complete' ? 'celebrate' : state === 'failed' ? 'angry' : state === 'waiting' ? 'dizzy' : undefined} /></div>}
+      motion={explicitPetMotion(link, disconnected)} /></div>}
     <div className="explicit-identity">
       <header className="explicit-heading"><strong>{uiPet ? link.template.name : '제작 펫'}</strong><span>Codex</span></header>
       <div className="explicit-location"><p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>

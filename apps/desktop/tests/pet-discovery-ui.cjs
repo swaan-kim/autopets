@@ -11,8 +11,12 @@ exports.runPetDiscoveryChecks = async ({ newPage, mockBridge, fixture, origin, s
   const wizard = page.locator('.ui-pet-wizard');
   const favorite = wizard.getByRole('button', { name: 'UI 제작 펫 즐겨찾기', exact: true });
   await favorite.waitFor();
+  assert.equal(await page.getByRole('region', { name: '사용 전후 예시', exact: true }).isVisible(), false);
+  await page.locator('.pet-example-disclosure > summary').click();
   await page.getByRole('region', { name: '사용 전후 예시', exact: true }).waitFor();
+  await page.locator('.pet-example-disclosure > summary').click();
   await wizard.locator('.pet-sprite').waitFor();
+  await wizard.locator('.ui-pet-step').evaluate(node => { node.scrollTop = 0; });
   const introductionImage = path.join(screenshotDir, 'pet-discovery-introduction.png');
   await page.screenshot({ path: introductionImage, fullPage: true });
   await page.setViewportSize({ width: 992, height: 550 });

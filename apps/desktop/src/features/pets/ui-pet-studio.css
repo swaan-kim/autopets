@@ -17,7 +17,7 @@
 .ui-pet-step small { display: block; font-size: 12px; line-height: 1.6; color: var(--studio-muted); margin-top: 8px; }
 .ui-pet-preview { display: grid; grid-template-columns: 190px 1fr; align-items: center; gap: 32px; margin-bottom: 26px; }
 .ui-pet-portrait { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 194px; border-radius: 25px; background: radial-gradient(ellipse at 52% 40%, #fff 0, #f3f8f1 55%, #eaf2e7 100%); }
-.ui-pet-portrait > .pet-art { flex-shrink: 0; }
+.ui-pet-portrait > .pet-art { --frame: 170px; flex-shrink: 0; }
 .ui-pet-portrait > span:last-child { font-size: 12px; color: #52705a; font-weight: 600; margin: 4px 0 13px; }
 .ui-pet-introduction { min-width: 0; }
 .ui-pet-preview h2 { margin: 9px 0 11px; font-size: 26px; line-height: 1.45; letter-spacing: -.8px; font-weight: 650; }
@@ -34,6 +34,10 @@
 .pet-fit dt { font-weight: 650; color: #385b44; }
 .pet-fit dd { margin: 0; color: #5c695f; word-break: keep-all; overflow-wrap: anywhere; }
 .pet-transformation { margin: 22px 0; }
+.pet-example-disclosure { border: 1px solid var(--studio-line); border-radius: 14px; padding: 13px 17px; margin: 18px 0; }
+.pet-example-disclosure > summary { cursor: pointer; font-size: 13px; color: #385b44; }
+.pet-example-disclosure > summary > span { float: right; font-size: 11px; color: #718073; }
+.pet-example-disclosure .pet-transformation { margin-bottom: 0; }
 .pet-transformation > header, .pet-favorites > header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .pet-transformation h2, .pet-favorites h2 { font-size: 15px; margin: 0; font-weight: 650; color: #2c4434; }
 .pet-transformation > header > span, .pet-favorites > header > span { color: #748075; font-size: 11px; }

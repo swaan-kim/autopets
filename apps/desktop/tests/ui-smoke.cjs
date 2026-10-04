@@ -314,11 +314,30 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const siteScreenshots = await runProductSiteChecks({ newPage, screenshotDir: path.dirname(screenshot), checks });
 
     const missing = await newPage();
+    await missing.route('**/assets/soft-pet/poses.png', route => route.abort());
     await missing.route('**/assets/motions/sprite.png', route => route.abort());
     await missing.goto(origin);
     await missing.getByRole('img', { name: '펫 이미지 없음' }).first().waitFor();
     assert.equal(await missing.locator('.pet-sprite').count(), 0);
     checks.push('missing PNG produces an explicit image placeholder');
+
+    const fallbackPet = await newPage();
+    await fallbackPet.route('**/assets/soft-pet/poses.png', route => route.abort());
+    await fallbackPet.goto(origin);
+    await fallbackPet.locator('[data-asset="legacy"]').first().waitFor();
+    assert.equal(await fallbackPet.locator('.pet-placeholder').count(), 0);
+    const softPet = await newPage();
+    await softPet.goto(origin);
+    await softPet.locator('[data-asset="soft"]').first().waitFor();
+    assert.equal(await softPet.locator('.pet-soft').first().evaluate(el => getComputedStyle(el).imageRendering), 'auto');
+    await softPet.emulateMedia({ reducedMotion: 'reduce' });
+    await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    await softPet.emulateMedia({ reducedMotion: 'no-preference' });
+    await softPet.waitForFunction(() => getComputedStyle(document.querySelector('.pet-soft')).animationName === 'soft-pet-breathe');
+    await softPet.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    checks.push('soft pet is smooth, obeys reduced motion and hidden windows, and restores legacy art if unavailable');
+    await fallbackPet.close(); await softPet.close();
 
     const manager = await newPage();
     await mockBridge(manager, fixture);

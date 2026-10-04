@@ -24,7 +24,10 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await page.locator('.pet-journey li').count(), 3);
   assert.equal(await wizard.locator('.button.primary').count(), 1);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), []);
+  assert.equal(await wizard.getByRole('link', { name: 'Anthropic frontend-design 기반 ↗', exact: true }).isVisible(), false);
+  await toggleDetail('모델과 저장한 구성');
   await wizard.getByRole('link', { name: 'Anthropic frontend-design 기반 ↗', exact: true }).waitFor();
+  await toggleDetail('모델과 저장한 구성', false);
   const light = wizard.getByRole('radio', { name: '가볍게', exact: true });
   assert.equal(await light.isChecked(), true);
   await light.focus();
@@ -47,6 +50,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
       return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
     });
     assert.equal(hit, true, 'primary action is not covered by scrolling content');
+    await wizard.locator('.ui-pet-step').evaluate(node => { node.scrollTop = 0; });
     const file = path.join(screenshotDir, `native-ui-ui-pet-${label}.png`);
     await page.screenshot({ path: file, fullPage: true }); images.push(file);
   }
