@@ -9,7 +9,7 @@ const commandSource = value => (typeof value === 'string' ? value : JSON.stringi
 const canonical = text => text.replaceAll('\r\n', '\n');
 
 function objects(value, depth = 0) {
-  if (depth > 6 || value == null) return [];
+  if (depth > 10 || value == null) return [];
   if (typeof value === 'string') {
     if (Buffer.byteLength(value) > 256 * 1024) return [];
     try { return objects(JSON.parse(value), depth + 1); } catch { /* CLI headers may precede JSON. */ }
@@ -21,7 +21,9 @@ function objects(value, depth = 0) {
   if (typeof value !== 'object') return [];
   if (value.exit_code != null && value.exit_code !== 0) return [];
   if (value.isError === true || value.error != null) return [];
-  return [value, ...['output', 'text', 'content', 'result'].flatMap(key => objects(value[key], depth + 1))];
+  if (value.status === 'rejected') return [];
+  return [value, ...['output', 'text', 'content', 'result'].flatMap(key => objects(value[key], depth + 1)),
+    ...(value.status === 'fulfilled' ? objects(value.value, depth + 1) : [])];
 }
 
 /** Only direct host-recorded MCP calls can authenticate tool identity. Arbitrary JS mentions cannot. */

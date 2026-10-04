@@ -64,6 +64,13 @@ test('nested Windows reader calls retain exact content, path and single-result r
   output.output=[{type:'text',text:JSON.stringify({...content,text:content.text.slice(0,-1)})}];
   assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
   output.output=[{type:'text',text:JSON.stringify(content)}];
+  output.output=[{type:'input_text',text:JSON.stringify({i:1,result:{status:'fulfilled',value:{exit_code:0,output:JSON.stringify(content)}}})}];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[ref]);
+  output.output=[{type:'input_text',text:JSON.stringify({i:1,result:{status:'rejected',value:{exit_code:0,output:JSON.stringify(content)}}})}];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
+  output.output=[{type:'input_text',text:JSON.stringify({i:1,result:{status:'fulfilled',value:{exit_code:1,output:JSON.stringify(content)}}})}];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
+  output.output=[{type:'text',text:JSON.stringify(content)}];
   rows.push(row(output));
   assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
 });
