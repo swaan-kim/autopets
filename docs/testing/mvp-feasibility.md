@@ -1,5 +1,9 @@
 # MVP 기능 가능성 검사 기록
 
+## 최신 결과 — 2026-10-05
+
+제품 `079a1e1`의 Windows 전체 검사 통과, PR #19 병합(`ef44b66`), [개발 Pre-release 공개](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005)를 완료했다. 같은 설치본을 현재 PC에 업데이트해 새 입체 펫·화면·통신과 기존 DB/설정 보존을 확인했다. 실제 UI 펫의 계획 Luna/low → 구현 Sol/low → 검토 Sol/medium은 앱 메시지 도구를 통한 시험이며, 일반 입력·정확한 채팅 도착·새 앱의 최종 복구는 분리한다. 실제 AI **49/72턴**. Dot은 사용자 선택으로 조건만 기록한다. [설치본 식별값·실제 결과·남은 확인](friendly-mvp.md)이 최신 기준이며 아래 기록은 당시 결과다.
+
 ## 최신 설치형 체크포인트 (2026-10-01 21:15 KST)
 
 제품 head `928186e`, CI 병합 소스 `c008c82b32f0e92e877e4c2b1fcaf203b57d07e1`, [Windows run 36856965828](https://github.com/swaan-kim/autopets/actions/runs/36856965828) 성공. 설치기 SHA-256 `6f827f8ecd2375b00ac6cee982c54411fe6a27cedb9d85a158aeff9b0f14fd17`, 243,700,991바이트, `NotSigned`. 현재 PC의 기존 위치에 21.488초 / 코드 0으로 설치하고 실제 새 화면을 확인했다. 정상 종료 후 백업했으며 설치 전후 DB 17개 테이블·지속 파일 5개·설치 스킬이 같고, 실행·준비 화면 검사 뒤에도 DB/스킬이 보존됐다. 패키지의 연결 파일 139개 해시가 모두 일치했다. [상세 기록](dot-usability.md).
