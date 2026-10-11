@@ -61,7 +61,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     : link.run?.trackingClosed ? 'Codex에서 기존 작업을 확인한 뒤 다음 작업을 맡겨주세요.'
     : !link.enabled ? '새 펫 작업은 꺼져 있어요. 이미 시작한 작업은 계속 확인해요.'
     : state === 'waiting' ? 'Codex에서 계획을 확인하고 “그대로 구현해줘”라고 보내주세요.'
-    : state === 'complete' ? 'Codex 채팅의 결과 파일을 확인해 주세요.'
+    : state === 'complete' ? 'Codex 채팅에서 결과를 확인해 주세요.'
     : state === 'returned' ? '결과가 돌아왔어요. 실행 기록을 확인하고 있어요.'
     : state === 'requested' ? '실행 요청을 보냈어요. 시작 확인을 기다리고 있어요.'
     : state === 'working' ? link.run?.profile === 'plan' ? '계획을 정리하고 있어요. 파일은 구현 요청 뒤에 바꿔요.' : '맡긴 작업을 진행하고 있어요.'

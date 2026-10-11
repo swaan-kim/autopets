@@ -185,14 +185,14 @@ export function UiPetStudio({ links, setup, onConnection, onOpenChange, active =
     </section>
     <section className="ui-pet-launch" aria-label="새 펫 준비"><div><strong>맡길 일을 고르면, 펫이 준비돼요.</strong><p>일상부터 업무까지, 쓰던 Codex 채팅에서 불러요.</p></div><button ref={launchButton} className="button secondary" onClick={() => { focusHeading.current = true; setOpen(true); }}>펫 준비</button></section>
   </>;
-  return <section className="ui-pet-studio" aria-label="UI 제작 펫 시작하기">
+  return <section className="ui-pet-studio" aria-label="펫 시작하기">
     <div className="ui-pet-wizard" data-step={step}>
       <header className="ui-pet-wizard-top"><ol className="pet-journey" aria-label="펫 준비 순서">{['할 일', '연결', '시작'].map((label, index) => <li key={label} className={index + 1 < step ? 'is-complete' : undefined} aria-current={index + 1 === step ? 'step' : undefined}><span aria-hidden="true">{index + 1 < step ? '✓' : index + 1}</span>{label}</li>)}</ol><button className="ui-pet-close" disabled={busy} onClick={() => { focusLaunch.current = true; setOpen(false); }} aria-label="펫 준비 닫기">×</button></header>
       <div className="ui-pet-step" aria-labelledby="ui-pet-step-title">
         <h1 id="ui-pet-step-title" ref={heading} tabIndex={-1}>{title}</h1>
         {step === 1 && <>
           <p className="ui-pet-step-lead">할 일을 고르고, 쓰던 채팅에서 시작하세요.</p>
-          <div className="pet-category-tabs" role="group" aria-label="할 일 분류">{([['daily', '일상'], ['work', '업무']] as const).map(([id, label]) => <button key={id} aria-pressed={category === id} disabled={busy} onClick={() => setCategory(id)}>{label}</button>)}</div>
+          <div className="pet-category-tabs" role="group" aria-label="할 일 분류">{([['daily', '일상'], ['work', '업무']] as const).map(([id, label]) => <button key={id} aria-pressed={category === id} disabled={busy} onClick={() => { setCategory(id); if (entry.category !== id) selectEntry(petCatalog.find(item => item.category === id)!); }}>{label}</button>)}</div>
           <div className="pet-task-catalog">{petCatalog.filter(item => item.category === category).map(item => <button key={item.id} className="pet-task-card" aria-pressed={entry.id === item.id} disabled={busy} onClick={() => selectEntry(item)}><span aria-hidden="true">{item.symbol}</span><strong>{item.name}</strong><small>{item.summary}</small><em>{item.output}</em></button>)}</div>
           <PetComposition compact template={draft} profile={executionProfile?.label ?? '설정 확인 필요'} />
           <div className="pet-composition-favorite"><span>{entry.name}</span><FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} /></div>
