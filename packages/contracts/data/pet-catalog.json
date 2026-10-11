@@ -1,0 +1,254 @@
+[
+  {
+    "id": "daily-plan",
+    "category": "daily",
+    "name": "하루 정리",
+    "summary": "할 일을 실행 가능한 순서로 정리해요",
+    "inputLabel": "해야 할 일",
+    "optionalLabel": "쓸 수 있는 시간",
+    "example": "보고서 초안, 장보기, 산책. 오늘 쓸 수 있는 시간은 3시간이야.",
+    "output": "우선순위 · 시간표 · 체크리스트",
+    "before": "할 일은 많은데 어디서 시작할지 모르겠어요.",
+    "after": "오늘 할 3가지와 순서가 정리돼요.",
+    "limit": "캘린더 등록과 알림은 포함하지 않아요.",
+    "symbol": "✓",
+    "publisher": "AutoPets 자체 제작",
+    "source": null,
+    "template": {
+      "id": "daily-plan",
+      "version": 1,
+      "name": "하루 정리 펫",
+      "instruction": "일의 마감과 중요도, 쓸 수 있는 시간을 구분하세요. 모든 일을 억지로 오늘 일정에 넣지 마세요. 예상 시간은 추정으로 표시하고 이동·휴식 여유를 남기세요. 시간이 부족하면 미룰 일과 이유를 함께 제시하세요. 캘린더 등록이나 알림 설정을 완료했다고 말하지 마세요.",
+      "planFirst": false,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "autopets-daily-plan",
+          "version": "1.0.0"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  },
+  {
+    "id": "travel-plan",
+    "category": "daily",
+    "name": "여행 일정",
+    "summary": "가고 싶은 곳을 일정으로 묶어요",
+    "inputLabel": "지역과 기간",
+    "optionalLabel": "원하는 활동",
+    "example": "부산 1박 2일. 대중교통으로 바다와 전시를 보고 싶어.",
+    "output": "날짜별 동선 · 준비물",
+    "before": "가고 싶은 곳만 흩어져 있어요.",
+    "after": "이동을 고려한 하루 동선으로 묶어요.",
+    "limit": "예약과 실시간 가격은 따로 확인해요.",
+    "symbol": "↗",
+    "publisher": "AutoPets 자체 제작",
+    "source": null,
+    "template": {
+      "id": "travel-plan",
+      "version": 1,
+      "name": "여행 일정 펫",
+      "instruction": "지역과 기간을 먼저 확인하고 이동 시간을 고려한 동선을 제안하세요. 사용자가 준 정보와 제안을 구분하세요. 영업시간·가격·운휴·예약 가능 여부는 최신 출처로 확인했을 때만 확정하고 확인일과 링크를 붙이세요. 검색할 수 없으면 일정 초안과 확인할 항목을 제공하세요. 예약·결제는 수행하지 마세요.",
+      "planFirst": false,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "autopets-travel-plan",
+          "version": "1.0.0"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  },
+  {
+    "id": "study-helper",
+    "category": "daily",
+    "name": "공부 도우미",
+    "summary": "어려운 내용을 쉽게 풀고 복습해요",
+    "inputLabel": "공부할 내용 또는 자료 텍스트",
+    "optionalLabel": "학습 목표",
+    "example": "기회비용은 어떤 선택을 위해 포기한 대안 중 가장 가치 있는 것이다. 쉽게 설명하고 문제 3개를 내줘.",
+    "output": "쉬운 설명 · 요약 · 복습 문제",
+    "before": "읽었지만 핵심이 잘 잡히지 않아요.",
+    "after": "예시로 이해하고 문제로 확인해요.",
+    "limit": "자료가 부족하면 설명도 제한돼요.",
+    "symbol": "?",
+    "publisher": "AutoPets 자체 제작",
+    "source": null,
+    "template": {
+      "id": "study-helper",
+      "version": 1,
+      "name": "공부 도우미 펫",
+      "instruction": "사용자가 준 자료에 근거해 핵심을 설명하세요. 자료 내용과 추가 설명을 구분하고 모르는 내용을 채워 넣지 마세요. 일상적인 예시와 짧은 요약 뒤에 확인 문제와 정답·해설을 분리해 제공하세요. 사용자가 답을 풀겠다고 하면 정답 공개를 기다리세요.",
+      "planFirst": false,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "autopets-study-helper",
+          "version": "1.0.0"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  },
+  {
+    "id": "ui-webpage",
+    "category": "work",
+    "name": "웹페이지 만들기",
+    "summary": "아이디어를 한 장의 웹페이지로 만들어요",
+    "inputLabel": "만들고 싶은 페이지",
+    "optionalLabel": "이용 대상",
+    "example": "가상 학과 행사 소개 웹페이지 한 장. 행사 소개, 일정, 신청 안내와 모바일 화면을 포함해줘.",
+    "output": "모바일에서도 보는 웹페이지",
+    "before": "무엇부터 만들지 막막해요.",
+    "after": "소개와 일정이 담긴 페이지가 생겨요.",
+    "limit": "로그인·결제는 추가 작업이 필요해요.",
+    "symbol": "▧",
+    "publisher": "Anthropic frontend-design 기반",
+    "source": "https://github.com/anthropics/skills/tree/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/frontend-design",
+    "template": {
+      "id": "build-implementation",
+      "version": 1,
+      "name": "UI 제작 펫",
+      "instruction": "만들 화면의 목적과 사용자를 확인하고, 화면 구성과 시각적 방향을 짧게 계획하세요. 사용자가 계획을 확인하기 전에는 파일을 수정하지 마세요. 구현 요청을 받으면 선택한 스킬과 기존 프로젝트 구성을 활용해 가장 작은 작동 결과물을 만드세요. 실제 검사 결과와 확인하지 못한 기능·접근성 문제를 구분해 알려주세요.",
+      "planFirst": true,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "frontend-design",
+          "version": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  },
+  {
+    "id": "marketing-copy",
+    "category": "work",
+    "name": "홍보글 쓰기",
+    "summary": "제품의 장점을 읽기 쉬운 소개로 바꿔요",
+    "inputLabel": "제품·서비스와 확인된 사실",
+    "optionalLabel": "읽을 사람",
+    "example": "학생 팀의 무료 학과 행사 안내 서비스를 소개해줘. 일정과 참가 방법을 한눈에 볼 수 있어.",
+    "output": "제목 3개 · 소개문 · 버튼 문구",
+    "before": "기능 설명만 길게 적혀 있어요.",
+    "after": "누구에게 왜 필요한지 바로 보여줘요.",
+    "limit": "성과 수치와 게시 여부는 직접 확인해요.",
+    "symbol": "✎",
+    "publisher": "Marketing Skills 기반",
+    "source": "https://github.com/coreyhaines31/marketingskills/blob/1efedbc5148b54b2f0f6c6c9fe0be62e151c7fff/skills/copywriting/SKILL.md",
+    "template": {
+      "id": "marketing-copy",
+      "version": 1,
+      "name": "홍보글 쓰기 펫",
+      "instruction": "독자와 하나의 행동 목표를 중심으로 제목 후보 3개, 짧은 소개문, 행동 유도 문구를 작성하세요. 기능을 독자 편익으로 연결하고 과장 대신 구체적인 사실을 사용하세요. 제공되지 않은 성과·후기·수치·무료 조건을 만들지 마세요. 부족한 사실은 확인 필요로 남기세요. 게시·발송은 하지 마세요.",
+      "planFirst": false,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "autopets-marketing-copy",
+          "version": "1.0.0"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  },
+  {
+    "id": "presentation",
+    "category": "work",
+    "name": "발표자료 만들기",
+    "summary": "메모를 발표 흐름과 슬라이드로 만들어요",
+    "inputLabel": "발표 주제와 메모",
+    "optionalLabel": "청중과 장수",
+    "example": "가상 학과 행사 소개. 행사 취지, 프로그램, 일정, 참여 방법을 신입생에게 5장으로 발표하고 싶어.",
+    "output": "브라우저에서 여는 슬라이드",
+    "before": "발표 메모가 길고 순서가 없어요.",
+    "after": "한 장에 한 메시지로 발표해요.",
+    "limit": "PowerPoint 파일 변환은 아직 제공하지 않아요.",
+    "symbol": "▤",
+    "publisher": "Frontend Slides 기반",
+    "source": "https://github.com/zarazhangrui/frontend-slides/blob/9906a34d640d2111f724544cbc50f7f130569ae1/SKILL.md",
+    "template": {
+      "id": "presentation",
+      "version": 1,
+      "name": "발표자료 만들기 펫",
+      "instruction": "청중과 핵심 메시지를 정리하고 기본 5장의 발표 흐름을 계획하세요. 사용자 확인 전에는 파일을 만들거나 수정하지 마세요. 확인 후에는 한 파일의 HTML 발표자료를 만드세요. PPTX라고 부르지 마세요. 기존 파일을 덮어쓰지 말고 실제 브라우저에서 글자 넘침·겹침·이동을 확인하세요.",
+      "planFirst": true,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "autopets-presentation",
+          "version": "1.0.0"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  }
+]

@@ -22,7 +22,7 @@ export function explicitPetStatus(link: PetLink, disconnected = false): string {
   if (link.run?.trackingClosed) return '추적 종료';
   if (!link.enabled && !link.run) return '펫 도움 꺼짐';
   if (!link.run) return '작업 대기';
-  if (link.run.state === 'requested' || link.run.state === 'working') return link.run.profile === 'plan' ? '계획 중' : '제작 중';
+  if (link.run.state === 'requested' || link.run.state === 'working') return link.run.profile === 'plan' ? '계획 중' : '작업 중';
   const labels = { returned: '결과 확인', waiting: '계획 확인 필요', complete: '완료', failed: '작업 확인 실패', unknown: '실행 상태 확인 필요' };
   return labels[link.run.state];
 }
@@ -43,10 +43,9 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
   const uiPet = link.template.skills.some(skill => skill.id === 'frontend-design');
   const designSkill = link.template.skills.find(skill => skill.id === 'frontend-design');
   const runTemplate = link.run?.template ?? link.template;
-  const runUiPet = runTemplate.skills.some(skill => skill.id === 'frontend-design');
   const runFigma = runTemplate.features?.figmaDesign === true;
   const taskFolder = link.target.cwd.split(/[\\/]/).filter(Boolean).pop() || link.target.cwd;
-  const nextPrompt = !link.connected || disconnected || unresolved ? '펫 상태 확인' : state === 'waiting' ? '그대로 구현해줘' : '제작 펫으로 다음 작업의 계획만 세워줘. 원하는 결과와 필요한 조건을 먼저 물어보고, 파일 변경 없이 내 구현 요청을 기다려줘.';
+  const nextPrompt = !link.connected || disconnected || unresolved ? '펫 상태 확인' : state === 'waiting' ? '그대로 구현해줘' : link.template.planFirst ? `${link.template.name}으로 다음 작업의 계획만 세워줘. 원하는 결과와 필요한 조건을 먼저 물어보고, 파일 변경 없이 내 구현 요청을 기다려줘.` : `${link.template.name}으로 다음 작업을 도와줘. 먼저 필요한 입력을 물어봐줘.`;
   const copyNext = async () => {
     if (copyPending.current) return;
     copyPending.current = true; setCopying(true);
@@ -67,17 +66,17 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     : state === 'requested' ? '실행 요청을 보냈어요. 시작 확인을 기다리고 있어요.'
     : state === 'working' ? link.run?.profile === 'plan' ? '계획을 정리하고 있어요. 파일은 구현 요청 뒤에 바꿔요.' : '맡긴 작업을 진행하고 있어요.'
     : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
-    : '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.';
+    : link.template.planFirst ? '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.' : '같은 Codex 채팅에서 펫에게 일을 맡겨보세요.';
   return <div className="explicit-pet" aria-label="연결된 제작 펫">
     {showPet && <div className="explicit-pet-preview"><Pet index={link.slot} activity={state === 'working' ? 'working' : 'idle'} paused={!active}
       motion={explicitPetMotion(link, disconnected)} /></div>}
     <div className="explicit-identity">
-      <header className="explicit-heading"><strong>{uiPet ? link.template.name : '제작 펫'}</strong><span>Codex</span></header>
+      <header className="explicit-heading"><strong>{link.template.name}</strong><span>Codex</span></header>
       <div className="explicit-location"><p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>
     </div>
     <div className="explicit-status-panel" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p><p className="explicit-help">{help}</p></div>
     <PetTaskReturn link={link} />
-    <button className="text-button explicit-next" disabled={copying || (!link.enabled && !unresolved && link.connected)} onClick={() => void copyNext()}>{!link.connected || disconnected || unresolved ? '상태 확인 요청 복사' : state === 'waiting' ? '구현 요청 복사' : '다음 계획 요청 복사'}</button>
+    <button className="text-button explicit-next" disabled={copying || (!link.enabled && !unresolved && link.connected)} onClick={() => void copyNext()}>{!link.connected || disconnected || unresolved ? '상태 확인 요청 복사' : state === 'waiting' ? '구현 요청 복사' : link.template.planFirst ? '다음 계획 요청 복사' : '다음 작업 요청 복사'}</button>
     {copyNotice && <p className="explicit-copy" role="status">{copyNotice}</p>}{copyText && <label className="explicit-copy-input">Codex에 보낼 문장<textarea readOnly rows={3} value={copyText} onFocus={event => event.currentTarget.select()} /></label>}
     <details className="explicit-settings"><summary><span>펫 설정과 관리</span><span className="explicit-settings-value">{!link.enabled ? '도움 꺼짐' : profiles[link.profile]}</span></summary><div className="explicit-settings-body">
       <label>다음 펫 작업 설정 <select aria-label="다음 펫 작업 설정" value={link.profile} disabled={action.busy || disconnected || unresolved}
@@ -103,7 +102,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
       {link.template.skills.map(skill => <p key={skill.id}>저장된 스킬: {skill.id} · {skill.version}</p>)}
       <p>작업 폴더: {link.target.cwd}</p><p>채팅 ID: {link.target.threadId}</p>
       {link.run ? <>{link.run.model && <p>이번 요청: {link.run.model} · {link.run.effort}</p>}{link.run.observedModel ? <p>실행 기록: {link.run.observedModel} · {link.run.observedEffort}</p> : <p>실행 설정 확인 전</p>}
-        {runUiPet && <><p>스킬 읽기: {link.run.skillEvidence?.some(skill => skill.id === 'frontend-design') ? 'frontend-design 확인' : '미확인'}</p>{link.run.skillEvidence?.map(skill => <p key={skill.id}>읽은 스킬: {skill.id} · {skill.version}</p>)}{runFigma && <p>이번 작업의 Figma 사용: {link.run.figmaUsed ? '확인됨' : '미확인'}</p>}<small>스킬·도구를 사용한 기록과 결과 품질은 따로 확인해요.</small></>}</> : <p>아직 실행 기록이 없어요.</p>}
+        {runTemplate && <><p>스킬 읽기: {runTemplate.skills.every(expected => link.run!.skillEvidence?.some(skill => skill.id === expected.id && skill.version === expected.version)) ? '선택한 스킬 확인' : '미확인'}</p>{link.run.skillEvidence?.map(skill => <p key={skill.id}>읽은 스킬: {skill.id} · {skill.version}</p>)}{runFigma && <p>이번 작업의 Figma 사용: {link.run.figmaUsed ? '확인됨' : '미확인'}</p>}<small>스킬·도구를 사용한 기록과 결과 품질은 따로 확인해요.</small></>}</> : <p>아직 실행 기록이 없어요.</p>}
     </div></details>
     {actionError && <p role="alert">{actionError}</p>}
   </div>;

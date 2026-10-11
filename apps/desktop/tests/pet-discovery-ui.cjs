@@ -9,13 +9,13 @@ exports.runPetDiscoveryChecks = async ({ newPage, mockBridge, fixture, origin, s
   await page.addInitScript(template => { window.__uiTest.roles.pets = [{ id: 'favorite-standard', revision: 2, template: { ...template, execution: { model: 'gpt-6-sol', reasoning: 'low' } } }]; }, template);
   await page.goto(origin);
   const wizard = page.locator('.ui-pet-wizard');
-  const favorite = wizard.getByRole('button', { name: 'UI 제작 펫 즐겨찾기', exact: true });
+  const favorite = wizard.getByRole('button', { name: '웹페이지 만들기 즐겨찾기', exact: true });
   await favorite.waitFor();
   assert.equal(await page.getByRole('region', { name: '사용 전후 예시', exact: true }).isVisible(), false);
   await page.locator('.pet-example-disclosure > summary').click();
   await page.getByRole('region', { name: '사용 전후 예시', exact: true }).waitFor();
   await page.locator('.pet-example-disclosure > summary').click();
-  await wizard.locator('.pet-sprite').waitFor();
+  await wizard.locator('.pet-sprite').first().waitFor();
   await wizard.locator('.ui-pet-step').evaluate(node => { node.scrollTop = 0; });
   const introductionImage = path.join(screenshotDir, 'pet-discovery-introduction.png');
   await page.screenshot({ path: introductionImage, fullPage: true });
@@ -36,7 +36,7 @@ exports.runPetDiscoveryChecks = async ({ newPage, mockBridge, fixture, origin, s
   const shelf = page.getByRole('region', { name: '즐겨찾는 펫', exact: true });
   await shelf.getByRole('button', { name: '이 펫 부르기', exact: true }).click();
   assert.equal(await wizard.getAttribute('data-step'), '1');
-  await wizard.getByText('모델과 저장한 구성', { exact: true }).click();
+  await wizard.getByText('일하는 방식과 저장한 설정', { exact: true }).click();
   await wizard.getByLabel('저장한 구성', { exact: true }).selectOption('favorite-standard');
   await favorite.click();
   await wizard.getByRole('button', { name: '펫 준비 닫기', exact: true }).click();
@@ -74,7 +74,7 @@ exports.runPetDiscoveryChecks = async ({ newPage, mockBridge, fixture, origin, s
   await task.fill('새로운 요청');
   assert.equal(await wizard.getByLabel('Codex에 보낼 시작 요청', { exact: true }).count(), 0);
   assert.equal(await wizard.getByRole('button', { name: '시작 요청 복사', exact: true }).count(), 1);
-  await wizard.getByRole('button', { name: '행사 페이지 예시로 시작', exact: true }).click();
+  await wizard.getByRole('button', { name: '예시로 시작', exact: true }).click();
   await wizard.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   assert.ok((await page.evaluate(() => window.__uiTest.clipboard)).includes('autopets-demo'));
   checks.push('pet/template favorites persist across reload, saved favorites restore exact current configuration without applying/executing; custom Korean multiline requests preserve text and plan-first instructions, blank/edited requests cannot reuse stale copy feedback');

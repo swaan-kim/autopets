@@ -5,6 +5,38 @@ const uiTemplate = require('../../../packages/contracts/data/ui-pet.json');
 const hosts = require('../../../packages/contracts/data/connections.json');
 
 exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
+  const catalog = require('../../../packages/contracts/data/pet-catalog.json');
+  for (const entry of catalog) {
+    const taskPage = await newPage({ width: 992, height: 688 });
+    await mockBridge(taskPage, { ...structuredClone(fixture), sessions: [], slots: [], petLinks: [], setup: { version: 1, connectionMode: 'explicit-pet', connections: [{ hostId: 'codex-windows-local', configured: true }] } });
+    await taskPage.goto(origin);
+    const flow = taskPage.locator('.ui-pet-wizard');
+    await flow.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
+    await flow.locator('.pet-task-card').filter({ hasText: entry.name }).click();
+    await flow.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
+    assert.equal(await flow.getByRole('checkbox', { name: 'Figma 시안 활용' }).count(), entry.id === 'ui-webpage' ? 1 : 0);
+    await flow.getByRole('button', { name: '채팅에서 시작하기', exact: true }).click();
+    const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
+    assert.equal(await input.inputValue(), entry.example);
+    await input.fill(`${entry.example}\n한글 추가 조건`);
+    await flow.getByRole('button', { name: '← 이전', exact: true }).click();
+    await flow.getByRole('button', { name: '채팅에서 시작하기', exact: true }).click();
+    assert.ok((await input.inputValue()).endsWith('한글 추가 조건'));
+    await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
+    await flow.getByText('복사했어요. 사용할 Codex 채팅에 붙여넣고 보내주세요.', { exact: true }).waitFor();
+    const actual = await taskPage.evaluate(() => ({ pet: window.__uiTest.roles.pets[0], prompt: window.__uiTest.clipboard, links: window.__uiTest.state.petLinks }));
+    assert.deepEqual(actual.pet.template, entry.template);
+    assert.equal(actual.prompt.includes('계획만 세워줘'), entry.template.planFirst);
+    assert.ok(actual.prompt.includes('한글 추가 조건'));
+    assert.equal(actual.links.length, 0);
+    if (entry.id === 'daily-plan') {
+      await flow.getByRole('button', { name: '← 이전', exact: true }).click();
+      await flow.getByRole('button', { name: '← 이전', exact: true }).click();
+      await taskPage.screenshot({ path: path.join(screenshotDir, 'pet-catalog-daily.png'), fullPage: true });
+    }
+    await taskPage.close();
+  }
+  checks.push('all six catalog entries save exact pinned settings and generate task-specific Korean requests; plan-first only for page/slides, Figma only for UI, navigation preserves input and copying never connects');
   const page = await newPage({ width: 992, height: 688 });
   const value = { ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), petLinks: [], setup: {
     version: 1, appReady: true, hosts, connections: [{ hostId: 'codex-windows-local', configured: false, status: 'disconnected', settingsVerified: {} }],
@@ -18,26 +50,34 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const isOpen = await summary.evaluate(node => node.parentElement.open);
     if (isOpen !== open) await summary.click();
   };
-  await page.getByRole('heading', { name: '아이디어를 웹페이지로.', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '어떤 일을 도와줄까요?', exact: true }).waitFor();
+  const composition = wizard.getByRole('region', { name: '선택한 펫 조합', exact: true });
+  await composition.waitFor();
+  assert.equal(await wizard.locator('.pet-task-card').count(), 3);
+  await composition.getByText('웹페이지 만들기', { exact: true }).waitFor();
   await page.waitForFunction(() => window.__uiTest.onboardingActive === true);
   assert.equal(await page.getByRole('button', { name: '자동 도움', exact: true }).isVisible(), false);
   assert.equal(await page.locator('.pet-journey li').count(), 3);
   assert.equal(await wizard.locator('.button.primary').count(), 1);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), []);
-  assert.equal(await wizard.getByRole('link', { name: 'Anthropic frontend-design 기반 ↗', exact: true }).isVisible(), false);
-  await toggleDetail('모델과 저장한 구성');
-  await wizard.getByRole('link', { name: 'Anthropic frontend-design 기반 ↗', exact: true }).waitFor();
-  await toggleDetail('모델과 저장한 구성', false);
+  assert.equal(await wizard.getByRole('link', { name: '작업 방법 출처 ↗', exact: true }).isVisible(), false);
+  await toggleDetail('일하는 방식과 저장한 설정');
+  await wizard.getByRole('link', { name: '작업 방법 출처 ↗', exact: true }).waitFor();
   const light = wizard.getByRole('radio', { name: '가볍게', exact: true });
   assert.equal(await light.isChecked(), true);
   await light.focus();
   await page.keyboard.press('ArrowRight');
   assert.equal(await wizard.getByRole('radio', { name: '표준', exact: true }).isChecked(), true);
+  await composition.getByText('표준', { exact: true }).waitFor();
+  assert.equal(await composition.getByText('웹페이지 만들기', { exact: true }).isVisible(), true);
+  await light.focus();
+  await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowLeft');
   assert.equal(await light.isChecked(), true);
+  await toggleDetail('일하는 방식과 저장한 설정', false);
   checks.push('plain-language production profiles work with keyboard arrows and preserve the light default; model names are optional detail');
   const images = [];
-  for (const [width, height, label] of [[992, 688, 'first-use'], [794, 550, '125-layout'], [661, 459, '150-layout']]) {
+  for (const [width, height, label] of [[992, 688, 'first-use'], [794, 550, '125-layout'], [661, 459, '150-layout'], [375, 812, 'narrow-composition']]) {
     await page.setViewportSize({ width, height });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     const cta = wizard.getByRole('button', { name: '이 펫으로 시작', exact: true });
@@ -51,19 +91,24 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     });
     assert.equal(hit, true, 'primary action is not covered by scrolling content');
     await wizard.locator('.ui-pet-step').evaluate(node => { node.scrollTop = 0; });
+    await page.evaluate(() => window.scrollTo(0, 0));
     const file = path.join(screenshotDir, `native-ui-ui-pet-${label}.png`);
     await page.screenshot({ path: file, fullPage: true }); images.push(file);
+
   }
   checks.push('three-step UI has one primary action at 992×688 and smaller 125%/150% layout approximations; these are browser viewport checks, not native DPI verification');
   await page.setViewportSize({ width: 992, height: 688 });
-  await toggleDetail('모델과 저장한 구성');
+  await toggleDetail('일하는 방식과 저장한 설정');
   await wizard.getByRole('radio', { name: '표준', exact: true }).check();
   await wizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click(); await waitStep(2);
+  const compositionSummary = wizard.getByRole('region', { name: '선택한 펫 조합', exact: true });
+  await compositionSummary.getByText('표준', { exact: true }).waitFor();
+  await compositionSummary.getByText('웹페이지 만들기', { exact: true }).waitFor();
   assert.equal(await wizard.getByRole('checkbox', { name: 'Figma 시안 활용', exact: true }).isChecked(), false);
   const connectionsImage = path.join(screenshotDir, 'native-ui-ui-pet-connections.png');
   await page.screenshot({ path: connectionsImage, fullPage: true }); images.push(connectionsImage);
   await wizard.getByRole('button', { name: '← 이전', exact: true }).click(); await waitStep(1);
-  await toggleDetail('모델과 저장한 구성');
+  await toggleDetail('일하는 방식과 저장한 설정');
   assert.equal(await wizard.getByRole('radio', { name: '표준', exact: true }).isChecked(), true);
   await wizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click(); await waitStep(2);
 
@@ -80,6 +125,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await callCount('connect_ai'), 2);
   await page.evaluate(() => { window.__uiTest.holdConnection = false; window.__uiTest.releaseConnection(); });
   await waitStep(3);
+  await compositionSummary.getByText('표준', { exact: true }).waitFor();
+  await compositionSummary.getByText('웹페이지 만들기', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => window.__uiTest.state.petLinks.length), 0);
   await wizard.getByText('채팅 연결 대기 · 복사는 아직 전송이 아니에요.', { exact: true }).waitFor();
   const startImage = path.join(screenshotDir, 'native-ui-ui-pet-ready.png');
@@ -106,6 +153,9 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(first.pets[0].template.features.figmaDesign, false);
   assert.deepEqual(first.pets[0].template.planning, { model: 'gpt-6-luna', reasoning: 'low' });
   assert.deepEqual(first.pets[0].template.execution, { model: 'gpt-6-sol', reasoning: 'low' });
+  assert.deepEqual(first.pets[0].template.skills, uiTemplate.skills);
+  assert.equal(first.pets[0].template.instruction, uiTemplate.instruction);
+  checks.push('task selection and optional settings remain consistent through setup; changing the profile preserves the pinned skill and role instruction');
   await wizard.getByRole('button', { name: /^시작 요청 (다시 )?복사$/ }).click();
   assert.equal(await page.evaluate(() => window.__uiTest.roles.pets.length), 1);
   assert.equal(await callCount('save_pet'), 2);
@@ -125,7 +175,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await wizard.getByRole('checkbox', { name: 'Figma 시안 활용', exact: true }).isChecked(), true);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), callsBeforeNavigation);
   await wizard.getByRole('button', { name: '← 이전', exact: true }).click(); await waitStep(1);
-  await toggleDetail('모델과 저장한 구성');
+  await toggleDetail('일하는 방식과 저장한 설정');
   assert.equal(await wizard.getByRole('radio', { name: '표준', exact: true }).isChecked(), true);
   await wizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click(); await waitStep(2);
   assert.equal(await wizard.getByRole('checkbox', { name: 'Figma 시안 활용', exact: true }).isChecked(), true);
@@ -187,7 +237,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     window.__uiTest.state.petLinks[0].run = { ...window.__uiTest.state.petLinks[0].run, state: 'complete', observedModel: 'gpt-6-luna', observedEffort: 'low', skillEvidence: uiTemplate.skills, figmaUsed: true };
     window.__uiTest.emitEvent('autopets://snapshot', window.__uiTest.state);
   }, uiTemplate);
-  await card.getByText('스킬 읽기: frontend-design 확인', { exact: true }).waitFor();
+  await card.getByText('스킬 읽기: 선택한 스킬 확인', { exact: true }).waitFor();
   await card.getByText('이번 작업의 Figma 사용: 확인됨', { exact: true }).waitFor();
   await card.locator('.explicit-status').filter({ hasText: /^완료$/ }).waitFor();
   await page.evaluate(() => { window.__uiTest.state.petLinks[0].connected = false; window.__uiTest.emitEvent('autopets://snapshot', window.__uiTest.state); });
@@ -211,7 +261,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     window.__uiTest.roles.pets.push({ id: 'unsupported-ui', revision: 1, template: { ...uiTemplate, planning: { model: 'gpt-6-astra', reasoning: 'high' } } });
     window.__uiTest.emitEvent('autopets://roles-changed', {});
   }, uiTemplate);
-  await toggleDetail('모델과 저장한 구성');
+  await toggleDetail('일하는 방식과 저장한 설정');
   await wizard.getByLabel('저장한 구성', { exact: true }).selectOption('unsupported-ui');
   await wizard.getByRole('alert').filter({ hasText: '이 구성의 모델 조합은 아직 연결할 수 없어요' }).waitFor();
   assert.equal(await wizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).isEnabled(), false);
@@ -243,7 +293,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await stalePage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 1);
   await staleWizard.getByRole('button', { name: '저장한 펫 다시 선택', exact: true }).click();
   await staleWizard.getByLabel('저장한 구성', { exact: true }).selectOption('ui-pet-0');
-  await staleWizard.getByText('모델과 저장한 구성', { exact: true }).click();
+  await staleWizard.getByText('일하는 방식과 저장한 설정', { exact: true }).click();
   assert.equal(await staleWizard.getByRole('radio', { name: '꼼꼼하게', exact: true }).isChecked(), true);
   await staleWizard.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
   await staleWizard.getByRole('button', { name: '채팅에서 시작하기', exact: true }).click();

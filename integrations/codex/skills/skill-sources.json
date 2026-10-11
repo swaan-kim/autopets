@@ -35,6 +35,59 @@
         "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
       },
       "modified": false
+    },
+    {
+      "id": "autopets-daily-plan",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "143e28b21218fd8ee22f63715e3fc75ea73f5398f215969ba779eac733a4c4a5"
+    },
+    {
+      "id": "autopets-travel-plan",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "25aeb798c11612a98350b6c99f6dae8c053202090aef39d5bac5cef607f66420"
+    },
+    {
+      "id": "autopets-study-helper",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "bd4a9f05a54267c3293bb74360dfa683e38a9419ad60c63165e5d30edaa2a104"
+    },
+    {
+      "id": "autopets-marketing-copy",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "0eee13c170d54f2e3e880dabb6689b76f1242aa2eef9f1f28704494eebc57f61",
+      "source": "https://github.com/coreyhaines31/marketingskills/blob/1efedbc5148b54b2f0f6c6c9fe0be62e151c7fff/skills/copywriting/SKILL.md",
+      "upstreamCommit": "1efedbc5148b54b2f0f6c6c9fe0be62e151c7fff",
+      "upstreamSha256": "78c0a09b78a41995ba055d6549bbd7db3fe958673d039b9121e7a2e32bb4bb06",
+      "modified": true,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSE.txt",
+        "sha256": "b70d71e24e40fce5da8f4b6f9cd862096a048e433db7f3c8cac5e348e6d34591"
+      }
+    },
+    {
+      "id": "autopets-presentation",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "c0ce4396ec4f4c2c375100e6b1ee56415492897b8c51d1320eec240ca459acb0",
+      "source": "https://github.com/zarazhangrui/frontend-slides/blob/9906a34d640d2111f724544cbc50f7f130569ae1/SKILL.md",
+      "upstreamCommit": "9906a34d640d2111f724544cbc50f7f130569ae1",
+      "upstreamSha256": "832994fe1dfcce2aa7ceca9a1b7b708eca94becef242713999855f4e946cf4d5",
+      "modified": true,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSE.txt",
+        "sha256": "62928eb197fe4662d1efc3af0735b3ba5df3c0308badd9a2baf2b619009f5366"
+      }
     }
   ]
 }

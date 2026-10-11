@@ -44,8 +44,8 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   await card.getByRole('button', { name: '구현 요청 복사', exact: true }).click();
   assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '그대로 구현해줘');
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /submit|send|prepare_pet|execute_pet/.test(call.name))), false, 'copying a follow-up never submits it');
-  await showRun('requested', 'careful', '제작 중');
-  await showRun('working', 'careful', '제작 중');
+  await showRun('requested', 'careful', '작업 중');
+  await showRun('working', 'careful', '작업 중');
   await card.locator('[data-motion="writing"]').waitFor();
   assert.equal(await profile.isDisabled(), true);
   await showRun('returned', 'careful', '결과 확인');

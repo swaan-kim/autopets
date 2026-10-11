@@ -282,6 +282,13 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_COMPOSITION_ONLY === '1') {
+      const screenshots = await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      screenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_DISCOVERY_ONLY === '1') {
       const screenshots = await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
@@ -296,7 +303,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     const empty = await newPage();
     await empty.goto(origin);
-    await empty.getByRole('heading', { name: '아이디어를 웹페이지로.', exact: true }).waitFor();
+    await empty.getByRole('heading', { name: '어떤 일을 도와줄까요?', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await empty.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
     assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
