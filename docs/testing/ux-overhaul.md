@@ -38,8 +38,8 @@ pnpm verify:layout
 
 ## 캡처와 남은 조건
 
-`work/ux-v2-{home,desktop,125-layout,150-layout,narrow,returning,my-pets}.png`는 합성 상태를 주입한 개발 화면이다. Windows CI의 review artifact에도 포함한다. 실제 생성 결과나 설치 앱 화면으로 표시하지 않는다.
+`work/ux-v2-{home,desktop,125-layout,150-layout,narrow,returning,my-pets}.png`는 합성 상태를 주입한 개발 화면이다. Windows CI의 review artifact에도 포함한다. 실제 생성 결과나 설치 앱 화면으로 표시하지 않는다. [전후 비교](../images/ux-20261011/README.md)와 [처음 사용하는 사람의 검사표](ux-overhaul-user-check.md)를 함께 남긴다.
 
-AI 원장 기준은 이전 55/72턴 + 미소비 예약 1턴이다. 실제 시험 전에 최신 기록을 대조한다. 코드·화면 검사는 AI 턴이 아니며 이번 UI 구현에는 AI 작업 요청을 실행하지 않았다.
+AI 원장은 이전 55턴에 이후 B의 계획 요청·자식 실행 2턴을 더해 **57/72턴**으로 정정했다. A의 기존 예약은 실행되지 않아 해제했다. 코드·화면 검사는 AI 턴이 아니며 이번 UI 구현에는 AI 작업 요청을 실행하지 않았다. 실제 시험을 시작할 때 부모·자식을 각각 기록한다.
 
 설치 성공, 화면 성공, 실제 채팅 연동, 보안 정책이 켜진 일반 사용자 배포는 각각 판정한다. 서명 자격·실제 Windows 배율·사용자 이해도 조건이 없으면 미검증으로 남긴다. Dot·Work·Jev·공유 사이트는 이번 범위에 포함하지 않는다.

@@ -34,13 +34,16 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const selectWeb = () => page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
   const count = name => page.evaluate(name => window.__uiTest.calls.filter(call => call.name === name).length, name);
   const capture = async name => { const file = path.join(screenshotDir, `ux-v2-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
+  assert.equal(await page.locator('.workspace-role-card').count(), 6);
+  assert.equal(await page.getByRole('button',{name:'펫 고르기',exact:true}).getAttribute('aria-current'),'page');
+  assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(),['펫 고르기','내 작업','내 펫']);
   assert.equal(await page.locator('.pet-journey').count(), 0);
   assert.equal(await page.locator('.pet-card').count(), 0);
   await page.locator('.workspace-role-card [data-asset="soft"]').first().waitFor();
   assert.equal(await page.locator('.workspace-role-card .pet-sprite:not(.sprite-paused)').count(), 0);
-  await page.getByRole('button', { name: '연결 설정', exact: true }).click();
-  assert.equal(await page.locator('.workspace-welcome .pet-sprite.sprite-paused').count(), 1, 'hidden home stops pet motion');
-  await page.getByRole('button', { name: '홈', exact: true }).click();
+  await page.locator('.app-settings > summary').click(); await page.getByRole('button', { name: '연결 설정', exact: true }).click();
+  assert.equal(await page.locator('.workspace-role-card .pet-sprite:not(.sprite-paused)').count(), 0, 'hidden catalog has no active motion');
+  await page.getByRole('button', { name: '펫 고르기', exact: true }).click();
   await capture('home');
   for (const [width, height, name] of [[992,688,'desktop'],[794,550,'125-layout'],[661,459,'150-layout'],[375,812,'narrow']]) {
     await page.setViewportSize({width,height}); await selectWeb();
@@ -51,13 +54,15 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   }
   await page.setViewportSize({width:992,height:688}); await selectWeb();
   await page.waitForFunction(() => window.__uiTest.onboardingActive);
+  assert.equal(await flow.locator('.composer-profile-choice').getAttribute('open'), null);
+  await flow.locator('.composer-profile-choice > summary').click();
   await flow.getByRole('radio',{name:'가볍게',exact:true}).focus(); await page.keyboard.press('ArrowRight');
-  assert.equal(await flow.getByRole('radio',{name:'표준',exact:true}).isChecked(),true);
+  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
   await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill('학과 행사 소개\n날짜와 프로그램 포함');
   await flow.getByRole('button',{name:'← 펫 목록',exact:true}).click();
   await page.getByRole('button',{name:'일상',exact:true}).click(); await page.getByRole('button',{name:'하루 정리 펫 선택',exact:true}).click();
   await flow.getByRole('button',{name:'← 펫 목록',exact:true}).click(); await page.getByRole('button',{name:'업무',exact:true}).click(); await selectWeb();
-  assert.equal(await flow.getByRole('radio',{name:'표준',exact:true}).isChecked(),true);
+  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
   assert.equal(await flow.getByLabel('펫에게 맡길 일',{exact:true}).inputValue(),'학과 행사 소개\n날짜와 프로그램 포함');
   await page.evaluate(() => { window.__uiTest.connectionError='fixture unavailable'; });
   await flow.getByRole('button',{name:'Codex에 펫 준비',exact:true}).click();
@@ -65,7 +70,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await page.evaluate(() => { window.__uiTest.connectionError=null; window.__uiTest.holdConnection=true; });
   await flow.getByRole('button',{name:'Codex에 펫 준비',exact:true}).evaluate(b=>{b.click();b.click();});
   await page.waitForFunction(()=>typeof window.__uiTest.releaseConnection==='function');
-  assert.equal(await count('connect_ai'),2); assert.equal(await page.getByRole('button',{name:'홈',exact:true}).isDisabled(),true);
+  assert.equal(await count('connect_ai'),2); assert.equal(await page.getByRole('button',{name:'내 작업',exact:true}).isDisabled(),true);
   await page.evaluate(()=>{window.__uiTest.holdConnection=false;window.__uiTest.releaseConnection();});
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).waitFor();
   await page.evaluate(()=>{window.__uiTest.savePetError='fixture save unavailable';});
@@ -113,6 +118,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     window.__uiTest.state.petLinks[1].run={id:'b-done',state:'complete',profile:'light',model:'gpt-6-luna',effort:'low'};
     window.__uiTest.emitEvent('autopets://snapshot',window.__uiTest.state);
   });
+  await page.getByRole('button',{name:'내 작업',exact:true}).click();
   await page.getByRole('heading',{name:'확인이 필요해요1',exact:true}).waitFor();
   assert.deepEqual(await page.locator('.workspace-activity > h2').allTextContents(),['확인이 필요해요1','최근 결과1']);
   await page.locator('.pet-card-0').getByRole('button',{name:'구현 요청 복사',exact:true}).click();
@@ -135,6 +141,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor();
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),prior);
+  if (!await flow.locator('.composer-profile-choice').evaluate(el=>el.open)) await flow.locator('.composer-profile-choice > summary').click();
   await flow.getByRole('radio',{name:'꼼꼼하게',exact:true}).check();
   await page.evaluate(()=>{
     const invoke=window.__TAURI_INTERNALS__.invoke;

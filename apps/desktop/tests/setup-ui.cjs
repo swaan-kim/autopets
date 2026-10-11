@@ -14,7 +14,7 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   const page = await newPage();
   await mockBridge(page, { ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), setup });
   await page.goto(origin);
-  await page.getByRole('button', { name: '연결 설정', exact: true }).click();
+  await page.locator('.app-settings > summary').click(); await page.getByRole('button', { name: '연결 설정', exact: true }).click();
   await page.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
   assert.equal(await page.getByLabel('사용할 AI', { exact: true }).isVisible(), false);
   assert.equal(await page.locator('.connection-manage-card input').count(), 0);
@@ -28,17 +28,19 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   for (const viewport of [{ width: 960, height: 640 }, { width: 912, height: 449 }, { width: 640, height: 480 }]) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator('.app-settings > summary').click();
     const quit = page.getByRole('button', { name: 'AutoPets 종료', exact: true });
     const bounds = await quit.boundingBox();
     assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
       `Quit control must be visible without scrolling at ${viewport.width}x${viewport.height}: ${JSON.stringify(bounds)}`);
     await quit.click();
+    await page.locator('.app-settings > summary').click();
     assert.equal(await page.evaluate(() => window.__uiTest.calls.at(-1)?.name), 'quit_app');
     await page.evaluate(() => { window.__uiTest.calls.length = 0; });
     await page.screenshot({ path: path.join(screenshotDir, `native-ui-exit-${viewport.width}.png`), animations: 'disabled' });
   }
   await page.setViewportSize({ width: 1120, height: 880 });
-  checks.push('main-window exit remains visible and callable on short and narrow screens');
+  checks.push('settings exit remains reachable without scrolling on short and narrow screens');
 
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
   await page.getByText('호출 준비됨', { exact: true }).waitFor();
