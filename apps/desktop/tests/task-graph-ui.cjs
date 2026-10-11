@@ -5,6 +5,7 @@ exports.runTaskGraphChecks = async ({ newPage, mockBridge, fixture, origin, scre
   const page = await newPage({ width: 1120, height: 1000 });
   await mockBridge(page, fixture);
   await page.goto(origin);
+  await page.getByText('이전에 연결한 작업', { exact: true }).click();
   const graph = page.getByRole('region', { name: '전달된 작업 관계' });
   assert.equal(await graph.count(), 0);
   await page.evaluate(() => {

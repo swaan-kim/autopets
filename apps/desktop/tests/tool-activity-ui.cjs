@@ -13,6 +13,7 @@ exports.runToolActivityChecks = async ({ newPage, mockBridge, fixture, origin, s
   const manager = await newPage();
   await mockBridge(manager, state);
   await manager.goto(origin);
+    await manager.getByText('이전에 연결한 작업', { exact: true }).click();
   await manager.locator('.pet-card-0').getByRole('button', { name: '작업 카드 열기 →' }).click();
   const activity = manager.getByRole('region', { name: '관측된 도구 실행' });
   await activity.getByText('mcp__fixture__read', { exact: true }).waitFor();

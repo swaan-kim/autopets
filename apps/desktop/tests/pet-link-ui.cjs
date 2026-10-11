@@ -81,7 +81,7 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
 
   const overlay = await newPage({ width: 180, height: 230 });
   await mockBridge(overlay, value); await overlay.goto(`${origin}/?pet=0`);
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.getByRole('button', { name: `${templates[1].name} 메뉴`, exact: true }).click();
   await overlay.waitForFunction(() => document.activeElement?.textContent === 'Codex 작업 열기');
   // The native window expands asynchronously, after the card receives keyboard focus.
   await overlay.setViewportSize({ width: 328, height: 600 });
@@ -94,9 +94,9 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   assert.equal(openedCard.scrollTop, 0, 'opening a pet does not scroll away its identity');
   assert.equal(openedCard.focusedAction, 'Codex 작업 열기');
   await overlay.keyboard.press('Escape');
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).waitFor();
+  await overlay.getByRole('button', { name: `${templates[1].name} 메뉴`, exact: true }).waitFor();
   assert.equal(await overlay.locator('.quick-card-stack').count(), 0);
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.getByRole('button', { name: `${templates[1].name} 메뉴`, exact: true }).click();
   await overlay.locator('.explicit-settings summary').click();
   await overlay.getByRole('button', { name: '도움 끄기', exact: true }).waitFor();
   await overlay.evaluate(() => {

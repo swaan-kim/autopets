@@ -305,10 +305,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await empty.goto(origin);
     await empty.getByRole('heading', { name: '어떤 일을 도와줄까요?', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
-    await empty.getByRole('button', { name: '이 펫으로 시작', exact: true }).click();
+    await empty.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
     assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
     await empty.getByText('미리보기 · 연결 없음', { exact: true }).waitFor();
-    await empty.getByRole('button', { name: '연결 도움', exact: true }).click();
+    await empty.getByRole('button', { name: '연결 설정', exact: true }).click();
     await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
     assert.equal(await empty.locator('input[type=checkbox]:visible').count(), 0);
     assert.equal(await empty.getByRole('button', { name: /허용|거절|승인/ }).count(), 0);
@@ -349,6 +349,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const manager = await newPage();
     await mockBridge(manager, fixture);
     await manager.goto(origin);
+    await manager.getByText('이전에 연결한 작업', { exact: true }).click();
     await manager.locator('.pet-sprite').first().waitFor();
     assert.equal(await manager.locator('.sprite-research').count(), 1);
     await manager.getByRole('button', { name: '＋ 작업 연결' }).click();
@@ -379,6 +380,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     for (let index = 3; index < 9; index++) manyTasks.sessions.push({ ...base, id: `fixture-extra-${index}`, label: `${index + 1}번째 작업`, state: index === 3 ? 'waiting' : 'idle', lastTool: null, lastSeen: now - index * 1000 });
     await mockBridge(allTasks, manyTasks);
     await allTasks.goto(origin);
+    await allTasks.getByText('이전에 연결한 작업', { exact: true }).click();
     await allTasks.locator('.task-list-entry').last().waitFor();
     assert.equal(await allTasks.locator('.task-list-entry').count(), 9);
     assert.equal(await allTasks.getByRole('button', { name: '4번째 작업 펫 연결', exact: true }).isEnabled(), false);

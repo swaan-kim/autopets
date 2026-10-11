@@ -9,6 +9,7 @@ exports.runTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, che
   const page = await newPage();
   await mockBridge(page, state);
   await page.goto(origin);
+    await page.getByText('이전에 연결한 작업', { exact: true }).click();
   await page.locator('.pet-card-0').getByRole('button', { name: '작업 카드 열기 →' }).click();
   await page.getByRole('button', { name: 'Codex 작업 찾기 ↗' }).click();
   const before = await page.evaluate(() => structuredClone(window.__uiTest.state));

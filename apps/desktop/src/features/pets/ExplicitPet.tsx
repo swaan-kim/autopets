@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Pet, type PetMotion } from './Pet';
 import { PetTaskReturn } from './PetTaskReturn';
 import './explicit-pet.css';
+import { TaskPetArt } from './TaskPetArt';
+import { catalogFor } from './petCatalog';
 const profiles = { light: '가볍게', standard: '표준', careful: '꼼꼼하게', plan: '계획만' };
 export const unresolvedPetRun = (link: PetLink) => Boolean(link.run && !link.run.trackingClosed && ['requested', 'working', 'returned', 'unknown'].includes(link.run.state));
 export function explicitPetMotion(link: PetLink, disconnected = false): PetMotion {
@@ -26,7 +28,7 @@ export function explicitPetStatus(link: PetLink, disconnected = false): string {
   const labels = { returned: '결과 확인', waiting: '계획 확인 필요', complete: '완료', failed: '작업 확인 실패', unknown: '실행 상태 확인 필요' };
   return labels[link.run.state];
 }
-export function ExplicitPet({ link, disconnected = false, onHide, showPet = true }: { link: PetLink; disconnected?: boolean; onHide?: () => void; showPet?: boolean }) {
+export function ExplicitPet({ link, disconnected = false, onHide, showPet = true, compact = false }: { link: PetLink; disconnected?: boolean; onHide?: () => void; showPet?: boolean; compact?: boolean }) {
   const action = useAction();
   const [closing, setClosing] = useState(false);
   const [copyNotice, setCopyNotice] = useState('');
@@ -67,9 +69,8 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     : state === 'working' ? link.run?.profile === 'plan' ? '계획을 정리하고 있어요. 파일은 구현 요청 뒤에 바꿔요.' : '맡긴 작업을 진행하고 있어요.'
     : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
     : link.template.planFirst ? '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.' : '같은 Codex 채팅에서 펫에게 일을 맡겨보세요.';
-  return <div className="explicit-pet" aria-label="연결된 제작 펫">
-    {showPet && <div className="explicit-pet-preview"><Pet index={link.slot} activity={state === 'working' ? 'working' : 'idle'} paused={!active}
-      motion={explicitPetMotion(link, disconnected)} /></div>}
+  return <div className={`explicit-pet ${compact ? 'explicit-compact' : ''}`} aria-label={`연결된 ${link.template.name}`}>
+    {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={compact || !active} motion={explicitPetMotion(link, disconnected)} /></div>}
     <div className="explicit-identity">
       <header className="explicit-heading"><strong>{link.template.name}</strong><span>Codex</span></header>
       <div className="explicit-location"><p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>
