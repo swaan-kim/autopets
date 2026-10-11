@@ -64,9 +64,11 @@
 .workspace-activity h2 span { font-size: 12px; font-weight: 400; margin-left: 10px; color: #778773; }
 .workspace-activity-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .workspace-live-card { background: #fff; border: 1px solid #e7ebe3; border-radius: 20px; padding: 20px; min-width: 0; }
-.workspace-live-card .explicit-pet-preview { height: 90px; float: right; width: 94px; }
+.workspace-live-card .explicit-pet { display: grid; grid-template-columns: minmax(0,1fr) 94px; gap: 14px; }
+.workspace-live-card .explicit-pet > * { grid-column: 1 / -1; }
+.workspace-live-card .explicit-pet-preview { grid-column: 2; grid-row: 1; min-height: 90px; height: 90px; width: 94px; }
 .workspace-live-card .task-pet-art { --pet-size: 88px; }
-.workspace-live-card .explicit-identity { min-height: 85px; }
+.workspace-live-card .explicit-identity { grid-column: 1; grid-row: 1; min-height: 85px; justify-content: center; }
 .workspace-live-card .explicit-heading { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
 .workspace-live-card .explicit-status-panel { clear: both; }
 .workspace-live-card .explicit-pet .explicit-help { min-height: 42px; }
