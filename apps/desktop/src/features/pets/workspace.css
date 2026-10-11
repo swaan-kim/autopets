@@ -3,6 +3,10 @@
 .task-pet-art > .pet-art { --frame: var(--pet-size); }
 .task-pet-prop { position: absolute; width: 47%; height: 47%; right: -1%; bottom: 0; filter: drop-shadow(0 3px 2px #32323215); pointer-events: none; }
 .task-pet-art.compact { --pet-size: 76px; }
+.pet-origin-badge { position: absolute; left: 2%; bottom: 3%; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; background: white; border: 1px solid var(--line, #e8eaed); box-shadow: 0 2px 5px #0000000a; }
+.pet-source-logo { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; filter: grayscale(1); }
+.task-pet-art.compact .pet-origin-badge { width: 21px; height: 21px; }
+.task-pet-art.compact .pet-origin-badge .pet-source-logo { width: 12px; height: 12px; }
 .floating-pet .task-pet-art { --pet-size: 128px; }
 .app-shell .main-content { max-width: 1380px; padding-inline: clamp(22px, 3.2vw, 48px); }
 .app-shell .topbar { min-height: 60px; border: 0; }
@@ -33,6 +37,23 @@
 .workspace-role-select > p { font-size: 13px; line-height: 1.65; color: var(--muted); margin: 0 0 16px; min-height: 40px; word-break: keep-all; }
 .workspace-role-action { border-top: 1px solid #44444410; width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 650; margin-top: auto; }
 .workspace-role-action > span { font-size: 19px; font-weight: 400; }
+.pet-source-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.pet-source-line > span:last-child { color: var(--ink); background: var(--tint); border-radius: 5px; padding-inline: 5px; }
+.pet-skill-source { text-align: left; border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; overflow-wrap: anywhere; }
+.pet-source-caption { color: var(--muted); font-size: 11px; display: block; margin-bottom: 7px; }
+.pet-skill-source > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
+.pet-source-kind { font-size: 10px; font-weight: 500; padding: 2px 6px; border-radius: 5px; background: #ebedef; }
+.pet-skill-source p { font-size: 11px; line-height: 1.7; color: var(--muted); margin: 6px 0; }
+.pet-source-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.pet-source-links a { display: inline-flex; align-items: center; min-height: 36px; color: var(--ink); font-size: 12px; text-underline-offset: 3px; }
+.pet-skill-source details { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.pet-skill-source summary { cursor: pointer; padding-block: 8px; }
+.result-preview-before { display: grid; gap: 5px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; line-height: 1.7; color: var(--ink); }
+.result-preview-before p { margin: 0; }
+.result-preview-before > span { font-size: 10px; color: var(--muted); }
+.result-preview-transition { text-align: center; padding: 5px; color: var(--muted); }
+.result-preview-after > span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 7px; }
+.result-preview-note { color: var(--muted); font-size: 10px; line-height: 1.7; margin: 10px 0 0; }
 .workspace-role-card > .pet-favorite-button { position: absolute; z-index: 1; right: 8px; top: 8px; width: 44px; height: 44px; overflow: hidden; padding: 0; font-size: 0; gap: 0; border: 0; border-radius: 50%; background: transparent; }
 .workspace-role-card > .pet-favorite-button span { font-size: 22px; color: #888888; }
 .workspace-role-card > .pet-favorite-button[aria-pressed=true] span { color: #848484; }

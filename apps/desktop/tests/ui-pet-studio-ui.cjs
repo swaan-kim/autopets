@@ -11,6 +11,15 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await page.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
     await page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true }).click();
     const flow = page.locator('.pet-composer');
+    const source = flow.getByRole('region', { name: '이 펫의 스킬 출처' });
+    await source.waitFor();
+    const originLink = source.getByRole('link', { name: 'GitHub 원본 보기 ↗', exact: true });
+    if (entry.source) assert.equal(await originLink.getAttribute('href'), entry.source);
+    else { assert.equal(await originLink.count(), 0); assert.ok((await source.innerText()).includes('자체 제작')); }
+    assert.ok((await source.innerText()).includes(['marketing-copy', 'presentation'].includes(entry.id) ? '원본 수정' : entry.source ? '원본 포함' : '자체 제작'));
+    assert.equal(await source.getByRole('link', { name: '원작자 결과 예시 ↗', exact: true }).count(), entry.id === 'presentation' ? 1 : 0);
+    if (entry.id === 'presentation') assert.ok((await source.locator(':scope > strong').innerText()).startsWith('frontend-slides'));
+    assert.ok((await flow.locator('.result-preview').innerText()).includes('실제 생성 결과는 아니에요'));
     const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
     assert.equal(await input.inputValue(), entry.example);
     assert.equal(await flow.locator('input[aria-label="Figma 시안 활용"]').count(), entry.id === 'ui-webpage' ? 1 : 0);

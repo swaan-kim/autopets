@@ -9,7 +9,7 @@ export function PetIntroduction({ entry = petCatalog.find(item => item.id === 'u
       <dl className="pet-fit"><div><dt>잘하는 일</dt><dd>{entry.summary}</dd></div><div><dt>한계</dt><dd>{entry.limit}</dd></div></dl>
       <section className="pet-transformation" aria-label="사용 전후 예시"><header><h2>이렇게 달라져요</h2><span>설명용 예시</span></header>
         <div className="pet-example-pair"><div className="pet-example-before"><span>사용 전</span><p>{entry.before}</p></div><div className="pet-example-after"><span>사용 후</span><p>{entry.after}</p></div></div>
-        <p>실제 결과는 요청과 제공한 자료에 따라 달라져요.</p>
+        <p>AutoPets가 만든 설명용 예시예요. 스킬 적용 효과를 비교한 실험은 아니에요.</p>
       </section>
     </details>
   </>;

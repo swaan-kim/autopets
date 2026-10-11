@@ -3,12 +3,38 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
-import { SKILL_ROOT, resolvePetSkills, readPinnedSkill } from '../runtime/pet-skills.mjs';
+import { SKILL_ROOT, skillRootForRuntime, resolvePetSkills, readPinnedSkill } from '../runtime/pet-skills.mjs';
 import { auditPetResources, classifyFigmaRead } from '../runtime/pet-resource-audit.mjs';
 
 const ref={id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'};
 const turn='33333333-3333-4333-8333-333333333333';
 const row=p=>({type:'response_item',payload:p});
+
+test('installed skill root follows the physical runtime file, not an MSIX directory alias',()=>{
+  const logical = path.resolve('fixture/logical/connector/integrations/codex');
+  const physical = path.resolve('fixture/package-cache/connector/integrations/codex');
+  const runtimeFile = path.join(logical, 'runtime/pet-skills.mjs');
+  const observed = [];
+  const resolved = skillRootForRuntime(runtimeFile, file => {
+    observed.push(file);
+    // The MSIX repro resolves files to the cache but leaves the directory unchanged.
+    return file === runtimeFile ? path.join(physical, 'runtime/pet-skills.mjs') : file;
+  });
+  assert.deepEqual(observed, [runtimeFile]);
+  assert.equal(resolved, path.join(physical, 'skills'));
+  assert.throws(()=>skillRootForRuntime(runtimeFile, ()=>{throw Error('missing-runtime');}), /missing-runtime/);
+});
+
+test('physical runtime anchoring still rejects a skill redirected outside its package',async()=>{
+  const outside = path.resolve(SKILL_ROOT, '../outside/frontend-design/SKILL.md');
+  await assert.rejects(resolvePetSkills({skills:[ref]}, {
+    realpath: file => file === path.join(SKILL_ROOT, ref.id, 'SKILL.md') ? Promise.resolve(outside) : fs.realpath(file),
+  }), /bundled-skill-location-mismatch/);
+  const renamed = path.join(SKILL_ROOT, ref.id, 'OTHER.md');
+  await assert.rejects(resolvePetSkills({skills:[ref]}, {
+    realpath: file => file === path.join(SKILL_ROOT, ref.id, 'SKILL.md') ? Promise.resolve(renamed) : fs.realpath(file),
+  }), /bundled-skill-location-mismatch/);
+});
 
 test('missing or tampered packaged skill fails before dispatch, including detached license',async t=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'autopets-skills-'));

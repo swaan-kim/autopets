@@ -1,9 +1,16 @@
 import path from 'node:path';
 import { readFile, realpath } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
-export const SKILL_ROOT = fileURLToPath(new URL('../skills/', import.meta.url));
+// MSIX can redirect files while realpath(directory) still returns the logical
+// directory. Anchor siblings to this installed runtime file's physical location;
+// do not relax the per-skill containment or integrity checks below.
+export function skillRootForRuntime(runtimeFile, resolveFile = realpathSync.native) {
+  return path.resolve(path.dirname(resolveFile(runtimeFile)), '../skills');
+}
+export const SKILL_ROOT = skillRootForRuntime(fileURLToPath(import.meta.url));
 export const skillDigest = text => createHash('sha256').update(text).digest('hex');
 const canonical = text => text.replaceAll('\r\n', '\n');
 const helper = { id: 'autopets-figma-design', version: '1.0.0' };
