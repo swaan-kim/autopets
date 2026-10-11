@@ -43,7 +43,7 @@ exports.runPetDiscoveryChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.equal(await shelf.locator('article').count(), 2);
   await page.reload();
   await wizard.getByRole('button', { name: '펫 준비 닫기', exact: true }).click();
-  const standard = shelf.locator('article').filter({ hasText: '표준 · 기본 제작' });
+  const standard = shelf.locator('article').filter({ hasText: '표준 · 모바일에서도 보는 웹페이지' });
   await standard.getByRole('button', { name: '이 펫 부르기', exact: true }).click();
   assert.equal(await wizard.getAttribute('data-step'), '3');
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), []);
@@ -88,7 +88,7 @@ exports.runPetDiscoveryChecks = async ({ newPage, mockBridge, fixture, origin, s
   const missing = shelf.locator('article').filter({ hasText: '찾을 수 없는 펫' });
   await missing.waitFor();
   assert.equal(await missing.getByRole('button', { name: '이 펫 부르기', exact: true }).isDisabled(), true);
-  await missing.getByRole('button', { name: 'UI 제작 펫 즐겨찾기 해제', exact: true }).click();
+  await missing.getByRole('button', { name: '펫 즐겨찾기 해제', exact: true }).click();
   assert.equal(await shelf.locator('article').count(), 1);
   await page.evaluate(key => { localStorage.setItem(key, '{broken'); window.dispatchEvent(new StorageEvent('storage', { key })); }, KEY);
   await shelf.getByRole('button', { name: 'UI 제작 펫 즐겨찾기 해제', exact: true }).click();
