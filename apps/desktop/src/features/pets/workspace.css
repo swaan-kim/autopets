@@ -1,0 +1,204 @@
+/* Shared visual language; no host state or execution settings live in these styles. */
+.task-pet-art { --pet-size: 160px; display: inline-flex; position: relative; width: var(--pet-size); height: var(--pet-size); flex-shrink: 0; align-items: center; justify-content: center; }
+.task-pet-art > .pet-art { --frame: var(--pet-size); }
+.task-pet-prop { position: absolute; width: 47%; height: 47%; right: -1%; bottom: 0; filter: drop-shadow(0 3px 2px #32323215); pointer-events: none; }
+.task-pet-art.compact { --pet-size: 76px; }
+.pet-origin-badge { position: absolute; left: 2%; bottom: 3%; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; background: white; border: 1px solid var(--line, #e8eaed); box-shadow: 0 2px 5px #0000000a; }
+.pet-source-logo { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; filter: grayscale(1); }
+.task-pet-art.compact .pet-origin-badge { width: 21px; height: 21px; }
+.task-pet-art.compact .pet-origin-badge .pet-source-logo { width: 12px; height: 12px; }
+.floating-pet .task-pet-art { --pet-size: 128px; }
+.app-shell .main-content { max-width: 1380px; padding-inline: clamp(22px, 3.2vw, 48px); }
+.app-shell .topbar { min-height: 60px; border: 0; }
+.app-shell .button { min-height: 44px; }
+.pet-workspace-v2 { padding-bottom: 12px; }
+.pet-workspace-v2 h1, .pet-composer h1 { color: #343434; font-size: clamp(28px, 3vw, 38px); letter-spacing: -1.4px; line-height: 1.25; }
+.pet-workspace-v2 h2 { font-size: 17px; font-weight: 650; letter-spacing: -.5px; margin: 0 0 18px; }
+.workspace-kicker { color: #777777; font-size: 12px; font-weight: 600; }
+.workspace-welcome { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 188px; padding: 10px 28px 16px 8px; }
+.workspace-welcome h1 { margin: 10px 0; }
+.workspace-welcome p { color: #747474; font-size: 13px; line-height: 1.65; margin: 0; }
+.workspace-welcome > .task-pet-art { --pet-size: 182px; background: radial-gradient(ellipse at center, #ededed 0%, #f0f0f038 56%, transparent 72%); }
+.workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-block: 28px 8px; }
+.workspace-heading h1 { margin: 8px 0; }
+.workspace-heading p { color: #747474; margin: 8px 0 0; font-size: 14px; }
+.workspace-heading .button { flex-shrink: 0; }
+.workspace-library-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 22px 0 16px; }
+.workspace-library-heading h2 { margin: 0; }
+.workspace-library .pet-category-tabs { margin: 0; padding: 4px; border: 0; border-radius: 100px; background: #efefef; display: flex; gap: 2px; }
+.workspace-library .pet-category-tabs button { min-height: 40px; min-width: 68px; border-radius: 100px; border: 0; padding: 8px 15px; background: transparent; color: #7c7c7c; font-size: 13px; }
+.workspace-library .pet-category-tabs button[aria-pressed=true] { color: #4c4c4c; background: #ffffff; box-shadow: 0 2px 6px #37373710; }
+.workspace-role-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.workspace-role-card { position: relative; border: 1px solid var(--line); border-radius: 22px; background: #fff; transition: background .18s, box-shadow .18s; overflow: hidden; }
+.workspace-role-card:hover { box-shadow: 0 7px 22px #3f3f3f10; }
+.workspace-role-select { display: flex; flex-direction: column; align-items: flex-start; width: 100%; height: 100%; padding: 18px 22px 0; border: 0; background: none; text-align: left; color: #363636; }
+.workspace-role-select > .task-pet-art { --pet-size: 132px; align-self: center; margin: 0 0 8px; }
+.workspace-role-select h3 { font-size: 17px; letter-spacing: -.5px; margin: 0 0 8px; }
+.workspace-role-select > p { font-size: 13px; line-height: 1.65; color: var(--muted); margin: 0 0 16px; min-height: 40px; word-break: keep-all; }
+.workspace-role-action { border-top: 1px solid #44444410; width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 650; margin-top: auto; }
+.workspace-role-action > span { font-size: 19px; font-weight: 400; }
+.pet-source-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.pet-source-line > span:last-child { color: var(--ink); background: var(--tint); border-radius: 5px; padding-inline: 5px; }
+.pet-skill-source { text-align: left; border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; overflow-wrap: anywhere; }
+.pet-source-caption { color: var(--muted); font-size: 11px; display: block; margin-bottom: 7px; }
+.pet-skill-source > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
+.pet-source-kind { font-size: 10px; font-weight: 500; padding: 2px 6px; border-radius: 5px; background: #ebedef; }
+.pet-skill-source p { font-size: 11px; line-height: 1.7; color: var(--muted); margin: 6px 0; }
+.pet-source-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.pet-source-links a { display: inline-flex; align-items: center; min-height: 36px; color: var(--ink); font-size: 12px; text-underline-offset: 3px; }
+.pet-skill-source details { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.pet-skill-source summary { cursor: pointer; padding-block: 8px; }
+.result-preview-before { display: grid; gap: 5px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; line-height: 1.7; color: var(--ink); }
+.result-preview-before p { margin: 0; }
+.result-preview-before > span { font-size: 10px; color: var(--muted); }
+.result-preview-transition { text-align: center; padding: 5px; color: var(--muted); }
+.result-preview-after > span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 7px; }
+.result-preview-note { color: var(--muted); font-size: 10px; line-height: 1.7; margin: 10px 0 0; }
+.workspace-role-card > .pet-favorite-button { position: absolute; z-index: 1; right: 8px; top: 8px; width: 44px; height: 44px; overflow: hidden; padding: 0; font-size: 0; gap: 0; border: 0; border-radius: 50%; background: transparent; }
+.workspace-role-card > .pet-favorite-button span { font-size: 22px; color: #888888; }
+.workspace-role-card > .pet-favorite-button[aria-pressed=true] span { color: #848484; }
+.result-preview { width: 100%; margin: 0; font-size: 12px; color: #5b5b5b; text-align: left; }
+.result-preview figcaption { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin: 0 0 9px; font-size: 11px; color: #777777; }
+.result-preview figcaption small { font-size: 10px; font-weight: 400; color: #7e7e7e; }
+.result-preview-paper { background: #ffffffca; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-height: 176px; box-shadow: 0 3px 12px #36363610; }
+.result-preview-paper strong { font-size: 14px; line-height: 1.6; color: #515151; }
+.result-preview-paper > span { font-size: 11px; line-height: 1.55; }
+.result-preview-mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; background: #eeeeee; color: #7a7a7a; }
+.workspace-role-card .result-preview { margin-bottom: 15px; }
+.workspace-role-card .result-preview figcaption > span { display: none; }
+.workspace-role-card .result-preview-paper { padding: 12px; min-height: 55px; box-shadow: none; justify-content: center; }
+.workspace-role-card .result-preview-paper > span { display: none; }
+.workspace-role-card .result-preview-paper strong { font-size: 12px; }
+.workspace-caption { display: block; margin-top: 26px; font-size: 12px; text-align: center; color: var(--muted); border: 0; }
+.workspace-activity { margin-bottom: 28px; }
+.workspace-activity h2 span { font-size: 12px; font-weight: 400; margin-left: 10px; color: #828282; }
+.workspace-activity-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.workspace-live-card { background: #ffffff; border: 1px solid #eaeaea; border-radius: 20px; padding: 20px; min-width: 0; }
+.workspace-live-card .explicit-pet { display: grid; grid-template-columns: minmax(0,1fr) 94px; gap: 14px; }
+.workspace-live-card .explicit-pet > * { grid-column: 1 / -1; }
+.workspace-live-card .explicit-pet-preview { grid-column: 2; grid-row: 1; min-height: 90px; height: 90px; width: 94px; }
+.workspace-live-card .task-pet-art { --pet-size: 88px; }
+.workspace-live-card .explicit-identity { grid-column: 1; grid-row: 1; min-height: 85px; justify-content: center; }
+.workspace-live-card .explicit-heading { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+.workspace-live-card .explicit-status-panel { clear: both; }
+.workspace-live-card .explicit-pet .explicit-help { min-height: 42px; }
+.workspace-live-card .explicit-return { width: 100%; }
+.workspace-live-card .explicit-settings summary, .workspace-live-card .explicit-evidence summary { min-height: 44px; }
+.workspace-favorites, .workspace-saved { margin-block: 28px; }
+.workspace-favorites.pet-favorites { border: 0; padding: 0; background: none; }
+.workspace-saved-grid { display: grid; gap: 12px; }
+.workspace-saved-card { display: flex; gap: 16px; align-items: center; padding: 16px 20px; background: #f5f5f5; border-radius: 18px; }
+.workspace-saved-card h3 { margin: 0 0 4px; font-size: 15px; }
+.workspace-saved-card p { color: #757575; font-size: 12px; margin: 0; }
+.workspace-saved-card > .pet-favorite-button { margin-left: auto; min-height: 44px; flex-shrink: 0; }
+.workspace-empty { padding: 24px; border-radius: 18px; background: #f2f2f2; color: #7c7c7c; }
+.workspace-note { font-size: 12px; color: #7a7a7a; line-height: 1.6; }
+.workspace-legacy { margin-block: 24px; }
+.workspace-legacy > details > summary { min-height: 44px; color: #777777; cursor: pointer; }
+.workspace-legacy .pet-grid { margin-top: 16px; }
+.pet-composer { margin: 4px 0 20px; }
+.composer-top { display: flex; gap: 16px; justify-content: space-between; align-items: center; min-height: 50px; }
+.composer-top > span { font-size: 11px; color: #8c8c8c; }
+.composer-close { border: 0; background: none; color: #7a7a7a; width: 44px; height: 44px; font-size: 24px; border-radius: 50%; }
+.composer-layout { display: grid; grid-template-columns: minmax(210px,.85fr) minmax(0,1.4fr); gap: clamp(24px,4vw,50px); padding-top: 14px; }
+.composer-preview { border-radius: 24px; background: var(--surface); padding: 18px 22px 24px; align-self: start; text-align: center; }
+.composer-pet-stage .task-pet-art { --pet-size: 176px; }
+.composer-preview h1 { font-size: 23px; margin: 5px 0 9px; }
+.composer-preview > p { font-size: 12px; color: #777777; line-height: 1.7; margin: 0 0 6px; word-break: keep-all; }
+.composer-preview > .pet-favorite-button { margin: 2px auto 24px; min-height: 44px; }
+.composer-main { min-width: 0; padding-top: 8px; }
+.composer-task { display: flex; flex-direction: column; gap: 11px; color: #424242; font-size: 17px; font-weight: 650; }
+.composer-task textarea, .composer-detail textarea { border: 1px solid #e1e1e1; border-radius: 14px; background: #ffffff; padding: 15px; min-height: 116px; width: 100%; resize: vertical; font-size: 14px; line-height: 1.65; color: #444444; }
+.composer-task > span { color: #7d7d7d; font-size: 12px; font-weight: 400; }
+.app-shell .composer-example { min-height: 36px; padding-block: 3px; }
+.composer-profiles { padding: 0; border: 0; margin: 14px 0 22px; min-width: 0; }
+.composer-profiles legend { padding: 0; color: #6f6f6f; font-size: 12px; margin-bottom: 12px; }
+.composer-profiles > div { display: flex; gap: 8px; }
+.composer-profiles label { flex: 1; min-width: 0; display: flex; cursor: pointer; position: relative; }
+.composer-profiles input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.composer-profiles label > span { width: 100%; padding: 11px 5px; border: 1px solid #e4e4e4; border-radius: 12px; text-align: center; color: #6e6e6e; }
+.composer-profiles strong { display: block; font-size: 13px; }
+.composer-profiles small { font-size: 10px; display: block; margin-top: 4px; }
+.composer-profiles input:checked + span { color: var(--ink); background: var(--tint); border-color: #C9CED4; }
+.composer-profiles input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 3px; }
+.composer-path { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #7e7e7e; font-size: 11px; margin: 0 0 20px; }
+.composer-path i { font-style: normal; color: #acacac; }
+.composer-connection { background: #f4f4f4; border-radius: 12px; padding: 13px 16px; font-size: 12px; margin-bottom: 12px; }
+.composer-connection p { color: #7c7c7c; margin: 4px 0 0; }
+.composer-action .button.primary { width: 100%; border-radius: 14px; min-height: 50px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.composer-action p { color: #818181; font-size: 11px; text-align: center; margin: 10px 0 20px; }
+.composer-notice { padding: 13px; background: #f2f2f2; border-radius: 12px; color: #5c5c5c; font-size: 12px; line-height: 1.7; }
+.composer-detail { border-top: 1px solid #eaeaea; margin: 0; padding: 0; font-size: 12px; color: #767676; overflow-wrap: anywhere; }
+.composer-detail > summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; cursor: pointer; color: #676767; list-style: none; }
+.composer-detail > summary::after { content: '+'; color: #888888; font-size: 18px; }
+.composer-detail[open] > summary::after { content: '−'; }
+.composer-detail p { font-size: 12px; line-height: 1.75; }
+.composer-detail > label { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 14px; }
+.composer-detail select { width: 100%; padding: 10px; min-height: 44px; border: 1px solid #e1e1e1; border-radius: 9px; background: #ffffff; color: #585858; }
+.composer-detail a { color: #575757; }
+.composer-detail > .composer-figma { flex-direction: row; align-items: center; justify-content: space-between; min-height: 44px; }
+.composer-detail input[type=checkbox] { width: 22px; height: 22px; accent-color: #4f4f4f; }
+@media (min-width: 1200px) { .workspace-welcome { min-height: 220px; } .workspace-role-select > .task-pet-art { --pet-size: 132px; align-self: center; margin: 0 0 8px; } }
+@media (max-width: 850px) {
+  .workspace-welcome { min-height: 172px; padding-inline: 0; }
+  .workspace-welcome > .task-pet-art { --pet-size: 150px; }
+  .workspace-role-grid { gap: 10px; }
+  .workspace-role-select { padding-inline: 12px; }
+  .workspace-role-select h3 { font-size: 15px; }
+  .composer-layout { grid-template-columns: 200px minmax(0,1fr); gap: 22px; }
+  .composer-preview { padding-inline: 16px; }
+  .composer-pet-stage .task-pet-art { --pet-size: 144px; }
+}
+@media (max-width: 700px) {
+  .app-shell .main-content { padding-inline: 18px; }
+  .workspace-welcome h1 { font-size: 27px; }
+  .workspace-welcome > .task-pet-art { --pet-size: 125px; }
+  .workspace-role-grid { grid-template-columns: 1fr; }
+  .workspace-role-select { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 0 15px; padding: 18px 18px 0; }
+  .workspace-role-select > .task-pet-art { --pet-size: 88px; grid-row: span 2; margin: 0; }
+  .workspace-role-select > p { min-height: 0; margin-bottom: 8px; }
+  .workspace-role-select .result-preview { grid-column: 2; margin: 0; }
+  .workspace-role-select .result-preview-paper { display: none; }
+  .workspace-role-action { grid-column: 1 / -1; margin-top: 8px; }
+  .workspace-role-card > .pet-favorite-button { top: auto; bottom: 2px; right: 28px; }
+  .workspace-activity-grid { grid-template-columns: 1fr; }
+  .composer-layout { grid-template-columns: 1fr; gap: 20px; }
+  .composer-preview { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 5px 14px; text-align: left; padding: 14px; }
+  .composer-pet-stage { grid-row: span 3; }
+  .composer-pet-stage .task-pet-art { --pet-size: 88px; }
+  .composer-preview h1 { font-size: 22px; margin: 0; }
+  .composer-preview > .pet-favorite-button { margin: 0; min-height: 38px; justify-self: start; }
+  .composer-preview > .result-preview { display: none; }
+  .composer-top > span { display: none; }
+  .workspace-saved-card { padding: 14px; gap: 10px; flex-wrap: wrap; }
+  .workspace-saved-card > .task-pet-art { --pet-size: 58px; }
+  .workspace-library-heading { flex-wrap: wrap; gap: 12px; }
+}
+@media (max-width: 460px) {
+  .app-shell .main-content { padding-inline: 12px; }
+  .workspace-welcome { min-height: 192px; }
+  .workspace-welcome > .task-pet-art { display: none; }
+  .workspace-heading { flex-wrap: wrap; }
+  .composer-profiles small { display: none; }
+  .composer-path { font-size: 10px; gap: 5px; }
+}
+@media (prefers-reduced-motion: reduce) { .workspace-role-card { transition: none; } }
+@media (max-height: 800px) and (min-width: 701px) {
+  .workspace-welcome { min-height: 160px; padding-block: 4px; }
+  .workspace-welcome > .task-pet-art { --pet-size: 146px; }
+  .workspace-welcome h1 { font-size: 31px; }
+  .workspace-role-select > .task-pet-art { --pet-size: 132px; align-self: center; margin: 0 0 8px; }
+  .workspace-library-heading { margin-top: 16px; }
+}
+
+
+
+.workspace-activity-grid > h2 { grid-column: 1 / -1; margin: 12px 0 0; }
+
+.composer-profile-choice { margin: 12px 0 22px; border-bottom: 1px solid var(--line); }
+.composer-profile-choice > summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: space-between; color: var(--ink); font-size: 13px; list-style: none; }
+.composer-profile-choice > summary > span { font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.composer-profile-choice[open] > summary > span { visibility: hidden; }
+.composer-profiles i { font-style: normal; }
+.workspace-library .pet-category-tabs button[aria-pressed=true]::before { content: '✓ '; }
+.workspace-role-card:focus-within { border-color: #C9CED4; }

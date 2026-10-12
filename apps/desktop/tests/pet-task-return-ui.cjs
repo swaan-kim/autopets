@@ -61,7 +61,7 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
 
   const overlay = await newPage({ width: 420, height: 640 });
   await mockBridge(overlay, value); await overlay.goto(`${origin}/?pet=0`);
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.getByRole('button', { name: `${template.name} 메뉴`, exact: true }).click();
   await overlay.getByRole('button', { name: 'Codex 작업 열기', exact: true }).click();
   await overlay.getByText(/Codex에 열기를 요청했어요/).waitFor();
   assert.deepEqual(await overlay.evaluate(() => window.__uiTest.calls.find(call => call.name === 'open_pet_task').args), {

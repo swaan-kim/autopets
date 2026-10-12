@@ -47,7 +47,7 @@ test('selected UI skill and optional companion are packaged, pinned and passed s
   const result=await f.run('prepare',['--profile','plan']);
   assert.deepEqual(result.skills.map(s=>s.id),['frontend-design','autopets-figma-design']);
   assert.equal(result.skillReader.executable,process.execPath);
-  assert.equal(result.skillReader.reads.length,2);
+  assert.deepEqual(result.skillReader.reads,[['--bundled-id','frontend-design'],['--bundled-id','autopets-figma-design']]);
   assert.ok(Buffer.byteLength(result.instruction)<=3072);
   assert.ok(!result.instruction.includes('The Elements of Typographic Style'));
   f.edit(link=>{link.template.skills[0].version='unavailable';});
@@ -154,6 +154,10 @@ test('local index lookup is exact, bounded, read-only, and rejects reused paths'
   db.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run(child,file,source,'/root/autopets_fixture',startedAfter);db.close();
   const options={codexHome:dir,parentId:parent,agentPath:'/root/autopets_fixture',cwd,startedAfter};
   assert.deepEqual(await resolveDelegatedRecord(options),{file:await fs.realpath(file),childId:child,turnId:turn});
+  const resumed=[...rows,{type:'event_msg',timestamp:new Date(startedAfter+1000).toISOString(),payload:{type:'task_started',turn_id:parent}}];
+  await fs.writeFile(file,resumed.map(r=>JSON.stringify(r)).join('\n'));
+  await assert.rejects(resolveDelegatedRecord(options),/child-turn-not-unique/);
+  await fs.writeFile(file,rows.map(r=>JSON.stringify(r)).join('\n'));
   await assert.rejects(resolveDelegatedRecord({...options,agentPath:'/root/wrong'}),/not-unique/);
   const update=new DatabaseSync(path.join(dir,'state_5.sqlite'));
   update.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run(turn,file,source,'/root/autopets_fixture',startedAfter);update.close();

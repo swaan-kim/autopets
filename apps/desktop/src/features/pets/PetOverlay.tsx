@@ -15,6 +15,8 @@ import { canAttemptReturn, returnToTask } from '../tasks/returnToTask';
 import { McpProp } from '../tasks/ToolActivity';
 import { PET_NAMES } from './constants';
 import { Pet } from './Pet';
+import { TaskPetArt } from './TaskPetArt';
+import { catalogFor } from './petCatalog';
 import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
 import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet';
@@ -69,8 +71,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
       {expanded && <div className="quick-card-stack"><div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
-        <button className="pet-hit" aria-label="제작 펫 메뉴" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><Pet index={index} activity={state === 'working' ? 'working' : 'idle'} paused={!active} motion={explicitPetMotion(explicit, disconnected)} /></button>
-        <span className="floating-label">{explicit.template.skills.some(skill => skill.id === 'frontend-design') ? explicit.template.name : '제작 펫'} · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} /></button>
+        <span className="floating-label">{explicit.template.name} · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
       </div></div>;
   }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'
