@@ -5,10 +5,20 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import { SKILL_ROOT, skillRootForRuntime, resolvePetSkills, readPinnedSkill } from '../runtime/pet-skills.mjs';
 import { auditPetResources, classifyFigmaRead } from '../runtime/pet-resource-audit.mjs';
+import { readSkillArgs } from '../skills/autopets/scripts/read-skill.mjs';
 
 const ref={id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'};
 const turn='33333333-3333-4333-8333-333333333333';
 const row=p=>({type:'response_item',payload:p});
+
+test('skill reader retries only corrected exact arguments; a cwd suffix remains invalid',async()=>{
+  const args=['--id',ref.id,'--version',ref.version];
+  await assert.rejects(readSkillArgs([...args,'.']),/invalid-skill-read-arguments/);
+  const result=await readSkillArgs(args);
+  assert.equal(result.id,ref.id);
+  assert.equal(result.version,ref.version);
+  assert.equal(result.text,await fs.readFile(result.path,'utf8'));
+});
 
 test('installed skill root follows the physical runtime file, not an MSIX directory alias',()=>{
   const logical = path.resolve('fixture/logical/connector/integrations/codex');

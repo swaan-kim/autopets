@@ -154,6 +154,10 @@ test('local index lookup is exact, bounded, read-only, and rejects reused paths'
   db.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run(child,file,source,'/root/autopets_fixture',startedAfter);db.close();
   const options={codexHome:dir,parentId:parent,agentPath:'/root/autopets_fixture',cwd,startedAfter};
   assert.deepEqual(await resolveDelegatedRecord(options),{file:await fs.realpath(file),childId:child,turnId:turn});
+  const resumed=[...rows,{type:'event_msg',timestamp:new Date(startedAfter+1000).toISOString(),payload:{type:'task_started',turn_id:parent}}];
+  await fs.writeFile(file,resumed.map(r=>JSON.stringify(r)).join('\n'));
+  await assert.rejects(resolveDelegatedRecord(options),/child-turn-not-unique/);
+  await fs.writeFile(file,rows.map(r=>JSON.stringify(r)).join('\n'));
   await assert.rejects(resolveDelegatedRecord({...options,agentPath:'/root/wrong'}),/not-unique/);
   const update=new DatabaseSync(path.join(dir,'state_5.sqlite'));
   update.prepare('INSERT INTO threads VALUES(?,?,?,?,?)').run(turn,file,source,'/root/autopets_fixture',startedAfter);update.close();
