@@ -47,7 +47,7 @@ test('selected UI skill and optional companion are packaged, pinned and passed s
   const result=await f.run('prepare',['--profile','plan']);
   assert.deepEqual(result.skills.map(s=>s.id),['frontend-design','autopets-figma-design']);
   assert.equal(result.skillReader.executable,process.execPath);
-  assert.equal(result.skillReader.reads.length,2);
+  assert.deepEqual(result.skillReader.reads,[['--bundled-id','frontend-design'],['--bundled-id','autopets-figma-design']]);
   assert.ok(Buffer.byteLength(result.instruction)<=3072);
   assert.ok(!result.instruction.includes('The Elements of Typographic Style'));
   f.edit(link=>{link.template.skills[0].version='unavailable';});

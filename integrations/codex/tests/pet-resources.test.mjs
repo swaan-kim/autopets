@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
-import { SKILL_ROOT, skillRootForRuntime, resolvePetSkills, readPinnedSkill } from '../runtime/pet-skills.mjs';
+import { SKILL_ROOT, skillRootForRuntime, resolvePetSkills, readPinnedSkill, readBundledSkill } from '../runtime/pet-skills.mjs';
 import { auditPetResources, classifyFigmaRead } from '../runtime/pet-resource-audit.mjs';
 import { readSkillArgs } from '../skills/autopets/scripts/read-skill.mjs';
 
@@ -18,6 +18,33 @@ test('skill reader retries only corrected exact arguments; a cwd suffix remains 
   assert.equal(result.id,ref.id);
   assert.equal(result.version,ref.version);
   assert.equal(result.text,await fs.readFile(result.path,'utf8'));
+});
+
+test('short bundled reads retain exact pins and reject ambiguity, extra args and wrong explicit versions',async()=>{
+  const result=await readSkillArgs(['--bundled-id',ref.id]);
+  assert.deepEqual(result,await readPinnedSkill(ref.id,ref.version));
+  await assert.rejects(readSkillArgs(['--bundled-id',ref.id,'.']),/invalid-skill-read-arguments/);
+  await assert.rejects(readSkillArgs(['--id',ref.id,'--version','41bbe19d1a1a7eaab5e7bb9050a417e5e6cffc8f']),/bundled-skill-unavailable/);
+  await assert.rejects(readBundledSkill('../outside'),/reference-invalid/);
+  await assert.rejects(readBundledSkill('missing-skill'),/bundled-skill-unavailable/);
+  const registry=JSON.parse(await fs.readFile(path.join(SKILL_ROOT,'skill-sources.json'),'utf8'));
+  registry.skills.push({...registry.skills.find(s=>s.id===ref.id),version:'different'});
+  await assert.rejects(readBundledSkill(ref.id,{readFile:async()=>JSON.stringify(registry)}),/bundled-skill-unavailable/);
+});
+
+test('bundled read evidence still requires the selected version and full verified content',async()=>{
+  const skills=await resolvePetSkills({skills:[ref]});
+  const result=await readBundledSkill(ref.id);
+  const call=row({type:'function_call',name:'exec_command',call_id:'bundled',arguments:`node C:/bundle/autopets/scripts/read-skill.mjs --bundled-id ${ref.id}`});
+  const output=row({type:'function_call_output',call_id:'bundled',output:JSON.stringify(result)});
+  const rows=[{type:'turn_context',payload:{turn_id:turn}},call,output];
+  assert.deepEqual(auditPetResources(rows,turn,skills).skills,[ref]);
+  for(const override of [{version:'other'},{sha256:'wrong'},{text:result.text.slice(1)}]) {
+    output.payload.output=JSON.stringify({...result,...override});
+    assert.deepEqual(auditPetResources(rows,turn,skills).skills,[]);
+  }
+  output.payload.output=JSON.stringify(result);
+  assert.deepEqual(auditPetResources(rows,turn,[{...skills[0],version:'other'}]).skills,[]);
 });
 
 test('installed skill root follows the physical runtime file, not an MSIX directory alias',()=>{
@@ -55,6 +82,7 @@ test('missing or tampered packaged skill fails before dispatch, including detach
   assert.equal(path.relative(await fs.realpath(dir),selected[0].path),path.join('frontend-design','SKILL.md'));
   await fs.appendFile(path.join(dir,'frontend-design/SKILL.md'),'changed');
   await assert.rejects(resolvePetSkills(template,options),/integrity/);
+  await assert.rejects(readBundledSkill(ref.id,options),/integrity/);
   await fs.copyFile(path.join(SKILL_ROOT,'frontend-design/SKILL.md'),path.join(dir,'frontend-design/SKILL.md'));
   await fs.writeFile(path.join(dir,'frontend-design/LICENSE.txt'),'missing original license');
   await assert.rejects(resolvePetSkills(template,options),/license-integrity/);

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPinnedSkill } from '../../../runtime/pet-skills.mjs';
+import { readPinnedSkill, readBundledSkill } from '../../../runtime/pet-skills.mjs';
 
 export async function readSkillArgs(args) {
+  if (args.length === 2 && args[0] === '--bundled-id') return readBundledSkill(args[1]);
   if (args.length !== 4 || args[0] !== '--id' || args[2] !== '--version') throw Error('invalid-skill-read-arguments');
   return readPinnedSkill(args[1], args[3]);
 }

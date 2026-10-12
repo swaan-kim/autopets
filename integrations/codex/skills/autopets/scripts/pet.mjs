@@ -98,7 +98,7 @@ export async function runPet(args,env=process.env,deps={}) {
     const result=verify(await call({operation:'prepare',target,expectedRevision,requestId,profile}));
     // Existing reservations, even after a lost response, must not cause another spawn.
     const skillReader={executable:process.execPath,script:fileURLToPath(new URL('./read-skill.mjs',import.meta.url)),
-      reads:skills.map(({id,version})=>['--id',id,'--version',version])};
+      reads:skills.map(({id})=>['--bundled-id',id])};
     return {...result,dispatchAllowed:result.dispatchAllowed===true,requestId,taskName:`autopets_${requestId.replaceAll('-','')}`,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skills[0].path,skills,skillReader};
   }
   if(['enable','disable','disconnect'].includes(o.operation)) return verify(await call({operation:o.operation==='disconnect'?'disconnect':'enable',target,expectedRevision,...(o.operation==='disconnect'?{}:{enabled:o.operation==='enable'})}));
