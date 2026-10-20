@@ -134,7 +134,9 @@ jobs:
           [ordered]@{
             schemaVersion = 1
             sourceCommit = $env:GITHUB_SHA
-            appSha256 = (Get-FileHash -LiteralPath 'apps/desktop/src-tauri/target/release/AutoPets.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+            # Tauri restores this unpatched binary after creating the NSIS payload.
+            # appSha256 is added only after the installed executable is measured.
+            unbundledAppSha256 = (Get-FileHash -LiteralPath 'apps/desktop/src-tauri/target/release/AutoPets.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
             installerSha256 = (Get-FileHash -LiteralPath $taskInstallers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             installerSignature = (Get-AuthenticodeSignature -LiteralPath $taskInstallers[0].FullName).Status.ToString()
             installerBytes = $taskInstallers[0].Length
@@ -153,18 +155,22 @@ jobs:
           Copy-Item -LiteralPath release/AutoPets-companion.zip -Destination $taskArtifactDir
           node scripts/package-bootstrap.mjs --installer $taskInstallers[0].FullName --node (Get-Command node).Source --license work/NODE-LICENSE.txt --out (Join-Path $taskArtifactDir 'AutoPets-windows-x64.zip')
           if ($LASTEXITCODE -ne 0) { throw 'One-call package failed.' }
-          $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Sort-Object Name | ForEach-Object {
+          "Commit: $env:GITHUB_SHA`nChecks: Node, rendered UI, Rust, NSIS build.`nInstaller signature and real Codex Desktop hook roundtrip require separate verification." | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'BUILD.txt') -Encoding utf8
+          # Failed bootstrap runs remain usable by the separate recheck job.
+          # Successful verification rewrites these with finalized payload metadata.
+          $taskChecksums = Get-ChildItem -LiteralPath $taskArtifactDir -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
             $taskDigest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$taskDigest  $($_.Name)"
           }
           $taskChecksums | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'SHA256SUMS.txt') -Encoding utf8
-          "Commit: $env:GITHUB_SHA`nChecks: Node, rendered UI, Rust, NSIS build.`nInstaller signature and real Codex Desktop hook roundtrip require separate verification." | Set-Content -LiteralPath (Join-Path $taskArtifactDir 'BUILD.txt') -Encoding utf8
       - name: Verify single installer, explicit connection, repair and removal
         run: |
           $taskInstaller = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)[0].FullName
           ./scripts/test-bootstrap-windows.ps1 -Installer $taskInstaller
           if ($LASTEXITCODE -ne 0) { throw 'Native bootstrap verification failed.' }
-          Copy-Item -LiteralPath work/bootstrap-windows-evidence.json, work/native-ui-setup.png -Destination work/artifacts
+          Copy-Item -LiteralPath work/bootstrap-windows-evidence.json, work/bootstrap-installed-payload.json, work/native-ui-setup.png -Destination work/artifacts
+          node scripts/finalize-preview-build.mjs --directory work/artifacts --evidence work/bootstrap-installed-payload.json
+          if ($LASTEXITCODE -ne 0) { throw 'Installed payload identity or artifact checksum finalization failed.' }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
@@ -226,6 +232,7 @@ jobs:
           path: |
             work/artifacts/
             work/bootstrap-windows-evidence.json
+            work/bootstrap-installed-payload.json
             work/native-window-lifecycle/
           if-no-files-found: warn
           retention-days: 14

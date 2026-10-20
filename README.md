@@ -4,7 +4,7 @@
 
 쓰던 Codex 채팅에서 펫에게 일을 맡기는 Windows 앱입니다. 펫에 일하는 방법과 설정을 저장하고, 계획·작업·결과 확인을 이어갑니다.
 
-[설치 안내](INSTALL.md) · [Windows 개발 미리보기](https://github.com/swaan-kim/autopets/releases) · [실제 검증 기록](docs/testing/installed-core-20261012.md) · [남은 계획](docs/roadmap/mvp-execution.md)
+[설치 안내](INSTALL.md) · [Windows 개발 미리보기](https://github.com/swaan-kim/autopets/releases) · [실제 검증 기록](docs/testing/copy-free-installed-20261021.md) · [남은 계획](docs/roadmap/mvp-execution.md)
 
 > **현재는 미서명 개발 미리보기입니다.** Windows 보안 정책에 따라 설치·실행이 차단될 수 있습니다. 보안 설정을 끄거나 차단을 우회하지 않으며, 일반 사용자용 서명 배포는 아직 준비 중입니다.
 
@@ -52,12 +52,12 @@ https://github.com/swaan-kim/autopets/blob/main/INSTALL.md 를 읽고,
 | --- | --- |
 | **실제 Codex 작업** | 기존 설치본에서 웹페이지 계획→구현, 하루 정리, 공부 도우미를 일반 채팅으로 확인 |
 | **스킬·라우팅** | 실제 스킬 읽기, 지정한 하위 작업의 모델·강도, 결과 반환과 펫 상태, A/B 격리 확인 |
-| **새 화면·펫 반응** | 홈·역할 선택·초안·즐겨찾기·작업 복귀의 구현·화면 검사. 최신 설치본의 전체 사용자 체험은 별도 |
+| **복붙 없는 기본 흐름** | 새 설치본에서 앱 적용→같은 시험 채팅의 웹페이지 계획·구현→복귀·재시작 복구 확인. 요청은 메시지 도구 전달, 일반 사용자 체험은 별도 |
 | **여행·홍보글·발표자료** | 번들·저장·화면 검사. 각 역할의 실제 결과 품질은 미검증 |
 | **자동 훅** | 일반 입력의 자동 처리 미통과. 현재 지원 경로는 명시적 스킬 호출 |
 | **일반 사용자 배포** | 미서명 Pre-release. 보안 정책을 유지한 다른 PC 설치·서명 배포는 미통과 |
 
-[2026-10-12 실제 설치·작업 기록](docs/testing/installed-core-20261012.md)에 성공과 실패를 함께 남겼습니다. 준비된 지침·스킬 읽기·응답 이행은 확인했지만, 암호화된 최초 위임 입력의 바이트 단위 일치는 독립 확인하지 못했습니다. 이전 시험 71턴 이후, 복붙 없는 흐름은 별도 최대 6턴과 Luna/low 설정으로 검증합니다. 실제 사용량과 결과는 [연결 기록](docs/testing/copy-free-connection.md)에 구분합니다.
+[최신 설치형 기록](docs/testing/copy-free-installed-20261021.md)에 성공과 제한을 함께 남겼습니다. 앱에서 설정한 계획·구현은 실제 Luna/low로 실행됐고 선택 스킬 읽기와 결과 반환을 확인했습니다. 새 시험 6턴, 이전 포함 77턴입니다. 암호화된 최초 위임 입력의 평문 일치는 독립 확인하지 못했으며 결과물의 디자인·입력 검사 보완점도 남겼습니다. 과거 일반 입력 검사는 [10월 12일 기록](docs/testing/installed-core-20261012.md)과 구분합니다.
 
 [복붙 없는 연결의 현재 범위](docs/testing/copy-free-connection.md): 앱의 펫 설정 직접 적용, 요청문 전송, 브라우저 미리보기, 자동 훅을 각각 구분했습니다.
 
@@ -75,7 +75,7 @@ https://github.com/swaan-kim/autopets/blob/main/INSTALL.md 를 읽고,
 
 실행 전에 현재 호스트의 가용 모델·강도를 확인하며, 없으면 임의로 대체하지 않습니다. 계획 단계의 파일 변경 제한은 **계획 프롬프트 이행**입니다.
 
-다음 관문은 최신 설치본의 대표 흐름, 보안 정책을 유지한 배포, 실제 사용자의 첫 성공과 재사용입니다. 과거 설치 성공은 Smart App Control이 꺼진 시험 PC의 결과이므로 모든 PC의 설치 성공을 뜻하지 않습니다.
+다음 관문은 일반 입력으로 시작하는 사용자 체험, 보안 정책을 유지한 배포, 실제 사용자의 첫 성공과 재사용입니다. 설치 성공은 Smart App Control이 꺼진 시험 PC의 결과이므로 모든 PC의 설치 성공을 뜻하지 않습니다.
 
 - [가능성·제한 기록](docs/testing/mvp-feasibility.md)
 - [사용자 검사](docs/testing/first-success-user-check.md)
