@@ -18,6 +18,20 @@ try {
   const test = spawn(process.execPath, ['apps/desktop/tests/ui-smoke.cjs'], { cwd: root, windowsHide: true, stdio: 'inherit' });
   const [code] = await once(test, 'exit');
   if (code !== 0) throw new Error(`UI smoke test failed (${code}).`);
+  // Keep this owned server alive for the separate, non-executing study as well.
+  // Its previews must not be mistaken for the native app's real task results.
+  for (const args of [
+    ['apps/desktop/tests/campaign-study-ui.cjs'],
+    ['apps/desktop/node_modules/vite/bin/vite.js', 'build', '--config', 'apps/desktop/campaign-study.vite.config.ts'],
+    ['apps/desktop/tests/campaign-package-ui.cjs'],
+  ]) {
+    // createServer sets NODE_ENV=development. Do not leak that into the offline
+    // production bundle: React's conditional exports must match the build mode.
+    const env = args[0].endsWith('/vite.js') ? { ...process.env, NODE_ENV: 'production' } : process.env;
+    const check = spawn(process.execPath, args, { cwd: root, env, windowsHide: true, stdio: 'inherit' });
+    const [result] = await once(check, 'exit');
+    if (result !== 0) throw new Error(`Study verification failed: ${args[0]} (${result}).`);
+  }
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

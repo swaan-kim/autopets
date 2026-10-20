@@ -15,9 +15,10 @@ const powershell = path.join(process.env.SystemRoot ?? 'C:/Windows', 'System32/W
 const quote = value => `'${value.replaceAll("'", "''")}'`;
 const ready = { appReady: true, chatConnected: false, guidanceDelivered: false };
 
-async function check(t, respond, { seconds = 6, processChanged = false, processDies = false } = {}) {
+async function check(t, respond, { seconds = 6, processChanged = false, processDies = false, startupDelay = 0 } = {}) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-readiness-한글 '));
   const exitSignal = path.join(directory, 'exit-after-request');
+  const readySignal = path.join(directory, 'synthetic-process-ready');
   const requests = [];
   const server = http.createServer((req, res) => {
     requests.push({ method: req.method, url: req.url });
@@ -38,19 +39,32 @@ async function check(t, respond, { seconds = 6, processChanged = false, processD
   const fakeToken = 'synthetic-token-never-in-evidence';
   await fs.writeFile(connection, JSON.stringify({ version: 1, baseUrl: `http://127.0.0.1:${server.address().port}`, token: fakeToken }));
   // The helper observes this test PowerShell process, never an installed app.
-  // Wait for the first HTTP observation before exiting, even during a cold startup.
-  const childCommand = `$taskDeadline = (Get-Date).AddSeconds(20); while (-not (Test-Path -LiteralPath ${quote(exitSignal)}) -and (Get-Date) -lt $taskDeadline) { Start-Sleep -Milliseconds 25 }`;
+  // Start-Process may return before its Process.Path can be read on a cold runner.
+  // Signal from inside the synthetic app, then re-query its identity in the driver.
+  // Only the first HTTP observation tells the app to exit.
+  const childCommand = `Start-Sleep -Milliseconds ${startupDelay}; Set-Content -LiteralPath ${quote(readySignal)} -Value $PID; $taskDeadline = (Get-Date).AddSeconds(20); while (-not (Test-Path -LiteralPath ${quote(exitSignal)}) -and (Get-Date) -lt $taskDeadline) { Start-Sleep -Milliseconds 25 }`;
   const childCommandBase64 = Buffer.from(childCommand, 'utf16le').toString('base64');
   await fs.writeFile(driver, `\ufeff$ErrorActionPreference = 'Stop'
 . ${quote(path.join(root, 'scripts/native-bridge-readiness.ps1'))}
 $taskSelf = ${processDies ? `Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', '${childCommandBase64}') -WindowStyle Hidden -PassThru` : 'Get-Process -Id $PID'}
 try {
+  ${processDies ? `$taskStartupDeadline = (Get-Date).AddSeconds(10)
+  while (-not (Test-Path -LiteralPath ${quote(readySignal)})) {
+    if ($taskSelf.HasExited) { throw 'Synthetic readiness app exited before its ready signal.' }
+    if ((Get-Date) -ge $taskStartupDeadline) { throw 'Synthetic readiness app did not initialize within ten seconds.' }
+    Start-Sleep -Milliseconds 25
+  }
+  $taskSelf = Get-Process -Id $taskSelf.Id -ErrorAction Stop
+  if (-not $taskSelf.Path) { throw 'Synthetic readiness app path was not available after its ready signal.' }` : ''}
   $taskStartedAt = $taskSelf.StartTime${processChanged ? '.AddSeconds(-1)' : ''}
   $null = Wait-NativeBridgeReady -AppProcessId $taskSelf.Id -AppStartedAt $taskStartedAt -AppPath $taskSelf.Path -ConnectionFile ${quote(connection)} -EvidenceFile ${quote(evidence)} -Seconds ${seconds}
-} catch { }
+} catch {
+  # Expected readiness failures write evidence. Do not hide harness/setup failures.
+  if (-not (Test-Path -LiteralPath ${quote(evidence)})) { throw }
+}
 ${processDies ? 'finally { if (-not $taskSelf.HasExited) { $taskSelf.Kill(); [void]$taskSelf.WaitForExit(5000) } }' : ''}
 `);
-  await execute(powershell, ['-NoProfile', '-NonInteractive', '-File', driver], { windowsHide: true, timeout: (seconds + 8) * 1000 });
+  await execute(powershell, ['-NoProfile', '-NonInteractive', '-File', driver], { windowsHide: true, timeout: (seconds + (processDies ? 18 : 8)) * 1000 });
   const raw = await fs.readFile(evidence, 'utf8');
   assert.ok(!raw.includes(fakeToken), 'diagnostics must not contain the credential');
   assert.ok(!raw.includes('baseUrl'), 'diagnostics need no raw connection object');
@@ -106,9 +120,11 @@ test('native readiness rejects changed process identity before any HTTP request'
 });
 
 test('native readiness stops retrying when the synthetic app process exits', { skip: process.platform !== 'win32' }, async t => {
-  const { result, requests } = await check(t, () => {}, { processDies: true });
-  assert.equal(result.outcome, 'failed');
-  assert.equal(result.attempts[0].result, 'transport-not-ready');
-  assert.equal(result.attempts.at(-1).result, 'app-exited-or-changed');
-  assert.equal(requests.length, 1);
+  for (const startupDelay of [0, 500]) {
+    const { result, requests } = await check(t, () => {}, { processDies: true, startupDelay });
+    assert.equal(result.outcome, 'failed');
+    assert.equal(result.attempts[0].result, 'transport-not-ready');
+    assert.equal(result.attempts.at(-1).result, 'app-exited-or-changed');
+    assert.equal(requests.length, 1);
+  }
 });

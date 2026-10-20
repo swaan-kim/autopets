@@ -82,7 +82,8 @@ export function auditPetResources(rows, turnId, expectedSkills, figmaEnabled = f
     for (const skill of expectedSkills) {
       // Reader input and complete file output must agree. Neither the requested command
       // nor a hash-only acknowledgement proves the model received a skill's instructions.
-      const readerRequested = source.includes('/autopets/scripts/read-skill.mjs') && source.includes('--id') && source.includes(skill.id) && source.includes(skill.version);
+      const readerRequested = source.includes('/autopets/scripts/read-skill.mjs') && source.includes(skill.id)
+        && (source.includes('--bundled-id') || (source.includes('--id') && source.includes(skill.version)));
       if (!readerRequested) continue;
       const confirmed = resultObjects.some(value => value.kind === 'autopets-skill-read-v1'
         && value.id === skill.id && value.version === skill.version && value.sha256 === skill.sha256

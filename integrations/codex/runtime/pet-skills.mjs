@@ -1,12 +1,31 @@
 import path from 'node:path';
 import { readFile, realpath } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
-export const SKILL_ROOT = fileURLToPath(new URL('../skills/', import.meta.url));
+// MSIX can redirect files while realpath(directory) still returns the logical
+// directory. Anchor siblings to this installed runtime file's physical location;
+// do not relax the per-skill containment or integrity checks below.
+export function skillRootForRuntime(runtimeFile, resolveFile = realpathSync.native) {
+  return path.resolve(path.dirname(resolveFile(runtimeFile)), '../skills');
+}
+export const SKILL_ROOT = skillRootForRuntime(fileURLToPath(import.meta.url));
 export const skillDigest = text => createHash('sha256').update(text).digest('hex');
 const canonical = text => text.replaceAll('\r\n', '\n');
 const helper = { id: 'autopets-figma-design', version: '1.0.0' };
+
+/** Resolve one immutable installed pin without asking the model to transcribe a commit hash.
+ * The observer still compares the returned version and complete content with the request's pin.
+ */
+export async function readBundledSkill(id, options = {}) {
+  if (typeof id !== 'string' || !/^[a-z0-9-]+$/u.test(id)) throw Error('bundled-skill-reference-invalid');
+  const registry = JSON.parse(await (options.readFile ?? readFile)(path.join(options.root ?? SKILL_ROOT, 'skill-sources.json'), 'utf8'));
+  if (registry.version !== 1 || !Array.isArray(registry.skills)) throw Error('bundled-skill-registry-invalid');
+  const matches = registry.skills.filter(skill => skill.id === id);
+  if (matches.length !== 1 || typeof matches[0].version !== 'string') throw Error('bundled-skill-unavailable');
+  return readPinnedSkill(id, matches[0].version, options);
+}
 
 /** Resolve only packaged, pinned skill references. Saved templates never supply filesystem paths. */
 export async function resolvePetSkills(template, options = {}) {
@@ -46,7 +65,7 @@ export async function resolvePetSkills(template, options = {}) {
 export function petSkillInstruction(template, skills, profile) {
   if (typeof template?.instruction !== 'string' || !template.instruction.trim()) throw Error('pet-instruction-missing');
   const paths = skills.map(skill => skill.path).join('\n');
-  const instruction = `${template.instruction}\n선택 스킬 파일을 각각 완전히 읽고 적용하세요:\n${paths}\n가능하면 반환된 skillReader 실행 파일과 인수를 그대로 사용해 읽으세요. 추가 하위 작업은 만들지 마세요.${profile === 'plan' ? '\n계획만 제시하고 확인을 기다리세요. 파일을 수정하지 마세요.' : ''}${template.features?.figmaDesign ? '\nFigma 시안 활용이 켜져 있습니다. 제공된 프레임과 현재 호스트의 공식 Figma 스킬·도구를 확인하세요. 연결이나 권한이 없으면 시안 작업을 멈추고 필요한 연결을 안내하세요. Figma 원본을 쓰지 마세요.' : ''}`;
+  const instruction = `${template.instruction}\n선택 스킬 파일을 각각 완전히 읽고 적용하세요:\n${paths}\n반환된 skillReader 실행 파일과 인수를 그대로 사용하세요. --bundled-id와 스킬 ID 두 인수로 설치된 정확한 버전을 읽습니다. 긴 버전 해시를 다시 입력하거나 끝에 점(.)이나 작업 폴더를 붙이지 마세요. 작업 폴더는 도구의 cwd로 지정하세요. 인용·인수 오류는 현재 턴 안에서 읽기 명령을 수정해 확인하세요. 부모의 요약은 실제 스킬 읽기를 대신하지 않습니다. 추가 하위 작업은 만들지 마세요.${profile === 'plan' ? '\n계획만 제시하고 확인을 기다리세요. 파일을 수정하지 마세요.' : ''}${template.features?.figmaDesign ? '\nFigma 시안 활용이 켜져 있습니다. 제공된 프레임과 현재 호스트의 공식 Figma 스킬·도구를 확인하세요. 연결이나 권한이 없으면 시안 작업을 멈추고 필요한 연결을 안내하세요. Figma 원본을 쓰지 마세요.' : ''}`;
   if (Buffer.byteLength(instruction) > 3072) throw Error('instruction-limit');
   return instruction;
 }
