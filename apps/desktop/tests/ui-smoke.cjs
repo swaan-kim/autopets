@@ -13,6 +13,7 @@ const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
+const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetDiscoveryChecks } = require('./pet-discovery-ui.cjs');
 const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
 const { runCompanionChecks } = require('./companion-ui.cjs');
@@ -288,6 +289,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_COPY_FREE_ONLY === '1') {
+      const screenshots = await runCopyFreeChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_PET_LINK_ONLY === '1') {
       await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ checks, pageErrors: errors }, null, 2)); return;
@@ -696,6 +703,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
+    graphScreenshots.push(...await runCopyFreeChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

@@ -1,4 +1,4 @@
-const { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const uiTemplate = require('../../../packages/contracts/data/ui-pet.json');
@@ -35,11 +35,13 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await source.getByRole('link', { name: '원작자 결과 예시 ↗', exact: true }).count(), entry.id === 'presentation' ? 1 : 0);
     if (entry.id === 'presentation') assert.ok((await source.locator(':scope > strong').innerText()).startsWith('frontend-slides'));
     const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
+    await openCopy(flow);
     assert.equal(await input.inputValue(), entry.example);
     assert.equal(await flow.locator('input[aria-label="Figma 시안 활용"]').count(), entry.id === 'ui-webpage' ? 1 : 0);
     await input.fill(`${entry.example}\n한글 추가 조건`);
     await flow.getByRole('button', { name: '← 돌아가기', exact: true }).click(); await dismissRoleDetail(page);
     await chooseRole(page, entry.name);
+    await openCopy(flow);
     assert.ok((await input.inputValue()).endsWith('한글 추가 조건'));
     await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
     await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
@@ -82,12 +84,14 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.locator('.composer-profile-choice > summary').click();
   await flow.getByRole('radio',{name:'가볍게',exact:true}).focus(); await page.keyboard.press('ArrowRight');
   assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
+  await openCopy(flow);
   await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill('학과 행사 소개\n날짜와 프로그램 포함');
   await flow.getByRole('button',{name:'← 돌아가기',exact:true}).click(); await dismissRoleDetail(page);
   await page.getByRole('button',{name:'일상',exact:true}).click(); await chooseRole(page, '하루 정리');
   await flow.getByRole('button',{name:'← 돌아가기',exact:true}).click(); await dismissRoleDetail(page); await page.getByRole('button',{name:'업무',exact:true}).click(); await selectWeb();
   assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
   assert.equal(await flow.getByLabel('펫에게 맡길 일',{exact:true}).inputValue(),'학과 행사 소개\n날짜와 프로그램 포함');
+  await openCopy(flow);
   await page.evaluate(() => { window.__uiTest.connectionError='fixture unavailable'; });
   await flow.getByRole('button',{name:'Codex에 펫 준비',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor(); assert.equal(await count('connect_ai'),1);
@@ -119,6 +123,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   if (await flow.locator('.composer-more').evaluate(el=>el.open)) await flow.locator('.composer-more > summary').click();
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.evaluate(()=>{window.__uiTest.roles.pets[0].revision++;});
+  await openCopy(flow);
   await flow.getByRole('button',{name:'시작 요청 다시 복사',exact:true}).click();
   const conflict=flow.getByRole('alert').filter({hasText:'저장한 펫이 다른 곳에서 바뀌었어요'});
   await conflict.waitFor();
@@ -130,6 +135,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await conflict.getByRole('button',{name:'구성 다시 선택',exact:true}).focus(); await page.keyboard.press('Enter');
   assert.equal(await flow.getByLabel('저장한 구성',{exact:true}).evaluate(el=>document.activeElement===el),true,'recovery focuses latest saved configuration');
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('ui-pet-0');
+  await openCopy(flow);
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click(); await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.',{exact:true}).waitFor();
   assert.ok((await page.evaluate(()=>window.__uiTest.clipboard)).includes('petRevision=3'));
   await page.evaluate(uiTemplate=>{
@@ -139,8 +145,9 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const beforeB=await page.evaluate(()=>structuredClone(window.__uiTest.state.petLinks[1]));
   await showMore(flow); const details=flow.getByText('저장한 구성과 연결 관리',{exact:true}); if(!await details.evaluate(el=>el.parentElement.open)) await details.click();
   await flow.getByLabel('UI 펫을 적용할 채팅',{exact:true}).selectOption(JSON.stringify(['codex-windows-local','11111111-2222-4333-8444-555555555555','C:/UI fixture only']));
-  await flow.getByRole('button',{name:'저장하고 선택 채팅에 적용',exact:true}).click();
-  await flow.getByText(/선택한 채팅의 다음 펫 작업에 저장했어요/).waitFor();
+  await flow.getByRole('button',{name:'이 채팅에 펫 적용',exact:true}).click();
+  await flow.locator('.composer-applied').waitFor();
+  await flow.getByText('펫 설정을 적용했어요.',{exact:true}).waitFor();
   assert.deepEqual(await page.evaluate(()=>window.__uiTest.state.petLinks[1]),beforeB);
   assert.equal(await page.evaluate(()=>window.__uiTest.state.petLinks[0].profile),'standard');
   await flow.getByRole('button',{name:'← 돌아가기',exact:true}).click(); await dismissRoleDetail(page);
@@ -160,13 +167,16 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await capture('returning');
   checks.push('single-screen composer: per-role drafts, keyboard profiles, failed setup/save, duplicate locking, clipboard fallback, stale revision recovery, exact A apply with unchanged B, home priority, temporary overlay suppression and no auto submission; small viewports approximate DPI, not native DPI evidence');
   await page.getByRole('button',{name:'펫 고르기',exact:true}).click(); await selectWeb();
+  await openCopy(flow);
   await showMore(flow);
   await flow.getByText('저장한 구성과 연결 관리',{exact:true}).click();
   await page.evaluate(template=>{window.__uiTest.roles.pets.push({id:'unsupported',revision:1,template:{...template,planning:{model:'gpt-6-astra',reasoning:'high'}}});window.__uiTest.emitEvent('autopets://roles-changed',{});},uiTemplate);
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('unsupported');
+  await openCopy(flow);
   await flow.getByRole('alert').filter({hasText:'이 구성의 모델 조합은 아직 연결할 수 없어요'}).waitFor();
   assert.equal(await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).isDisabled(),true);
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('ui-pet-0');
+  await openCopy(flow);
   const prior=await page.evaluate(()=>window.__uiTest.clipboard);
   await page.evaluate(()=>{
     const invoke=window.__TAURI_INTERNALS__.invoke;let once=true;

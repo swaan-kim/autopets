@@ -20,6 +20,16 @@ try {
     # NSIS requires its FINAL /D value unquoted, including spaces and Korean text.
     $taskInstall = Start-Process -FilePath ([IO.Path]::GetFullPath($Installer)) -ArgumentList @('/S', "/D=$taskAppDirectory") -PassThru -Wait -WindowStyle Hidden
     if ($taskInstall.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $taskApp -PathType Leaf) -or -not (Test-Path -LiteralPath $taskNode -PathType Leaf)) { throw 'Single self-contained EXE installation failed.' }
+    # Measure the actual NSIS payload before launch/removal. Tauri's build output
+    # is restored after its bundle-type patch and can have a different hash.
+    New-Item -ItemType Directory -Path work -Force | Out-Null
+    [ordered]@{
+        schemaVersion = 1
+        method = 'windows-nsis-install'
+        installerSha256 = (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant()
+        appSha256 = (Get-FileHash -LiteralPath $taskApp -Algorithm SHA256).Hash.ToLowerInvariant()
+        appBytes = (Get-Item -LiteralPath $taskApp).Length
+    } | ConvertTo-Json | Set-Content -LiteralPath work/bootstrap-installed-payload.json -Encoding UTF8
     if (Test-Path -LiteralPath $env:CODEX_HOME) { throw 'Silent installer changed AI settings before explicit connection.' }
     # Exercise actual registry discovery with a Korean/spaced install directory.
     # A fresh installed runner must open onboarding without installing any hooks.

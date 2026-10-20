@@ -1,4 +1,4 @@
-/* The preview belongs to choosing a pet; this screen is about the user's request. */
+/* Choose a pet here, then keep the conversation in the user's exact Codex chat. */
 .app-shell .pet-composer { max-width: 680px; margin: 8px auto 36px; }
 .pet-composer .composer-layout { display: flex; flex-direction: column; gap: 18px; padding-top: 4px; }
 .composer-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
@@ -22,6 +22,25 @@
 .pet-composer .composer-destinations .explicit-return { font-size: 14px; }
 .pet-composer .composer-action[data-next=chat] .button { min-height: 40px; background: transparent; border-color: transparent; font-size: 14px; }
 .pet-composer .composer-destinations[data-next=true] .explicit-return { background: #eceeef; color: #292c31; border-color: #dcdfe2; min-height: 48px; font-weight: 650; }
+.composer-direct-intro { margin: 0 0 18px; color: #51565b; font-size: 15px; line-height: 1.7; word-break: keep-all; }
+.composer-target { margin-top: 16px; }
+.composer-target .ui-pet-select { font-size: 14px; }
+.composer-target .ui-pet-select select { min-width: 0; width: 100%; min-height: 48px; font-size: 14px; }
+.composer-target-id { margin: 8px 0 0; color: #646b72; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.composer-target-blocker { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #f2f3f4; font-size: 14px; line-height: 1.6; color: #424950; }
+.pet-composer .composer-direct-action[data-next=chat] .explicit-return { width: 100%; background: #eceeef; color: #292c31; border-color: #dcdfe2; min-height: 48px; font-size: 15px; font-weight: 650; }
+.pet-composer .composer-applied > p { margin: 0 0 12px; font-size: 14px; color: #454c52; }
+.composer-connect-instruction { padding: 16px 18px; background: #f5f6f7; border-radius: 14px; }
+.pet-composer .composer-connect-instruction p { margin: 0 0 8px; font-size: 14px; line-height: 1.6; }
+.composer-connect-instruction > strong { display: block; margin-bottom: 10px; font-size: 16px; line-height: 1.6; word-break: keep-all; }
+.composer-connect-instruction .text-button { min-height: 44px; }
+.composer-copy-fallback { margin-top: 24px; border-top: 1px solid #e5e7e9; }
+.composer-copy-fallback > summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; color: #525a61; cursor: pointer; font-size: 14px; }
+.composer-copy-fallback > summary::after { content: '+'; margin-left: 12px; }
+.composer-copy-fallback[open] > summary::after { content: '−'; }
+.composer-copy-fallback > p { margin: 2px 0 14px; font-size: 12px; color: #626b72; line-height: 1.7; word-break: keep-all; }
+.pet-composer .composer-copy-action .button { background: #fff; border-color: #dcdfe2; }
+.composer-copy-fallback > summary:focus-visible, .composer-target select:focus-visible { outline: 2px solid #424950; outline-offset: 3px; }
 @media (max-width: 520px) {
   .composer-identity { gap: 10px; }
   .composer-identity > .task-pet-art { --pet-size: 56px; }
