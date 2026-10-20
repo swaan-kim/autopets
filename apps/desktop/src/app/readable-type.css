@@ -1,0 +1,14 @@
+/* Shared minimums for the task flow, including its overlay. */
+.app-shell :is(.nav-count,.version,.connection-pill,.workspace-note,.pet-source-line,.pet-source-caption,.pet-source-kind,.pet-skill-source p,.pet-skill-source details,.result-preview figcaption,.result-preview figcaption small,.result-thumbnail-label),
+.explicit-pet :is(.explicit-target,.explicit-settings-value,.explicit-evidence-body,.explicit-return-fallback code),
+.explicit-pet .explicit-heading > span { font-size: 12px; line-height: 1.6; }
+.app-shell .workspace-saved-card p { font-size: 14px; line-height: 1.6; }
+.app-shell .workspace-role-action { font-size: 14px; }
+.app-shell .pet-skill-source p { font-size: 14px; }
+.app-shell .nav-item { font-size: 14px; }
+.app-shell :is(.workspace-library,.workspace-saved,.workspace-favorites,.composer-identity) .text-button { font-size: 14px; min-height: 44px; }
+.app-shell .pet-source-line { color: #62666b; }
+.app-shell :is(a,select):focus-visible { outline: 2px solid #424950; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *, .floating-pet * { scroll-behavior: auto; transition: none; }
+}

@@ -1,0 +1,80 @@
+/* Entry discovery is local and deliberately separate from connected work. */
+.pet-home-start { display: flex; flex-direction: column; align-items: center; max-width: 630px; min-height: 526px; margin: 0 auto; padding: 22px 0 28px; }
+.pet-home-greeting { --pet-size: 174px; display: block; width: var(--pet-size); height: var(--pet-size); padding: 0; margin: 0 0 9px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.pet-home-greeting:hover { background: #fafafa; }
+.pet-workspace-v2 .pet-home h1 { font-size: clamp(26px, 3.5vw, 34px); letter-spacing: -1px; margin: 0 0 24px; text-align: center; }
+.pet-home-form { width: 100%; border: 1px solid #dce0e3; padding: 13px; border-radius: 22px; background: #fff; box-shadow: 0 6px 28px #20272c05; }
+.pet-home-form:focus-within { border-color: #8a949b; }
+.pet-home-input { display: block; width: 100%; }
+.pet-home-input-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pet-home-input textarea { width: 100%; min-height: 82px; border: 0; border-radius: 8px; padding: 8px 9px; color: #353b3f; background: transparent; resize: vertical; font: inherit; font-size: 16px; line-height: 1.55; }
+.pet-home-input textarea::placeholder { color: #7a8288; }
+.pet-home-input textarea:focus-visible { outline: 2px solid #b5bec4; outline-offset: -1px; }
+.app-shell .pet-home .pet-home-find { display: flex; justify-content: center; align-items: center; gap: 22px; min-height: 44px; width: 100%; margin: 8px 0 0; border-radius: 12px; background: #edf0f2; border-color: #e5e8ea; color: #30363a; font-size: 15px; }
+.pet-home-find:disabled { opacity: .55; }
+.app-shell .pet-home .pet-home-browse { margin: 14px 0 0; padding: 8px 16px; min-height: 44px; font-size: 14px; color: #525d65; }
+.pet-home-resume { margin: 14px 0 25px; padding-top: 25px; border-top: 1px solid #eceef0; }
+.pet-home-resume-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.pet-home-resume .workspace-live-card .explicit-pet { display: block; }
+.pet-home-resume .explicit-identity { min-height: auto; margin-bottom: 16px; }
+.pet-home-resume .explicit-status-panel { margin-bottom: 14px; }
+.pet-home-resume .explicit-next { margin-block: 8px; }
+.pet-home-resume .explicit-settings, .pet-home-resume .explicit-evidence { margin-top: 8px; }
+.workspace-discovery { padding-top: 14px; }
+.workspace-discovery-heading h1 { margin: 16px 0 12px; }
+.workspace-discovery-heading p { max-width: 760px; margin: 0 0 20px; color: #69747c; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.home-candidates { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+.home-candidate { min-height: 54px; display: flex; gap: 7px; align-items: center; padding: 5px 13px 5px 6px; border-radius: 13px; border: 1px solid #e2e6e9; background: #fff; color: #4a545c; font-size: 14px; }
+.home-candidate[aria-pressed=true] { border-color: #a8b0b6; background: #f1f3f4; color: #2e353a; }
+.home-candidate .task-pet-art.compact { --pet-size: 42px; }
+.home-candidate .pet-origin-badge { display: none; }
+.home-other-pets { min-height: 44px; padding-inline: 12px; font-size: 14px; }
+.workspace-shelf-tabs { display: flex; gap: 4px; border: 1px solid #e6e9eb; border-radius: 12px; padding: 4px; }
+.workspace-shelf-tabs button { min-height: 40px; border: 0; border-radius: 8px; background: transparent; padding-inline: 15px; color: #68737b; font-size: 14px; }
+.workspace-shelf-tabs button[aria-pressed=true] { background: #eef1f3; color: #333d44; }
+.workspace-role-detail { padding: 18px 0 30px; }
+.workspace-detail-back { min-height: 44px; margin-bottom: 14px; font-size: 14px; }
+.workspace-detail-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(245px, 1fr); align-items: start; gap: clamp(22px, 3vw, 48px); }
+.workspace-detail-preview { min-width: 0; }
+.workspace-detail-content { min-width: 0; }
+.workspace-detail-identity { display: flex; align-items: center; gap: 8px; }
+.workspace-detail-identity .task-pet-art { --pet-size: 68px; flex-shrink: 0; }
+.workspace-detail-identity .pet-origin-badge { display: none; }
+.pet-workspace-v2 .workspace-detail-identity h2 { font-size: 23px; margin: 0; letter-spacing: -.6px; line-height: 1.3; }
+.workspace-detail-identity .pet-favorite-button { margin-left: auto; width: 42px; flex-shrink: 0; padding: 0; min-height: 44px; overflow: hidden; font-size: 0; border: 0; background: none; }
+.workspace-detail-identity .pet-favorite-button span { font-size: 23px; }
+.workspace-detail-summary { color: #65717a; font-size: 15px; line-height: 1.65; margin: 12px 0 16px; word-break: keep-all; }
+.workspace-detail-content > .pet-source-line { margin-bottom: 20px; font-size: 13px; }
+.workspace-use-pet { width: 100%; display: flex; justify-content: space-between; align-items: center; min-height: 48px; font-size: 15px; padding-inline: 20px; }
+.workspace-detail-more { margin-top: 14px; color: #65717a; font-size: 13px; }
+.workspace-detail-more > summary { min-height: 44px; display: list-item; padding-block: 12px; cursor: pointer; }
+.workspace-detail-more p { line-height: 1.6; }
+.workspace-detail-more .pet-skill-source { margin-top: 15px; }
+.workspace-role-detail h2:focus { outline: none; }
+.workspace-role-detail .visual-result-preview .result-thumbnail { border-radius: 18px; }
+.workspace-role-detail .result-preview figcaption { font-size: 13px; }
+.workspace-role-detail .result-preview figcaption small { font-size: 12px; }
+@media (max-width: 1050px) { .pet-home-resume-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .pet-home-start { max-width: 550px; padding-top: 14px; min-height: 500px; }
+  .pet-home-greeting { --pet-size: 160px; }
+  .workspace-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .workspace-detail-preview { max-width: 630px; width: 100%; margin: 0 auto; }
+  .workspace-detail-content { display: grid; grid-template-columns: 1fr minmax(160px, .65fr); gap: 0 18px; }
+  .workspace-detail-identity, .workspace-detail-summary, .workspace-detail-content > .pet-source-line { grid-column: 1; }
+  .workspace-detail-content > .pet-source-line { margin-bottom: 0; }
+  .workspace-use-pet { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  .workspace-detail-more { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .pet-home-start { min-height: 455px; padding-top: 10px; }
+  .pet-home-greeting { --pet-size: 138px; }
+  .pet-workspace-v2 .pet-home h1 { font-size: 26px; margin-bottom: 20px; }
+  .pet-home-resume-grid { grid-template-columns: 1fr; }
+  .pet-home-form { padding: 10px; border-radius: 18px; }
+  .workspace-heading { flex-wrap: wrap; }
+  .workspace-detail-content { display: block; }
+  .workspace-detail-content > .pet-source-line { margin-bottom: 17px; }
+  .workspace-discovery-heading h1 { font-size: 26px; }
+  .home-candidate { font-size: 13px; }
+}

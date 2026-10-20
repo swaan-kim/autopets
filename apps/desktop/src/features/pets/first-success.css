@@ -1,0 +1,47 @@
+.role-result-preview { display: grid; width: 100%; gap: 5px; padding: 12px; margin-bottom: 14px; background: #f6f7f8; border-radius: 10px; color: #51565b; }
+.role-result-preview small { font-size: 10px; color: #70777d; }
+.role-result-preview strong { font-size: 12px; line-height: 1.5; font-weight: 600; }
+.role-result-preview > span { font-size: 10px; color: #70777d; }
+.composer-reuse-note { background: #f1f3f4; border-radius: 10px; margin: 0 0 18px; padding: 12px 14px; font-size: 12px; color: #444c53; line-height: 1.7; }
+.composer-brief { margin: 3px 0 12px; color: #626b72; font-size: 12px; }
+.composer-brief > summary { cursor: pointer; padding-block: 10px; }
+.composer-brief summary > span { font-size: 10px; margin-left: 6px; }
+.composer-brief > div { display: grid; gap: 12px; padding: 10px 0 0; }
+.composer-brief label { display: grid; gap: 7px; font-weight: 500; }
+.composer-brief input { width: 100%; min-width: 0; border: 1px solid #dadddf; border-radius: 10px; min-height: 44px; padding: 10px 12px; font: inherit; background: #fff; color: #353b40; }
+.composer-brief > p { color: #737a80; font-size: 11px; }
+.composer-prepares { margin: 0 0 12px; font-size: 12px; line-height: 1.7; color: #50585f; }
+.composer-handoff { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); padding: 0; margin: 0 0 18px; list-style: none; gap: 8px; }
+.composer-handoff li { padding: 9px 4px 9px 8px; border-left: 2px solid #e5e8ea; color: #6f767d; min-width: 0; }
+.composer-handoff li[data-status=done] { border-color: #7e8993; color: #444c54; }
+.composer-handoff li[data-status=next] { border-color: #353d44; background: #f4f5f6; color: #353d44; }
+.composer-handoff strong { display: block; font-size: 11px; font-weight: 600; line-height: 1.5; word-break: keep-all; }
+.composer-handoff span { display: block; font-size: 10px; line-height: 1.5; margin-top: 4px; word-break: keep-all; }
+.composer-action .button.secondary { width: 100%; justify-content: space-between; display: flex; align-items: center; border-radius: 14px; }
+.composer-destinations { margin-block: 8px 18px; }
+.composer-destinations > p { font-size: 12px; font-weight: 600; color: #50585f; }
+.composer-destinations > div { margin-block: 10px; }
+.composer-destinations small { display: block; color: #737b83; font-size: 11px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.composer-destinations .explicit-return { width: 100%; }
+.composer-observed { font-size: 12px; line-height: 1.7; color: #535e67; padding: 12px; background: #f4f6f7; border-radius: 10px; }
+.composer-brief input:focus-visible { outline: 2px solid #424950; outline-offset: 2px; }
+@media (max-width: 760px) { .composer-handoff { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+.composer-more { margin-top: 24px; border-top: 1px solid #e5e7e9; }
+.composer-more > summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #43494f; }
+.composer-more > summary::after { content: '+'; margin-left: 12px; }
+.composer-more[open] > summary::after { content: '−'; }
+.composer-more > summary > span { margin-left: auto; font-size: 11px; color: #70777e; }
+.composer-more .pet-skill-source { margin: 4px 0 18px; }
+.pet-composer .composer-preview .composer-pet-stage .task-pet-art { --pet-size: 112px; }
+.pet-composer .composer-preview > .pet-favorite-button { margin-bottom: 12px; }
+.composer-preview > .pet-source-line { display: flex; justify-content: center; margin-top: 12px; }
+.composer-action { margin-top: 22px; }
+.composer-notice { margin-top: 10px; }
+.composer-feedback { margin-block: 10px; }
+.composer-feedback > p { margin: 0; }
+.composer-feedback > button { min-height: 40px; margin-top: 4px; text-decoration: underline; text-underline-offset: 3px; }
+.composer-more :is(summary,a,button):focus-visible { outline: 2px solid #424950; outline-offset: 3px; }
+@media (max-width: 760px) {
+  .pet-composer .composer-preview .composer-pet-stage .task-pet-art { --pet-size: 88px; }
+  .composer-preview > .pet-source-line { grid-column: 2; justify-content: flex-start; margin: 0; }
+}

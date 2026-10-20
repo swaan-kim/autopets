@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum RoleId { ResearchDocument, BuildImplementation }
+pub enum RoleId { ResearchDocument, BuildImplementation, DailyPlan, TravelPlan, StudyHelper, MarketingCopy, Presentation }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Prop { None, Notebook }
@@ -41,6 +41,11 @@ impl Template {
         let expected = match self.id {
             RoleId::ResearchDocument => "autopets-research-document",
             RoleId::BuildImplementation => "autopets-build-implementation",
+            RoleId::DailyPlan => "autopets-daily-plan",
+            RoleId::TravelPlan => "autopets-travel-plan",
+            RoleId::StudyHelper => "autopets-study-helper",
+            RoleId::MarketingCopy => "autopets-marketing-copy",
+            RoleId::Presentation => "autopets-presentation",
         };
         let ui_skill = self.id == RoleId::BuildImplementation
             && self.skills == vec![Skill { id: "frontend-design".into(), version: FRONTEND_DESIGN_VERSION.into() }];

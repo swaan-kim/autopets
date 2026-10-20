@@ -1,3 +1,4 @@
+const { openTasks } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const template = require('../../../packages/contracts/data/ui-pet.json');
 
@@ -14,7 +15,7 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
     })),
   };
   const page = await newPage({ width: 992, height: 688 });
-  await mockBridge(page, value); await page.goto(origin);
+  await mockBridge(page, value); await page.goto(origin); await openTasks(page);
   const a = page.locator('.pet-card-0');
   const b = page.locator('.pet-card-1');
   const before = await page.evaluate(() => structuredClone(window.__uiTest.state.petLinks));
@@ -27,6 +28,48 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
     { name: 'open_pet_task', args: { target: value.petLinks[1].target, expectedRevision: 1 } },
   ]);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.state.petLinks), before);
+
+  const setA = async patch => {
+    await page.evaluate(patch => {
+      Object.assign(window.__uiTest.state.petLinks[0], patch);
+      window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+    }, patch);
+  };
+  await setA({ run: { id: 'plan-a', profile: 'plan', state: 'waiting' } });
+  await a.getByRole('button', { name: '계획 보러 가기', exact: true }).waitFor();
+  assert.equal(await a.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0);
+  assert.equal(await b.getByRole('button', { name: 'Codex 작업 열기', exact: true }).count(), 1);
+  await a.getByRole('button', { name: '계획 보러 가기', exact: true }).click();
+  await a.getByText(/Codex에 열기를 요청했어요/).waitFor();
+  await setA({ run: { id: 'done-a', profile: 'light', state: 'complete' } });
+  await a.getByRole('button', { name: '결과 보러 가기', exact: true }).waitFor();
+  await a.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).waitFor();
+  assert.equal(await a.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).count(), 0, 'new task replaces the redundant generic next-request action in the manager');
+  for (const patch of [
+    { enabled: false, connected: true, run: { id: 'done-a', profile: 'light', state: 'complete' } },
+    { enabled: true, connected: false, run: { id: 'done-a', profile: 'light', state: 'complete' } },
+    { enabled: true, connected: true, run: { id: 'done-a', profile: 'light', state: 'complete', trackingClosed: true } },
+    { enabled: true, connected: true, run: { id: 'returned-a', profile: 'light', state: 'returned' } },
+    { enabled: true, connected: true, run: { id: 'unknown-a', profile: 'light', state: 'unknown' } },
+    { enabled: true, connected: true, run: { id: 'non-plan-a', profile: 'light', state: 'waiting' } },
+  ]) {
+    await setA(patch);
+    await a.getByRole('button', { name: 'Codex 작업 열기', exact: true }).waitFor();
+    assert.equal(await a.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0, 'only a connected, enabled, confirmed completion can start a fresh task');
+  }
+  await setA({ enabled: true, connected: true, run: { id: 'done-a', profile: 'light', state: 'complete' } });
+  await page.evaluate(() => {
+    window.__uiTest.state.connectionPath = '';
+    window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+  });
+  await a.getByRole('button', { name: 'Codex 작업 열기', exact: true }).waitFor();
+  assert.equal(await a.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0, 'a disconnected snapshot does not promote a historical completion');
+  await page.evaluate(connectionPath => {
+    window.__uiTest.state.connectionPath = connectionPath;
+    window.__uiTest.state.petLinks[0].run = null;
+    window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+  }, value.connectionPath);
+  assert.deepEqual(await page.evaluate(() => window.__uiTest.state.petLinks[1]), before[1]);
 
   await page.evaluate(() => { window.__uiTest.holdPetReturn = true; window.__uiTest.calls.length = 0; });
   const aButton = a.getByRole('button', { name: 'Codex 작업 열기', exact: true });
@@ -61,12 +104,24 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
 
   const overlay = await newPage({ width: 420, height: 640 });
   await mockBridge(overlay, value); await overlay.goto(`${origin}/?pet=0`);
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.getByRole('button', { name: `${template.name} 메뉴`, exact: true }).click();
   await overlay.getByRole('button', { name: 'Codex 작업 열기', exact: true }).click();
   await overlay.getByText(/Codex에 열기를 요청했어요/).waitFor();
   assert.deepEqual(await overlay.evaluate(() => window.__uiTest.calls.find(call => call.name === 'open_pet_task').args), {
     target: value.petLinks[0].target, expectedRevision: 1,
   });
-  checks.push('explicit pet return: exact A/B targets, disconnected/help-off allowed without state mutation, duplicate clicks and stale receipts suppressed, wrong/failed dispatch exposes ID fallback, overlay shares the same path; fixture dispatch is not real navigation');
+  await overlay.evaluate(() => {
+    window.__uiTest.state.petLinks[0].run = { id: 'overlay-plan', profile: 'plan', state: 'waiting' };
+    window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+  });
+  await overlay.getByRole('button', { name: '계획 보러 가기', exact: true }).waitFor();
+  await overlay.evaluate(() => {
+    window.__uiTest.state.petLinks[0].run = { id: 'overlay-done', profile: 'light', state: 'complete' };
+    window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+  });
+  await overlay.getByRole('button', { name: '결과 보러 가기', exact: true }).waitFor();
+  assert.equal(await overlay.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0, 'overlay without composer callback keeps existing next-request flow');
+  await overlay.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).waitFor();
+  checks.push('explicit pet return: contextual plan/result labels require current connected/enabled records, new-task action only for confirmed completion, A/B isolation and disconnected fallback, duplicate clicks/stale receipts suppressed, wrong dispatch exposes ID fallback, manager/overlay share exact-target navigation; fixture dispatch is not real navigation');
   await page.close(); await overlay.close();
 };

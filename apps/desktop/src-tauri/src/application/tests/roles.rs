@@ -78,3 +78,21 @@ fn role_cannot_interrupt_active_turn_or_store_context_disguised_as_template() {
     let mut oversized = saved.template; oversized.instruction = "한".repeat(513);
     assert!(store.save_pet(None, 0, oversized).is_err());
 }
+#[test]
+fn catalog_templates_save_reopen_and_reject_cross_role_skills() {
+    let dir = tempfile::tempdir().unwrap();
+    let catalog: serde_json::Value = serde_json::from_str(include_str!("../../../../../../packages/contracts/data/pet-catalog.json")).unwrap();
+    let mut store = Store::new(dir.path()).unwrap();
+    let mut saved = Vec::new();
+    for entry in catalog.as_array().unwrap() {
+        let template: crate::domain::roles::Template = serde_json::from_value(entry["template"].clone()).unwrap();
+        template.validate().unwrap();
+        let mut invalid = template.clone();
+        invalid.skills[0].id = "untrusted-skill".into();
+        assert!(invalid.validate().is_err());
+        saved.push(store.save_pet(None, 0, template).unwrap());
+    }
+    store.shutdown().unwrap(); drop(store);
+    let store = Store::new(dir.path()).unwrap();
+    for pet in saved { assert_eq!(store.saved_pet(&pet.id).unwrap().unwrap().template, pet.template); }
+}

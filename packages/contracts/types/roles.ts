@@ -1,7 +1,7 @@
 import type { ChatIdentity } from './assistance';
 import type { WorkflowModel } from './workflow';
 
-export type PetRoleId = 'research-document' | 'build-implementation';
+export type PetRoleId = 'research-document' | 'build-implementation' | 'daily-plan' | 'travel-plan' | 'study-helper' | 'marketing-copy' | 'presentation';
 export interface PetSkillReference { id: string; version: string }
 export interface PetFeatures { figmaDesign: boolean }
 export interface PetRoleTemplate {

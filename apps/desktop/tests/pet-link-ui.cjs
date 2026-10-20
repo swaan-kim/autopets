@@ -1,3 +1,4 @@
+const { openTasks } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const templates = require('../../../packages/contracts/data/roles.json');
@@ -11,10 +12,12 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
       slot: 0, revision: 1, enabled: true, connected: true, profile: 'light', template: templates[1], run: null,
     }],
   };
-  await mockBridge(page, value); await page.goto(origin);
+  await mockBridge(page, value); await page.goto(origin); await openTasks(page);
   const card = page.locator('.explicit-pet');
   const profile = card.getByRole('combobox', { name: '다음 펫 작업 설정' });
   await card.getByText('작업 대기', { exact: true }).waitFor();
+  assert.equal(await card.locator('.explicit-status-panel .explicit-help').count(), 0, 'healthy compact cards show status and action without repeated explanation');
+  await card.getByRole('button', { name: 'Codex 작업 열기', exact: true }).waitFor();
   assert.equal(await card.getByText('완료', { exact: true }).count(), 0);
   assert.equal(await profile.isVisible(), false, 'management starts collapsed');
   await card.locator('.explicit-settings summary').click();
@@ -34,31 +37,43 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
       window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
     }, { state, profile });
     await card.locator(`.explicit-status-panel[data-state="${state}"]`).getByText(label, { exact: true }).waitFor();
+    assert.equal(await card.locator('.explicit-status-panel .explicit-help').count(), ['failed', 'unknown'].includes(state) ? 1 : 0, 'only failed or unconfirmed work needs recovery help');
   };
   await showRun('requested', 'plan', '계획 중');
-  await card.getByText('실행 요청을 보냈어요. 시작 확인을 기다리고 있어요.', { exact: true }).waitFor();
+  await card.getByRole('button', { name: '상태 확인 요청 복사', exact: true }).waitFor();
+  const evidence = card.locator('.explicit-evidence');
+  assert.equal(await evidence.evaluate(element => element.open), false, 'execution details are disclosed on request');
+  await evidence.locator(':scope > summary').click();
+  await evidence.getByText('이번 요청: fixture-model · medium', { exact: true }).waitFor();
+  await evidence.getByText('실행 설정 확인 전', { exact: true }).waitFor();
+  assert.equal(await evidence.getByText(/^실행 기록:/).count(), 0, 'requested settings are not claimed as observed execution');
+  await evidence.locator(':scope > summary').click();
   assert.equal(await profile.isDisabled(), true);
   await showRun('working', 'plan', '계획 중');
   await card.locator('[data-motion="thinking"]').waitFor();
   await showRun('waiting', 'plan', '계획 확인 필요');
+  await card.getByRole('button', { name: '계획 보러 가기', exact: true }).waitFor();
   await card.getByRole('button', { name: '구현 요청 복사', exact: true }).click();
   assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '그대로 구현해줘');
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /submit|send|prepare_pet|execute_pet/.test(call.name))), false, 'copying a follow-up never submits it');
-  await showRun('requested', 'careful', '제작 중');
-  await showRun('working', 'careful', '제작 중');
+  await showRun('requested', 'careful', '작업 중');
+  await showRun('working', 'careful', '작업 중');
   await card.locator('[data-motion="writing"]').waitFor();
   assert.equal(await profile.isDisabled(), true);
   await showRun('returned', 'careful', '결과 확인');
   await card.locator('[data-motion="dizzy"]').waitFor();
   assert.equal(await card.getByText('완료', { exact: true }).count(), 0, 'a returned result alone does not mean completion');
   await showRun('complete', 'careful', '완료');
+  await card.getByRole('button', { name: '결과 보러 가기', exact: true }).waitFor();
   await card.locator('[data-motion="celebrate"]').waitFor();
   assert.equal(await profile.isEnabled(), true);
   await showRun('unknown', 'careful', '실행 상태 확인 필요');
+  await card.getByText('Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.', { exact: true }).waitFor();
   await card.locator('[data-motion="angry"]').waitFor();
   assert.equal(await card.getByText('완료', { exact: true }).count(), 0);
   assert.equal(await profile.isDisabled(), true);
   await showRun('failed', 'careful', '작업 확인 실패');
+  await card.getByText('Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.', { exact: true }).waitFor();
   assert.equal(await card.getByText('완료', { exact: true }).count(), 0);
   await showRun('returned', 'careful', '결과 확인');
 
@@ -81,7 +96,7 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
 
   const overlay = await newPage({ width: 180, height: 230 });
   await mockBridge(overlay, value); await overlay.goto(`${origin}/?pet=0`);
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.getByRole('button', { name: `${templates[1].name} 메뉴`, exact: true }).click();
   await overlay.waitForFunction(() => document.activeElement?.textContent === 'Codex 작업 열기');
   // The native window expands asynchronously, after the card receives keyboard focus.
   await overlay.setViewportSize({ width: 328, height: 600 });
@@ -94,9 +109,9 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   assert.equal(openedCard.scrollTop, 0, 'opening a pet does not scroll away its identity');
   assert.equal(openedCard.focusedAction, 'Codex 작업 열기');
   await overlay.keyboard.press('Escape');
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).waitFor();
+  await overlay.getByRole('button', { name: `${templates[1].name} 메뉴`, exact: true }).waitFor();
   assert.equal(await overlay.locator('.quick-card-stack').count(), 0);
-  await overlay.getByRole('button', { name: '제작 펫 메뉴', exact: true }).click();
+  await overlay.getByRole('button', { name: `${templates[1].name} 메뉴`, exact: true }).click();
   await overlay.locator('.explicit-settings summary').click();
   await overlay.getByRole('button', { name: '도움 끄기', exact: true }).waitFor();
   await overlay.evaluate(() => {
@@ -105,6 +120,6 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   });
   await overlay.locator('.explicit-status').filter({ hasText: /^연결 확인 필요$/ }).waitFor();
   await overlay.getByText('저장된 채팅을 열고 “펫 상태 확인”을 보내주세요.', { exact: true }).waitFor();
-  checks.push('explicit pet: collapsed management; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings lock; disabled assistance keeps observing; deliberate tracking closure; compact-window expansion keeps task heading visible and keyboard focus; Escape closes; disconnected recovery');
+  checks.push('explicit pet: healthy compact status/action with collapsed evidence; requested settings never imply observed execution; recovery help for unknown/failed/off/disconnected; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings lock; disabled assistance keeps observing; deliberate tracking closure; compact-window expansion keeps task heading visible and keyboard focus; Escape closes; disconnected recovery');
   return [image];
 };

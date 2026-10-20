@@ -10,3 +10,6 @@ docs/demo/assets/*.json text eol=lf
 docs/design-source/index.template.html text eol=lf
 apps/desktop/public/assets/**/*.json text eol=lf
 apps/desktop/public/assets/**/*.svg text eol=lf
+
+integrations/codex/skills/autopets-marketing-copy/LICENSE.txt -text
+integrations/codex/skills/autopets-presentation/LICENSE.txt -text

@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-13",
+  "kind": "browser UI capture; examples, not installed runtime",
+  "viewport": {
+    "width": 992,
+    "height": 688
+  },
+  "baseSource": "96b80ac",
+  "files": [
+    "before.webp",
+    "after.webp",
+    "waiting.webp",
+    "result.webp"
+  ]
+}

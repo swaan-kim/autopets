@@ -54,6 +54,13 @@ test('installer resources work detached from checkout and contain no installer o
   const resolver = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/pet-skills.mjs')).href);
   const bundled = await resolver.resolvePetSkills({ skills: [{ id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f' }],features:{figmaDesign:true} });
   assert.equal(bundled.length,2);
+  const catalog = JSON.parse(await fs.readFile(path.join(f.report.connector, 'packages/contracts/data/pet-catalog.json'), 'utf8'));
+  for (const entry of catalog) {
+    const selected = await resolver.resolvePetSkills(entry.template);
+    assert.equal(selected.length, 1);
+    assert.ok(selected[0].path.startsWith(await fs.realpath(f.report.connector)));
+  }
+
   const realConnector = await fs.realpath(f.report.connector), realRoot = await fs.realpath(f.root);
   for (const skill of bundled) {
     assert.equal(path.relative(realConnector,skill.path),path.join('integrations','codex','skills',skill.id,'SKILL.md'));

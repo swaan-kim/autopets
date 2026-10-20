@@ -50,10 +50,24 @@ export async function requestJson(connection, path, body, timeoutMs = 1400, maxR
     });
   } catch { throw new BridgeError('bridge-unavailable'); }
   if (!response.ok) {
+    // Only this endpoint/status has a known, actionable capacity failure.
+    // Do not forward arbitrary host errors (which can contain private task data).
+    if (path === '/v1/pet-link' && response.status === 409) {
+      let code = 'bridge-rejected';
+      try {
+        const error = await readResponseObject(response, 4096);
+        if (error.error === 'slots-full') code = 'slots-full';
+      } catch { /* Malformed, oversized or interrupted errors stay redacted. */ }
+      throw new BridgeError(code, response.status);
+    }
     await response.body?.cancel();
     // Raw remote error text is never forwarded: it might contain task content.
     throw new BridgeError('bridge-rejected', response.status);
   }
+  return readResponseObject(response, maxResponseBytes);
+}
+
+async function readResponseObject(response, maxResponseBytes) {
   const reader = response.body?.getReader();
   if (!reader) throw new BridgeError('response-format');
   const chunks = [];

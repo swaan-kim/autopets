@@ -1,5 +1,7 @@
 # 간결한 시작과 입체 펫 — 2026-10-05
 
+후속 [2026-10-10 연결 복구 검사](connection-recovery-20261010.md): 기존 앱의 새 기동 통신은 확인했으나 연결 자리 3개가 모두 사용 중이다. 원인을 숨기던 연결 도구의 오류 안내를 수정했다. 현재 채팅 연결과 정상 재시작 확인은 아직 남아 있다.
+
 ## 기준과 현재 판정
 
 **최신 설치본은 `a250f0c`의 카드 스크롤 수정본이다.** [Windows 전체 검사](https://github.com/swaan-kim/autopets/actions/runs/37233967139), 현재 PC 업데이트·실행·데이터 보존·실제 카드 확장/Esc 검사를 통과했다. [PR #20](https://github.com/swaan-kim/autopets/pull/20)을 `e73ec93`으로 병합하고 [별도 개발 Pre-release](https://github.com/swaan-kim/autopets/releases/tag/v0.1.0-dev.20261005.1)를 공개했다. 아래 설치 이력과 구분한다. 전체 일반 입력 흐름·정확한 채팅 복귀·서명된 일반 배포를 완료했다는 의미는 아니다.

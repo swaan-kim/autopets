@@ -1,0 +1,32 @@
+/* The preview belongs to choosing a pet; this screen is about the user's request. */
+.app-shell .pet-composer { max-width: 680px; margin: 8px auto 36px; }
+.pet-composer .composer-layout { display: flex; flex-direction: column; gap: 18px; padding-top: 4px; }
+.composer-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.composer-identity > .task-pet-art { --pet-size: 68px; }
+.composer-identity > div { min-width: 0; flex: 1; }
+.pet-composer .composer-identity h1 { margin: 0 0 6px; font-size: 22px; line-height: 1.4; letter-spacing: -.6px; }
+.composer-identity .pet-source-line { margin: 0; font-size: 12px; }
+.composer-identity > .pet-favorite-button { min-width: 44px; min-height: 44px; }
+.pet-composer .composer-main { padding: 0; }
+.pet-composer .composer-task { gap: 10px; font-size: 16px; }
+.pet-composer .composer-task textarea { min-height: 136px; font-size: 16px; font-weight: 400; padding: 16px 18px; }
+.pet-composer .composer-action { margin-top: 16px; }
+.pet-composer .composer-action .button { min-height: 48px; font-size: 15px; }
+.pet-composer .composer-top .text-button { min-height: 44px; font-size: 14px; }
+.pet-composer :is(.composer-brief,.composer-detail,.composer-more,.composer-profile-choice,.composer-notice,.composer-reuse-note,.composer-destinations,.workspace-note) { font-size: 14px; }
+.pet-composer :is(.composer-more > summary > span,.composer-handoff span,.composer-handoff strong,.composer-brief > p,.composer-destinations small,.composer-detail p,.composer-profile-choice summary,.composer-profiles small,.composer-action p) { font-size: 12px; line-height: 1.6; }
+.pet-composer :is(.composer-more > summary,.composer-detail > summary,.composer-profile-choice > summary,.composer-brief > summary) { min-height: 44px; font-size: 14px; }
+.pet-composer .composer-more { margin-top: 16px; }
+.pet-composer .composer-feedback { padding: 12px 14px; }
+.pet-composer .composer-feedback :is(p,button) { font-size: 14px; }
+.pet-composer .composer-destinations .explicit-return { font-size: 14px; }
+.pet-composer .composer-action[data-next=chat] .button { min-height: 40px; background: transparent; border-color: transparent; font-size: 14px; }
+.pet-composer .composer-destinations[data-next=true] .explicit-return { background: #eceeef; color: #292c31; border-color: #dcdfe2; min-height: 48px; font-weight: 650; }
+@media (max-width: 520px) {
+  .composer-identity { gap: 10px; }
+  .composer-identity > .task-pet-art { --pet-size: 56px; }
+  .pet-composer .composer-identity h1 { font-size: 20px; }
+  .composer-identity > .pet-favorite-button { width: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
+  .pet-composer .composer-profiles > div { flex-wrap: wrap; }
+  .pet-composer .composer-profiles label { min-width: 95px; }
+}

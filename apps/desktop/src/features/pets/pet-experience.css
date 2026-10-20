@@ -1,0 +1,71 @@
+.pet-experience { display: grid; grid-template-columns: minmax(0, .78fr) minmax(0, 1.35fr); align-items: center; column-gap: clamp(22px, 3vw, 48px); padding: 24px 0 20px; border-bottom: 1px solid var(--line); }
+.pet-workspace-v2 .experience-intro h1 { font-size: clamp(28px, 3.5vw, 43px); line-height: 1.23; letter-spacing: -1.8px; margin: 0 0 20px; }
+.experience-request { display: flex; flex-direction: column; gap: 5px; }
+.experience-request > span { color: #7b7f83; font-size: 10px; }
+.experience-request p { margin: 0; color: #494e52; font-size: 13px; line-height: 1.6; word-break: keep-all; }
+.experience-pet { display: flex; align-items: center; justify-content: center; gap: 24px; height: 134px; }
+.experience-pet > .task-pet-art { --pet-size: 132px; }
+.experience-pet .pet-origin-badge { display: none; }
+.experience-arrow { font-size: 32px; color: #adb2b6; font-weight: 300; }
+.app-shell .experience-start { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #d8dbde; border-radius: 13px; min-height: 48px; margin-top: 6px; padding-inline: 18px; color: #25282b; background: #e9ebed; font-weight: 650; font-size: 13px; }
+.experience-start > span { font-size: 21px; }
+.experience-source { display: flex; align-items: center; justify-content: center; gap: 7px; color: #676d72; font-size: 11px; text-decoration: none; min-height: 38px; }
+.experience-source:hover { text-decoration: underline; text-underline-offset: 3px; }
+.experience-source .pet-source-logo { width: 15px; height: 15px; }
+.experience-output { width: 100%; margin: 0; min-width: 0; }
+.experience-result { position: relative; padding: 0; overflow: hidden; border: 1px solid #e8eaec; border-radius: 15px; background: #f6f7f8; width: 100%; box-shadow: 0 10px 30px #171b2010; display: block; aspect-ratio: 1.65; }
+.experience-result img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+.experience-enlarge { position: absolute; right: 12px; bottom: 12px; display: grid; place-items: center; width: 30px; height: 30px; background: #ffffffeb; color: #34393e; border-radius: 50%; font-size: 19px; }
+.experience-output figcaption { display: flex; justify-content: space-between; gap: 12px; padding: 12px 1px 0; font-size: 11px; color: #686f75; }
+.experience-output figcaption > span:last-child { color: #92979b; font-variant-numeric: tabular-nums; }
+.experience-result-fallback { color: #71777d; display: grid; place-items: center; width: 100%; height: 100%; min-height: 180px; padding: 24px; font-size: 13px; }
+.experience-result:disabled .experience-enlarge { display: none; }
+.experience-process { grid-column: 1 / -1; margin-top: 12px; }
+.experience-process > summary { cursor: pointer; width: fit-content; min-height: 40px; padding: 10px 0; color: #686e73; font-size: 12px; }
+.experience-demo { min-width: 0; display: block; padding: 16px 20px 12px; border-radius: 22px; background: #f6f7f8; }
+.experience-demo-label { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #4e555b; font-weight: 600; }
+.experience-demo-label > span { font-size: 10px; font-weight: 400; color: #72787e; }
+.experience-story { display: flex; flex-direction: column; text-align: center; gap: 7px; min-height: 76px; padding-top: 22px; }
+.experience-story strong { font-size: 17px; color: #34393e; line-height: 1.45; word-break: keep-all; }
+.experience-story > span { font-size: 11px; color: #72787e; line-height: 1.65; word-break: keep-all; }
+.experience-stage { display: flex; align-items: center; justify-content: center; height: 220px; }
+.experience-stage > .task-pet-art { --pet-size: 220px; }
+.experience-stage .pet-origin-badge { display: none; }
+.experience-controls { display: flex; flex-direction: column; gap: 12px; align-items: center; padding: 8px 0; }
+.experience-steps { display: flex; gap: 14px; align-items: center; color: #7a8085; font-size: 11px; }
+.experience-steps .current { color: #34393e; font-weight: 700; }
+.experience-steps i { color: #a2a7ab; font-style: normal; }
+.experience-play { background: #fff; border: 1px solid #e1e4e6; border-radius: 100px; padding: 9px 18px; min-height: 40px; font-size: 12px; color: #41474d; }
+.experience-play:hover { background: #e9ebed; }
+.experience-expanded { width: min(1100px, calc(100vw - 36px)); max-height: calc(100dvh - 36px); border: 1px solid #e4e6e8; border-radius: 18px; padding: 14px; color: #34393e; background: white; }
+.experience-expanded::backdrop { background: #20262c96; }
+.experience-expanded > header { display: flex; gap: 14px; justify-content: space-between; align-items: center; font-size: 12px; padding: 0 2px 10px; }
+.experience-expanded > header button { min-width: 60px; min-height: 40px; font-size: 12px; }
+.experience-expanded > header button span { margin-left: 8px; font-size: 20px; }
+.experience-expanded img { display: block; width: 100%; border-radius: 10px; }
+.experience-expanded p { font-size: 11px; line-height: 1.6; color: #71777c; margin: 12px 2px 0; }
+.pet-experience button:focus-visible, .pet-experience a:focus-visible, .experience-process > summary:focus-visible { outline: 2px solid #30363c; outline-offset: 4px; }
+@media (max-width: 760px) {
+  .pet-experience { grid-template-columns: minmax(0, .85fr) minmax(0, 1fr); column-gap: 20px; padding-top: 16px; }
+  .pet-workspace-v2 .experience-intro h1 { font-size: 28px; letter-spacing: -1.2px; margin-bottom: 15px; }
+  .experience-request p { font-size: 12px; }
+  .experience-pet { height: 112px; gap: 16px; }
+  .experience-pet > .task-pet-art { --pet-size: 112px; }
+  .app-shell .experience-start { padding-inline: 12px; font-size: 12px; }
+  .experience-output figcaption { font-size: 10px; flex-wrap: wrap; gap: 5px; }
+}
+@media (max-width: 560px) {
+  .pet-experience { grid-template-columns: 1fr; row-gap: 16px; }
+  .experience-intro { display: grid; grid-template-columns: 1fr 108px; align-items: center; column-gap: 8px; }
+  .pet-workspace-v2 .experience-intro h1 { margin-bottom: 10px; }
+  .experience-request { grid-column: 1; }
+  .experience-pet { grid-column: 2; grid-row: 1 / 3; }
+  .experience-pet > .task-pet-art { --pet-size: 108px; }
+  .experience-arrow { display: none; }
+  .app-shell .experience-start { grid-column: 1 / -1; margin-top: 18px; }
+  .experience-source { grid-column: 1 / -1; }
+  .experience-output { grid-column: 1; }
+  .experience-process { margin-top: 0; }
+  .experience-stage { height: 190px; }
+  .experience-stage > .task-pet-art { --pet-size: 190px; }
+}
