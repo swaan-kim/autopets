@@ -18,7 +18,7 @@ https://github.com/swaan-kim/autopets/blob/main/INSTALL.md 를 읽고,
 
 PC에서 다운로드·실행할 수 없는 AI를 쓰고 있다면 [Releases](https://github.com/swaan-kim/autopets/releases)의 Pre-release 설치 EXE를 직접 받습니다. 아래 기술 절차는 AI용이며 일반 사용자가 콘솔에 입력할 필요는 없습니다.
 
-설치 후에는 앱의 **Codex에 펫 준비**를 누르고, 사용할 채팅에서 **`AutoPets 스킬로 제작 펫 연결해줘`**라고 요청합니다. 앱에서 저장한 특정 펫을 쓰려면 앱의 **시작 요청 복사**를 이용합니다. 연결 후에는 같은 채팅에서 설정을 재사용합니다.
+설치 후에는 앱의 **Codex에 펫 준비**를 누르고, 사용할 채팅에서 **`AutoPets 스킬로 제작 펫 연결해줘`**라고 요청합니다. 연결한 채팅에는 앱에서 저장한 펫 설정을 직접 적용할 수 있습니다. 앱에 적은 할 일까지 채팅으로 옮길 때는 **시작 요청 복사**를 이용합니다.
 
 ## AI 설치 담당자용 계약
 
@@ -67,20 +67,20 @@ auto_submit_or_ai_test: forbidden
 
 ### 4. 검토한 helper로 검사·설치
 
-아래 예시는 **이미 파일로 받은 helper와 manifest가 있는 폴더**에서 실행하는 형식입니다. 사용자에게 이 명령을 직접 입력하도록 요구하지 않습니다.
+아래 예시는 **이미 파일로 받은 helper와 manifest가 있는 폴더**에서 실행하는 형식입니다. 사용자에게 이 명령을 직접 입력하도록 요구하지 않습니다. 도우미는 Windows 기본 **Windows PowerShell 5.1 (`powershell.exe`)**에서 검증했습니다. PowerShell 7의 날짜 자동 변환과 호환되지 않으므로 `pwsh` 또는 현재 셸에 직접 불러 실행하지 않습니다.
 
 ```powershell
 # manifest 형식만 검사: 설치·실행·AI 호출 없음
-.\install-preview.ps1 -ManifestPath .\preview.json -ValidateOnly
+powershell.exe -NoProfile -File .\install-preview.ps1 -ManifestPath .\preview.json -ValidateOnly
 
 # 미서명 시험판 선택 후: 정확한 공개 파일을 받고 해시·서명 상태 확인
-.\install-preview.ps1 -ManifestPath .\preview.json -AllowUnsignedPreview -DownloadOnly
+powershell.exe -NoProfile -File .\install-preview.ps1 -ManifestPath .\preview.json -AllowUnsignedPreview -DownloadOnly
 
 # 미서명 시험판 선택 후: 기존 설치 확인, 필요한 설치, 앱 실행 요청
-.\install-preview.ps1 -ManifestPath .\preview.json -AllowUnsignedPreview
+powershell.exe -NoProfile -File .\install-preview.ps1 -ManifestPath .\preview.json -AllowUnsignedPreview
 
 # 기존 앱의 해시가 다르고, 사용자가 이 배포로 업데이트를 요청한 경우에만
-.\install-preview.ps1 -ManifestPath .\preview.json -AllowUnsignedPreview -UpdateExistingPreview
+powershell.exe -NoProfile -File .\install-preview.ps1 -ManifestPath .\preview.json -AllowUnsignedPreview -UpdateExistingPreview
 ```
 
 - `-ValidateOnly`는 형식 검사입니다. 배포 존재·실제 파일·설치 가능성의 통과로 표시하지 않습니다.
@@ -100,7 +100,14 @@ auto_submit_or_ai_test: forbidden
 AutoPets 스킬로 제작 펫 연결해줘.
 ```
 
-자연어로 스킬이 호출되지 않으면 **AutoPets 스킬 직접 선택**이 지원 경로입니다. 앱에서 저장한 특정 펫의 경우 시작 요청의 `petId`·`petRevision`을 전달해야 합니다. **앱에서 선택한 펫을 ID 없이 자동으로 가져오는 기능은 아직 구현되지 않았습니다.**
+자연어로 스킬이 호출되지 않으면 **AutoPets 스킬 직접 선택**이 지원 경로입니다. 위의 짧은 연결 요청은 기본 제작 펫을 연결하며, 앱에서 마지막으로 고른 펫을 추측하지 않습니다.
+
+저장한 특정 펫에는 두 경로가 있습니다.
+
+- **연결된 채팅에 설정 적용:** 설치 앱의 **자세히 → 저장한 구성과 연결 관리**에서 대상을 선택하고 **저장하고 선택 채팅에 적용**을 누릅니다. 앱이 정확한 펫 ID·개정을 전달하므로 사용자가 이를 복사할 필요는 없습니다. 다음 명시적 펫 요청이 저장된 역할·스킬·작업 설정을 읽습니다.
+- **앱에 적은 할 일까지 전달:** **시작 요청 복사**로 생성한 요청을 사용할 채팅에 보냅니다. 이 요청에는 `petId`·`petRevision`과 할 일이 포함됩니다.
+
+설정 적용 버튼은 할 일 입력문을 전송하거나 AI를 실행하지 않습니다. 브라우저 미리보기에서는 실제 적용을 지원하지 않습니다. 직접 설정 적용은 UI·저장소 격리 검사로 확인했으며, 이 경로부터 실제 AI 실행까지의 연속 검증은 별도로 남아 있습니다. 일반 채팅의 모든 요청에 자동 적용하는 기능으로 설명하지 않습니다.
 
 설치된 스킬 경로는 앱의 준비 결과에서 확인합니다. 소스 저장소의 개발 스크립트를 설치된 연결 도구처럼 사용하지 않습니다. 공개 보고에 인증값·전체 대화·개인 경로·정확한 개인 채팅 ID를 넣지 않습니다.
 

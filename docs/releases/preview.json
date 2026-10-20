@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "channel": "unsigned-preview",
+  "platform": "win32-x64",
+  "repository": "swaan-kim/autopets",
+  "sourceCommit": "797857d04ac323aa0f1196233c8ffdba9d232c8c",
+  "release": {
+    "tag": "v0.1.0-dev.20261020.797857d04ac3",
+    "publishedAt": "2026-10-20T17:47:21Z"
+  },
+  "installer": {
+    "url": "https://github.com/swaan-kim/autopets/releases/download/v0.1.0-dev.20261020.797857d04ac3/AutoPets_0.1.0_x64-setup.exe",
+    "sha256": "e74f45f4a2bdb9054be6078d451f51a7f0534909aa607466c1e43f129c962317",
+    "authenticode": "unsigned"
+  },
+  "app": {
+    "identifier": "local.autopets.desktop",
+    "sha256": "f897d8273e2f51a2bc2251be6b2463f3767fff91d624c06906b94cd712ddd7ab"
+  }
+}
