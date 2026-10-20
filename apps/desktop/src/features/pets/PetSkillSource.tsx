@@ -15,7 +15,7 @@ export function skillSourceFor(entry: PetCatalogEntry) {
 
 export function PetSkillSource({ entry, compact = false }: { entry: PetCatalogEntry; compact?: boolean }) {
   const { skill, source, name, author, kind } = skillSourceFor(entry);
-  if (compact) return <span className="pet-source-line"><SourceLogo external={!!source} /><span>{source ? `${name} · ${author}` : 'AutoPets'}</span><span>{kind}</span></span>;
+  if (compact) return <span className="pet-source-line" aria-label={`${source ? `${author} · ${name}` : 'AutoPets'} · ${kind}`}><SourceLogo external={!!source} /><span>{source ? name : 'AutoPets'}</span></span>;
   // The upstream README contains a walkthrough/demo, not an AutoPets comparison.
   const upstreamDemo = entry.id === 'presentation' && skill?.upstreamCommit && source
     ? `https://github.com/zarazhangrui/frontend-slides/blob/${skill.upstreamCommit}/README.md#what-this-does` : undefined;

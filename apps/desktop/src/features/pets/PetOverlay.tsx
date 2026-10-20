@@ -20,6 +20,7 @@ import { catalogFor } from './petCatalog';
 import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
 import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet';
+import { companionState, companionRunKey } from './companionMotion';
 
 export function PetOverlay({ snapshot, index, error, assistance, workflow }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
   const [expanded, setExpanded] = useState(false);
@@ -71,7 +72,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
       {expanded && <div className="quick-card-stack"><div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
-        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} /></button>
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} /></button>
         <span className="floating-label">{explicit.template.name} · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
       </div></div>;
   }

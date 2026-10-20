@@ -1,3 +1,4 @@
+const { openCatalog, chooseRole, openSaved, openTasks } = require('./entry-navigation.cjs');
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -14,6 +15,9 @@ const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runPetDiscoveryChecks } = require('./pet-discovery-ui.cjs');
 const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
+const { runCompanionChecks } = require('./companion-ui.cjs');
+const { runFirstSuccessChecks } = require('./first-success-ui.cjs');
+const { runVisualSimplicityChecks } = require('./visual-simplicity-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
@@ -275,13 +279,38 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
   const browser = await chromium.launch({ headless: true });
   const errors = [];
   const checks = [];
+  let currentPage;
+  const closeFixturePages = async () => { for (const context of browser.contexts()) await context.close(); };
   const newPage = async (viewport = { width: 1120, height: 880 }) => {
-    const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport, deviceScaleFactor: 1 }); currentPage = page;
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_PET_LINK_ONLY === '1') {
+      await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_VISUAL_ONLY === '1') {
+      const screenshots = await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_FIRST_SUCCESS_ONLY === '1') {
+      const screenshots = await runFirstSuccessChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      await runPetTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_COMPANION_ONLY === '1') {
+      const screenshots = await runCompanionChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_COMPOSITION_ONLY === '1') {
       const screenshots = await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       screenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
@@ -303,9 +332,9 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     const empty = await newPage();
     await empty.goto(origin);
-    await empty.getByRole('heading', { name: '어떤 일을 맡길까요?', exact: true }).waitFor();
+    await empty.getByRole('heading', { name: '무엇을 도와줄까요?', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
-    await empty.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
+    await chooseRole(empty, '웹페이지 만들기');
     assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
     await empty.locator('.app-settings > summary').click(); await empty.getByRole('button', { name: '연결 설정', exact: true }).click();
     await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
@@ -316,33 +345,36 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await empty.getByText('브라우저 미리보기 · 연결 없음. 설정은 저장되지 않아요.', { exact: true }).waitFor();
     assert.equal(await empty.getByRole('button', { name: '추천 설정으로 켜기' }).isEnabled(), false);
     checks.push('empty/offline UI has no fabricated activity or approval controls');
+    await empty.close();
     const setupScreenshots = await runSetupChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     const siteScreenshots = await runProductSiteChecks({ newPage, screenshotDir: path.dirname(screenshot), checks });
 
     const missing = await newPage();
     await missing.route('**/assets/soft-pet/poses.png', route => route.abort());
     await missing.route('**/assets/motions/sprite.png', route => route.abort());
-    await missing.goto(origin);
+    await missing.goto(origin); await openCatalog(missing);
     await missing.getByRole('img', { name: '펫 이미지 없음' }).first().waitFor();
     assert.equal(await missing.locator('.pet-sprite').count(), 0);
     checks.push('missing PNG produces an explicit image placeholder');
 
+    await missing.close();
     const fallbackPet = await newPage();
     await fallbackPet.route('**/assets/soft-pet/poses.png', route => route.abort());
-    await fallbackPet.goto(origin);
+    await fallbackPet.goto(origin); await openCatalog(fallbackPet);
     await fallbackPet.locator('[data-asset="legacy"]').first().waitFor();
     assert.equal(await fallbackPet.locator('.pet-placeholder').count(), 0);
     const softPet = await newPage();
-    await softPet.goto(origin);
+    await softPet.goto(origin); await openCatalog(softPet);
     await softPet.locator('[data-asset="soft"]').first().waitFor();
     assert.equal(await softPet.locator('.pet-soft').first().evaluate(el => getComputedStyle(el).imageRendering), 'auto');
     await softPet.emulateMedia({ reducedMotion: 'reduce' });
     await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
-    await softPet.getByRole('button',{name:'웹페이지 만들기 펫 선택',exact:true}).click();
+    await softPet.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
     await softPet.emulateMedia({ reducedMotion: 'no-preference' });
-    await softPet.waitForFunction(() => getComputedStyle(document.querySelector('.composer-pet-stage .pet-soft')).animationName === 'soft-pet-breathe');
+    await softPet.locator('.pet-home .companion-pet[data-playing="true"]').waitFor();
     await softPet.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
     await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    await softPet.locator('.pet-home .companion-pet[data-playing="false"]').waitFor();
     checks.push('soft pet is smooth, obeys reduced motion and hidden windows, and restores legacy art if unavailable');
     await fallbackPet.close(); await softPet.close();
 
@@ -398,6 +430,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.equal(await allTasks.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'assign_session').length), 0);
     checks.push('all nine tasks remain listed, the fourth stays inspectable without replacing pets, and status filters preserve the full list');
 
+    await allTasks.close();
     await manager.locator('.pet-card-1').getByRole('button', { name: '작업 카드 열기 →' }).click();
     await manager.getByText('계획이 아직 전달되지 않았어요.', { exact: false }).waitFor();
     assert.equal(await manager.locator('.plan-list').count(), 0);
@@ -499,6 +532,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.ok(await manager.evaluate(() => window.__uiTest.assistance.tasks.every(task => !task.context.goal && !task.context.constraints.length)));
     checks.push('opt-in and preferences stay distinct from confirmed delivery; exact account/chat edits, off and deletion remain isolated');
 
+    await manager.close();
     const emptyPet = await newPage({ width: 328, height: 600 });
     await mockBridge(emptyPet, { ...fixture, slots: [{ index: 0, sessionId: null }, { index: 1, sessionId: null }, { index: 2, sessionId: null }] });
     await emptyPet.goto(`${origin}/?pet=0`);
@@ -516,6 +550,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.ok(await emptyPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'set_pet_visible' && call.args.slot === 0 && call.args.visible === false)));
     checks.push('unbound pet exposes details, individual hide and quit without inventing a chat identity');
 
+    await emptyPet.close();
     const ambiguousPet = await newPage({ width: 328, height: 600 });
     const ambiguous = structuredClone(assistanceFixture);
     ambiguous.tasks.push({ ...structuredClone(ambiguous.tasks[0]), identity: { ...ambiguous.tasks[0].identity, accountId: 'another-account' } });
@@ -526,6 +561,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.equal(await ambiguousPet.getByRole('button', { name: '이번 채팅 도움 끄기', exact: true }).count(), 0);
     assert.equal(await ambiguousPet.getByRole('radiogroup', { name: '이번 작업 방식', exact: true }).count(), 0);
     checks.push('ambiguous native-session/account matches never guess an assistance identity');
+    await ambiguousPet.close();
 
     const overlays = [];
     for (let index = 0; index < 3; index++) {
@@ -638,6 +674,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.equal(await setupPage.locator('.setup-status').textContent(), '연결 전');
     checks.push('legacy setup remains readable without promoting a global observed-chat flag into host-specific first-task evidence');
 
+    await setupPage.close();
     const waitingPet = await newPage({ width: 220, height: 250 });
     await mockBridge(waitingPet, { ...setupFixture, sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
     await waitingPet.goto(`${origin}/?pet=0`);
@@ -649,16 +686,33 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.ok(await waitingPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
     checks.push('first pet waits without a fabricated task and keeps exit reachable');
 
+    await closeFixturePages();
     await runTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
+    await closeFixturePages();
     const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    await closeFixturePages();
+    graphScreenshots.push(...await runCompanionChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
     graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
+    graphScreenshots.push(...await runFirstSuccessChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
+    graphScreenshots.push(...await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
     await runPetTaskReturnChecks({ newPage, mockBridge, fixture, origin, checks });
+    await closeFixturePages();
     const toolScreenshots = await runToolActivityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    await closeFixturePages();
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    await closeFixturePages();
     const roleScreenshots = await runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    await closeFixturePages();
     const introScreenshots = await runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    await closeFixturePages();
 
     const compact = await newPage({ width: 1120, height: 1120 });
     const compactAssistance = structuredClone(assistanceFixture);
@@ -677,5 +731,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...graphScreenshots, ...toolScreenshots, ...roleScreenshots, ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots, ...introScreenshots], checks, pageErrors: errors }, null, 2));
+  } catch (error) {
+    if (currentPage && !currentPage.isClosed()) {
+      fs.mkdirSync(path.dirname(screenshot), { recursive: true });
+      await currentPage.screenshot({ path: path.join(path.dirname(screenshot), 'failure.png'), fullPage: true }).catch(()=>{});
+      fs.writeFileSync(path.join(path.dirname(screenshot), 'failure-visible.txt'), await currentPage.locator('body').innerText().catch(()=>''));
+    }
+    throw error;
   } finally { if (errors.length) console.error('Browser page errors:', errors); await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

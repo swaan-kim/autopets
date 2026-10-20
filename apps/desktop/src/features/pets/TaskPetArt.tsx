@@ -1,14 +1,35 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Pet, type PetMotion } from './Pet';
 import type { PetCatalogEntry } from './petCatalog';
 import { SourceLogo, skillSourceFor } from './PetSkillSource';
+import { CompanionPet } from './CompanionPet';
+import type { CompanionState } from './companionMotion';
+import './visual-cards.css';
+import './result-preview.css';
 
 // Presentation only: a prop describes the role, never a connected or running tool.
-export function TaskPetArt({ entry, motion = 'idle', paused = true, small = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean }) {
+export function TaskPetArt({ entry, motion = 'idle', paused = true, small = false, state, runKey, interactive = true, example = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean }) {
   const id = useId().replace(/:/g, '');
   const role = entry?.id ?? 'ui-webpage';
-  return <span className={`task-pet-art ${small ? 'compact' : ''}`} data-role={role}>
-    <Pet motion={motion} paused={paused} />
+  const root = useRef<HTMLSpanElement>(null);
+  const [hovered, setHovered] = useState(false);
+  const [interaction, setInteraction] = useState(0);
+  const companion = entry?.id === 'ui-webpage';
+  const companionView: CompanionState = state ?? ({ idle: 'idle', research: 'planning', thinking: 'planning', writing: 'working', tool: 'working', dizzy: 'waiting', celebrate: 'complete', angry: 'error' } as const)[motion];
+  useEffect(() => {
+    if (!companion || !interactive) return;
+    // Listen on the existing button/card: keep its click and keyboard semantics.
+    const target = root.current?.closest('button, .workspace-role-card, .workspace-saved-card') ?? root.current;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const enter = () => { clearTimeout(timer); timer = setTimeout(() => { setHovered(true); setInteraction(value => value + 1); }, 350); };
+    const leave = () => { clearTimeout(timer); setHovered(false); };
+    const touch = () => setInteraction(value => value + 1);
+    target?.addEventListener('pointerenter', enter); target?.addEventListener('pointerleave', leave);
+    target?.addEventListener('focusin', enter); target?.addEventListener('focusout', leave); target?.addEventListener('pointerdown', touch);
+    return () => { clearTimeout(timer); target?.removeEventListener('pointerenter', enter); target?.removeEventListener('pointerleave', leave); target?.removeEventListener('focusin', enter); target?.removeEventListener('focusout', leave); target?.removeEventListener('pointerdown', touch); };
+  }, [companion, interactive]);
+  return <span ref={root} className={`task-pet-art ${small ? 'compact' : ''}`} data-role={role} data-companion={companion} data-companion-state={companionView}>
+    {companion ? <CompanionPet state={companionView} paused={paused && !hovered} runKey={runKey} interaction={interaction} example={example} /> : <Pet motion={motion} paused={paused} />}
     <svg className="task-pet-prop" viewBox="0 0 96 88" aria-hidden="true">
       <defs><linearGradient id={`${id}-paper`} x2=".8" y2="1"><stop stopColor="#fffef9" /><stop offset="1" stopColor="#e1e7d7" /></linearGradient><linearGradient id={`${id}-body`} x2=".8" y2="1"><stop stopColor="#679482" /><stop offset="1" stopColor="#274f43" /></linearGradient></defs>
       <ellipse cx="49" cy="79" rx="35" ry="5" fill="#173a2c" opacity=".12" />
@@ -22,22 +43,57 @@ export function TaskPetArt({ entry, motion = 'idle', paused = true, small = fals
     {entry && <span className="pet-origin-badge" title={skillSourceFor(entry).source ? 'GitHub에 공개된 스킬 기반' : 'AutoPets 자체 제작'}><SourceLogo external={!!skillSourceFor(entry).source} /></span>}
   </span>;
 }
+const resultKinds: Record<string, string> = {
+  'daily-plan': '체크리스트', 'travel-plan': '여행 일정표', 'study-helper': '개념 정리',
+  'ui-webpage': '행사 웹페이지', 'marketing-copy': '홍보 문구', presentation: '브라우저 슬라이드',
+};
 
-export function ResultPreview({ entry }: { entry: PetCatalogEntry }) {
-  const content: Record<string, { input: string; title: string; lines: string[] }> = {
-    'daily-plan': { input: '14시부터 3시간. 초안 60분, 장보기 40분, 산책 30분을 하고 싶어요.', title: '할 일 세 가지와 쉬는 시간', lines: ['14:00–15:00  초안 정리', '15:00–15:40  장보기', '15:40–16:10  산책 · 남은 50분은 여유'] },
-    'travel-plan': { input: '부산 1박 2일. 바다와 전시를 보고 카페에서 쉬고 싶어요.', title: '이동을 생각한 일정 초안', lines: ['첫날  바다 산책 → 가까운 전시', '둘째 날  동네 카페 → 귀가', '위치·운영시간을 확인하고 동선 확정'] },
-    'study-helper': { input: '기회비용을 쉽게 설명하고, 이해했는지 문제를 내주세요.', title: '선택하면 포기하는 것도 있어요', lines: ['예: 같은 시간에 영화와 독서 중 하나 선택', '영화를 택하면 포기한 독서의 가치가 기회비용', '복습: 포기한 모든 선택의 합일까요?'] },
-    'ui-webpage': { input: '가상 학과 행사 소개, 일정, 신청 안내를 한 페이지에 담아주세요.', title: '우리의 가을, 함께하는 하루', lines: ['가상 학과 행사 · 10월 24일', '소개    일정    참여 안내', '참여 안내 보기  ↗'] },
-    'marketing-copy': { input: 'A5 무지 노트, 40매, 표지 2색. 짧은 소개와 버튼 문구가 필요해요.', title: '작은 한 권에, 자유로운 기록', lines: ['A5 무지 40매에 생각을 담으세요.', '두 가지 표지 중 마음에 드는 색을 골라요.', '노트 살펴보기  →'] },
-    presentation: { input: '가상 학과 행사를 소개할 3분 발표. 슬라이드 4장으로 정리해 주세요.', title: '함께 만드는 학과의 하루', lines: ['01 / 04     행사 소개', '행사 취지 → 일정 → 신청 안내 → 마무리', '브라우저에서 넘겨 보는 발표'] },
-  };
-  const example = content[entry.id] ?? content['ui-webpage'];
-  return <figure className={`result-preview result-${entry.id}`} aria-label={`${entry.name} 결과 예시`}>
-    <figcaption><span>{entry.output}</span><small>AutoPets 설명용 예시</small></figcaption>
-    <div className="result-preview-before"><span>입력 예시</span><p>{example.input}</p></div>
-    <div className="result-preview-transition" aria-hidden="true">↓</div>
-    <div className="result-preview-after"><span>결과 예시</span><div className="result-preview-paper"><span className="result-preview-mark" aria-hidden="true">{entry.symbol}</span><strong>{example.title}</strong>{example.lines.map(line => <span key={line}>{line}</span>)}</div></div>
-    <p className="result-preview-note">AutoPets가 만든 구성 예시이며, 실제 생성 결과는 아니에요.</p>
+// Designed samples demonstrate output formats. They are never execution evidence.
+function ResultArtwork({ entry, mobile = false }: { entry: PetCatalogEntry; mobile?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [entry.id, mobile]);
+  if (entry.id === 'ui-webpage') return <span className={`result-thumbnail result-thumbnail-web ${mobile ? 'mobile' : ''}`} role="img" aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${mobile ? '모바일' : '데스크톱'} 디자인 예시`}>
+    {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> : <img src={`/assets/design-example-v1/${mobile ? 'mobile' : 'desktop'}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />}
+  </span>;
+  return <span className={`result-thumbnail sample-output sample-${entry.id}`} aria-label={`${resultKinds[entry.id] ?? entry.name} 디자인 예시`}>
+    {entry.id === 'daily-plan' ? <span className="sample-sheet">
+      <strong className="sample-title">오늘은 이 세 가지.</strong>
+      <span className="sample-check done"><span aria-hidden="true">✓</span>초안 마무리</span>
+      <span className="sample-check"><span aria-hidden="true">○</span>장보기</span>
+      <span className="sample-check"><span aria-hidden="true">○</span>20분 산책</span>
+    </span> : entry.id === 'travel-plan' ? <span className="sample-sheet">
+      <strong className="sample-title">부산, 느긋한 하루.</strong>
+      <span className="sample-stop"><span>10:00</span>바다 산책</span>
+      <span className="sample-route" aria-hidden="true">↓</span>
+      <span className="sample-stop"><span>12:00</span>해변 카페</span>
+    </span> : entry.id === 'study-helper' ? <span className="sample-sheet">
+      <span className="sample-kicker">한 개념, 쉽게.</span><strong className="sample-title">기회비용</strong>
+      <span className="sample-definition">선택하면서 포기한<br />가장 좋은 대안의 가치.</span>
+    </span> : entry.id === 'marketing-copy' ? <span className="sample-sheet sample-ad">
+      <span className="sample-kicker">새 노트의 첫 페이지</span><strong className="sample-title">완벽한 계획보다,<br />당신의 첫 줄.</strong><span className="sample-ad-cta">기록을 시작하세요 ↗</span>
+    </span> : <span className="sample-sheet sample-slide">
+      <span className="sample-kicker">작은 습관에 관한 이야기</span><strong className="sample-title">작은 시작.<br />더 나은 하루.</strong><span className="sample-slide-mark" aria-hidden="true">↗</span>
+    </span>}
+  </span>;
+}
+
+export function ResultPreview({ entry, compact = false }: { entry: PetCatalogEntry; compact?: boolean }) {
+  const [mobile, setMobile] = useState(false);
+  const [open, setOpen] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => { setMobile(false); setOpen(false); }, [entry.id]);
+  useEffect(() => {
+    const element = dialog.current;
+    if (!open || !element) return;
+    element.showModal(); close.current?.focus();
+    return () => { element.close(); trigger.current?.focus(); };
+  }, [open]);
+  if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example"><ResultArtwork entry={entry} /><small className="result-thumbnail-label">디자인 예시</small></span>;
+  return <figure className={`result-preview visual-result-preview designed-result result-${entry.id}`} aria-label={`${entry.name} 결과 예시`} data-evidence="design-example">
+    {entry.id === 'ui-webpage' && <div className="result-preview-toolbar"><div className="result-device-choice" role="group" aria-label="미리보기 화면"><button type="button" aria-pressed={!mobile} onClick={() => setMobile(false)}>데스크톱</button><button type="button" aria-pressed={mobile} onClick={() => setMobile(true)}>모바일</button></div><button type="button" ref={trigger} className="result-live-open" onClick={() => setOpen(true)}>크게 보기 ↗</button></div>}
+    <ResultArtwork entry={entry} mobile={mobile} /><figcaption><span>{resultKinds[entry.id] ?? entry.output}</span><small>디자인 예시</small></figcaption>
+    {open && <dialog ref={dialog} className="result-example-dialog" aria-label="가상 학과 행사 디자인 예시" onCancel={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false); } }}><div className="result-example-bar"><span>디자인 예시</span><button type="button" ref={close} onClick={() => setOpen(false)}>닫기 ×</button></div><div className="result-example-full"><ResultArtwork entry={entry} mobile={mobile} /></div></dialog>}
   </figure>;
 }

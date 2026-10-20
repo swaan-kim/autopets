@@ -15,12 +15,25 @@ export function canReturnToPetTask(link: PetLink): boolean {
 
 const targetKey = (link: PetLink) => JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd, link.revision]);
 
-export function PetTaskReturn({ link }: { link: PetLink }) {
-  // A different registered target or revision owns a different pending request.
-  return <PetTaskReturnAction key={targetKey(link)} link={link} />;
+const hasCurrentPetResult = (link: PetLink, disconnected: boolean) => link.connected && link.enabled && !disconnected && !link.run?.trackingClosed;
+
+export function petTaskReturnLabel(link: PetLink, disconnected = false): string {
+  if (!hasCurrentPetResult(link, disconnected)) return 'Codex 작업 열기';
+  if (link.run?.state === 'waiting' && link.run.profile === 'plan') return '계획 보러 가기';
+  if (link.run?.state === 'complete') return '결과 보러 가기';
+  return 'Codex 작업 열기';
 }
 
-function PetTaskReturnAction({ link }: { link: PetLink }) {
+export function canStartNewPetTask(link: PetLink, disconnected = false): boolean {
+  return hasCurrentPetResult(link, disconnected) && link.run?.state === 'complete';
+}
+
+export function PetTaskReturn({ link, disconnected = false }: { link: PetLink; disconnected?: boolean }) {
+  // A different registered target or revision owns a different pending request.
+  return <PetTaskReturnAction key={targetKey(link)} link={link} disconnected={disconnected} />;
+}
+
+function PetTaskReturnAction({ link, disconnected }: { link: PetLink; disconnected: boolean }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [failed, setFailed] = useState(false);
@@ -56,7 +69,7 @@ function PetTaskReturnAction({ link }: { link: PetLink }) {
     catch { if (mounted.current) setCopyNotice('복사하지 못했어요. 아래 작업 ID를 직접 선택해 주세요.'); }
   };
   return <div className="pet-task-return" data-testid="pet-task-return">
-    <button className="button explicit-return" disabled={busy || !supported} onClick={() => void open()}>{busy ? 'Codex에 요청 중…' : 'Codex 작업 열기'}</button>
+    <button className="button explicit-return" disabled={busy || !supported} onClick={() => void open()}>{busy ? 'Codex에 요청 중…' : petTaskReturnLabel(link, disconnected)}</button>
     {notice && <p className="explicit-return-notice" role={failed ? 'alert' : 'status'}>{notice}</p>}
     {(!supported || failed) && <div className="explicit-return-fallback">
       {!supported && <p>지금은 앱에서 바로 열 수 없어요. Codex에서 같은 작업을 찾아주세요.</p>}

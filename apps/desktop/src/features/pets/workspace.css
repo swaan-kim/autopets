@@ -169,6 +169,7 @@
   .composer-preview h1 { font-size: 22px; margin: 0; }
   .composer-preview > .pet-favorite-button { margin: 0; min-height: 38px; justify-self: start; }
   .composer-preview > .result-preview { display: none; }
+  .composer-preview > .pet-skill-source { grid-column: 1 / -1; margin-top: 10px; padding-top: 12px; }
   .composer-top > span { display: none; }
   .workspace-saved-card { padding: 14px; gap: 10px; flex-wrap: wrap; }
   .workspace-saved-card > .task-pet-art { --pet-size: 58px; }

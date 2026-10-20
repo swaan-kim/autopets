@@ -3,10 +3,11 @@ import { command } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
 import { useEffect, useRef, useState } from 'react';
 import { Pet, type PetMotion } from './Pet';
-import { PetTaskReturn } from './PetTaskReturn';
+import { PetTaskReturn, canStartNewPetTask } from './PetTaskReturn';
 import './explicit-pet.css';
 import { TaskPetArt } from './TaskPetArt';
 import { catalogFor } from './petCatalog';
+import { companionState, companionRunKey } from './companionMotion';
 const profiles = { light: '가볍게', standard: '표준', careful: '꼼꼼하게', plan: '계획만' };
 export const unresolvedPetRun = (link: PetLink) => Boolean(link.run && !link.run.trackingClosed && ['requested', 'working', 'returned', 'unknown'].includes(link.run.state));
 export function explicitPetMotion(link: PetLink, disconnected = false): PetMotion {
@@ -28,7 +29,7 @@ export function explicitPetStatus(link: PetLink, disconnected = false): string {
   const labels = { returned: '결과 확인', waiting: '계획 확인 필요', complete: '완료', failed: '작업 확인 실패', unknown: '실행 상태 확인 필요' };
   return labels[link.run.state];
 }
-export function ExplicitPet({ link, disconnected = false, onHide, showPet = true, compact = false }: { link: PetLink; disconnected?: boolean; onHide?: () => void; showPet?: boolean; compact?: boolean }) {
+export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, showPet = true, compact = false }: { link: PetLink; disconnected?: boolean; onHide?: () => void; onNewTask?: (link: PetLink) => void; showPet?: boolean; compact?: boolean }) {
   const action = useAction();
   const [closing, setClosing] = useState(false);
   const [copyNotice, setCopyNotice] = useState('');
@@ -42,6 +43,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
   const active = link.connected && !disconnected && !link.run?.trackingClosed && (link.enabled || Boolean(link.run));
   const state = active ? link.run?.state : undefined;
   const unresolved = unresolvedPetRun(link);
+  const canReuse = Boolean(onNewTask) && canStartNewPetTask(link, disconnected) && !unresolved;
   const uiPet = link.template.skills.some(skill => skill.id === 'frontend-design');
   const designSkill = link.template.skills.find(skill => skill.id === 'frontend-design');
   const runTemplate = link.run?.template ?? link.template;
@@ -70,14 +72,15 @@ export function ExplicitPet({ link, disconnected = false, onHide, showPet = true
     : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
     : link.template.planFirst ? '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.' : '같은 Codex 채팅에서 펫에게 일을 맡겨보세요.';
   return <div className={`explicit-pet ${compact ? 'explicit-compact' : ''}`} aria-label={`연결된 ${link.template.name}`}>
-    {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={compact || !active} motion={explicitPetMotion(link, disconnected)} /></div>}
+    {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={!active || compact && catalogFor(link.template)?.id !== 'ui-webpage'} motion={explicitPetMotion(link, disconnected)} state={companionState(link, disconnected)} runKey={companionRunKey(link)} interactive={active} /></div>}
     <div className="explicit-identity">
       <header className="explicit-heading"><strong>{link.template.name}</strong><span>Codex</span></header>
       <div className="explicit-location"><p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>
     </div>
-    <div className="explicit-status-panel" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p><p className="explicit-help">{help}</p></div>
-    <PetTaskReturn link={link} />
-    <button className="text-button explicit-next" disabled={copying || (!link.enabled && !unresolved && link.connected)} onClick={() => void copyNext()}>{!link.connected || disconnected || unresolved ? '상태 확인 요청 복사' : state === 'waiting' ? '구현 요청 복사' : link.template.planFirst ? '다음 계획 요청 복사' : '다음 작업 요청 복사'}</button>
+    <div className="explicit-status-panel" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p>{(!compact || !active || !link.enabled || state === 'failed' || state === 'unknown') && <p className="explicit-help">{help}</p>}</div>
+    <PetTaskReturn link={link} disconnected={disconnected} />
+    {canReuse ? <button className="text-button explicit-next" onClick={() => onNewTask?.(link)}>같은 펫으로 새 일</button>
+      : <button className="text-button explicit-next" disabled={copying || (!link.enabled && !unresolved && link.connected)} onClick={() => void copyNext()}>{!link.connected || disconnected || unresolved ? '상태 확인 요청 복사' : state === 'waiting' ? '구현 요청 복사' : link.template.planFirst ? '다음 계획 요청 복사' : '다음 작업 요청 복사'}</button>}
     {copyNotice && <p className="explicit-copy" role="status">{copyNotice}</p>}{copyText && <label className="explicit-copy-input">Codex에 보낼 문장<textarea readOnly rows={3} value={copyText} onFocus={event => event.currentTarget.select()} /></label>}
     <details className="explicit-settings"><summary><span>펫 설정과 관리</span><span className="explicit-settings-value">{!link.enabled ? '도움 꺼짐' : profiles[link.profile]}</span></summary><div className="explicit-settings-body">
       <label>다음 펫 작업 설정 <select aria-label="다음 펫 작업 설정" value={link.profile} disabled={action.busy || disconnected || unresolved}

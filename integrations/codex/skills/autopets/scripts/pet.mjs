@@ -133,7 +133,13 @@ export async function runPet(args,env=process.env,deps={}) {
   }
   return verify(await call({operation:'report',target,expectedRevision,requestId,receipt}));
 }
+export function petFailure(error) {
+  const code=/^[a-z-]+$/u.test(error?.message??'')?error.message:'pet-connection-unavailable';
+  return {ok:false,code,retrySubmission:false,...(code==='slots-full'?{
+    message:'펫 3개가 모두 연결돼 있어요. AutoPets에서 사용하지 않는 연결을 하나 해제한 뒤 다시 연결해 주세요. 기존 연결은 자동으로 바꾸지 않아요.',
+  }:{})};
+}
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try { console.log(JSON.stringify(await runPet(process.argv.slice(2)))); }
-  catch(error) { console.log(JSON.stringify({ok:false,code:/^[a-z-]+$/u.test(error.message)?error.message:'pet-connection-unavailable',retrySubmission:false})); process.exitCode=1; }
+  catch(error) { console.log(JSON.stringify(petFailure(error))); process.exitCode=1; }
 }

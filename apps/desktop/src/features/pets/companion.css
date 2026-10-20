@@ -1,0 +1,10 @@
+.companion-pet { --frame: var(--pet-size, 160px); display: inline-block; position: relative; width: var(--frame); height: var(--frame); flex-shrink: 0; }
+.companion-sprite { display: block; width: 100%; height: 100%; background-repeat: no-repeat; image-rendering: auto; transform-origin: 50% 90%; }
+.companion-pet > .pet-art { --frame: var(--pet-size, 160px); }
+.task-pet-art[data-companion="true"] .task-pet-prop { display: none; }
+.workspace-role-card .task-pet-art[data-companion-state="idle"] .task-pet-prop,
+.workspace-saved-card .task-pet-art[data-companion-state="idle"] .task-pet-prop,
+.composer-pet-stage .task-pet-art[data-companion-state="idle"] .task-pet-prop { display: block; }
+.task-pet-art[data-companion="true"][data-companion-state="working"] .task-pet-prop { display: block; width: 56%; height: 48%; right: 21%; bottom: -1%; }
+.companion-pet, .companion-sprite { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .companion-sprite { transform: none !important; } }

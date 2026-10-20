@@ -15,7 +15,7 @@ description: AutoPets를 켜거나 현재 로컬 Codex 채팅에 하루 정리·
 
 - Windows 로컬 실행이면 `%LOCALAPPDATA%/AutoPets/connector/runtime/node.exe`와 같은 설치의 `integrations/codex/bootstrap/start.mjs`를 확인하고 실행한다. 명시된 `AUTOPETS_HOME`이 있으면 우선한다. 실제 작업 경로와 `CODEX_THREAD_ID`를 유지한다. 정상 설치는 다운로드하지 않는다.
 - 앱만 설치돼 연결 도구가 없으면 기존 AutoPets 앱을 열어 **AI 연결** 화면으로 이어간다. 임의 설치 경로나 채팅 ID를 만들지 않는다.
-- 처음 설치는 [시작 안내](../../../../docs/releases/start.md)의 고정 버전 EXE와 해시·서명을 확인한 뒤 같은 연결 화면으로 이어간다. 공개 릴리스가 없으면 배포 준비 중이라고 설명한다. 임의 최신 빌드·스크립트 평가·소스 빌드를 일반 설치로 대신하지 않는다.
+- 처음 설치는 [시작 안내](../../../../docs/releases/start.md)를 확인한다. 서명된 안정판과 미서명 개발 미리보기를 구분하고, 개발 미리보기는 사용자가 그 조건을 선택한 경우에만 [AI 설치 안내](https://github.com/swaan-kim/autopets/blob/main/INSTALL.md)의 고정 버전 EXE·해시·설치 도우미를 사용한다. Windows 차단을 우회하지 않는다. 임의 빌드·원격 스크립트 즉시 평가·소스 빌드를 일반 설치로 대신하지 않는다.
 - 웹·클라우드처럼 사용자 PC를 실행할 수 없으면 https://swaan-kim.github.io/autopets/start/ 의 설치 버튼을 안내한다.
 
 설치 프로그램은 AI 연결 설정을 바꾸지 않는다. 앱에서 사용자가 연결을 선택한 뒤 필요한 훅 신뢰·재시작만 안내한다. 이미 연결한 설치는 재사용한다. 시작하면서 업무 질문이나 모델 카드 선택을 강제하지 않는다.
