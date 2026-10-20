@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { openCatalog, chooseRole } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openCopy } = require('./entry-navigation.cjs');
 
 exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
   const images = [];
@@ -35,6 +35,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'candidate selection is local only');
   await page.locator('.workspace-role-detail').getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
   const composer = page.locator('.pet-composer');
+  await openCopy(composer);
   const task = composer.getByLabel('펫에게 맡길 일', { exact: true });
   assert.equal(await task.inputValue(), '학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
   assert.equal(await composer.locator('.result-preview').count(), 0);
@@ -43,7 +44,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   await composer.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
   assert.ok((await page.evaluate(() => window.__uiTest.clipboard)).includes('일정과 신청 안내, 모바일 화면을 포함해줘.'));
-  assert.equal(await composer.locator('[data-step="receipt"]').getAttribute('data-status'), 'pending');
+  assert.equal(await composer.locator('.composer-applied, .composer-observed').count(), 0, 'copy never becomes application or execution evidence');
   assert.deepEqual(await page.evaluate(() => window.__uiTest.state.petLinks), []);
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|submit|send|execute/.test(call.name))), false);
   await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
@@ -71,6 +72,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.equal(await openExample.evaluate(el => document.activeElement === el), true, 'example close returns focus');
   await detail.getByRole('button', { name: '데스크톱', exact: true }).click();
   await detail.getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
+  await openCopy(composer);
   await task.fill('역할별 기존 초안: 작품 소개 웹페이지');
   await page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
   await composer.waitFor({ state: 'detached' });
