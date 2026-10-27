@@ -34,31 +34,31 @@ async function runProductSiteChecks({ newPage, screenshotDir, checks }) {
   const screenshots = [];
   try {
     await page.goto(`${origin}/start/`);
-    await page.getByRole('heading', { name: /AI는 그대로/ }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Windows 다운로드 준비 중', exact: true }).isEnabled(), false);
-    assert.equal(await page.getByRole('button', { name: 'AI 설치 안내 준비 중', exact: true }).isEnabled(), false);
+    await page.getByRole('heading', { name: /부르면 나타나는/ }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '서명된 배포 준비 중', exact: true }).isEnabled(), false);
+    assert.equal(await page.getByRole('button', { name: '호출 문구 복사', exact: true }).isEnabled(), true);
     assert.equal(await page.locator('a[href$=".exe"]').count(), 0);
-    assert.ok(await page.locator('.hero-pet').evaluate(image => image.complete && image.naturalWidth > 0));
+    assert.ok(await page.locator('.hero-pet').evaluate(async element => { const image=new Image();image.src=getComputedStyle(element).backgroundImage.slice(5,-2);await image.decode();return image.naturalWidth>0; }));
     const desktop = path.join(screenshotDir, 'product-start-desktop.png');
     await page.screenshot({ path: desktop, fullPage: true, animations: 'disabled' }); screenshots.push(desktop);
     await page.setViewportSize({ width: 390, height: 844 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 390));
     const mobile = path.join(screenshotDir, 'product-start-mobile.png');
     await page.screenshot({ path: mobile, fullPage: true, animations: 'disabled' }); screenshots.push(mobile);
-    checks.push('unpublished product page offers no live executable link or AI install action, preserves pixel assets, and fits desktop/mobile');
+    checks.push('unpublished product page gates installation, distinguishes prepared-host invocation, loads the soft pet, and fits desktop/mobile');
 
     await page.addInitScript(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__copiedRequest = text; } } }); });
     await page.goto(`${origin}/start/?fixture=published`);
     assert.equal(await page.locator('#download').getAttribute('href'), fixture.publicRelease.installer.url);
-    await page.getByRole('button', { name: 'AI에게 요청할 문구 복사', exact: true }).click();
+    assert.equal(await page.locator('#release-sha').textContent(),fixture.publicRelease.installer.sha256);
+    await page.getByRole('button', { name: '호출 문구 복사', exact: true }).click();
     const request = await page.evaluate(() => window.__copiedRequest);
-    assert.ok(request.includes(fixture.publicRelease.installer.url));
-    assert.ok(request.includes(fixture.publicRelease.installer.sha256));
-    assert.match(request, /접근할 수 없는 웹·클라우드 환경이면 설치 링크/);
+    assert.equal(request,'AutoPets 스킬로 제작 펫 연결해줘.');
+    assert.ok(!request.includes('.exe'),'prepared-host invocation does not silently become an installer request');
     await page.goto(`${origin}/start/?fixture=invalid`);
     assert.equal(await page.locator('a[href$=".exe"]').count(), 0);
-    assert.equal(await page.locator('#copy-invocation').isEnabled(), false);
-    checks.push('synthetic publication binds both entries to one pinned EXE/hash; an untrusted installer origin fails closed');
+    assert.equal(await page.locator('#download-pending').isVisible(),true);
+    checks.push('synthetic publication binds download to a pinned EXE/hash; prepared invocation stays separate and an untrusted installer fails closed');
   } finally {
     await page.close();
     await new Promise(resolve => server.close(resolve));

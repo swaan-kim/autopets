@@ -84,6 +84,13 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   assert.equal(await select.inputValue(), '', 'multiple chats require an explicit selection');
   assert.equal(await mainApply(composer).isDisabled(), true);
   await select.selectOption(key(link(A)));
+  assert.equal(await composer.getAttribute('data-agent-scope'), 'pet-selection');
+  assert.equal(await mainApply(composer).getAttribute('data-agent-id'), 'pet-selection.composer.apply');
+  const targetDetails = composer.locator('.composer-target-details');
+  assert.equal(await targetDetails.locator('.composer-target-id').isVisible(), false, 'technical target details stay optional');
+  await targetDetails.locator('summary').click();
+  assert.ok((await targetDetails.innerText()).includes(A), 'expanded target details retain the exact selected chat ID');
+  await targetDetails.locator('summary').click();
   await select.focus(); await page.keyboard.press('Tab');
   await openCopy(composer);
   const draft = composer.getByLabel('펫에게 맡길 일', { exact: true });

@@ -27,6 +27,12 @@
 .composer-target .ui-pet-select { font-size: 14px; }
 .composer-target .ui-pet-select select { min-width: 0; width: 100%; min-height: 48px; font-size: 14px; }
 .composer-target-id { margin: 8px 0 0; color: #646b72; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.composer-target-details { margin-top: 4px; }
+.composer-target-details > summary { min-height: 44px; display: flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; color: #646b72; font-size: 14px; }
+.composer-target-details > summary::after { content: '+'; }
+.composer-target-details[open] > summary::after { content: '−'; }
+.composer-target-details > summary:focus-visible { outline: 2px solid #424950; outline-offset: 3px; }
+.composer-target-details .composer-target-id { margin: 0 0 8px; }
 .composer-target-blocker { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #f2f3f4; font-size: 14px; line-height: 1.6; color: #424950; }
 .pet-composer .composer-direct-action[data-next=chat] .explicit-return { width: 100%; background: #eceeef; color: #292c31; border-color: #dcdfe2; min-height: 48px; font-size: 15px; font-weight: 650; }
 .pet-composer .composer-applied > p { margin: 0 0 12px; font-size: 14px; color: #454c52; }

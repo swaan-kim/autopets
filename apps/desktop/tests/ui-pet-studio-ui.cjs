@@ -16,11 +16,14 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await page.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
     await page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true }).click();
     const detail = page.locator('.workspace-role-detail');
+    assert.equal(await detail.getAttribute('data-agent-scope'), 'pet-selection');
+    assert.equal(await detail.getByRole('button', { name: `${entry.name} 이 펫으로`, exact: true }).getAttribute('data-agent-id'), 'pet-selection.detail.use');
     const preview = detail.locator('.result-preview');
     assert.equal(await preview.getAttribute('data-evidence'), 'design-example');
     assert.equal(await preview.locator('figcaption small').innerText(), '디자인 예시');
     await detail.getByRole('button', { name: `${entry.name} 이 펫으로`, exact: true }).click();
     const flow = page.locator('.pet-composer');
+    assert.equal(await flow.getAttribute('data-agent-scope'), 'pet-selection');
     assert.equal(await flow.locator('.composer-more').evaluate(element => element.open), false);
     assert.equal(await flow.locator('.composer-identity .pet-source-line').isVisible(), true, 'compact identity retains source');
     assert.equal(await flow.locator('.result-preview').count(), 0, 'large result preview is not repeated in composer');
@@ -161,6 +164,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await page.getByRole('button',{name:'내 작업',exact:true}).click();
   await page.getByRole('heading',{name:'확인이 필요해요1',exact:true}).waitFor();
   assert.deepEqual(await page.locator('.workspace-activity > h2').allTextContents(),['확인이 필요해요1','최근 결과1']);
+  await page.locator('.pet-card-0 .explicit-chat-help > summary').click();
   await page.locator('.pet-card-0').getByRole('button',{name:'구현 요청 복사',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),'그대로 구현해줘');
   assert.equal(await page.evaluate(()=>window.__uiTest.calls.some(c=>/submit|send|execute_pet/.test(c.name))),false);
