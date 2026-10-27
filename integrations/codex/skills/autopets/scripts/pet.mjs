@@ -9,7 +9,7 @@ import { readConnection, requestJson } from './bridge-client.mjs';
 import { withReadOnlyRuntime } from '../../../runtime/rpc.mjs';
 import { summarizeTaskMetadata } from '../../../runtime/task-metadata.mjs';
 import { availableProfile } from '../../../runtime/delegation.mjs';
-import { auditDelegatedTurn, resolveDelegatedRecord } from '../../../runtime/delegation-audit.mjs';
+import { auditDelegatedTurn, resolveDelegatedRecord, inspectDelegationCompatibility } from '../../../runtime/delegation-audit.mjs';
 import { openInstalledPetApp } from '../../../bootstrap/start.mjs';
 import { resolvePetSkills, petSkillInstruction } from '../../../runtime/pet-skills.mjs';
 
@@ -32,11 +32,12 @@ export function parsePetArgs(args) {
   }
   return result;
 }
-export async function inspectPetHost({executable,cwd,threadId}) {
-  return withReadOnlyRuntime({executable,cwd},async ({call})=>{
+export async function inspectPetHost({executable,cwd,threadId,includeModels=true,runtime=withReadOnlyRuntime}) {
+  return runtime({executable,cwd},async ({call})=>{
     const {thread}=await call('thread/read',{threadId,includeTurns:false});
     const node=summarizeTaskMetadata(thread,{id:threadId,cwd,label:'current-local-task'},Date.now());
     if(node.creationSurface!=='codex-local' || node.parentId) throw Error('unsupported-current-task');
+    if (!includeModels) return {node,models:[]};
     const models=[]; let cursor=null;
     for(let page=0;page<8;page++) {
       const value=await call('model/list',{...(cursor?{cursor}:{}),limit:100});
@@ -52,7 +53,7 @@ export async function runPet(args,env=process.env,deps={}) {
   if(!uuid(env.CODEX_THREAD_ID)) throw Error('current-task-unavailable');
   const executable=o.executable??env.AUTOPETS_CODEX_EXECUTABLE;
   if(!executable || !path.isAbsolute(executable)) throw Error('codex-runtime-required');
-  const host=await (deps.inspect??inspectPetHost)({executable,cwd,threadId:env.CODEX_THREAD_ID});
+  const host=await (deps.inspect??inspectPetHost)({executable,cwd,threadId:env.CODEX_THREAD_ID,includeModels:['settings','prepare'].includes(o.operation)});
   const target={sourceId:'codex-windows-local',threadId:env.CODEX_THREAD_ID,cwd:host.node.cwd};
   const connectionPath=o.connection??env.AUTOPETS_CONNECTION_FILE??path.join(env.AUTOPETS_DATA_DIR??path.join(env.LOCALAPPDATA??'', 'local.autopets.desktop'),'connection.json');
   // Explicit invocation can open the installed app; hooks and diagnostics cannot.
@@ -94,11 +95,12 @@ export async function runPet(args,env=process.env,deps={}) {
     }
     const skills=await (deps.resolveSkills??resolvePetSkills)(current.link.template);
     const instruction=petSkillInstruction(current.link.template,skills,profile);
+    await (deps.preflight??inspectDelegationCompatibility)({codexHome:env.CODEX_HOME??path.join(os.homedir(),'.codex'),parentId:target.threadId,cwd:target.cwd});
     const requestId=o.requestId??randomUUID();
     const result=verify(await call({operation:'prepare',target,expectedRevision,requestId,profile}));
     // Existing reservations, even after a lost response, must not cause another spawn.
     const skillReader={executable:process.execPath,script:fileURLToPath(new URL('./read-skill.mjs',import.meta.url)),
-      reads:skills.map(({id})=>['--bundled-id',id])};
+      reads:skills.map(({id,version})=>['--id',id,'--version',version])};
     return {...result,dispatchAllowed:result.dispatchAllowed===true,requestId,taskName:`autopets_${requestId.replaceAll('-','')}`,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skills[0].path,skills,skillReader};
   }
   if(['enable','disable','disconnect'].includes(o.operation)) return verify(await call({operation:o.operation==='disconnect'?'disconnect':'enable',target,expectedRevision,...(o.operation==='disconnect'?{}:{enabled:o.operation==='enable'})}));
@@ -135,6 +137,13 @@ export async function runPet(args,env=process.env,deps={}) {
 }
 export function petFailure(error) {
   const code=/^[a-z-]+$/u.test(error?.message??'')?error.message:'pet-connection-unavailable';
+  const messages = {
+    'unsupported-runtime-index':'현재 Codex의 작업 기록을 확인할 수 없어 새 펫 작업을 시작하지 않았어요. Codex 버전과 연결 상태를 확인해 주세요.',
+    'unsupported-runtime-record':'현재 채팅의 실행 기록을 확인할 수 없어 새 펫 작업을 시작하지 않았어요. 기존 작업은 다시 실행하지 말고 상태를 확인해 주세요.',
+    'pet-revision-changed':'설정이 바뀌었어요. 현재 채팅의 펫 상태를 다시 확인해 주세요.',
+    'pet-run-active-or-unresolved':'기존 작업을 먼저 확인해 주세요. 새 작업만 막으려면 도움을 꺼주세요.',
+  };
+  if (messages[code]) return {ok:false,code,retrySubmission:false,message:messages[code]};
   return {ok:false,code,retrySubmission:false,...(code==='slots-full'?{
     message:'펫 3개가 모두 연결돼 있어요. AutoPets에서 사용하지 않는 연결을 하나 해제한 뒤 다시 연결해 주세요. 기존 연결은 자동으로 바꾸지 않아요.',
   }:{})};

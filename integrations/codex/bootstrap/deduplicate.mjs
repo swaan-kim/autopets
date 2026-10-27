@@ -22,7 +22,8 @@ export async function runHookOnce(input, role, run, rootOverride) {
     for (let attempt = 0; attempt < 100; attempt++) {
       const saved = await readJson(file).catch(() => null);
       if (saved?.status === 'done') return { output: saved.hold || {} };
-      if (!saved || saved?.status === 'failed') throw Error('hook-retry');
+      if (saved?.status === 'failed') throw Error('hook-retry');
+      // An exclusive claim can still be partially written; wait without running it again.
       await delay(40);
     }
     throw Error('hook-in-progress');
@@ -31,5 +32,8 @@ export async function runHookOnce(input, role, run, rootOverride) {
     const result = await run();
     await atomicJson(file, { status: 'done', at: Date.now(), hold: result?.output?.decision === 'block' ? result.output : null });
     return result;
-  } catch (error) { await atomicJson(file, { status: 'failed', at: Date.now() }); throw error; }
+  } catch (error) {
+    try { await atomicJson(file, { status: 'failed', at: Date.now() }); } catch { /* Preserve the original error; never repeat the callback. */ }
+    throw error;
+  }
 }
