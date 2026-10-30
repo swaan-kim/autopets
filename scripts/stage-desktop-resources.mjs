@@ -2,9 +2,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { digest, safeDirectory } from '../integrations/codex/bootstrap/files.mjs';
+import { validateBundledSkillPins } from '../integrations/codex/runtime/pet-skills.mjs';
 
 /** Build-time only: all runtime dependencies travel inside the same installer. */
 export async function collectConnectorFiles({ root, node, license }) {
+  // Every released pin must remain in the package. A changed current skill must
+  // have a new version and an explicit archived source/license snapshot.
+  await validateBundledSkillPins({ root: path.join(root, 'integrations/codex/skills') });
   const files = [];
   async function add(name, file) {
     const info = await fs.lstat(file);

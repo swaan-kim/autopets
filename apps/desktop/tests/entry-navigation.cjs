@@ -26,4 +26,12 @@ const openSaved = async page => {
   await page.getByRole('button', { name: '내 펫', exact: true }).click();
 };
 const openTasks = async page => page.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).click();
-module.exports = { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail };
+// Copying a freely written task is a secondary path. Tests that exercise it
+// explicitly disclose it, rather than changing the product's default flow.
+const openCopy = async composer => {
+  const fallback = composer.locator('.composer-copy-fallback');
+  if (await fallback.count() && !await fallback.evaluate(element => element.open)) {
+    await fallback.locator(':scope > summary').click();
+  }
+};
+module.exports = { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy };

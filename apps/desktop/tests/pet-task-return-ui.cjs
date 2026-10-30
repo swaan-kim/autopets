@@ -121,6 +121,8 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   });
   await overlay.getByRole('button', { name: '결과 보러 가기', exact: true }).waitFor();
   assert.equal(await overlay.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0, 'overlay without composer callback keeps existing next-request flow');
+  assert.equal(await overlay.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).isVisible(), false);
+  await overlay.locator('.explicit-chat-help > summary').click();
   await overlay.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).waitFor();
   checks.push('explicit pet return: contextual plan/result labels require current connected/enabled records, new-task action only for confirmed completion, A/B isolation and disconnected fallback, duplicate clicks/stale receipts suppressed, wrong dispatch exposes ID fallback, manager/overlay share exact-target navigation; fixture dispatch is not real navigation');
   await page.close(); await overlay.close();

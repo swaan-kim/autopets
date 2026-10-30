@@ -4,6 +4,31 @@ const A:&str="11111111-1111-4111-8111-111111111111";
 const B:&str="22222222-2222-4222-8222-222222222222";
 const C:&str="33333333-3333-4333-8333-333333333333";
 #[test]
+fn explicit_reservation_rolls_back_request_and_link_on_storage_failure() {
+    let dir=tempfile::tempdir().unwrap(); let a=target(dir.path(),A); let mut store=Store::new(dir.path()).unwrap();
+    store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
+    store.db.execute_batch("CREATE TRIGGER fail_pet_save BEFORE UPDATE ON explicit_pet_links_v1 BEGIN SELECT RAISE(FAIL,'fixture-save-failure'); END;").unwrap();
+    assert!(store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Light}).is_err());
+    assert!(store.pet_link_request(Request::Read{target:a.clone()}).unwrap().unwrap().run.is_none());
+    assert_eq!(store.db.query_row("SELECT count(*) FROM explicit_pet_requests_v1",[],|r|r.get::<_,u32>(0)).unwrap(),0);
+    store.db.execute_batch("DROP TRIGGER fail_pet_save").unwrap();
+    store.pet_link_request(Request::Prepare{target:a.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Light}).unwrap();
+    drop(store); let mut reopened=Store::new(dir.path()).unwrap();
+    assert_eq!(reopened.pet_link_request(Request::Read{target:a}).unwrap().unwrap().run.unwrap().id,C);
+}
+#[test]
+fn explicit_disconnect_rejects_stale_target_and_preserves_unresolved_run() {
+    let dir=tempfile::tempdir().unwrap(); let a=target(dir.path(),A);let b=target(dir.path(),B);let mut store=Store::new(dir.path()).unwrap();
+    let first=store.pet_link_request(Request::Connect{target:a.clone()}).unwrap().unwrap();
+    store.pet_link_request(Request::Disconnect{target:a.clone(),expected_revision:1}).unwrap();
+    let other=store.pet_link_request(Request::Connect{target:b.clone()}).unwrap().unwrap();assert_eq!(first.slot,other.slot);
+    assert!(store.pet_link_request(Request::Disconnect{target:a,expected_revision:1}).is_err());
+    store.pet_link_request(Request::Prepare{target:b.clone(),expected_revision:1,request_id:C.into(),profile:Profile::Light}).unwrap();
+    assert!(store.pet_link_request(Request::Disconnect{target:b.clone(),expected_revision:1}).is_err());
+    assert!(store.unassign_session(other.slot).is_err());
+    let same=store.pet_link_request(Request::Read{target:b}).unwrap().unwrap();assert_eq!(same.run.unwrap().id,C);
+}
+#[test]
 fn explicit_links_preserve_unknown_identity_and_reopen_without_fake_events() {
     let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let b=target(dir.path(),B);
     let mut store=Store::new(dir.path()).unwrap();

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { openCatalog, chooseRole } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openCopy } = require('./entry-navigation.cjs');
 
 exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
   const images = [];
@@ -11,46 +11,45 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await page.goto(origin);
   const capture = async name => { const file = path.join(screenshotDir, `after-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
   const home = page.locator('.pet-home');
-  const request = page.getByLabel('맡길 일', { exact: true });
+  await home.getByRole('heading', { name: '어떤 펫과 일할까요?', exact: true }).waitFor();
   await home.locator('[data-assets="ready"]').first().waitFor();
   assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(), ['홈', '펫 고르기', '내 작업']);
-  assert.equal(await home.locator('.result-preview, .experience-output').count(), 0, 'home presents the pet and request rather than a repeated result');
+  assert.equal(await home.locator('.result-preview, .experience-output, textarea, input').count(), 0, 'home chooses a pet; requests remain in the existing Codex chat');
   for (const viewport of [{ width: 992, height: 688 }, { width: 716, height: 701 }]) {
     await page.setViewportSize(viewport);
-    for (const locator of [page.locator('.pet-home-greeting'), request, page.getByRole('button', { name: '펫 찾기', exact: true }), page.getByRole('button', { name: '펫 둘러보기', exact: true })]) {
+    for (const locator of [page.locator('.pet-home-greeting'), page.locator('.pet-home-intro'), page.locator('.pet-home-find')]) {
       const box = await locator.boundingBox();
-      assert.ok(box && box.y >= 0 && box.y + box.height <= viewport.height, `both entry paths appear on first screen ${viewport.width}×${viewport.height}: ${JSON.stringify(box)}`);
+      assert.ok(box && box.y >= 0 && box.y + box.height <= viewport.height, `pet, explanation and primary action appear on first screen ${viewport.width}×${viewport.height}: ${JSON.stringify(box)}`);
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await capture(`home-${viewport.width}`);
   }
   await page.setViewportSize({ width: 992, height: 688 });
   await capture('home');
-  await request.fill('학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
-  await page.getByRole('button', { name: '펫 찾기', exact: true }).click();
-  const webCandidate = page.locator('.home-candidate[data-role="ui-webpage"]');
-  await webCandidate.waitFor();
-  assert.equal(await webCandidate.getAttribute('aria-pressed'), 'true', 'clear local match is preselected');
-  assert.equal(await page.locator('.pet-composer').count(), 0, 'recommendation requires explicit use');
-  assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'candidate selection is local only');
+  await page.locator('.pet-home-find').click();
+  assert.equal(await page.locator('.workspace-role-card').count(), 6, 'one primary home action opens the six-role catalog');
+  await page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
+  assert.equal(await page.locator('.pet-composer').count(), 0, 'preview requires explicit use');
+  assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'browsing never saves, connects or executes');
   await page.locator('.workspace-role-detail').getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
   const composer = page.locator('.pet-composer');
+  assert.equal(await composer.locator('.composer-copy-fallback').evaluate(el => el.open), false, 'app task composition is a secondary, disclosed path');
+  assert.equal(await composer.getByLabel('펫에게 맡길 일', { exact: true }).isVisible(), false);
+  await openCopy(composer);
   const task = composer.getByLabel('펫에게 맡길 일', { exact: true });
-  assert.equal(await task.inputValue(), '학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
+  await task.fill('학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
   assert.equal(await composer.locator('.result-preview').count(), 0);
   assert.equal(await composer.locator('.composer-more').evaluate(el => el.open), false);
   await capture('composer');
   await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   await composer.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
   assert.ok((await page.evaluate(() => window.__uiTest.clipboard)).includes('일정과 신청 안내, 모바일 화면을 포함해줘.'));
-  assert.equal(await composer.locator('[data-step="receipt"]').getAttribute('data-status'), 'pending');
+  assert.equal(await composer.locator('.composer-applied, .composer-observed').count(), 0, 'copy never becomes application or execution evidence');
   assert.deepEqual(await page.evaluate(() => window.__uiTest.state.petLinks), []);
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|submit|send|execute/.test(call.name))), false);
   await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
-  await page.getByRole('button', { name: '← 요청 바꾸기', exact: true }).click();
-  assert.equal(await request.inputValue(), '학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
-  await page.getByRole('button', { name: '펫 둘러보기', exact: true }).click();
-  assert.equal(await page.locator('.workspace-role-card').count(), 6, 'browsing after a home request keeps the user-selected all-role category');
+  await openCatalog(page);
+  assert.equal(await page.locator('.workspace-role-card').count(), 6);
   await page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
   const detail = page.locator('.workspace-role-detail');
   await detail.locator('.result-preview img').first().evaluate(img => img.decode());
@@ -71,35 +70,28 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.equal(await openExample.evaluate(el => document.activeElement === el), true, 'example close returns focus');
   await detail.getByRole('button', { name: '데스크톱', exact: true }).click();
   await detail.getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
+  await openCopy(composer);
   await task.fill('역할별 기존 초안: 작품 소개 웹페이지');
   await page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
   await composer.waitFor({ state: 'detached' });
   assert.equal(await composer.count(), 0, 'the current top-level navigation also leaves the composer');
   assert.equal(await page.locator('.workspace-role-card').count(), 6, 'same-navigation return preserves the all-role filter');
   await page.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
-  await request.fill('새 요청: 축제 웹페이지');
-  await page.getByRole('button', { name: '펫 찾기', exact: true }).click();
-  await page.locator('.workspace-role-detail').getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
-  assert.equal(await task.inputValue(), '새 요청: 축제 웹페이지');
+  assert.equal(await home.locator('textarea, input').count(), 0, 'returning home never asks the user to re-enter a Codex task');
+  await page.locator('.pet-home-find').click();
+  await chooseRole(page, '공부 도우미');
+  await openCopy(composer);
+  await task.fill('공부 역할에만 남기는 선택형 초안');
   await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
   await chooseRole(page, '웹페이지 만들기');
-  assert.equal(await task.inputValue(), '역할별 기존 초안: 작품 소개 웹페이지', 'new home request cannot silently overwrite a role draft');
+  await openCopy(composer);
+  assert.equal(await task.inputValue(), '역할별 기존 초안: 작품 소개 웹페이지', 'browsing and another role cannot overwrite an optional role draft');
   await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
-  await page.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
-  await request.fill('무엇을 할지 아직 모르겠어요');
-  await page.getByRole('button', { name: '펫 찾기', exact: true }).click();
-  assert.equal(await page.locator('.home-candidate[aria-pressed="true"]').count(), 0, 'no-match request is not silently assigned');
-  assert.equal(await page.locator('.pet-composer').count(), 0);
-  await page.getByRole('button', { name: '← 요청 바꾸기', exact: true }).click();
-  await request.fill('여행 일정을 준비하고 홍보글도 써줘');
-  await page.getByRole('button', { name: '펫 찾기', exact: true }).click();
-  assert.ok(await page.locator('.home-candidate').count() >= 2);
-  assert.equal(await page.locator('.home-candidate[aria-pressed="true"]').count(), 0, 'multiple meaningful intents require a choice');
   await openCatalog(page);
   await chooseRole(page, '공부 도우미');
   await composer.getByRole('heading', { name: '공부 도우미', exact: true }).waitFor();
   await page.close();
-  checks.push('home two entries fit 992×688/716×701; local recommendation requires explicit use; unknown request stays unassigned; home request survives selection/copy/return; role draft isolation; preview is design-only and absent from composer; copy never claims chat receipt or executes');
+  checks.push('pet and single selection action fit 992×688/716×701; home has no task submission; browsing is local only; optional copy and role drafts preserved; preview is design-only and absent from composer; copy never claims chat receipt or executes');
 
   const fallback = await newPage();
   await fallback.route('**/assets/design-example-v1/*.webp', route => route.abort());
@@ -119,6 +111,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await mockBridge(returning, value); await returning.goto(origin);
   const items = returning.locator('.pet-home .workspace-live-card');
   await items.first().waitFor();
+  await returning.locator('[data-agent-id="home.connection"]').getByText('연결된 Codex 채팅 2개', { exact: true }).waitFor();
   assert.ok((await items.first().getAttribute('class')).includes('pet-card-1'), 'attention precedes recent completion');
   await items.first().getByRole('button', { name: '계획 보러 가기', exact: true }).click();
   await items.first().getByText(/Codex에 열기를 요청했어요/).waitFor();

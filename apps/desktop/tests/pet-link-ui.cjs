@@ -14,6 +14,8 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   };
   await mockBridge(page, value); await page.goto(origin); await openTasks(page);
   const card = page.locator('.explicit-pet');
+  assert.equal(await card.getAttribute('data-agent-scope'), 'task-card');
+  assert.equal(await card.locator('[data-agent-id="task-card.return"]').count(), 1);
   const profile = card.getByRole('combobox', { name: '다음 펫 작업 설정' });
   await card.getByText('작업 대기', { exact: true }).waitFor();
   assert.equal(await card.locator('.explicit-status-panel .explicit-help').count(), 0, 'healthy compact cards show status and action without repeated explanation');
@@ -21,6 +23,31 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   assert.equal(await card.getByText('완료', { exact: true }).count(), 0);
   assert.equal(await profile.isVisible(), false, 'management starts collapsed');
   await card.locator('.explicit-settings summary').click();
+  const alias = card.getByRole('textbox', { name: '작업 이름', exact: true });
+  await page.waitForFunction(() => !document.querySelector('[aria-label="작업 이름"]').disabled);
+  await alias.fill('행사 페이지 A');
+  await card.locator('.explicit-heading strong').getByText('행사 페이지 A', { exact: true }).waitFor();
+  await page.reload(); await openTasks(page); await card.locator('.explicit-settings summary').click();
+  await page.waitForFunction(() => document.querySelector('[aria-label="작업 이름"]').value === '행사 페이지 A');
+  assert.equal(await alias.inputValue(), '행사 페이지 A', 'local display name survives reload');
+  await alias.fill('   ');
+  await card.locator('.explicit-heading strong').getByText(templates[1].name, { exact: true }).waitFor();
+  await alias.fill('행사 페이지 A');
+  await page.evaluate(() => {
+    window.__uiTest.state.petLinks[0].target.threadId = '22222222-2222-4333-8444-555555555555';
+    window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+  });
+  await page.waitForFunction(() => !document.querySelector('[aria-label="작업 이름"]').disabled && document.querySelector('[aria-label="작업 이름"]').value === '');
+  assert.equal(await card.locator('.explicit-settings').evaluate(element => element.open), false, 'switching exact targets remounts the card with management collapsed');
+  await card.locator('.explicit-settings > summary').click();
+  await alias.fill('다른 작업 B');
+  await page.evaluate(threadId => {
+    window.__uiTest.state.petLinks[0].target.threadId = threadId;
+    window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
+  }, value.petLinks[0].target.threadId);
+  await page.waitForFunction(() => document.querySelector('[aria-label="작업 이름"]').value === '행사 페이지 A');
+  await card.locator('.explicit-settings > summary').click();
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name === 'rename_session')), false, 'display names do not rename host chats');
   await profile.selectOption('careful');
   assert.equal(await page.evaluate(() => window.__uiTest.state.petLinks[0].profile), 'careful');
 
@@ -40,6 +67,9 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
     assert.equal(await card.locator('.explicit-status-panel .explicit-help').count(), ['failed', 'unknown'].includes(state) ? 1 : 0, 'only failed or unconfirmed work needs recovery help');
   };
   await showRun('requested', 'plan', '계획 중');
+  assert.equal(await card.getByRole('button', { name: '상태 확인 요청 복사', exact: true }).isVisible(), false, 'copy helpers stay behind optional disclosure');
+  assert.equal(await card.getByRole('button', { name: '연결 해제', exact: true }).isDisabled(), true, 'active work cannot lose its observation target');
+  await card.locator('.explicit-chat-help > summary').click();
   await card.getByRole('button', { name: '상태 확인 요청 복사', exact: true }).waitFor();
   const evidence = card.locator('.explicit-evidence');
   assert.equal(await evidence.evaluate(element => element.open), false, 'execution details are disclosed on request');
@@ -61,6 +91,7 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   await card.locator('[data-motion="writing"]').waitFor();
   assert.equal(await profile.isDisabled(), true);
   await showRun('returned', 'careful', '결과 확인');
+  await card.getByText('결과 도착 · 일하는 방법 확인 필요', { exact: true }).waitFor();
   await card.locator('[data-motion="dizzy"]').waitFor();
   assert.equal(await card.getByText('완료', { exact: true }).count(), 0, 'a returned result alone does not mean completion');
   await showRun('complete', 'careful', '완료');
@@ -120,6 +151,15 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   });
   await overlay.locator('.explicit-status').filter({ hasText: /^연결 확인 필요$/ }).waitFor();
   await overlay.getByText('저장된 채팅을 열고 “펫 상태 확인”을 보내주세요.', { exact: true }).waitFor();
-  checks.push('explicit pet: healthy compact status/action with collapsed evidence; requested settings never imply observed execution; recovery help for unknown/failed/off/disconnected; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings lock; disabled assistance keeps observing; deliberate tracking closure; compact-window expansion keeps task heading visible and keyboard focus; Escape closes; disconnected recovery');
+  const unavailableLabels = await newPage({ width: 716, height: 701 });
+  await mockBridge(unavailableLabels, value);
+  await unavailableLabels.addInitScript(() => Object.defineProperty(window.crypto, 'subtle', { value: undefined, configurable: true }));
+  await unavailableLabels.goto(origin); await openTasks(unavailableLabels);
+  await unavailableLabels.locator('.explicit-settings summary').click();
+  await unavailableLabels.getByText('작업 이름을 저장할 수 없어요.', { exact: true }).waitFor();
+  await unavailableLabels.getByRole('button', { name: 'Codex 작업 열기', exact: true }).waitFor();
+  assert.equal(await unavailableLabels.getByRole('textbox', { name: '작업 이름', exact: true }).isDisabled(), true, 'optional label storage failure never disables task return');
+  await unavailableLabels.close();
+  checks.push('explicit pet: stable Agentation task-card targets; healthy compact status/action with collapsed evidence and optional copy helpers; local display-name reload/A-B isolation/blank fallback without host rename; requested settings never imply observed execution; recovery help for unknown/failed/off/disconnected; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings/disconnect lock; disabled assistance keeps observing; deliberate tracking closure; compact-window expansion keeps task heading visible and keyboard focus; Escape closes; disconnected recovery');
   return [image];
 };

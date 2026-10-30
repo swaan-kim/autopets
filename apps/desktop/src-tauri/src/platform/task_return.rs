@@ -152,8 +152,14 @@ mod tests {
         assert!(pet_task_uri(&store, &Target { source_id: "work-local".into(), ..target.clone() }, revision).is_err());
         assert!(pet_task_uri(&store, &Target { thread_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee".into(), ..target.clone() }, revision).is_err());
         assert_eq!(serde_json::to_value(store.snapshot()).unwrap()["petLinks"], before);
-        store.pet_link_request(Request::Disconnect { target: target.clone(), expected_revision: revision }).unwrap();
-        assert!(pet_task_uri(&store, &target, revision).is_err());
+        assert_eq!(store.pet_link_request(Request::Disconnect { target: target.clone(), expected_revision: revision }).unwrap_err(), "pet-run-active-or-unresolved");
+        assert_eq!(serde_json::to_value(store.snapshot()).unwrap()["petLinks"], before);
+        assert_eq!(pet_task_uri(&store, &target, revision).unwrap(), format!("codex://threads/{A}"));
+        // A user must explicitly close unresolved tracking before removing it.
+        // Reopening the saved chat itself never closes or cancels the run.
+        let closed = store.pet_link_request(Request::CloseTracking { target: target.clone(), expected_revision: revision, request_id: B.into() }).unwrap().unwrap();
+        store.pet_link_request(Request::Disconnect { target: target.clone(), expected_revision: closed.revision }).unwrap();
+        assert!(pet_task_uri(&store, &target, closed.revision).is_err());
         assert_eq!(pet_task_uri(&store, &other, 1).unwrap(), format!("codex://threads/{B}"));
     }
 

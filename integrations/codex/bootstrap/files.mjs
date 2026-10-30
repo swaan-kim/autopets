@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export const digest = data => createHash('sha256').update(data).digest('hex');
 export const homeFor = (env = process.env) => {
@@ -13,11 +14,19 @@ export async function readJson(file) {
   if (data.length > 4 * 1024 * 1024) throw Error('file-too-large');
   return JSON.parse(data.toString('utf8').replace(/^\uFEFF/u, ''));
 }
-export async function atomicJson(file, value) {
-  await fs.mkdir(path.dirname(file), { recursive: true });
+export async function atomicJson(file, value, { io = fs, sleep = delay } = {}) {
+  await io.mkdir(path.dirname(file), { recursive: true });
   const temp = `${file}.${randomUUID()}.tmp`;
-  await fs.writeFile(temp, JSON.stringify(value, null, 2), { flag: 'wx' });
-  await fs.rename(temp, file);
+  try {
+    await io.writeFile(temp, JSON.stringify(value, null, 2), { flag: 'wx' });
+    for (let attempt = 0; ; attempt++) {
+      try { await io.rename(temp, file); break; }
+      catch (error) {
+        if (attempt >= 4 || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code)) throw error;
+        await sleep(30 * (attempt + 1));
+      }
+    }
+  } finally { await io.rm(temp, { force: true }).catch(() => {}); }
 }
 export async function regular(file) {
   const stat = await fs.lstat(file);
