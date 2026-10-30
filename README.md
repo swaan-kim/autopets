@@ -2,7 +2,9 @@
 
 **좋은 스킬을 쉽게 쓰고, 하던 일은 펫과 이어서.**
 
-쓰던 Codex 채팅에서 펫에게 일을 맡기는 Windows 앱입니다. 펫에 일하는 방법과 설정을 저장하고, 계획·작업·결과 확인을 이어갑니다.
+좋은 스킬과 작업 설정을 펫에 저장하고, 쓰던 Codex 채팅에서 일을 맡기고 이어가는 Windows 앱입니다. 할 일은 Codex에서, 펫 선택·설정·상태 확인·채팅 복귀는 앱에서 합니다.
+
+Codex는 쓰지만 스킬·설정 선택이 낯선 사용자를 위해 만듭니다. 행사·캠페인 업무를 반복하는 마케팅·운영 담당자가 첫 사용자 가설입니다.
 
 [설치 안내](INSTALL.md) · [Windows 개발 미리보기](https://github.com/swaan-kim/autopets/releases) · [실제 검증 기록](docs/testing/copy-free-installed-20261021.md) · [남은 계획](docs/roadmap/mvp-execution.md)
 
@@ -12,7 +14,7 @@
 
 *개발 브라우저에서 촬영한 검수 예시입니다. 합성 상태·카드는 실제 채팅 실행과 구분합니다.*
 
-**공개 설치본과 개발 소스는 다릅니다.** 현재 공개 파일은 `v0.1.0-dev.20261020.797857d04ac3` 미서명 미리보기입니다. 아래 최신 화면·안정화·Agentation 개선은 [PR #22](https://github.com/swaan-kim/autopets/pull/22)의 개발 작업이며, 새 설치본 배포는 별도입니다.
+**공개 설치본과 개발 소스는 다릅니다.** 현재 공개 파일은 `v0.1.0-dev.20261020.797857d04ac3` 미서명 미리보기입니다. 제품 코드 `877c4ea`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/40559050187)는 통과했지만, 최신 화면·안정화·Agentation 개선을 담은 [PR #22](https://github.com/swaan-kim/autopets/pull/22)는 아직 병합 전입니다. 새 설치본 배포는 별도입니다.
 
 ## AI에게 설치를 부탁하려면
 
@@ -102,6 +104,8 @@ node scripts/validate-release.mjs
 `pnpm dev`는 개발 화면, `pnpm desktop`은 네이티브 개발 실행입니다. `pnpm dev:feedback`은 브라우저 검수 화면(1420)과 로컬 Agentation 서버(4747)를 함께 엽니다. `pnpm feedback:mcp`는 MCP 연결, `pnpm ui:scope <담당> <변경 파일...>`는 담당 파일 검사에 사용합니다. Agentation은 개발용이며 제품 빌드·Tauri 창·펫 오버레이에 포함하지 않습니다.
 
 공동 작업은 **한 작업·한 담당자·한 PR**, 다른 사람 한 명의 검토를 기준으로 합니다. PR의 전후 비교·검사·AI 인계 형식은 `pnpm review:check --body <본문파일>`로 확인합니다. [화면 전후 비교](docs/changes/22/README.md) · [공동 규격 검사](docs/testing/team-collaboration-20261028.md)
+
+개선 우선순위와 코드·화면 작성 기준은 [제작 컨벤션](docs/development/team-workflow.md#제작-컨벤션)을 따릅니다. 기존 연동·데이터를 보존하며 필요한 범위만 변경합니다.
 
 [팀 작업 규칙](docs/development/team-workflow.md) · [Agentation 공동 수정](docs/development/ui-collaboration.md) · [UI 검사 기록](docs/testing/agentation-ui-collaboration.md)
 
