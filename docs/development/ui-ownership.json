@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "owners": {
+    "home": {"elements": ["home"], "files": ["apps/desktop/src/features/pets/PetHome.tsx", "apps/desktop/src/features/pets/pet-home.css", "apps/desktop/tests/companion-ui.cjs", "apps/desktop/tests/visual-simplicity-ui.cjs"]},
+    "pet-selection": {"elements": ["pet-selection"], "files": ["apps/desktop/src/features/pets/PetWorkspace.tsx", "apps/desktop/src/features/pets/UiPetStudio.tsx", "apps/desktop/src/features/pets/pet-composer-simple.css", "apps/desktop/tests/pet-discovery-ui.cjs", "apps/desktop/tests/ui-pet-studio-ui.cjs", "apps/desktop/tests/copy-free-ui.cjs"]},
+    "task-card": {"elements": ["task-card"], "files": ["apps/desktop/src/features/pets/ExplicitPet.tsx", "apps/desktop/src/features/pets/explicit-pet.css", "apps/desktop/src/features/pets/PetTaskReturn.tsx", "apps/desktop/src/features/pets/useTaskLabel.ts", "apps/desktop/tests/pet-link-ui.cjs", "apps/desktop/tests/pet-task-return-ui.cjs"]}
+  }
+}

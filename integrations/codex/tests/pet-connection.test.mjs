@@ -10,7 +10,7 @@ const parent='11111111-1111-4111-8111-111111111111', child='22222222-2222-4222-8
 const cwd=path.resolve('fixture'), executable=path.resolve('fixture-codex.exe'), connection=path.resolve('fixture-connection.json');
 function fixture() {
   let link=null; const calls=[];
-  const deps={cwd,realpath:async v=>v,readConnection:async ()=>({}),
+  const deps={cwd,realpath:async v=>v,readConnection:async ()=>({}),preflight:async()=>({supported:true}),
     inspect:async ()=>({node:{cwd},models:[{model:'gpt-6-luna',supportedReasoningEfforts:['low']},{model:'gpt-6-sol',supportedReasoningEfforts:['low','medium']}]}),
     request:async (_,url,input)=>{
       calls.push({url,input});
@@ -31,6 +31,23 @@ test('explicit connect rereads the same task without hooks, events or model runs
   await f.run('connect'); assert.equal((await f.run('status')).link.revision,1);
 });
 
+test('catalog outage leaves status, recovery and disable available but blocks a new request',async()=>{
+  const f=fixture(), inspect=f.deps.inspect;
+  await f.run('connect');
+  f.deps.inspect=async args=>{ if(args.includeModels) throw Error('catalog-offline');return inspect(args); };
+  await f.run('status'); await f.run('disable');
+  assert.equal(f.calls.at(-1).input.operation,'enable');assert.equal(f.calls.at(-1).input.enabled,false);
+  await assert.rejects(f.run('prepare'),/catalog-offline/);
+  assert.equal(f.calls.filter(call=>call.input.operation==='prepare').length,0);
+});
+
+test('unsupported observation format fails before reserving or dispatching',async()=>{
+  const f=fixture();await f.run('connect');
+  f.deps.preflight=async()=>{throw Error('unsupported-runtime-index');};
+  await assert.rejects(f.run('prepare'),/unsupported-runtime-index/);
+  assert.equal(f.calls.filter(call=>call.input.operation==='prepare').length,0);
+});
+
 test('saved pet identity and revision are applied only to the verified current target and reread',async()=>{
   const f=fixture();
   const result=await f.run('connect',['--pet','ui-fixture','--pet-revision','3']);
@@ -47,7 +64,7 @@ test('selected UI skill and optional companion are packaged, pinned and passed s
   const result=await f.run('prepare',['--profile','plan']);
   assert.deepEqual(result.skills.map(s=>s.id),['frontend-design','autopets-figma-design']);
   assert.equal(result.skillReader.executable,process.execPath);
-  assert.deepEqual(result.skillReader.reads,[['--bundled-id','frontend-design'],['--bundled-id','autopets-figma-design']]);
+  assert.deepEqual(result.skillReader.reads,[['--id','frontend-design','--version',result.skills[0].version],['--id','autopets-figma-design','--version','1.0.0']]);
   assert.ok(Buffer.byteLength(result.instruction)<=3072);
   assert.ok(!result.instruction.includes('The Elements of Typographic Style'));
   f.edit(link=>{link.template.skills[0].version='unavailable';});

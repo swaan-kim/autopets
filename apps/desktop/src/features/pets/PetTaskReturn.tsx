@@ -68,8 +68,8 @@ function PetTaskReturnAction({ link, disconnected }: { link: PetLink; disconnect
     try { await navigator.clipboard.writeText(link.target.threadId); if (mounted.current) setCopyNotice('작업 ID를 복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
     catch { if (mounted.current) setCopyNotice('복사하지 못했어요. 아래 작업 ID를 직접 선택해 주세요.'); }
   };
-  return <div className="pet-task-return" data-testid="pet-task-return">
-    <button className="button explicit-return" disabled={busy || !supported} onClick={() => void open()}>{busy ? 'Codex에 요청 중…' : petTaskReturnLabel(link, disconnected)}</button>
+  return <div className="pet-task-return" data-testid="pet-task-return" data-agent-id="task-card.return-panel">
+    <button className="button explicit-return" data-agent-id="task-card.return" disabled={busy || !supported} onClick={() => void open()}>{busy ? 'Codex에 요청 중…' : petTaskReturnLabel(link, disconnected)}</button>
     {notice && <p className="explicit-return-notice" role={failed ? 'alert' : 'status'}>{notice}</p>}
     {(!supported || failed) && <div className="explicit-return-fallback">
       {!supported && <p>지금은 앱에서 바로 열 수 없어요. Codex에서 같은 작업을 찾아주세요.</p>}

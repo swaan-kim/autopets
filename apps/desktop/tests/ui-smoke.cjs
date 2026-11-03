@@ -13,6 +13,7 @@ const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
+const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetDiscoveryChecks } = require('./pet-discovery-ui.cjs');
 const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
 const { runCompanionChecks } = require('./companion-ui.cjs');
@@ -288,6 +289,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_COPY_FREE_ONLY === '1') {
+      const screenshots = await runCopyFreeChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_PET_LINK_ONLY === '1') {
       await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ checks, pageErrors: errors }, null, 2)); return;
@@ -332,7 +339,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     const empty = await newPage();
     await empty.goto(origin);
-    await empty.getByRole('heading', { name: '무엇을 도와줄까요?', exact: true }).waitFor();
+    await empty.getByRole('heading', { name: '어떤 펫과 일할까요?', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await chooseRole(empty, '웹페이지 만들기');
     assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
@@ -527,8 +534,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await manager.getByRole('tab', { name: '연결·데이터', exact: true }).click();
     await manager.getByText('연결별 지원 상태', { exact: true }).click();
     assert.equal(await manager.getByText('모델 자동 변경 · 미검증', { exact: true }).count(), 2);
-    await manager.getByRole('button', { name: '모든 채팅 기록 삭제', exact: true }).click();
-    await manager.getByRole('button', { name: '모든 기록 삭제 확인', exact: true }).click();
+    await manager.getByRole('button', { name: '작업 메모·계획 초기화', exact: true }).click();
+    await manager.getByRole('button', { name: '메모·계획 초기화 확인', exact: true }).click();
     assert.ok(await manager.evaluate(() => window.__uiTest.assistance.tasks.every(task => !task.context.goal && !task.context.constraints.length)));
     checks.push('opt-in and preferences stay distinct from confirmed delivery; exact account/chat edits, off and deletion remain isolated');
 
@@ -696,6 +703,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
+    graphScreenshots.push(...await runCopyFreeChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

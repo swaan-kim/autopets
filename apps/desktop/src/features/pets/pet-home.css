@@ -1,8 +1,11 @@
 /* Entry discovery is local and deliberately separate from connected work. */
-.pet-home-start { display: flex; flex-direction: column; align-items: center; max-width: 630px; min-height: 526px; margin: 0 auto; padding: 22px 0 28px; }
+.pet-home-start { display: flex; flex-direction: column; align-items: center; max-width: 630px; min-height: 418px; margin: 0 auto; padding: 18px 12px 28px; }
 .pet-home-greeting { --pet-size: 174px; display: block; width: var(--pet-size); height: var(--pet-size); padding: 0; margin: 0 0 9px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .pet-home-greeting:hover { background: #fafafa; }
-.pet-workspace-v2 .pet-home h1 { font-size: clamp(26px, 3.5vw, 34px); letter-spacing: -1px; margin: 0 0 24px; text-align: center; }
+.pet-home-greeting:focus-visible, .pet-home-find:focus-visible { outline: 2px solid #3f4a52; outline-offset: 5px; }
+.pet-workspace-v2 .pet-home h1 { font-size: clamp(26px, 3.5vw, 34px); letter-spacing: -1px; margin: 0 0 10px; text-align: center; }
+.pet-home-intro { margin: 0 0 22px; text-align: center; color: #626c73; font-size: 15px; line-height: 1.6; word-break: keep-all; }
+.pet-home-connection { max-width: 30em; min-height: 1.6em; margin: 13px 0 0; text-align: center; color: #6c757b; font-size: 13px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 .pet-home-form { width: 100%; border: 1px solid #dce0e3; padding: 13px; border-radius: 22px; background: #fff; box-shadow: 0 6px 28px #20272c05; }
 .pet-home-form:focus-within { border-color: #8a949b; }
 .pet-home-input { display: block; width: 100%; }
@@ -10,7 +13,7 @@
 .pet-home-input textarea { width: 100%; min-height: 82px; border: 0; border-radius: 8px; padding: 8px 9px; color: #353b3f; background: transparent; resize: vertical; font: inherit; font-size: 16px; line-height: 1.55; }
 .pet-home-input textarea::placeholder { color: #7a8288; }
 .pet-home-input textarea:focus-visible { outline: 2px solid #b5bec4; outline-offset: -1px; }
-.app-shell .pet-home .pet-home-find { display: flex; justify-content: center; align-items: center; gap: 22px; min-height: 44px; width: 100%; margin: 8px 0 0; border-radius: 12px; background: #edf0f2; border-color: #e5e8ea; color: #30363a; font-size: 15px; }
+.app-shell .pet-home .pet-home-find { display: flex; justify-content: center; align-items: center; gap: 22px; min-height: 48px; width: min(100%, 340px); margin: 0; border-radius: 12px; background: #edf0f2; border-color: #e5e8ea; color: #30363a; font-size: 15px; }
 .pet-home-find:disabled { opacity: .55; }
 .app-shell .pet-home .pet-home-browse { margin: 14px 0 0; padding: 8px 16px; min-height: 44px; font-size: 14px; color: #525d65; }
 .pet-home-resume { margin: 14px 0 25px; padding-top: 25px; border-top: 1px solid #eceef0; }
@@ -56,7 +59,7 @@
 .workspace-role-detail .result-preview figcaption small { font-size: 12px; }
 @media (max-width: 1050px) { .pet-home-resume-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
-  .pet-home-start { max-width: 550px; padding-top: 14px; min-height: 500px; }
+  .pet-home-start { max-width: 550px; padding-top: 14px; min-height: 400px; }
   .pet-home-greeting { --pet-size: 160px; }
   .workspace-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .workspace-detail-preview { max-width: 630px; width: 100%; margin: 0 auto; }
@@ -67,9 +70,9 @@
   .workspace-detail-more { grid-column: 1 / -1; }
 }
 @media (max-width: 520px) {
-  .pet-home-start { min-height: 455px; padding-top: 10px; }
+  .pet-home-start { min-height: 360px; padding-top: 10px; }
   .pet-home-greeting { --pet-size: 138px; }
-  .pet-workspace-v2 .pet-home h1 { font-size: 26px; margin-bottom: 20px; }
+  .pet-workspace-v2 .pet-home h1 { font-size: 26px; margin-bottom: 10px; }
   .pet-home-resume-grid { grid-template-columns: 1fr; }
   .pet-home-form { padding: 10px; border-radius: 18px; }
   .workspace-heading { flex-wrap: wrap; }

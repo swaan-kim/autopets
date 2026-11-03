@@ -87,7 +87,7 @@ export function auditPetResources(rows, turnId, expectedSkills, figmaEnabled = f
       if (!readerRequested) continue;
       const confirmed = resultObjects.some(value => value.kind === 'autopets-skill-read-v1'
         && value.id === skill.id && value.version === skill.version && value.sha256 === skill.sha256
-        && typeof value.path === 'string' && normalized(path.resolve(value.path)) === normalized(path.resolve(skill.path))
+        && typeof value.path === 'string' && (skill.evidencePaths ?? [skill.path]).some(expected => normalized(path.resolve(value.path)) === normalized(path.resolve(expected)))
         && typeof value.text === 'string' && skillDigest(canonical(value.text)) === skill.textSha256);
       if (confirmed) read.add(`${skill.id}@${skill.version}`);
     }

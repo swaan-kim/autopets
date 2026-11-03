@@ -7,4 +7,7 @@ import './app/manager.css';
 import './features/pets/workspace.css';
 import './app/readable-type.css';
 
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+const Feedback = import.meta.env.DEV && import.meta.env.VITE_AGENTATION === '1'
+  ? React.lazy(() => import('./development/Feedback')) : null;
+const browserPreview = !('__TAURI_INTERNALS__' in window) && !new URLSearchParams(location.search).has('pet');
+createRoot(document.getElementById('root')!).render(<React.StrictMode><App />{Feedback && browserPreview && <React.Suspense fallback={null}><Feedback /></React.Suspense>}</React.StrictMode>);

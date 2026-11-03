@@ -51,7 +51,7 @@ Rust는 domain의 타입·검증, application의 처리, storage의 SQL, transpo
 
 앱 ID local.autopets.desktop, AppData·AUTOPETS_DATA_DIR·SQLite·펫 배치는 그대로다. 디렉터리 정리에서는 기존 데이터 이동·삭제·스키마 이관을 하지 않았다. 후속 계획·실행 설정은 별도 버전의 테이블을 추가하고 기존 assistance JSON은 유지한다. 루트 work와 release는 무시된 산출물 디렉터리다. 공개 목업 docs/demo/index.html과 Pages 주소를 유지한다.
 
-[실행 계약](assistance.md) · [검수](../testing/assistance-implementation.md) · [병렬 개발 인계](../roadmap/parallel-development.md)
+[실행 계약](assistance.md) · [검수](../testing/assistance-implementation.md) · [공동 작업 안내](../development/team-workflow.md)
 
 후속 기능: [계획·실행 상태와 제출 보호](planning-execution.md).
 

@@ -39,6 +39,7 @@ impl Store {
     pub fn disconnect_pet_slot(&mut self, slot: usize) -> Result<bool, String> {
         let key = self.pet_links.iter().find(|(_,l)| l.slot == slot).map(|(k,_)| k.clone());
         if let Some(key) = key {
+            if self.pet_links.get(&key).and_then(|link| link.run.as_ref()).is_some_and(Run::unresolved) { return Err("pet-run-active-or-unresolved".into()); }
             self.db.execute("DELETE FROM explicit_pet_links_v1 WHERE identity=?1", [&key]).map_err(super::sqlite::db_err)?;
             self.pet_links.remove(&key); return Ok(true);
         }
@@ -71,6 +72,7 @@ impl Store {
         let mut link = previous.ok_or("pet-not-connected")?;
         let expected = match &request { Request::Settings{expected_revision,..} | Request::ApplyPet{expected_revision,..} | Request::Enable{expected_revision,..} | Request::Disconnect{expected_revision,..} | Request::CloseTracking{expected_revision,..} | Request::Prepare{expected_revision,..} | Request::Report{expected_revision,..} => *expected_revision, _=>unreachable!() };
         if link.revision != expected { return Err("pet-revision-changed".into()); }
+        let mut reservation: Option<String> = None;
         match request {
             Request::Settings{profile,..} => {
                 if link.run.as_ref().is_some_and(Run::unresolved) { return Err("pet-run-active-or-unresolved".into()); }
@@ -112,7 +114,7 @@ impl Store {
                     if run.unresolved() { return Err("previous-pet-run-unresolved".into()); }
                 }
                 let (model,effort)=profile.settings();
-                self.db.execute("INSERT INTO explicit_pet_requests_v1(request_id,identity) VALUES(?1,?2)", params![request_id,link.target.key()]).map_err(|_| "pet-request-already-used")?;
+                reservation = Some(request_id.clone());
                 link.run=Some(Run{id:request_id,settings_revision:link.revision,profile:profile.clone(),model:model.into(),effort:effort.into(),state:RunState::Requested,child_id:None,turn_id:None,observed_model:None,observed_effort:None,evidence:None,started_at:now_ms(),agent_path:None,tracking_closed:false,result_returned:false,runtime_completed:false,template:Some(link.template.clone()),saved_pet:link.saved_pet.clone(),skill_evidence:vec![],figma_used:false});
             },
             Request::Report{request_id,receipt,..} => {
@@ -167,6 +169,15 @@ impl Store {
                 }
             },
             _=>unreachable!(),
+        }
+        if let Some(request_id) = reservation {
+            let value = serde_json::to_string(&link).map_err(|e| e.to_string())?;
+            let tx = self.db.transaction().map_err(super::sqlite::db_err)?;
+            tx.execute("INSERT INTO explicit_pet_requests_v1(request_id,identity) VALUES(?1,?2)", params![request_id,link.target.key()]).map_err(|_| "pet-request-already-used")?;
+            tx.execute("INSERT INTO explicit_pet_links_v1(identity,value) VALUES(?1,?2) ON CONFLICT(identity) DO UPDATE SET value=excluded.value", params![link.target.key(),value]).map_err(super::sqlite::db_err)?;
+            tx.commit().map_err(super::sqlite::db_err)?;
+            self.pet_links.insert(link.target.key(),link.clone());
+            return Ok(Some(link));
         }
         self.save_link(link).map(Some)
     }

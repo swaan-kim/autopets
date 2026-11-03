@@ -70,6 +70,10 @@ pub(crate) fn close_pet_tracking(app: tauri::AppHandle, store: tauri::State<Shar
     update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::CloseTracking{target,expected_revision,request_id}).map(|_|()))
 }
 #[tauri::command]
+pub(crate) fn disconnect_pet_link(app: tauri::AppHandle, store: tauri::State<SharedStore>, target: crate::domain::pet_link::Target, expected_revision: u64) -> Result<(), String> {
+    update(&app,&store,|s| s.pet_link_request(crate::domain::pet_link::Request::Disconnect{target,expected_revision}).map(|_|()))
+}
+#[tauri::command]
 pub(crate) fn assign_session(
     app: tauri::AppHandle,
     store: tauri::State<SharedStore>,

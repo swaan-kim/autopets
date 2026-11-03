@@ -3,13 +3,114 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
-import { SKILL_ROOT, skillRootForRuntime, resolvePetSkills, readPinnedSkill, readBundledSkill } from '../runtime/pet-skills.mjs';
+import { SKILL_ROOT, skillRootForRuntime, skillDigest, resolvePetSkills, readPinnedSkill, readBundledSkill, validateBundledSkillPins } from '../runtime/pet-skills.mjs';
 import { auditPetResources, classifyFigmaRead } from '../runtime/pet-resource-audit.mjs';
 import { readSkillArgs } from '../skills/autopets/scripts/read-skill.mjs';
 
 const ref={id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'};
 const turn='33333333-3333-4333-8333-333333333333';
 const row=p=>({type:'response_item',payload:p});
+
+async function versionFixture(t) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-skill-versions-'));
+  t.after(async () => {
+    assert.equal(path.dirname(root), os.tmpdir());
+    assert.ok(path.basename(root).startsWith('autopets-skill-versions-'));
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  await fs.cp(SKILL_ROOT, root, { recursive: true });
+  const registry = JSON.parse(await fs.readFile(path.join(root, 'skill-sources.json'), 'utf8'));
+  const pins = JSON.parse(await fs.readFile(path.join(root, 'versions/skill-pins.json'), 'utf8'));
+  const previous = registry.skills.find(entry => entry.id === 'autopets-daily-plan');
+  const text = (await fs.readFile(path.join(root, previous.id, 'SKILL.md'), 'utf8')) + '\n새 버전의 작업 원칙입니다.\n';
+  const next = { ...previous, version: '2.0.0', sha256: skillDigest(text.replaceAll('\r\n', '\n')) };
+  registry.skills[registry.skills.indexOf(previous)] = next;
+  pins.skills.push(next);
+  await fs.mkdir(path.join(root, 'versions', next.id, next.version));
+  await fs.writeFile(path.join(root, next.id, 'SKILL.md'), text);
+  await fs.writeFile(path.join(root, 'versions', next.id, next.version, 'SKILL.md'), text);
+  await fs.writeFile(path.join(root, 'skill-sources.json'), JSON.stringify(registry));
+  await fs.writeFile(path.join(root, 'versions/skill-pins.json'), JSON.stringify(pins));
+  return { root, previous, next, registry, pins };
+}
+
+test('an installed update retains the old exact skill while short reads choose only the current version', async t => {
+  const f = await versionFixture(t), options = { root: f.root };
+  assert.deepEqual(await validateBundledSkillPins(options), { current: 9, preserved: 10 });
+  const old = await readPinnedSkill(f.previous.id, f.previous.version, options);
+  const current = await readBundledSkill(f.previous.id, options);
+  assert.equal(old.version, f.previous.version);
+  assert.equal(old.sha256, f.previous.sha256);
+  assert.equal(path.relative(await fs.realpath(f.root), old.path), path.join('versions', f.previous.id, f.previous.version, 'SKILL.md'));
+  assert.equal(current.version, f.next.version);
+  assert.notEqual(current.text, old.text);
+  assert.equal(current.path, await fs.realpath(path.join(f.root, f.next.id, 'SKILL.md')));
+});
+
+test('a missing old pin never substitutes the newer installed skill or hides a packaging failure', async t => {
+  const f = await versionFixture(t), options = { root: f.root };
+  await fs.unlink(path.join(f.root, 'versions', f.previous.id, f.previous.version, 'SKILL.md'));
+  await assert.rejects(readPinnedSkill(f.previous.id, f.previous.version, options), /bundled-skill-missing/);
+  assert.equal((await readBundledSkill(f.next.id, options)).version, f.next.version);
+  await assert.rejects(validateBundledSkillPins(options), /bundled-skill-missing/);
+  await assert.rejects(readPinnedSkill(f.previous.id, '../2.0.0', options), /reference-invalid/);
+});
+
+test('recovery recognizes a pre-update read only at its known installed path with exact historical content', async t => {
+  const f = await versionFixture(t), options = { root: f.root };
+  const skills = await resolvePetSkills({ skills: [f.previous] }, options);
+  const content = await readPinnedSkill(f.previous.id, f.previous.version, options);
+  const oldOutput = { ...content, path: path.join(await fs.realpath(f.root), f.previous.id, 'SKILL.md') };
+  const output = row({ type: 'function_call_output', call_id: 'old-read', output: JSON.stringify(oldOutput) });
+  const rows = [{ type: 'turn_context', payload: { turn_id: turn } },
+    row({ type: 'function_call', name: 'exec_command', call_id: 'old-read', arguments: `node C:/bundle/autopets/scripts/read-skill.mjs --bundled-id ${f.previous.id}` }), output];
+  assert.deepEqual(auditPetResources(rows, turn, skills).skills, [{ id: f.previous.id, version: f.previous.version }]);
+  output.payload.output = JSON.stringify({ ...oldOutput, path: path.join(f.root, 'unregistered/SKILL.md') });
+  assert.deepEqual(auditPetResources(rows, turn, skills).skills, []);
+  output.payload.output = JSON.stringify({ ...oldOutput, text: (await readBundledSkill(f.next.id, options)).text });
+  assert.deepEqual(auditPetResources(rows, turn, skills).skills, []);
+});
+
+test('rewriting a current version requires a new immutable pin rather than replacing its declared hash', async t => {
+  const f = await versionFixture(t), options = { root: f.root };
+  const file = path.join(f.root, f.next.id, 'SKILL.md');
+  const text = await fs.readFile(file, 'utf8') + 'changed without a version bump';
+  await fs.writeFile(file, text);
+  f.registry.skills.find(entry => entry.id === f.next.id).sha256 = skillDigest(text);
+  await fs.writeFile(path.join(f.root, 'skill-sources.json'), JSON.stringify(f.registry));
+  await assert.rejects(readPinnedSkill(f.next.id, f.next.version, options), /bundled-skill-pin-mismatch/);
+  await assert.rejects(validateBundledSkillPins(options), /bundled-skill-pin-mismatch/);
+  assert.equal((await readPinnedSkill(f.previous.id, f.previous.version, options)).sha256, f.previous.sha256);
+});
+
+test('preserved skills and license files retain package containment and hash checks', async t => {
+  const f = await versionFixture(t), options = { root: f.root };
+  const archived = path.join(f.root, 'versions', f.previous.id, f.previous.version, 'SKILL.md');
+  await assert.rejects(readPinnedSkill(f.previous.id, f.previous.version, { ...options,
+    realpath: file => file === archived ? Promise.resolve(path.join(f.root, 'outside.md')) : fs.realpath(file),
+  }), /location-mismatch/);
+  await fs.appendFile(archived, 'changed');
+  await assert.rejects(readPinnedSkill(f.previous.id, f.previous.version, options), /bundled-skill-integrity/);
+  const license = path.join(f.root, ref.id, 'LICENSE.txt');
+  await assert.rejects(readPinnedSkill(ref.id, ref.version, { ...options,
+    realpath: file => file === license ? Promise.resolve(path.join(f.root, '..', 'LICENSE.txt')) : fs.realpath(file),
+  }), /location-mismatch/);
+});
+
+test('upstream declarations require a pinned source, modification status and contained verified license', async t => {
+  const f = await versionFixture(t), options = { root: f.root };
+  const entry = f.registry.skills.find(skill => skill.id === 'autopets-marketing-copy');
+  for (const patch of [{ source: entry.source.replace(entry.upstreamCommit, 'main') }, { modified: undefined },
+    { upstreamSha256: 'not-a-content-hash' }, { license: { ...entry.license, file: '../LICENSE.txt' } }]) {
+    const changed = { ...f.registry, skills: f.registry.skills.map(skill => skill.id === entry.id ? { ...skill, ...patch } : skill) };
+    await fs.writeFile(path.join(f.root, 'skill-sources.json'), JSON.stringify(changed));
+    await assert.rejects(resolvePetSkills({ skills: [{ id: entry.id, version: entry.version }] }, options), /provenance-invalid/);
+  }
+  await fs.writeFile(path.join(f.root, 'skill-sources.json'), JSON.stringify(f.registry));
+  f.pins.skills.push(f.pins.skills[0]);
+  await fs.writeFile(path.join(f.root, 'versions/skill-pins.json'), JSON.stringify(f.pins));
+  await assert.rejects(validateBundledSkillPins(options), /pin-duplicate/);
+});
 
 test('skill reader retries only corrected exact arguments; a cwd suffix remains invalid',async()=>{
   const args=['--id',ref.id,'--version',ref.version];

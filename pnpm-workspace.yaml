@@ -3,4 +3,5 @@ packages:
   - packages/*
   - docs/design-source
 allowBuilds:
+  better-sqlite3: true
   esbuild: true

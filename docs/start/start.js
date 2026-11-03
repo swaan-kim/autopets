@@ -1,5 +1,16 @@
 // Public download data is validated and injected by build-product-site.mjs.
-// A source preview or missing/invalid declaration never enables installation.
+// A source preview or missing/invalid declaration never enables stable installation.
+// Copying an invocation is a convenience for an already prepared Codex host.
+const copyInvocation = document.getElementById('copy-invocation');
+copyInvocation.addEventListener('click', async () => {
+  const request = document.getElementById('invocation-text').textContent;
+  try {
+    await navigator.clipboard.writeText(request);
+    document.getElementById('copy-status').textContent = '호출 문구를 복사했어요. 사용할 Codex 채팅에 보내세요.';
+  } catch {
+    document.getElementById('copy-status').textContent = '복사하지 못했어요. 위 문구를 선택하거나 Codex에서 AutoPets 스킬을 직접 고르세요.';
+  }
+});
 const data = document.getElementById('autopets-release');
 let release = null;
 try {
@@ -24,12 +35,4 @@ if (release) {
   document.getElementById('release-version').textContent = release.version;
   document.getElementById('release-sha').textContent = release.installer.sha256;
   document.getElementById('release-details').hidden = false;
-  const copy = document.getElementById('copy-invocation');
-  copy.disabled = false;
-  copy.textContent = 'AI에게 요청할 문구 복사';
-  copy.addEventListener('click', async () => {
-    const request = `AutoPets를 켜줘. 없으면 공식 Windows 설치 안내 https://swaan-kim.github.io/autopets/start/ 를 확인하고, 지원되는 로컬 실행 환경에서 이 공개 설치 파일로 설치를 도와줘: ${release.installer.url}\nSHA-256: ${release.installer.sha256}\n설치 후 AutoPets 연결 화면을 열어줘. 이 Windows PC에 접근할 수 없는 웹·클라우드 환경이면 설치 링크를 안내해줘.`;
-    try { await navigator.clipboard.writeText(request); document.getElementById('copy-status').textContent = '복사했어요. 사용 중인 AI에 붙여넣어 주세요.'; }
-    catch { document.getElementById('copy-status').textContent = '복사하지 못했어요. 버튼으로 설치한 뒤 앱에서 연결해주세요.'; }
-  });
 }

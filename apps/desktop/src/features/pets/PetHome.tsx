@@ -2,24 +2,21 @@ import { useRef, useState, type ReactNode } from 'react';
 import { CompanionPet } from './CompanionPet';
 import './pet-home.css';
 
-export function PetHome({ active, request, onRequest, onFind, onBrowse, children }: {
-  active: boolean; request: string; onRequest: (value: string) => void;
-  onFind: () => void; onBrowse: () => void; children?: ReactNode;
+export function PetHome({ active, connectedCount, onBrowse, children }: {
+  active: boolean; connectedCount: number; onBrowse: () => void; children?: ReactNode;
 }) {
-  const input = useRef<HTMLTextAreaElement>(null);
+  const choose = useRef<HTMLButtonElement>(null);
   const [interaction, setInteraction] = useState(0);
-  const react = () => { setInteraction(value => value + 1); input.current?.focus(); };
-  return <section className="pet-home" aria-label="펫과 시작하기">
+  const react = () => { setInteraction(value => value + 1); choose.current?.focus(); };
+  return <section className="pet-home" aria-label="펫과 시작하기" data-agent-scope="home" data-agent-id="home.root">
     <div className="pet-home-start">
-      <button className="pet-home-greeting" aria-label="펫에게 인사하고 할 일 쓰기" onClick={react}>
+      <button type="button" className="pet-home-greeting" aria-label="펫에게 인사하고 펫 고르기" data-agent-id="home.greeting" onClick={react}>
         <CompanionPet state="idle" paused={!active} interaction={interaction} />
       </button>
-      <h1>무엇을 도와줄까요?</h1>
-      <form className="pet-home-form" onSubmit={event => { event.preventDefault(); if (request.trim()) onFind(); else input.current?.focus(); }}>
-        <label className="pet-home-input"><span className="pet-home-input-label">맡길 일</span><textarea ref={input} aria-label="맡길 일" placeholder="예: 학과 행사 웹페이지를 만들고 싶어요" value={request} onChange={event => onRequest(event.target.value)} rows={3} maxLength={1200} /></label>
-        <button className="button pet-home-find" type="submit" disabled={!request.trim()}>펫 찾기 <span aria-hidden="true">→</span></button>
-      </form>
-      <button className="text-button pet-home-browse" onClick={onBrowse}>펫 둘러보기 <span aria-hidden="true">↗</span></button>
+      <h1 data-agent-id="home.title">어떤 펫과 일할까요?</h1>
+      <p className="pet-home-intro" id="home-codex-hint" data-agent-id="home.intro">펫을 고르고, 할 일은 쓰던 Codex에서 말해요.</p>
+      <button type="button" ref={choose} className="button pet-home-find" aria-describedby="home-codex-hint" data-agent-id="home.choose-pet" onClick={onBrowse}>펫 고르기 <span aria-hidden="true">→</span></button>
+      <p className="pet-home-connection" data-agent-id="home.connection" role="status" aria-live="polite" aria-atomic="true">{connectedCount ? `연결된 Codex 채팅 ${connectedCount}개` : '처음이라면 Codex에서 “AutoPets 켜줘”라고 말해보세요.'}</p>
     </div>
     {children}
   </section>;

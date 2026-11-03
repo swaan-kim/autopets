@@ -1,4 +1,4 @@
-const { openCatalog, chooseRole, openSaved, openTasks } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openSaved, openTasks, openCopy } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
@@ -22,6 +22,7 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await flow.getByLabel('저장한 구성',{exact:true}).selectOption('favorite-standard');
  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
  await flow.getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true}).click();
+ await openCopy(flow);
  await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill('');
  assert.equal(await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).isDisabled(),true);
  const request='도예 작품 포트폴리오를 만들고 싶어요.\n작품 3개와 소개, 연락 방법을 담아줘.';

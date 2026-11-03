@@ -8,19 +8,22 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.goto(origin);
  const home=page.locator('.pet-home');
+ assert.equal(await home.getAttribute('data-agent-scope'),'home');
+ for(const id of ['home.root','home.greeting','home.title','home.intro','home.choose-pet','home.connection']) assert.equal(await home.locator(`[data-agent-id="${id}"]`).count()+(id==='home.root'?1:0),1,'each home feedback target has a unique stable id');
  await home.locator('[data-assets="ready"]').first().waitFor();
  const capture=async(name)=>{const p=path.join(screenshotDir,`companion-${name}.png`);await page.screenshot({path:p,fullPage:true});screenshots.push(p);};
  await capture('first');
  const greeting=page.locator('.pet-home-greeting');
  await greeting.focus();await page.keyboard.press('Enter');
- assert.equal(await page.getByLabel('맡길 일',{exact:true}).evaluate(el=>document.activeElement===el),true,'pet keyboard greeting focuses request input');
+ assert.equal(await page.locator('.pet-home-find').evaluate(el=>document.activeElement===el),true,'pet keyboard greeting focuses choosing a pet without submitting a task');
+ assert.equal(await page.locator('.pet-home-find').getAttribute('aria-describedby'),'home-codex-hint');
  assert.deepEqual(await page.evaluate(()=>window.__uiTest.calls),[],'greeting does not save, connect, or execute');
  await page.emulateMedia({reducedMotion:'reduce'});
  await home.locator('.companion-pet[data-playing="false"]').waitFor();
  for(const [w,h] of [[992,688],[716,701],[390,844]]){
    await page.setViewportSize({width:w,height:h});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
-   const action=page.getByRole('button',{name:'펫 찾기',exact:true});
+   const action=page.locator('.pet-home-find');
    await action.scrollIntoViewIfNeeded();assert.equal(await action.isVisible(),true);
    await capture(`viewport-${w}`);
  }
@@ -65,6 +68,6 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  await locks.evaluate(()=>localStorage.setItem('autopets.companion-completions.v1','broken'));
  assert.equal(await locks.evaluate(async()=>{const m=await import('/src/features/pets/companionMotion.ts');return m.claimCompletion('another-run');}),false,'damaged receipt suppresses celebration');
  await locks.close();
- checks.push('home greeting focuses task input without backend changes; small viewports and reduced motion; A/B isolation; completion dedupe/reload/reconnect; hidden playback stops; failed assets fall back; concurrent receipts serialize');
+ checks.push('home greeting focuses pet selection without backend changes; small viewports and reduced motion; A/B isolation; completion dedupe/reload/reconnect; hidden playback stops; failed assets fall back; concurrent receipts serialize');
  return screenshots;
 };

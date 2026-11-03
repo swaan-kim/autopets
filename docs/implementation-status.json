@@ -1,4 +1,7 @@
 {
+  "historical": true,
+  "supersededBy": "docs/development/team-workflow.md",
+  "recordNote": "Preserved 2026-09-22 snapshot. Values below are historical evidence, not current support, task ownership, installation authorization, or test results. Follow the shared team guide and linked testing records for current work.",
   "date": "2026-09-22",
   "scope": "Unified single EXE, explicit in-app AI connection, product site, skill/plugin entry, host capability catalog and signed update path. No installation or publication on the user PC.",
   "phase": "implemented-unified-entry-awaiting-live-verification",

@@ -17,6 +17,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::set_pet_link_enabled,
+            commands::disconnect_pet_link,
             commands::set_pet_link_profile,
             commands::apply_pet_link_template,
             commands::close_pet_tracking,

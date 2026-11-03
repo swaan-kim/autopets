@@ -1,27 +1,42 @@
-name: 구현 작업
-description: 사용자 결과와 검수 기준으로 구현을 나눕니다.
+name: 개선 작업
+description: 한 작업·한 담당자·한 브랜치와 PR로 공유합니다. 작은 개선은 먼저 만들어 보고 판단합니다.
 body:
   - type: textarea
     id: outcome
     attributes:
-      label: 사용자 결과와 결과물
+      label: 문제와 원하는 결과
+      description: 누구의 어떤 불편을 줄이는지 한두 문장으로 적으세요.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: 이번 담당자
+      description: 작업 책임자 한 명의 GitHub 아이디. 검토자는 PR에서 다른 사람으로 정합니다.
+      placeholder: "@담당자"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 수정 범위
+      description: 맡을 화면·파일과 다른 작업에 겹치는 부분을 적으세요. 고정 직책이 아닌 이번 작업의 범위입니다.
     validations:
       required: true
   - type: textarea
     id: dependencies
     attributes:
       label: 선행 작업과 관문
-    validations:
-      required: true
+      description: 관련 Issue·PR, 충돌 가능성, 큰 구조 결정이 필요하면 논의 결과를 연결하세요. 없으면 없음.
   - type: textarea
     id: acceptance
     attributes:
       label: 검수 기준
-      description: 실제 환경과 시연·fixture 검사를 구분하세요.
+      description: 사용자가 확인할 동작과 전후 비교 조건. 실제 실행·합성 검사·디자인 예시를 구분하세요.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
       label: 근거와 남은 제한
-      description: 채팅 본문·개인 경로·인증 정보는 첨부하지 마세요.
+      description: Agentation 의견은 요소 ID·요청·익명화한 이미지로 요약하세요. 채팅 본문·개인 경로·인증 정보는 첨부하지 마세요.

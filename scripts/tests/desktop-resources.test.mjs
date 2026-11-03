@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { stageDesktopResources } from '../stage-desktop-resources.mjs';
+import { stageDesktopResources, collectConnectorFiles } from '../stage-desktop-resources.mjs';
 import { connectInstalled, disconnect, openInstalledPetApp, runPowerShellJson, start, verifyPackage } from '../../integrations/codex/bootstrap/start.mjs';
 import { readJson } from '../../integrations/codex/bootstrap/files.mjs';
 
@@ -41,6 +41,9 @@ test('installer resources work detached from checkout and contain no installer o
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/autopets-intro/SKILL.md'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/frontend-design/LICENSE.txt'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/skill-sources.json'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/versions/skill-pins.json'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/versions/frontend-design/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/SKILL.md'));
+  assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/versions/frontend-design/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/LICENSE.txt'));
   assert.ok(!manifest.files.some(file => /(^|\/)(tests|node_modules|\.local)(\/|$)|connection\.json|\.sqlite3|setup\.exe/u.test(file.path)));
   const imported = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/bootstrap/start.mjs')).href);
   assert.equal(typeof imported.connectInstalled, 'function');
@@ -52,6 +55,7 @@ test('installer resources work detached from checkout and contain no installer o
   const pet = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/skills/autopets/scripts/pet.mjs')).href);
   assert.equal(typeof pet.runPet, 'function');
   const resolver = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/pet-skills.mjs')).href);
+  assert.deepEqual(await resolver.validateBundledSkillPins(), { current: 9, preserved: 9 });
   const bundled = await resolver.resolvePetSkills({ skills: [{ id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f' }],features:{figmaDesign:true} });
   assert.equal(bundled.length,2);
   const catalog = JSON.parse(await fs.readFile(path.join(f.report.connector, 'packages/contracts/data/pet-catalog.json'), 'utf8'));
@@ -80,6 +84,20 @@ test('installer resources work detached from checkout and contain no installer o
   assert.equal(Object.values(config.bundle.resources)[0], 'connector/');
   await assert.rejects(stageDesktopResources({ root: f.root, node: f.fake, license: f.fake, out: f.app }), /empty directory/);
   await assert.rejects(fs.stat(f.env.CODEX_HOME), { code: 'ENOENT' });
+});
+
+test('packaging rejects a removed historical skill before collecting a release', async t => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-skill-package-'));
+  t.after(async () => {
+    assert.equal(path.dirname(temporary), os.tmpdir());
+    assert.ok(path.basename(temporary).startsWith('autopets-skill-package-'));
+    await fs.rm(temporary, { recursive: true, force: true });
+  });
+  const source = fileURLToPath(new URL('../../integrations/codex/skills', import.meta.url));
+  const skills = path.join(temporary, 'integrations/codex/skills');
+  await fs.cp(source, skills, { recursive: true });
+  await fs.unlink(path.join(skills, 'versions/autopets-daily-plan/1.0.0/SKILL.md'));
+  await assert.rejects(collectConnectorFiles({ root: temporary }), /bundled-skill-missing/);
 });
 
 test('verified connector manifests accept the same pinned beta version syntax as release metadata', async t => {
