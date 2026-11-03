@@ -14,18 +14,58 @@ AutoPets는 **좋은 스킬과 작업 설정을 쉽게 쓰고, 하던 일을 펫
 - 현재 방식은 **펫 하위 작업의 모델·강도 라우팅과 계획 프롬프트**다. 자동 훅·부모 모델 변경·실제 Plan 강제를 약속하지 않는다.
 - 대상 ID·폴더·개정 확인, 데이터 보존, 채팅 격리, 중복 실행 방지는 시각 개선보다 우선한다. 보안·신뢰 승인을 우회하지 않는다.
 
-## 현재 현황 · 2026-10-31 기준
+## 현재 현황 · 2026-11-03 기준
 
 | 구분 | 현재 기준 |
 | --- | --- |
-| 개발 소스 | 제품 코드 `877c4ea`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/40559050187)에서 Node·UI·Rust·설치/복구 검사 통과. 문서 후속 수정의 새 실행 증거를 뜻하지 않는다. |
-| 병합 | [PR #22](https://github.com/swaan-kim/autopets/pull/22)는 미병합·사람 검토 대기. 구현·검사 완료와 main 반영을 구분한다. |
+| 개발 소스 | 제품 코드 `877c4ea`에 목적·현황·제작 규칙을 보완한 `71ed655`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/41099445976) 통과. Node·UI·Rust·CI 설치/복구를 확인했으며, 최신 일반 입력이나 사용자 편익의 증거는 아니다. |
+| 통합 범위 | 안정화·화면·Agentation·협업 규격을 [PR #22](https://github.com/swaan-kim/autopets/pull/22)에 모았다. 최종 커밋·검사·병합 여부는 해당 PR이 기준이다. 이번 인계 문서 후속 검사는 PR의 마지막 소스를 확인한다. |
 | 공개 설치본 | `v0.1.0-dev.20261020.797857d04ac3` 미서명 미리보기. 최신 개발 소스와 다르며 서명된 일반 배포가 아니다. |
 | 남은 판단 | 최신 일반 입력의 전체 흐름·보안 정책을 유지한 일반 배포·사용자 편익은 확인된 코드 동작과 별개다. |
 
 설치형 흐름의 실제 근거는 [2026-10-21 검사](../testing/copy-free-installed-20261021.md)다. 내부 메시지 도구로 전달한 요청이며 일반 입력·자동 훅의 신규 통과 근거가 아니다. 최신 소스와 UI 합성 검사를 새 설치본의 실사용 성공으로 확대하지 않는다.
 
-기존 검사·남은 관문과 AI 예산은 [서비스 검수표](../testing/pet-service-readiness.md), 개발 화면·Agentation 결과는 [검사 기록](../testing/agentation-ui-collaboration.md)을 따른다. 이번 목적·현황·컨벤션 정리는 문서 변경만 수행하며 새 AI 시험·사용자 검사·검증 자동화를 추가하지 않는다. 향후 실제 시험 전에는 원장의 누계와 승인 상한을 확인한다.
+기존 검사·남은 관문과 AI 예산은 [서비스 검수표](../testing/pet-service-readiness.md), 개발 화면·Agentation 결과는 [검사 기록](../testing/agentation-ui-collaboration.md)을 따른다. 이번 인계 보완은 문서 변경이며 실제 AI 시험·사용자 검사를 추가하지 않는다. 실제 AI 원장은 **77/85턴**이다. 새 담당자가 기존 예산을 새 예산으로 다시 세지 말고, 실행 전 누계와 현재 승인을 확인한다.
+
+## 처음 합류할 때
+
+1. **자기 작업 공간 준비:** 저장소를 각자 클론하고 `main`을 받는다. 기존 작업 공간이라면 먼저 `git status --short --branch`로 미공유 변경을 확인한다. 강제 초기화하거나 다른 사람의 체크아웃을 함께 쓰지 않는다.
+2. **방향과 담당 확인:** 이 안내의 목적·현황·아래 우선순위를 읽고, 담당 Issue에 범위와 완료 기준을 적는다. 선행 PR이 미병합이면 해당 소스를 먼저 합칠지, 기다릴지 적는다.
+3. **개발 화면 실행:** [README](../../README.md)의 접힌 **개발·검사** 안내에 따라 잠긴 의존성을 설치한다. 화면만 볼 때는 `pnpm dev`, 요소에 의견을 남길 때는 `pnpm dev:feedback`을 쓴다. 실제 설치 앱의 연결 성공과 브라우저 미리보기를 구분한다.
+4. **새 작업으로 수정:** Issue 번호를 넣은 `task/<번호>-<이름>` 브랜치에서 시작한다. PR의 Before/After와 접힌 인계를 채우고 변경에 필요한 검사만 수행한다.
+
+자기 AI에 아래 요청과 **이번 Issue 링크**를 함께 전달하면 된다. 이전 채팅 전문이나 개인 설정 파일은 전달하지 않는다.
+
+```text
+이 저장소의 AGENTS.md와 docs/development/team-workflow.md를 먼저 읽어줘.
+이번 Issue의 목적·수정 범위·완료 기준과 관련 PR을 확인하고,
+원격 상태·현재 브랜치·미커밋 변경부터 점검해줘.
+어디까지 검증됐는지와 남은 조건을 구분하고, 내 범위만 수정해줘.
+기존 연동과 데이터를 유지하고, 전후 비교·검사 결과·다음 행동을 PR에 남겨줘.
+실제 AI 시험·계정 승인·새 배포는 이번 Issue의 권한과 예산을 먼저 확인해줘.
+```
+
+## 다음에 할 일
+
+| 순서 | 작은 작업과 완료 기준 | 시작 근거 |
+| --- | --- | --- |
+| 1 | 최신 일반 입력으로 펫 호출 → 앱 적용 → 같은 채팅의 계획·구현 → 복귀를 확인한다. 정확한 대상, 파일 보존, 요청당 자식 한 번과 실행 설정을 대조한다. 내부 메시지 도구 성공으로 대체하지 않는다. | [대표 흐름·예산](../testing/pet-service-readiness.md) |
+| 2 | 보안 정책을 유지한 설치·서명 경로를 정한다. 계정·서명 자격 등 소유자 조치는 별도로 받고, 실제 새 PC에서 설치·업데이트·보존을 확인한다. | [서명 준비](../releases/code-signing.md) · [설치 안내](../../INSTALL.md) |
+| 3 | 타겟 사용자의 첫 사용·작업 복귀를 관찰하고 막힌 부분부터 고친다. 참가자 0/5이며, 귀여움과 실무 편익은 따로 평가한다. | [사용자 검사 키트](../testing/campaign-user-study.md) |
+
+역할 확대·Dot·Work·Jev·스토어 진입은 위 관문과 별도 합의 없이 이번 후속 작업에 섞지 않는다. 날짜별 [실행 기록](../roadmap/mvp-execution.md)은 과거 근거로 읽고, 옛 중단점이나 예산을 현재 지시로 적용하지 않는다.
+
+## 수정할 코드 찾기
+
+| 하려는 변경 | 먼저 볼 파일과 근거 |
+| --- | --- |
+| 홈·펫 선택·준비 | [PetHome](../../apps/desktop/src/features/pets/PetHome.tsx), [UiPetStudio](../../apps/desktop/src/features/pets/UiPetStudio.tsx), [영역별 파일 범위](ui-ownership.json) |
+| 작업 카드·채팅 복귀 | [ExplicitPet](../../apps/desktop/src/features/pets/ExplicitPet.tsx), [PetTaskReturn](../../apps/desktop/src/features/pets/PetTaskReturn.tsx), [Windows 복귀 처리](../../apps/desktop/src-tauri/src/platform/task_return.rs) |
+| Codex 호출·실행·근거 | [AutoPets 스킬](../../integrations/codex/skills/autopets/SKILL.md), [연결 도구](../../integrations/codex/skills/autopets/scripts/pet.mjs), [스킬 버전·무결성](../../integrations/codex/runtime/pet-skills.mjs), [실행 기록 대조](../../integrations/codex/runtime/delegation-audit.mjs) |
+| 연결·예약 저장·격리 | [SQLite 처리](../../apps/desktop/src-tauri/src/storage/pet_links.rs), [저장·대상 회귀 검사](../../apps/desktop/src-tauri/src/application/tests/pet_links.rs) |
+| 전체 구조·배포 | [저장소 구조](../architecture/layout.md), [Windows 빌드](../releases/windows.md), [배포 식별 정보](../releases/preview.json) |
+
+표는 탐색용이며 수정 권한을 넓히지 않는다. 실제 diff와 관련 검사를 읽고 담당 파일을 정한다.
 
 ## 제작 컨벤션
 
@@ -68,6 +108,8 @@ AutoPets는 **좋은 스킬과 작업 설정을 쉽게 쓰고, 하던 일을 펫
 마무리할 때 **구현 완료 / 병합 완료 / 배포 완료**를 구분한다. 배포 완료에는 어느 설치본이 공개됐는지 남긴다. 문제가 생기면 영향 범위와 해당 변경을 되돌리는 방법을 PR에 남기고 복구한다. 공유 기록의 강제 초기화나 사용자 데이터 삭제를 기본 해결법으로 삼지 않는다. 작은 작업 원칙은 [DORA의 작은 변경 단위 안내](https://dora.dev/capabilities/working-in-small-batches/)를 참고한다.
 
 2026-10-28 기준 쓰기 권한은 소유자 한 명이고 `main` 보호는 아직 설정되지 않았다. 위 승인은 공동 작업 규칙이며 GitHub가 현재 강제하는 설정은 아니다. 다른 두 사람의 쓰기 권한이 준비되면 타인 한 명의 승인과 필수 검사 통과를 요구하도록 브랜치 보호를 설정한다. 이 문서 작업에서 초대나 권한 변경을 대신 수행하지 않는다.
+
+2026-11-03에 소유자가 PR #22의 보완과 병합을 직접 요청했다. 해당 PR은 이 요청을 기록하고 최종 검사 통과 뒤 병합한다. 동료의 리뷰 승인이 있었다는 뜻은 아니며, 이후 작업의 타인 한 명 검토 규칙은 유지한다. 같은 날 `main` 보호가 설정되지 않은 것을 재확인했으며 권한 설정은 변경하지 않는다.
 
 ## PR은 이 정도만
 

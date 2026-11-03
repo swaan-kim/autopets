@@ -14,7 +14,9 @@ Codex는 쓰지만 스킬·설정 선택이 낯선 사용자를 위해 만듭니
 
 *개발 브라우저에서 촬영한 검수 예시입니다. 합성 상태·카드는 실제 채팅 실행과 구분합니다.*
 
-**공개 설치본과 개발 소스는 다릅니다.** 현재 공개 파일은 `v0.1.0-dev.20261020.797857d04ac3` 미서명 미리보기입니다. 제품 코드 `877c4ea`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/40559050187)는 통과했지만, 최신 화면·안정화·Agentation 개선을 담은 [PR #22](https://github.com/swaan-kim/autopets/pull/22)는 아직 병합 전입니다. 새 설치본 배포는 별도입니다.
+**공개 설치본과 개발 소스는 다릅니다.** 2026-11-03 확인한 공개 파일은 `v0.1.0-dev.20261020.797857d04ac3` 미서명 미리보기입니다. 이 개발 소스에는 화면·안정화·Agentation·협업 규격이 포함되어 있으며 [PR #22](https://github.com/swaan-kim/autopets/pull/22)에 변경과 최종 검사·병합 상태를 모았습니다. 문서 정렬 소스 `71ed655`의 [Windows CI](https://github.com/swaan-kim/autopets/actions/runs/41099445976)는 통과했습니다. 새 설치본 배포와 최신 일반 입력·사용자 검사는 별도입니다.
+
+**동료·AI가 이어받으려면:** [공동 안내의 합류 순서](docs/development/team-workflow.md#처음-합류할-때) → 이번 Issue → 관련 PR·검사 결과를 읽으세요. 같은 안내에 복사해 쓸 AI 인계 요청, 코드 위치, 다음 우선순위를 모았습니다.
 
 ## AI에게 설치를 부탁하려면
 
