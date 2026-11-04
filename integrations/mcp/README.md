@@ -22,6 +22,8 @@ node scripts/package-pet-preferences.mjs
 
 표준 STDIO MCP를 제공하므로 지원하는 로컬 클라이언트에서는 `node <서버의 절대 경로>/server.mjs`로 연결할 수 있다. 실제 호스트 설정·신뢰·확장 설치는 자동으로 바꾸지 않는다. 구형 앱에 읽기 경로가 없으면 기능 미지원으로 응답하며 다른 경로로 우회하지 않는다.
 
+개별 메시지는 64KiB로 제한하고 느린 호스트의 응답 수신을 기다린다. 정상 연결은 누적 메시지 수 때문에 종료하지 않는다. 600개 상태 확인을 처리하는 회귀 검사를 포함하며, 상태 확인 자체는 앱·연결 파일을 읽거나 AI를 실행하지 않는다.
+
 ## 지원 경계
 
 파일 저장은 앱에 포함된 고정 자산만 내보낸다. UI에서 임의 파일·바이트·저장 경로를 받지 않고 기존 다운로드를 덮어쓰거나 확장을 설치하지 않는다. Tauri 자산은 [공식 AssetResolver](https://docs.rs/tauri/latest/tauri/struct.AssetResolver.html)로 읽는다. 개발 모드에서는 먼저 `pnpm build`로 frontendDist를 준비해야 한다.

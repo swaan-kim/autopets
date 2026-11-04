@@ -110,3 +110,18 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
   assert.equal(JSON.parse(cli.stdout).result.serverInfo.name, 'autopets-pet-preferences');
   assert.equal(cli.stderr, '');
 });
+
+test('long MCP sessions do not expire by message count and wait for a slow host reader', async () => {
+  let reads = 0;
+  let output = '';
+  const requests = [initialize, initialized, ...Array.from({ length: 600 }, (_, index) => ({ jsonrpc: '2.0', id: index + 2, method: 'ping' }))];
+  await runStdio({
+    input: Readable.from([requests.map(request => JSON.stringify(request)).join('\n') + '\n']),
+    output: new Writable({ highWaterMark: 1, write(chunk, _encoding, done) { setTimeout(() => { output += chunk; done(); }, 0); } }),
+    session: createSession({ library: async () => { reads++; return {}; } }),
+  });
+  const replies = output.trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(replies.length, 601);
+  assert.equal(replies.at(-1).id, 601);
+  assert.equal(reads, 0, 'health checks never read the app or its connection file');
+});

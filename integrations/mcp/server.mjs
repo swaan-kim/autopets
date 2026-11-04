@@ -1,4 +1,5 @@
 import { StringDecoder } from 'node:string_decoder';
+import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { createLibraryClient } from './client.mjs';
 
@@ -61,14 +62,15 @@ export function createSession({ library = createLibraryClient() } = {}) {
 export async function runStdio({ input = process.stdin, output = process.stdout, session = createSession() } = {}) {
   const decoder = new StringDecoder('utf8');
   let buffer = '';
-  let count = 0;
+  const send = async value => {
+    if (!output.write(JSON.stringify(value) + '\n')) await once(output, 'drain');
+  };
   const line = async raw => {
     if (!raw.trim()) return;
-    if (++count > 512) throw Error('session-limit');
     let value;
-    try { value = JSON.parse(raw); } catch { output.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n'); return; }
+    try { value = JSON.parse(raw); } catch { await send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); return; }
     const result = await session(value);
-    if (result) output.write(JSON.stringify(result) + '\n');
+    if (result) await send(result);
   };
   for await (const chunk of input) {
     buffer += decoder.write(Buffer.from(chunk));
@@ -81,6 +83,7 @@ export async function runStdio({ input = process.stdin, output = process.stdout,
     if (Buffer.byteLength(buffer, 'utf8') > 65536) throw Error('message-limit');
   }
   buffer += decoder.end();
+  if (Buffer.byteLength(buffer, 'utf8') > 65536) throw Error('message-limit');
   if (buffer.trim()) await line(buffer);
 }
 
