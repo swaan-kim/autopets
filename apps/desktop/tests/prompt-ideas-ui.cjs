@@ -41,7 +41,7 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   const composer = page.locator('.pet-composer');
   await composer.getByRole('heading', { name: '이미지 프롬프트 만들기', exact: true }).waitFor();
   assert.equal(await composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).inputValue(), JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]), 'the only eligible conversation is preselected without retargeting to disconnected B');
-  assert.equal(await composer.locator('.composer-copy-fallback').evaluate(element => element.open), false, 'using an idea never opens a copy gate');
+  assert.equal(await composer.locator('.composer-copy-fallback').isVisible(), false, 'using an idea never opens a copy gate');
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'browsing and choosing an idea do not connect, save, or execute');
   await composer.getByRole('button', { name: /이 채팅에 펫 적용/ }).click();
   await composer.locator('.composer-applied').waitFor();

@@ -1,57 +1,77 @@
-/* Choose a pet here, then keep the conversation in the user's exact Codex chat. */
-.app-shell .pet-composer { max-width: 680px; margin: 8px auto 36px; }
-.pet-composer .composer-layout { display: flex; flex-direction: column; gap: 18px; padding-top: 4px; }
-.composer-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.composer-identity > .task-pet-art { --pet-size: 68px; }
+/* The saved pet and one next action stay visible; editing has one flat panel. */
+.app-shell .pet-composer { max-width: 620px; margin: 20px auto 40px; }
+.pet-composer .composer-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.pet-composer .composer-top .text-button { min-height: 44px; padding: 0; font-size: 14px; }
+.composer-settings-button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #e8e9eb; border-radius: 13px; background: #fff; color: #42484e; font-size: 21px; cursor: pointer; }
+.composer-settings-button:hover { background: #f5f6f7; }
+.pet-composer .composer-layout { display: flex; flex-direction: column; gap: 28px; padding-top: 0; }
+.composer-identity { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.composer-identity > .task-pet-art { --pet-size: 84px; flex: 0 0 auto; }
 .composer-identity > div { min-width: 0; flex: 1; }
-.pet-composer .composer-identity h1 { margin: 0 0 6px; font-size: 22px; line-height: 1.4; letter-spacing: -.6px; }
-.composer-identity .pet-source-line { margin: 0; font-size: 12px; }
-.composer-identity > .pet-favorite-button { min-width: 44px; min-height: 44px; }
+.composer-eyebrow { display: block; margin-bottom: 5px; color: #7b8187; font-size: 12px; }
+.pet-composer .composer-identity h1 { margin: 0; color: #20262b; font-size: 25px; line-height: 1.4; letter-spacing: -.8px; }
+.composer-identity > .pet-favorite-button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; border-color: transparent; }
+.composer-identity > .pet-favorite-button > span:first-child { font-size: 23px; }
 .pet-composer .composer-main { padding: 0; }
-.pet-composer .composer-task { gap: 10px; font-size: 16px; }
-.pet-composer .composer-task textarea { min-height: 136px; font-size: 16px; font-weight: 400; padding: 16px 18px; }
 .pet-composer .composer-action { margin-top: 16px; }
-.pet-composer .composer-action .button { min-height: 48px; font-size: 15px; }
-.pet-composer .composer-top .text-button { min-height: 44px; font-size: 14px; }
-.pet-composer :is(.composer-brief,.composer-detail,.composer-more,.composer-profile-choice,.composer-notice,.composer-reuse-note,.composer-destinations,.workspace-note) { font-size: 14px; }
-.pet-composer :is(.composer-more > summary > span,.composer-handoff span,.composer-handoff strong,.composer-brief > p,.composer-destinations small,.composer-detail p,.composer-profile-choice summary,.composer-profiles small,.composer-action p) { font-size: 12px; line-height: 1.6; }
-.pet-composer :is(.composer-more > summary,.composer-detail > summary,.composer-profile-choice > summary,.composer-brief > summary) { min-height: 44px; font-size: 14px; }
-.pet-composer .composer-more { margin-top: 16px; }
-.pet-composer .composer-feedback { padding: 12px 14px; }
-.pet-composer .composer-feedback :is(p,button) { font-size: 14px; }
-.pet-composer .composer-destinations .explicit-return { font-size: 14px; }
-.pet-composer .composer-action[data-next=chat] .button { min-height: 40px; background: transparent; border-color: transparent; font-size: 14px; }
-.pet-composer .composer-destinations[data-next=true] .explicit-return { background: #eceeef; color: #292c31; border-color: #dcdfe2; min-height: 48px; font-weight: 650; }
-.composer-direct-intro { margin: 0 0 18px; color: #51565b; font-size: 15px; line-height: 1.7; word-break: keep-all; }
-.composer-target { margin-top: 16px; }
-.composer-target .ui-pet-select { font-size: 14px; }
-.composer-target .ui-pet-select select { min-width: 0; width: 100%; min-height: 48px; font-size: 14px; }
-.composer-target-id { margin: 8px 0 0; color: #646b72; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.composer-target-details { margin-top: 4px; }
-.composer-target-details > summary { min-height: 44px; display: flex; align-items: center; gap: 8px; width: fit-content; cursor: pointer; color: #646b72; font-size: 14px; }
-.composer-target-details > summary::after { content: '+'; }
-.composer-target-details[open] > summary::after { content: '−'; }
-.composer-target-details > summary:focus-visible { outline: 2px solid #424950; outline-offset: 3px; }
-.composer-target-details .composer-target-id { margin: 0 0 8px; }
-.composer-target-blocker { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #f2f3f4; font-size: 14px; line-height: 1.6; color: #424950; }
-.pet-composer .composer-direct-action[data-next=chat] .explicit-return { width: 100%; background: #eceeef; color: #292c31; border-color: #dcdfe2; min-height: 48px; font-size: 15px; font-weight: 650; }
-.pet-composer .composer-applied > p { margin: 0 0 12px; font-size: 14px; color: #454c52; }
-.composer-connect-instruction { padding: 16px 18px; background: #f5f6f7; border-radius: 14px; }
-.pet-composer .composer-connect-instruction p { margin: 0 0 8px; font-size: 14px; line-height: 1.6; }
-.composer-connect-instruction > strong { display: block; margin-bottom: 10px; font-size: 16px; line-height: 1.6; word-break: keep-all; }
-.composer-connect-instruction .text-button { min-height: 44px; }
-.composer-copy-fallback { margin-top: 24px; border-top: 1px solid #e5e7e9; }
-.composer-copy-fallback > summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; color: #525a61; cursor: pointer; font-size: 14px; }
-.composer-copy-fallback > summary::after { content: '+'; margin-left: 12px; }
-.composer-copy-fallback[open] > summary::after { content: '−'; }
-.composer-copy-fallback > p { margin: 2px 0 14px; font-size: 12px; color: #626b72; line-height: 1.7; word-break: keep-all; }
-.pet-composer .composer-copy-action .button { background: #fff; border-color: #dcdfe2; }
-.composer-copy-fallback > summary:focus-visible, .composer-target select:focus-visible { outline: 2px solid #424950; outline-offset: 3px; }
+.pet-composer .button { min-height: 52px; border-radius: 13px; font-size: 15px; }
+.pet-composer :is(.composer-create,.composer-codex-link,.composer-direct-action .button.primary) { background: #242a30; border-color: #242a30; color: #fff; }
+.composer-launch > .button { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+.composer-hosts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.composer-hosts .button { display: flex; width: 100%; justify-content: space-between; align-items: center; box-sizing: border-box; text-decoration: none; }
+.composer-hosts a[aria-disabled=true] { pointer-events: none; opacity: .45; }
+.composer-hosts :is(.setup-notice,.error) { margin: 8px 0 0; font-size: 12px; }
+.composer-target { margin: 0; }
+.pet-composer .ui-pet-select { display: grid; gap: 9px; font-size: 13px; color: #606970; }
+.pet-composer .ui-pet-select select { width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid #dde1e4; border-radius: 12px; background: #fff; color: #252c32; font-size: 14px; }
+.composer-target-blocker { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #f4f5f6; color: #515a62; font-size: 13px; line-height: 1.6; }
+.pet-composer .composer-direct-action .button, .pet-composer .composer-direct-action .explicit-return { width: 100%; min-height: 52px; margin: 0; justify-content: space-between; box-sizing: border-box; font-size: 15px; }
+.pet-composer .composer-direct-action[data-next=chat] .explicit-return { background: #242a30; color: #fff; border-color: #242a30; }
+.pet-composer .composer-save-only { display: block; margin: 8px auto 0; min-height: 36px; font-size: 12px; color: #69727b; }
+.pet-composer :is(.composer-notice,.workspace-note) { margin: 12px 0 0; font-size: 12px; line-height: 1.6; color: #657069; }
+.pet-composer .composer-feedback { padding: 12px 14px; margin-top: 12px; border-radius: 12px; }
+.pet-composer .composer-feedback :is(p,button) { margin: 0; font-size: 13px; line-height: 1.6; }
+.composer-tools { display: flex; align-items: center; justify-content: center; gap: 24px; padding-top: 18px; margin-top: 22px; border-top: 1px solid #edf0f2; }
+.composer-tools .text-button { min-height: 36px; padding: 0; color: #747c83; font-size: 12px; }
+.pet-composer .composer-more.composer-panel { position: fixed; inset: 0; width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: 22px; border: 1px solid #e0e4e7; border-radius: 22px; background: #fff; color: #252b31; box-sizing: border-box; box-shadow: 0 24px 100px #17212d26; overflow: auto; overscroll-behavior: contain; }
+.composer-panel::backdrop { background: #202a354d; }
+.pet-composer .composer-panel:not([open]), .composer-panel > [hidden] { display: none; }
+.composer-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.composer-panel-header > div { display: flex; gap: 4px; padding: 4px; background: #f3f5f6; border-radius: 12px; }
+.composer-panel-header > div > button { border: 0; min-height: 36px; padding: 6px 14px; border-radius: 9px; background: transparent; color: #747c84; font-size: 13px; cursor: pointer; }
+.composer-panel-header > div > button[aria-pressed=true] { background: #fff; color: #242c33; box-shadow: 0 1px 5px #222a3310; }
+.composer-panel-header .composer-close { margin: 0; width: 40px; height: 40px; font-size: 25px; }
+.composer-settings { display: grid; gap: 22px; }
+.composer-settings .composer-profile-choice { margin: 0; padding: 0; border: 0; min-width: 0; }
+.composer-settings .composer-profile-choice legend { margin-bottom: 10px; font-size: 13px; color: #606970; }
+.composer-settings .composer-profiles > div { display: flex; gap: 8px; }
+.composer-settings .composer-profiles label { flex: 1; min-width: 0; justify-content: center; margin: 0; padding: 0; border: 0; }
+.composer-settings .composer-profiles label > span { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 8px; box-sizing: border-box; }
+.composer-settings .composer-profiles input:checked + span { border-color: #35434d; background: #f3f6f7; }
+.composer-settings .composer-profiles strong { font-size: 13px; }
+.composer-settings .composer-figma { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0; font-size: 13px; }
+.composer-settings .pet-skill-source { margin: 0; padding-top: 18px; border-top: 1px solid #edf0f2; }
+.composer-settings .composer-target-details { padding-top: 16px; border-top: 1px solid #edf0f2; }
+.composer-settings .composer-target-details h2 { margin: 0 0 8px; font-size: 12px; color: #747c84; font-weight: 500; }
+.composer-target-id { margin: 0; color: #66717a; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.pet-composer .composer-copy-fallback { margin: 0; border: 0; padding: 0; }
+.pet-composer .composer-task { display: grid; gap: 10px; font-size: 13px; }
+.pet-composer .composer-task textarea { min-height: 144px; margin: 0; padding: 14px; font-size: 15px; line-height: 1.7; font-weight: 400; border-radius: 12px; }
+.composer-panel .composer-brief { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-top: 16px; padding: 0; border: 0; }
+.composer-panel .composer-brief > label { display: grid; gap: 8px; font-size: 12px; }
+.composer-panel .composer-brief input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 42px; padding: 10px; border: 1px solid #e0e5e8; border-radius: 10px; font-size: 13px; }
+.composer-panel .composer-request-result { display: grid; gap: 8px; margin-top: 18px; font-size: 12px; }
+.composer-panel .composer-request-result textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #e0e5e8; border-radius: 12px; font-size: 13px; line-height: 1.6; }
+.pet-composer .composer-panel :is(.composer-notice,.composer-feedback) { margin: 0 0 16px; }
+.composer-panel .composer-destinations { margin-top: 16px; }
+.composer-panel .composer-destinations small { font-size: 12px; color: #77818a; }
+.pet-composer :is(button,a,select,textarea,input):focus-visible { outline: 2px solid #536b7a; outline-offset: 3px; }
 @media (max-width: 520px) {
-  .composer-identity { gap: 10px; }
-  .composer-identity > .task-pet-art { --pet-size: 56px; }
-  .pet-composer .composer-identity h1 { font-size: 20px; }
-  .composer-identity > .pet-favorite-button { width: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
-  .pet-composer .composer-profiles > div { flex-wrap: wrap; }
-  .pet-composer .composer-profiles label { min-width: 95px; }
+  .app-shell .pet-composer { margin-top: 8px; }
+  .composer-identity { gap: 12px; }
+  .composer-identity > .task-pet-art { --pet-size: 68px; }
+  .pet-composer .composer-identity h1 { font-size: 21px; }
+  .composer-hosts { grid-template-columns: minmax(0,1fr); }
+  .pet-composer .composer-more.composer-panel { padding: 18px; }
+  .composer-panel .composer-brief { grid-template-columns: minmax(0,1fr); }
 }

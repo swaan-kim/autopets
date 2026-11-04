@@ -1,14 +1,10 @@
-const { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy, openPetSettings, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
 const hosts = require('../../../packages/contracts/data/connections.json');
 const catalog = require('../../../packages/contracts/data/pet-catalog.json');
-async function openMore(composer) {
-  if (!await composer.locator('.composer-more').evaluate(element => element.open)) {
-    await composer.locator('.composer-more > summary').click();
-  }
-}
+const openMore = openPetSettings;
 
 exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
   const base = {
@@ -22,10 +18,8 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   const flow = page.locator('.pet-composer');
   await openCopy(flow);
   const task = flow.getByLabel('펫에게 맡길 일', { exact: true });
-  assert.equal(await flow.locator('.composer-brief').evaluate(element => element.open), false);
-  assert.equal(await flow.getByLabel('페이지를 볼 사람', { exact: true }).isVisible(), false);
+  assert.equal(await flow.getByLabel('페이지를 볼 사람', { exact: true }).isVisible(), true, 'optional fields share the flat request panel');
   await task.fill('가상 동아리의 소규모 작품 소개 페이지를 계획해줘.\n기존 파일은 바꾸지 마.');
-  await flow.locator('.composer-brief > summary').click();
   await flow.getByLabel('페이지를 볼 사람', { exact: true }).fill('처음 방문하는 가상 신입생');
   await flow.getByLabel('꼭 알릴 내용', { exact: true }).fill('가상 작품 세 개와 다음 전시 일정');
   await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
@@ -49,7 +43,7 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   await task.fill('가상 하루 일정을 정리해줘.');
   assert.equal(await flow.getByText(copyNotice, { exact: true }).count(), 0);
   assert.equal(await flow.locator('.composer-brief').count(), 0);
-  await flow.getByRole('button', { name: '← 돌아가기', exact: true }).click(); await dismissRoleDetail(page);
+  await leaveComposer(flow); await dismissRoleDetail(page);
   await page.getByRole('button', { name: '업무', exact: true }).click();
   await chooseRole(page, '웹페이지 만들기');
   await openCopy(flow);
@@ -65,11 +59,10 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
     window.__uiTest.emitEvent('autopets://roles-changed', {});
   }, catalog.find(entry => entry.id === 'daily-plan'));
   await openMore(flow);
-  await flow.getByText('저장한 구성과 연결 관리', { exact: true }).click();
   await flow.getByLabel('저장한 구성', { exact: true }).selectOption('saved-daily');
   await flow.getByRole('heading', { name: '하루 정리', exact: true }).waitFor();
   assert.notEqual(await task.inputValue(), '수정된 새 요청', 'changing saved configuration across roles must not carry the webpage brief');
-  await flow.getByRole('button', { name: '← 돌아가기', exact: true }).click(); await dismissRoleDetail(page);
+  await leaveComposer(flow); await dismissRoleDetail(page);
   await page.getByRole('button', { name: '업무', exact: true }).click();
   await chooseRole(page, '웹페이지 만들기');
   await flow.getByRole('heading', { name: '웹페이지 만들기', exact: true }).waitFor();
@@ -78,16 +71,15 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'connect_ai').length), 0);
   assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 1);
   await page.setViewportSize({ width: 661, height: 459 });
-  const sourceBounds = await flow.locator('.composer-identity').evaluate(element => ({
-    preview: element.getBoundingClientRect().toJSON(),
-    source: element.querySelector('.pet-source-line').getBoundingClientRect().toJSON(),
-  }));
-  assert.ok(sourceBounds.source.width > 100 && sourceBounds.source.left >= sourceBounds.preview.left && sourceBounds.source.right <= sourceBounds.preview.right, 'compact source name fits inside the preview alongside the pet');
-  assert.equal(await flow.locator('.composer-identity .pet-source-line').innerText(), 'Anthropic 스킬 기반');
-  assert.match(await flow.locator('.composer-identity .pet-source-line').getAttribute('aria-label'), /frontend-design/);
+  assert.equal(await flow.locator('.composer-panel').isVisible(), false);
+  await openMore(flow);
+  const source = flow.getByRole('region', { name: '이 펫의 스킬 출처' });
+  assert.equal(await source.isVisible(), true);
+  assert.equal(await source.getByRole('link', { name: 'GitHub 원본 보기 ↗', exact: true }).count(), 1);
+  await closePetPanel(flow);
   const compactImage = path.join(screenshotDir, 'first-success-compact.png');
   await page.screenshot({ path: compactImage, fullPage: true, animations: 'disabled' }); images.push(compactImage);
-  checks.push('first-success brief: optional audience/message starts collapsed, included in copied prompt, per-role/tab navigation preserves draft and copy guidance, saved cross-role selection isolates original draft, editing invalidates copied request, prepared host is not reconfigured');
+  checks.push('first-success brief: audience/message appears only in the flat request panel, included in copied prompt, per-role/tab navigation preserves draft and copy guidance, saved cross-role selection isolates original draft, editing invalidates copied request, prepared host is not reconfigured');
   await page.close();
 
   const saved = { id: 'first-success-saved', revision: 3, template: structuredClone(template), updatedAt: 1 };
@@ -109,7 +101,6 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   await next.locator('.pet-card-0').getByRole('button', { name: /같은 펫으로 새 일/ }).click();
   const composer = next.locator('.pet-composer');
   await openCopy(composer);
-  await composer.getByText('설정만 가져왔어요. 새 할 일은 Codex에서 말해 주세요.', { exact: true }).waitFor();
   assert.equal(await composer.getByLabel('펫에게 맡길 일', { exact: true }).inputValue(), '');
   assert.equal(await composer.getByLabel('페이지를 볼 사람', { exact: true }).inputValue(), '');
   assert.equal(await composer.getByLabel('꼭 알릴 내용', { exact: true }).inputValue(), '');
@@ -153,17 +144,16 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   await openCopy(editor);
   await editor.getByLabel('펫에게 맡길 일', { exact: true }).fill('A에만 남길 초안');
   await openMore(editor);
-  await editor.getByText('저장한 구성과 연결 관리', { exact: true }).click();
   await editor.getByLabel('저장한 구성', { exact: true }).selectOption('preset-b');
   await openCopy(editor);
   assert.equal(await editor.locator('input[aria-label="꼼꼼하게"]').isChecked(), true);
   await editor.getByLabel('펫에게 맡길 일', { exact: true }).fill('B에만 남길 초안');
-  await editor.getByRole('button', { name: '← 돌아가기', exact: true }).click();
+  await leaveComposer(editor);
   await savedA.getByRole('button', { name: '이 펫 부르기 →', exact: true }).click();
   assert.equal(await editor.getByLabel('저장한 구성', { exact: true }).inputValue(), 'preset-a');
   assert.equal(await editor.locator('input[aria-label="가볍게"]').isChecked(), true);
   assert.equal(await editor.getByLabel('펫에게 맡길 일', { exact: true }).inputValue(), 'A에만 남길 초안');
-  await editor.getByRole('button', { name: '← 돌아가기', exact: true }).click();
+  await leaveComposer(editor);
   await library.locator('.workspace-saved-card').filter({ hasText: '저장 구성 B' }).getByRole('button', { name: '이 펫 부르기 →', exact: true }).click();
   assert.equal(await editor.getByLabel('저장한 구성', { exact: true }).inputValue(), 'preset-b');
   assert.equal(await editor.getByLabel('펫에게 맡길 일', { exact: true }).inputValue(), 'B에만 남길 초안');

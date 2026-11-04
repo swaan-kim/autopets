@@ -1,4 +1,4 @@
-const { openCatalog, chooseRole, openSaved, openTasks, openCopy } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openSaved, openTasks, openCopy, openPetSettings, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
@@ -17,8 +17,7 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await shelf.getByRole('button',{name:'이 펫 부르기 →',exact:true}).click();
  await page.locator('.workspace-role-detail').getByRole('button',{name:'웹페이지 만들기 이 펫으로',exact:true}).click();
  const flow=page.locator('.pet-composer');
- await flow.locator('.composer-more > summary').click();
- await flow.getByText('저장한 구성과 연결 관리',{exact:true}).click();
+ await openPetSettings(flow);
  await flow.getByLabel('저장한 구성',{exact:true}).selectOption('favorite-standard');
  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
  await flow.getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true}).click();
@@ -33,14 +32,14 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  assert.ok(copied.includes(request)); assert.ok(copied.includes('petId=favorite-standard, petRevision=2')); assert.ok(!copied.includes('autopets-demo'));
  assert.deepEqual(await page.evaluate(()=>window.__uiTest.calls),[]);
  await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill('새로운 요청'); assert.equal(await flow.getByLabel('Codex에 보낼 시작 요청',{exact:true}).count(),0);
- await flow.getByRole('button',{name:'← 돌아가기',exact:true}).click(); await openSaved(page);
+ await leaveComposer(flow); await openSaved(page);
  const image=path.join(screenshotDir,'ux-v2-my-pets.png'); await page.screenshot({path:image,fullPage:true});
  await page.reload(); await openSaved(page);
  const saved=shelf.locator('article').filter({has:page.getByRole('button',{name:'UI 제작 펫 즐겨찾기',exact:true})}).last();
  await saved.getByRole('button',{name:'이 펫 부르기 →',exact:true}).click();
  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
  assert.equal(await flow.getByRole('button',{name:'Codex에 펫 준비',exact:true}).count(),0);
- await flow.getByRole('button',{name:'← 돌아가기',exact:true}).click(); await openSaved(page);
+ await leaveComposer(flow); await openSaved(page);
  await page.evaluate(()=>{window.__uiTest.roles.pets=[];window.__uiTest.emitEvent('autopets://roles-changed',{});});
  const missing=shelf.locator('article').filter({hasText:'찾을 수 없는 펫'}); await missing.waitFor();
  assert.equal(await missing.getByRole('button',{name:'이 펫 부르기 →',exact:true}).isDisabled(),true);
