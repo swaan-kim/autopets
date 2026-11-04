@@ -12,7 +12,7 @@
 | --- | --- |
 | ![기존 펫 준비 화면](../changes/29/before.png) | ![간소화한 펫 준비 화면](../changes/29/after.png) |
 
-모두 **합성 UI 검사**다. 동일 이미지 예시를 선택한 상태이며 설치 앱의 실제 연결 성공 자료가 아니다. [저장 후](../changes/29/saved.png), [설정](../changes/29/settings.png), [직접 요청](../changes/29/request.png), [채팅 선택](../changes/29/selected.png), [적용 확인](../changes/29/applied.png), [합성 동작 영상](../changes/29/quick-use-flow.webm).
+모두 **합성 UI 검사**다. 동일 이미지 예시를 선택한 상태이며 설치 앱의 실제 연결 성공 자료가 아니다. [저장 후](../changes/29/saved.png), [설정](../changes/29/settings.png), [직접 요청](../changes/29/request.png), [채팅 선택](../changes/29/selected.png), [적용 확인](../changes/29/applied.png). 합성 동작 영상은 로컬 원본으로 보존하며 GitHub 첨부 대기다. 공동 안내의 영상 공유 규칙에 맞춰 저장소 최신 트리에서는 분리했다.
 
 ## 실제 앱에서 확인한 범위
 
