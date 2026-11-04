@@ -3,6 +3,7 @@ import type { ConnectionHost, SetupState, PetLink } from '@autopets/contracts/ty
 import catalog from '../../../../../packages/contracts/data/connections.json';
 import { command, isDesktop } from '../../bridge/command';
 import { AppUpdate } from './AppUpdate';
+import { PetPreferencesConnector } from './PetPreferencesConnector';
 import './connection.css';
 
 const stageLabel = { implementation: '연결 구현 · 실환경 검증 범위 확인', compatibility: '호환성 확인 전', planned: '연결 준비 중', guidance: '안내만 제공' };
@@ -67,13 +68,7 @@ export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultL
       <div className="setup-default"><span>기존 자동 도움 기본값 <strong>{defaultLabel}</strong></span><button className="text-button" onClick={onPreferences}>작업 방식 보기 →</button></div>
       <details className="setup-help"><summary>연결 파일 위치</summary><code className="path-code">{connectionPath || '연결 파일 준비 전'}</code></details>
     </details>
-    <details className="connection-preset-share"><summary>다른 AI에서도 펫 설정 쓰기</summary>
-      <h2>저장한 작업 방식을 그대로 가져가요.</h2>
-      <p>Claude의 로컬 확장에 연결 도구를 추가하면, 사용자가 고른 펫의 지침을 읽는 경로를 준비할 수 있어요.</p>
-      <ol><li>이 앱에서 원하는 펫 구성을 저장해요.</li><li>확장 파일을 받고 Claude의 확장 설정에서 설치해요.</li><li>쓰던 대화에서 “AutoPets에 저장한 펫 찾아줘”라고 말해요.</li></ol>
-      <a className="button secondary" href="/assets/connectors/AutoPets-pet-preferences.mcpb" download="AutoPets-pet-preferences.mcpb">Claude용 연결 파일 받기</a>
-      <p className="small-note">연결 준비판 · 실제 Claude 설치·활용 검증 전이에요. 펫 설정 읽기만 준비하며, 대화 공유·스킬 실행·모델 변경은 확인하지 않았어요. ChatGPT 웹·Work의 클라우드 연결은 별도예요.</p>
-    </details>
+    <PetPreferencesConnector />
     <AppUpdate />
   </div>;
 }

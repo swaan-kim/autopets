@@ -46,5 +46,6 @@
 .connection-preset-share ol { padding-left: 21px; margin: 17px 0; }
 .connection-preset-share .button { display: inline-flex; align-items: center; text-decoration: none; }
 .connection-preset-share .small-note { font-size: 12px; margin-top: 17px; }
+.connection-preset-share code { overflow-wrap: anywhere; font-size: 11px; }
 @media (max-width: 700px) { .setup-heading { flex-wrap: wrap; } .connection-manage-card { padding: 20px; } .setup-step-title { align-items: flex-start; flex-wrap: wrap; gap: 8px; } }
 @media (max-width: 440px) { .setup-progress { grid-template-columns: 1fr; gap: 13px; } .setup-progress li > span:last-child { display: flex; align-items: baseline; gap: 12px; } }

@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
+const dailyTemplate = require('../../../packages/contracts/data/pet-catalog.json').find(entry => entry.id === 'daily-plan').template;
 
 exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screenshotDir,checks}) => {
  const screenshots=[];
@@ -36,13 +37,14 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  await page.close();
 
  const run={id:'companion-run-a',settingsRevision:1,profile:'standard',model:'fixture-model',effort:'low',state:'working',childId:'child-a',turnId:'turn-a',observedModel:'fixture-model',observedEffort:'low',evidence:null,startedAt:Date.now(),resultReturned:true,runtimeCompleted:true};
- const link={version:1,target:{sourceId:'codex-windows-local',threadId:'11111111-2222-4333-8444-555555555555',cwd:'C:/UI fixture only A'},slot:0,revision:1,enabled:true,connected:true,profile:'standard',template,run};
- const b={...structuredClone(link),slot:1,target:{...link.target,threadId:'22222222-2222-4333-8444-555555555555',cwd:'C:/UI fixture only B'},run:{...run,id:'companion-run-b',state:'waiting'}};
+ const link={version:1,target:{sourceId:'codex-windows-local',threadId:'11111111-2222-4333-8444-555555555555',cwd:'C:/UI fixture only A'},slot:0,revision:1,enabled:true,connected:true,profile:'standard',template:dailyTemplate,run};
+ const b={...structuredClone(link),slot:1,template,target:{...link.target,threadId:'22222222-2222-4333-8444-555555555555',cwd:'C:/UI fixture only B'},run:{...run,id:'companion-run-b',state:'waiting'}};
  const live=await newPage({width:992,height:688});
  await mockBridge(live,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[link,b]}); await live.goto(origin); await live.locator('.app-header nav').getByRole('button',{name:'내 작업',exact:true}).click();
  const aPet=live.locator('.pet-card-0 .companion-pet'), bPet=live.locator('.pet-card-1 .companion-pet');
  await aPet.scrollIntoViewIfNeeded();
  await aPet.locator('[data-clip="working"]').waitFor();
+ assert.equal(await aPet.getAttribute('data-playing'),'true','a compact daily pet animates its real work state as a UI pet does');
  await live.locator('.pet-card-0 .task-pet-art').dispatchEvent('pointerdown');
  await live.waitForTimeout(250);
  assert.equal(await aPet.locator('[data-clip="greet"]').count(),0,'interacting with a working pet preserves its work pose');

@@ -123,6 +123,11 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
+        if (name === 'export_pet_preferences') {
+          if (window.__uiTest.holdPreferenceExport) await new Promise(resolve => { window.__uiTest.releasePreferenceExport = resolve; });
+          if (window.__uiTest.preferenceExportError) throw Error('fixture export denied');
+          return 'AutoPets-pet-preferences-11111111-1111-4111-8111-111111111111.mcpb';
+        }
         if (name === 'artifact_dispatch') {
           if (window.__uiTest.artifactError) throw Error(window.__uiTest.artifactError);
           const request = args.request;

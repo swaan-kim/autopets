@@ -31,6 +31,7 @@ pub fn run() {
             commands::get_setup_state,
             transport::setup_commands::connect_ai,
             transport::setup_commands::disconnect_ai,
+            platform::pet_preferences::export_pet_preferences,
             platform::updater::check_app_update,
             platform::updater::install_app_update,
             workflow_commands::workflow_snapshot,

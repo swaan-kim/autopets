@@ -84,4 +84,60 @@ mod tests {
         assert_eq!(changes.load(std::sync::atomic::Ordering::SeqCst), initial_changes);
         bridge.shutdown();
     }
+
+    #[tokio::test]
+    async fn stdio_mcp_reads_the_selected_revision_through_the_native_bridge() {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(std::sync::Mutex::new(crate::application::store::Store::new(dir.path()).unwrap()));
+        let pet = store.lock().unwrap().save_pet(None, 0, crate::domain::roles::templates().unwrap().remove(0)).unwrap();
+        let before = serde_json::to_value(store.lock().unwrap().roles_snapshot().unwrap()).unwrap();
+        let mut bridge = start(store.clone(), Arc::new(|_| {})).await.unwrap();
+        let connection_path = bridge.connection_path.clone();
+        let messages = [
+            serde_json::json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"native-fixture","version":"1"}}}),
+            serde_json::json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+            serde_json::json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"autopets_list_pets","arguments":{}}}),
+            serde_json::json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"autopets_read_pet","arguments":{"petId":pet.id,"expectedRevision":pet.revision}}}),
+            serde_json::json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"autopets_read_pet","arguments":{"petId":pet.id,"expectedRevision":pet.revision + 1}}}),
+        ];
+        let input = messages.iter().map(|message| format!("{message}\n")).collect::<String>();
+        // Keep the async bridge serving while the real STDIO client process runs.
+        // Only this temporary fixture's connection file is made available to it.
+        let output = tokio::task::spawn_blocking(move || {
+            let node = std::env::var_os("AUTOPETS_TEST_NODE").unwrap_or_else(|| "node".into());
+            let mut command = Command::new(node);
+            command.arg(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../integrations/mcp/server.mjs"))
+                .env("AUTOPETS_CONNECTION_FILE", connection_path)
+                .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                command.creation_flags(0x08000000);
+            }
+            let mut child = command.spawn().expect("Node is required for the native MCP integration test");
+            child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+            child.wait_with_output().unwrap()
+        }).await.unwrap();
+        assert!(output.status.success());
+        assert!(output.stderr.is_empty(), "MCP must not log fixture data");
+        let replies: Vec<serde_json::Value> = String::from_utf8(output.stdout).unwrap().lines()
+            .map(|line| serde_json::from_str(line).unwrap()).collect();
+        assert_eq!(replies.len(), 4);
+        assert_eq!(replies[1]["result"]["structuredContent"]["pets"][0]["id"], pet.id);
+        let selected = &replies[2]["result"]["structuredContent"]["pet"];
+        assert_eq!(selected["id"], pet.id);
+        assert_eq!(selected["revision"], pet.revision);
+        assert_eq!(selected["instruction"], pet.template.instruction);
+        assert_eq!(selected["skillsLoaded"], false);
+        assert_eq!(selected["hostSettingsChanged"], false);
+        for field in ["target", "accountId", "cwd", "execution", "token"] {
+            assert!(selected.get(field).is_none());
+        }
+        assert_eq!(replies[3]["result"]["isError"], true);
+        assert_eq!(serde_json::to_value(store.lock().unwrap().roles_snapshot().unwrap()).unwrap(), before);
+        bridge.shutdown();
+    }
 }

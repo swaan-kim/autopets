@@ -92,16 +92,35 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
 
   const beforeDownload = await page.evaluate(() => window.__uiTest.calls.length);
   await page.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
-  const download = page.waitForEvent('download');
-  await page.getByRole('link', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  await page.evaluate(() => { window.__uiTest.holdPreferenceExport = true; });
+  await page.getByRole('button', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '파일 저장 중…', exact: true }).isDisabled(), true);
+  await page.evaluate(() => { window.__uiTest.releasePreferenceExport(); window.__uiTest.holdPreferenceExport = false; });
+  await page.getByText(/다운로드 폴더의 AutoPets에 저장했어요/).waitFor();
+  assert.deepEqual(await page.evaluate(index => window.__uiTest.calls.slice(index), beforeDownload), [{ name: 'export_pet_preferences', args: {} }]);
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '');
+  await page.evaluate(() => { window.__uiTest.preferenceExportError = true; });
+  await page.getByRole('button', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '연결 파일을 저장하지 못했어요' }).waitFor();
+  assert.equal(await page.getByText(/다운로드 폴더의 AutoPets에 저장했어요/).count(), 0, 'failed export does not retain the previous success');
+  assert.equal(await page.getByRole('button', { name: 'Claude용 연결 파일 받기', exact: true }).isEnabled(), true);
+  checks.push('native connector export is click-only, suppresses duplicate clicks and reports save failure without installing or granting host capability');
+
+  const browserPage = await newPage();
+  await browserPage.goto(origin);
+  await browserPage.locator('.app-settings > summary').click();
+  await browserPage.getByRole('button', { name: '연결 설정', exact: true }).click();
+  await browserPage.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
+  const download = browserPage.waitForEvent('download');
+  await browserPage.getByRole('link', { name: 'Claude용 연결 파일 받기', exact: true }).click();
   const bundle = await download;
   assert.equal(bundle.suggestedFilename(), 'AutoPets-pet-preferences.mcpb');
   assert.equal(await bundle.failure(), null);
   const stream = await bundle.createReadStream(); const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
   assert.equal(Buffer.concat(chunks).readUInt32LE(0), 0x04034b50, 'the user receives an actual local extension ZIP');
-  assert.equal(await page.evaluate(() => window.__uiTest.calls.length), beforeDownload, 'download never installs, changes permissions, or connects a host');
-  checks.push('Claude preference bundle downloads only on click without installing or granting any host capability; browser download is not native-host installation evidence');
+  await browserPage.close();
+  checks.push('browser preview downloads an actual local extension ZIP; file download is distinct from native export and host installation');
 
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name.includes('app_update'))), false);
   await page.getByText('앱 업데이트', { exact: true }).click();

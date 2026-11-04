@@ -5,7 +5,7 @@
 ## 사용 흐름
 
 1. 이번 소스의 읽기 기능이 포함된 AutoPets 앱을 실행하고 원하는 펫 구성을 저장한다.
-2. 아래 제작 명령으로 만든 `AutoPets-pet-preferences.mcpb`를 Claude의 확장 설치 화면에서 선택하고 사용자가 권한을 확인한다.
+2. 앱의 연결 설정 → 다른 AI에서도 펫 설정 쓰기 → **Claude용 연결 파일 받기**를 누른다. Windows 앱은 다운로드 폴더의 AutoPets에 고유한 이름으로 파일을 저장하고, 브라우저 미리보기는 일반 다운로드를 제공한다. 받은 `.mcpb`를 Claude의 확장 설치 화면에서 선택하고 사용자가 권한을 확인한다.
 3. 기존 대화에서 “AutoPets에 저장한 펫을 찾아줘”라고 요청하고 이름·개정을 보고 사용할 펫을 고른다.
 4. AI가 `autopets_read_pet`으로 그 펫의 정확한 개정을 읽고 현재 요청에 참고한다. 모델·실행 강도·Plan 모드를 바꾸지 않는다.
 
@@ -23,6 +23,8 @@ node scripts/package-pet-preferences.mjs
 표준 STDIO MCP를 제공하므로 지원하는 로컬 클라이언트에서는 `node <서버의 절대 경로>/server.mjs`로 연결할 수 있다. 실제 호스트 설정·신뢰·확장 설치는 자동으로 바꾸지 않는다. 구형 앱에 읽기 경로가 없으면 기능 미지원으로 응답하며 다른 경로로 우회하지 않는다.
 
 ## 지원 경계
+
+파일 저장은 앱에 포함된 고정 자산만 내보낸다. UI에서 임의 파일·바이트·저장 경로를 받지 않고 기존 다운로드를 덮어쓰거나 확장을 설치하지 않는다. Tauri 자산은 [공식 AssetResolver](https://docs.rs/tauri/latest/tauri/struct.AssetResolver.html)로 읽는다. 개발 모드에서는 먼저 `pnpm build`로 frontendDist를 준비해야 한다.
 
 Claude Desktop 로컬 확장과 Claude Code의 지원 표면은 공식 문서와 실제 설치에서 따로 확인해야 한다. ChatGPT 웹·Work 클라우드에는 로컬 STDIO 확장만으로 연결되지 않는다. 원격 서버와 계정 연결 또는 해당 호스트의 로컬 연결 수단을 별도로 구현·검증하기 전 지원을 켜지 않는다. 현재 다른 호스트의 `connectAvailable`과 전체 채팅 공유·자동 훅·부모 모델 변경은 활성화하지 않았다.
 
