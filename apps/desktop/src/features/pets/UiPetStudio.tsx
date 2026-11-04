@@ -125,10 +125,6 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
   const currentSetup = localSetup ?? setup;
   const prepared = explicitSetupReady(currentSetup);
   const target = links.find(link => targetKey(link) === selectedTarget);
-  useEffect(() => {
-    if (!open || selectedTarget || links.length !== 1 || !links[0].connected) return;
-    setSelectedTarget(targetKey(links[0]));
-  }, [open, selectedTarget, links]);
   const matchingLinks = saved && !dirty && !staleSaved ? links.filter(link => link.connected && link.savedPet?.id === saved.id && link.savedPet.revision === saved.revision) : [];
   const uiPets = library.snapshot.pets.filter(pet => catalogFor(pet.template));
   const entry = catalogFor(draft) ?? petCatalog.find(item => item.id === 'ui-webpage')!;
