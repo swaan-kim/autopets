@@ -52,7 +52,7 @@ exports.runToolActivityChecks = async ({ newPage, mockBridge, fixture, origin, s
     window.__uiTest.state.sessions[0].toolActivityV1.calls[0].state = 'failed';
   });
   await pet.getByRole('img', { name: 'MCP · 최근 도구 실행 실패', exact: true }).waitFor();
-  await pet.locator('.sprite-tool').waitFor({ state: 'detached' });
+  assert.equal(await pet.locator('.mcp-pet-prop').getAttribute('data-state'), 'failed', 'a generic working gesture must not claim that the failed tool is running');
   await pet.evaluate(() => { window.__uiTest.state.sessions[0].toolActivityV1.calls[0].state = 'running'; });
   await pet.getByRole('img', { name: 'MCP · 1개 도구 사용 중', exact: true }).waitFor();
   await pet.evaluate(() => { window.__uiTest.state.sessions[0].connection = 'unknown'; });

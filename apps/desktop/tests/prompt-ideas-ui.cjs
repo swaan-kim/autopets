@@ -25,7 +25,14 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: '작은 브랜드의 제품 사진', exact: true });
   await dialog.waitFor();
+  const previewBeforeExpansion = await dialog.locator('.ux-art-generated').boundingBox();
+  const detailBeforeExpansion = await dialog.locator('.prompt-idea-detail').boundingBox();
+  await dialog.getByText('3:2 가로 구도', { exact: true }).waitFor();
   await dialog.getByText('이 이미지를 만든 프롬프트', { exact: true }).click();
+  const previewAfterExpansion = await dialog.locator('.ux-art-generated').boundingBox();
+  const detailAfterExpansion = await dialog.locator('.prompt-idea-detail').boundingBox();
+  assert.ok(Math.abs((previewAfterExpansion.y - detailAfterExpansion.y) - (previewBeforeExpansion.y - detailBeforeExpansion.y)) <= 1, 'expanding the source prompt keeps the result image aligned with the explanation');
+  assert.ok(previewAfterExpansion.y < 688 / 2, 'the result preview remains visible beside the expanded prompt');
   assert.match(await dialog.locator('.prompt-idea-source pre').textContent(), /sage green frosted glass/);
   assert.match(await dialog.locator('.prompt-idea-source').textContent(), /1536×1024/);
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
@@ -46,6 +53,7 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   assert.ok(Buffer.byteLength(result.pets[0].template.instruction, 'utf8') <= 1536);
   assert.deepEqual(result.links[1], other);
   assert.equal(result.clipboard, '');
+  assert.match(result.calls.find(call => call.name === 'save_pet').args.template.instruction, /기본 조건: 3:2 가로 구도 · 자연광 · 제품 사진/);
   assert.equal(result.calls.filter(call => call.name === 'apply_pet_link_template').length, 1);
   await composer.getByRole('button', { name: 'Codex 작업 열기', exact: true }).click();
   await composer.getByText(/Codex에 열기를 요청했어요/).waitFor();
@@ -66,9 +74,14 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   const fallback = await newPage();
   await mockBridge(fallback, state);
   await fallback.route('**/prompt-gallery-v1/product.webp', route => route.abort());
+  await fallback.route('**/prompt-gallery-v1/coast.webp', route => route.abort());
   await fallback.goto(origin); await openCatalog(fallback);
   await fallback.locator('[data-agent-id="pet-selection.idea.product"] [data-evidence="design-example"] svg').waitFor();
   assert.equal(await fallback.locator('[data-agent-id="pet-selection.idea.product"] .ux-art-generated').count(), 0);
+  const videoFallback = fallback.locator('[data-agent-id="pet-selection.idea.coast"]');
+  await videoFallback.locator('[data-evidence="design-example"] svg').waitFor();
+  assert.equal(await videoFallback.locator('.ux-art-play').count(), 0, 'a missing reference image must not become a pretend video player');
+  assert.equal(await videoFallback.locator('.ux-art-evidence').textContent(), '영상 구도 예시');
   await fallback.close();
   checks.push('result ideas filter image/video, preserve dialog focus, apply a bounded pinned-role preset without clipboard, preselect only eligible A, preserve B, and return to the exact existing conversation without submitting an AI request; 320/390/992px and reduced motion');
   checks.push('four generated images load at recorded dimensions, exact production prompts can be inspected, video reference frames stay static, and a missing asset recovers to the original SVG composition');

@@ -68,9 +68,10 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await page.locator('.pet-journey').count(), 0);
   assert.equal(await page.locator('.pet-card').count(), 0);
   await page.locator('.workspace-role-card .companion-pet[data-assets="ready"]').first().waitFor();
-  assert.equal(await page.locator('.workspace-role-card .companion-pet[data-playing="true"]').count(), 0);
+  await page.locator('.workspace-role-card .companion-pet').first().scrollIntoViewIfNeeded();
+  await page.locator('.workspace-role-card .companion-pet[data-playing="true"]').first().waitFor();
   await page.locator('.app-settings > summary').click(); await page.getByRole('button', { name: '연결 설정', exact: true }).click();
-  assert.equal(await page.locator('.workspace-role-card .companion-pet[data-playing="true"]').count(), 0, 'hidden catalog has no active motion');
+  await page.waitForFunction(() => [...document.querySelectorAll('.workspace-role-card .companion-pet')].every(element => element.dataset.playing === 'false'));
   await page.getByRole('button', { name: '펫 고르기', exact: true }).click();
   await capture('home');
   for (const [width, height, name] of [[992,688,'desktop'],[794,550,'125-layout'],[661,459,'150-layout'],[375,812,'narrow']]) {

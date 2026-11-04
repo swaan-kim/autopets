@@ -83,7 +83,8 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
     source: element.querySelector('.pet-source-line').getBoundingClientRect().toJSON(),
   }));
   assert.ok(sourceBounds.source.width > 100 && sourceBounds.source.left >= sourceBounds.preview.left && sourceBounds.source.right <= sourceBounds.preview.right, 'compact source name fits inside the preview alongside the pet');
-  assert.equal(await flow.locator('.composer-identity .pet-source-line').innerText(), 'frontend-design');
+  assert.equal(await flow.locator('.composer-identity .pet-source-line').innerText(), 'Anthropic 스킬 기반');
+  assert.match(await flow.locator('.composer-identity .pet-source-line').getAttribute('aria-label'), /frontend-design/);
   const compactImage = path.join(screenshotDir, 'first-success-compact.png');
   await page.screenshot({ path: compactImage, fullPage: true, animations: 'disabled' }); images.push(compactImage);
   checks.push('first-success brief: optional audience/message starts collapsed, included in copied prompt, per-role/tab navigation preserves draft and copy guidance, saved cross-role selection isolates original draft, editing invalidates copied request, prepared host is not reconfigured');

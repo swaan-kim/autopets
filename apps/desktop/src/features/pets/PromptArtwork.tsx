@@ -13,7 +13,7 @@ export function PromptArtwork({ kind, large = false }: { kind: string; large?: b
     <span className="ux-art-evidence">{video ? '영상 참고 이미지' : 'AI 생성 예시'}</span>
   </div>;
   return <div className={`ux-art ux-art-${kind} ${large ? 'ux-art-large' : ''}`} data-evidence="design-example">
-    <svg viewBox="0 0 480 320" role="img" aria-label={`${video ? '영상의 구도와 움직임' : '이미지의 구도'}을 보여주는 직접 그린 디자인 예시`}>
+    <svg viewBox="0 0 480 320" role="img" aria-label={`${video ? '영상의 구도' : '이미지의 구도'}를 보여주는 직접 그린 디자인 예시`}>
       <defs><linearGradient id={`${id}sky`} x2="0" y2="1"><stop stopColor="#f4cbaa" /><stop offset="1" stopColor="#f8e5cd" /></linearGradient><radialGradient id={`${id}light`}><stop stopColor="#fffef5" /><stop offset="1" stopColor="#e7e6d9" /></radialGradient></defs>
       {kind === 'product' || kind === 'orbit' ? <>
         <rect width="480" height="320" fill={kind === 'orbit' ? '#efe9e2' : '#e8e9df'} /><path d="M-20 260 295 25h105L80 320H-20" fill="#fffdf6" opacity=".48" />
@@ -30,8 +30,7 @@ export function PromptArtwork({ kind, large = false }: { kind: string; large?: b
         <rect width="480" height="320" fill="#e9eee2" /><circle cx="345" cy="75" r="32" fill="#f8df9a" /><path d="M0 176q122-89 254-18t226-10v172H0" fill="#9aaf7f" /><path d="M0 251q151-117 480-19v88H0" fill="#647e52" /><g transform="translate(192 130)"><path d="m0 38 45-32 45 32v55H0" fill="#eee2be" /><path d="m-7 40 52-42 52 42" fill="#9c6248" /><rect x="35" y="57" width="21" height="36" rx="9" fill="#647259" /><rect x="10" y="52" width="15" height="18" fill="#9fbdba" /></g><path d="m240 223 46 97h45l-74-97" fill="#c6c099" />
       </>}
     </svg>
-    {video && <span className="ux-art-play" aria-hidden="true">▷</span>}
-    <span className="ux-art-evidence">{video ? '움직임 예시' : '구도 예시'}</span>
+    <span className="ux-art-evidence">{video ? '영상 구도 예시' : '구도 예시'}</span>
   </div>;
 }
 

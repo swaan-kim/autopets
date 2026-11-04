@@ -26,7 +26,7 @@
 .prompt-idea-dialog > header h2 { font-size: 17px; margin: 0; }
 .prompt-idea-dialog > header button { min-width: 55px; min-height: 36px; }
 .prompt-idea-detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.prompt-idea-detail > .ux-art { height: 100%; aspect-ratio: auto; border-radius: 0; display: flex; align-items: center; }
+.prompt-idea-detail > .ux-art { align-self: start; position: sticky; top: 0; aspect-ratio: 1.5; border-radius: 0; }
 .prompt-idea-detail > div:last-child { padding: 27px; }
 .prompt-idea-eyebrow { color: #849374; font-size: 11px; }
 .prompt-idea-detail h3 { font-size: 17px; line-height: 1.8; letter-spacing: -.4px; font-weight: 500; margin: 12px 0 17px; }
@@ -45,6 +45,6 @@
 @keyframes prompt-coast { to { transform: scale(1.08) translateX(-6px); } }
 @keyframes prompt-orbit { to { transform: translateX(12px) skewY(-1deg); } }
 @media (max-width: 850px) { .prompt-idea-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 18px; } }
-@media (max-width: 650px) { .prompt-ideas-heading { flex-wrap: wrap; } .prompt-ideas-heading h2 { font-size: 19px; } .prompt-idea-detail { grid-template-columns: 1fr; } .prompt-idea-detail > .ux-art { height: auto; aspect-ratio: 1.6; } .prompt-idea-dialog > header { padding: 19px; } .prompt-idea-detail > div:last-child { padding: 22px; } }
+@media (max-width: 650px) { .prompt-ideas-heading { flex-wrap: wrap; } .prompt-ideas-heading h2 { font-size: 19px; } .prompt-idea-detail { grid-template-columns: 1fr; } .prompt-idea-detail > .ux-art { position: static; } .prompt-idea-dialog > header { padding: 19px; } .prompt-idea-detail > div:last-child { padding: 22px; } }
 @media (max-width: 400px) { .prompt-idea-card > strong { font-size: 13px; } .prompt-idea-caption { font-size: 11px; } .prompt-idea-grid { gap: 22px 12px; } }
 @media (prefers-reduced-motion: reduce) { .prompt-ideas *, .prompt-ideas *::before, .prompt-ideas *::after { animation: none !important; transition: none !important; } }

@@ -38,7 +38,7 @@
 .workspace-role-action { border-top: 1px solid #44444410; width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 650; margin-top: auto; }
 .workspace-role-action > span { font-size: 19px; font-weight: 400; }
 .pet-source-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
-.pet-source-line > span:last-child { color: var(--ink); background: var(--tint); border-radius: 5px; padding-inline: 5px; }
+.pet-source-line > span:last-child { color: var(--muted); }
 .pet-skill-source { text-align: left; border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; overflow-wrap: anywhere; }
 .pet-source-caption { color: var(--muted); font-size: 11px; display: block; margin-bottom: 7px; }
 .pet-skill-source > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }

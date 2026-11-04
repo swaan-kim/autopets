@@ -3,12 +3,13 @@ import { Pet, type PetMotion } from './Pet';
 import type { PetCatalogEntry } from './petCatalog';
 import { SourceLogo, skillSourceFor } from './PetSkillSource';
 import { CompanionPet } from './CompanionPet';
+import { ResultSample } from './ResultSamples';
 import type { CompanionState } from './companionMotion';
 import './visual-cards.css';
 import './result-preview.css';
 
 // Presentation only: a prop describes the role, never a connected or running tool.
-export function TaskPetArt({ entry, motion = 'idle', paused = true, small = false, state, runKey, interactive = true, example = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean }) {
+export function TaskPetArt({ entry, motion = 'idle', paused = false, small = false, state, runKey, interactive = true, example = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean }) {
   const id = useId().replace(/:/g, '');
   const role = entry?.id ?? 'ui-webpage';
   const root = useRef<HTMLSpanElement>(null);
@@ -55,25 +56,8 @@ function ResultArtwork({ entry, mobile = false }: { entry: PetCatalogEntry; mobi
   if (entry.id === 'ui-webpage') return <span className={`result-thumbnail result-thumbnail-web ${mobile ? 'mobile' : ''}`} role="img" aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${mobile ? '모바일' : '데스크톱'} 디자인 예시`}>
     {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> : <img src={`/assets/design-example-v1/${mobile ? 'mobile' : 'desktop'}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />}
   </span>;
-  return <span className={`result-thumbnail sample-output sample-${entry.id}`} aria-label={`${resultKinds[entry.id] ?? entry.name} 디자인 예시`}>
-    {entry.id === 'daily-plan' ? <span className="sample-sheet">
-      <strong className="sample-title">오늘은 이 세 가지.</strong>
-      <span className="sample-check done"><span aria-hidden="true">✓</span>초안 마무리</span>
-      <span className="sample-check"><span aria-hidden="true">○</span>장보기</span>
-      <span className="sample-check"><span aria-hidden="true">○</span>20분 산책</span>
-    </span> : entry.id === 'travel-plan' ? <span className="sample-sheet">
-      <strong className="sample-title">부산, 느긋한 하루.</strong>
-      <span className="sample-stop"><span>10:00</span>바다 산책</span>
-      <span className="sample-route" aria-hidden="true">↓</span>
-      <span className="sample-stop"><span>12:00</span>해변 카페</span>
-    </span> : entry.id === 'study-helper' ? <span className="sample-sheet">
-      <span className="sample-kicker">한 개념, 쉽게.</span><strong className="sample-title">기회비용</strong>
-      <span className="sample-definition">선택하면서 포기한<br />가장 좋은 대안의 가치.</span>
-    </span> : entry.id === 'marketing-copy' ? <span className="sample-sheet sample-ad">
-      <span className="sample-kicker">새 노트의 첫 페이지</span><strong className="sample-title">완벽한 계획보다,<br />당신의 첫 줄.</strong><span className="sample-ad-cta">기록을 시작하세요 ↗</span>
-    </span> : <span className="sample-sheet sample-slide">
-      <span className="sample-kicker">작은 습관에 관한 이야기</span><strong className="sample-title">작은 시작.<br />더 나은 하루.</strong><span className="sample-slide-mark" aria-hidden="true">↗</span>
-    </span>}
+  return <span className={`result-thumbnail sample-output sample-${entry.id}`} role="img" aria-label={`${resultKinds[entry.id] ?? entry.name} 디자인 예시`}>
+    <ResultSample kind={entry.id} />
   </span>;
 }
 

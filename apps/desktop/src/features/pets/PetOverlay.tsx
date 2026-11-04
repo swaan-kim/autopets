@@ -14,13 +14,13 @@ import { AttentionCard } from '../tasks/AttentionCard';
 import { canAttemptReturn, returnToTask } from '../tasks/returnToTask';
 import { McpProp } from '../tasks/ToolActivity';
 import { PET_NAMES } from './constants';
-import { Pet } from './Pet';
+import { CompanionPet } from './CompanionPet';
 import { TaskPetArt } from './TaskPetArt';
 import { catalogFor } from './petCatalog';
 import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
 import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet';
-import { companionState, companionRunKey } from './companionMotion';
+import { companionState, companionRunKey, type CompanionState } from './companionMotion';
 
 export function PetOverlay({ snapshot, index, error, assistance, workflow }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
   const [expanded, setExpanded] = useState(false);
@@ -72,7 +72,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
       {expanded && <div className="quick-card-stack"><div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
-        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} /></button>
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} /></button>
         <span className="floating-label">{explicit.template.name} · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
       </div></div>;
   }
@@ -80,6 +80,9 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     : session.state === 'failed' || attention?.kind === 'tool-error' ? 'angry'
     : attention && attention.kind !== 'milestone' || session.state === 'waiting' ? 'dizzy'
     : session.state === 'done' && session.unread ? 'celebrate' : undefined;
+  const activity = observedActivity(session, disconnected);
+  const legacyState: CompanionState = motion === 'angry' ? 'error' : motion === 'dizzy' ? 'waiting' : motion === 'celebrate' ? 'complete'
+    : motion === 'idle' ? 'idle' : activity === 'research' ? 'planning' : ['working', 'writing', 'tool'].includes(activity) ? 'working' : 'idle';
   const help = disconnected || session?.connection !== 'observed' || attention ? view.text
     : workflowTask?.enabled ? workflow.error ? '설정 확인 필요' : workflowHelp(workflowTask, workflow.snapshot.capabilities[workflowTask.identity.provider]) || '계획 지침 준비됨'
     : workflowTask && !workflowTask.enabled ? '이번 채팅의 자동 도움은 꺼져 있어요'
@@ -113,7 +116,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     </div>}
     <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
-      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><CompanionPet state={legacyState} runKey={session?.turnStartedAt ? JSON.stringify(['legacy', session.id, session.turnStartedAt]) : undefined} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
       {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`} title={help}>{help}</span>
     </div>

@@ -4,10 +4,10 @@ import type { PetRoleTemplate } from '@autopets/contracts/types';
 
 export type PromptIdea = { id: string; kind: 'image' | 'video'; title: string; summary: string; art: string; prompt: string; conditions: string[] };
 export const promptIdeas: PromptIdea[] = [
-  { id: 'product', kind: 'image', title: '작은 브랜드의 제품 사진', summary: '부드러운 자연광과 넉넉한 여백', art: 'product', prompt: '[제품명] 하나를 크림색 배경에 배치해줘. 왼쪽 창에서 들어오는 부드러운 자연광, 짧은 그림자, 읽기 쉬운 라벨과 넉넉한 여백을 담아줘.', conditions: ['정사각형', '자연광', '제품 사진'] },
+  { id: 'product', kind: 'image', title: '작은 브랜드의 제품 사진', summary: '부드러운 자연광과 넉넉한 여백', art: 'product', prompt: '[제품명] 하나를 크림색 배경에 배치해줘. 왼쪽 창에서 들어오는 부드러운 자연광, 짧은 그림자, 읽기 쉬운 라벨과 넉넉한 여백을 담아줘.', conditions: ['3:2 가로 구도', '자연광', '제품 사진'] },
   { id: 'coast', kind: 'video', title: '느긋한 해변의 한 장면', summary: '잔잔한 파도와 천천히 움직이는 카메라', art: 'coast', prompt: '해 질 무렵 고요한 해변. 잔잔한 파도가 모래 위로 밀려오고 카메라가 천천히 앞으로 이동한다. 따뜻한 빛과 일정한 속도를 유지하는 한 장면.', conditions: ['가로 화면', '느린 전진', '한 장면'] },
-  { id: 'poster', kind: 'image', title: '시선이 머무는 포스터', summary: '큰 제목과 따뜻한 종이의 질감', art: 'poster', prompt: '[행사명]을 위한 미니멀 포스터. 아이보리 종이, 짙은 녹색의 큰 제목, 작은 일정 정보와 충분한 여백. 행사명·날짜·장소를 확인하고 정확하게 배치해줘.', conditions: ['세로 화면', '타이포그래피', '행사 홍보'] },
-  { id: 'orbit', kind: 'video', title: '제품을 천천히 둘러보기', summary: '제품의 형태를 유지하는 작은 회전', art: 'orbit', prompt: '[제품명]이 밝은 스튜디오 받침대에 놓여 있다. 카메라가 제품을 중심으로 천천히 작은 각도로 이동한다. 형태와 라벨을 유지하고 조명은 일정하게.', conditions: ['정사각형', '작은 회전', '제품 영상'] },
+  { id: 'poster', kind: 'image', title: '시선이 머무는 포스터', summary: '큰 제목과 따뜻한 종이의 질감', art: 'poster', prompt: '[행사명]을 위한 미니멀 포스터. 아이보리 종이, 짙은 녹색의 큰 제목, 작은 일정 정보와 충분한 여백. 행사명·날짜·장소를 확인하고 정확하게 배치해줘.', conditions: ['세로 포스터', '타이포그래피', '행사 홍보'] },
+  { id: 'orbit', kind: 'video', title: '제품을 천천히 둘러보기', summary: '제품의 형태를 유지하는 작은 회전', art: 'orbit', prompt: '[제품명]이 밝은 스튜디오 받침대에 놓여 있다. 카메라가 제품을 중심으로 천천히 작은 각도로 이동한다. 형태와 라벨을 유지하고 조명은 일정하게.', conditions: ['가로 화면', '작은 회전', '제품 영상'] },
 ];
 
 const base = roles.find(role => role.id === 'research-document') as PetRoleTemplate;
@@ -26,7 +26,7 @@ export const promptPets: PetCatalogEntry[] = (['image', 'video'] as const).map(k
 
 export function petForPromptIdea(idea: PromptIdea): PetCatalogEntry {
   const entry = structuredClone(promptPets.find(item => item.id === `${idea.kind}-prompt`)!);
-  entry.template.instruction += `\n사용자가 선택한 기본 방향: ${idea.prompt} 대괄호의 정보는 현재 요청에서 확인하세요.`;
+  entry.template.instruction += `\n사용자가 선택한 기본 방향: ${idea.prompt} 기본 조건: ${idea.conditions.join(' · ')}. 대괄호의 정보는 현재 요청에서 확인하세요.`;
   entry.example = idea.prompt;
   return entry;
 }
