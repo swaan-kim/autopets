@@ -5,6 +5,45 @@ const dailyTemplate = require('../../../packages/contracts/data/pet-catalog.json
 
 exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screenshotDir,checks}) => {
  const screenshots=[];
+ const unassigned = await newPage({ width: 180, height: 230 });
+ await unassigned.emulateMedia({ reducedMotion: 'no-preference' });
+ await mockBridge(unassigned, { ...structuredClone(fixture), sessions: [], petLinks: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+ await unassigned.goto(`${origin}/?pet=0`);
+ await unassigned.locator('.pet-hit [role="img"]').waitFor();
+ const idlePet = unassigned.locator('.pet-hit .companion-pet');
+ assert.equal(await idlePet.count(), 1, 'an unassigned overlay must not remain a paused still image');
+ await unassigned.locator('.pet-hit .companion-pet[data-assets="ready"][data-playing="true"]').waitFor();
+ await idlePet.locator('[data-clip="blink"]').waitFor();
+ assert.equal(await idlePet.getAttribute('data-state'), 'idle');
+ assert.ok(await idlePet.evaluate(element => element.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')));
+ const idleBefore = await unassigned.evaluate(() => JSON.stringify({ calls: window.__uiTest.calls, sessions: window.__uiTest.state.sessions, links: window.__uiTest.state.petLinks, slots: window.__uiTest.state.slots }));
+ const idleStatus = await unassigned.locator('.floating-status').textContent();
+ await unassigned.locator('.pet-hit').dispatchEvent('pointerdown', { button: 0 });
+ await idlePet.locator('[data-clip="greet"]').waitFor();
+ assert.equal(await unassigned.evaluate(() => JSON.stringify({ calls: window.__uiTest.calls, sessions: window.__uiTest.state.sessions, links: window.__uiTest.state.petLinks, slots: window.__uiTest.state.slots })), idleBefore, 'an idle reaction never connects, assigns or executes work');
+ assert.equal(await unassigned.getByRole('button', { name: '모스 · 작업 카드 열기', exact: true }).count(), 1);
+ assert.equal(await unassigned.locator('.floating-status').textContent(), idleStatus);
+ await unassigned.setViewportSize({ width: 328, height: 600 });
+ for (const key of ['Enter', 'Space']) {
+   await unassigned.locator('.pet-hit').focus();
+   await unassigned.keyboard.press(key);
+   await unassigned.locator('.pet-quick-card').waitFor();
+   assert.equal(await unassigned.locator('.pet-hit').getAttribute('aria-expanded'), 'true');
+   await idlePet.locator('[data-clip="greet"]').waitFor();
+   await unassigned.keyboard.press('Escape');
+   await unassigned.locator('.pet-quick-card').waitFor({ state: 'hidden' });
+   assert.equal(await unassigned.locator('.pet-hit').evaluate(element => element === document.activeElement), true);
+ }
+ await unassigned.emulateMedia({ reducedMotion: 'reduce' });
+ await unassigned.waitForFunction(() => document.querySelector('.pet-hit .companion-pet')?.dataset.playing === 'false');
+ assert.equal(await idlePet.evaluate(element => element.getAnimations({ subtree: true }).length), 0);
+ await unassigned.emulateMedia({ reducedMotion: 'no-preference' });
+ await unassigned.waitForFunction(() => document.querySelector('.pet-hit .companion-pet')?.dataset.playing === 'true');
+ await unassigned.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+ await unassigned.waitForFunction(() => document.querySelector('.pet-hit .companion-pet')?.dataset.playing === 'false');
+ assert.equal(await idlePet.evaluate(element => element.getAnimations({ subtree: true }).length), 0);
+ await unassigned.close();
+ checks.push('unassigned compact overlay breathes/blinks and reacts to touch without assigning or running work; Enter/Space preserve menu and Escape focus; its identity/waiting status and reduced/hidden stop remain intact');
  const page=await newPage({width:992,height:688});
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.goto(origin);
