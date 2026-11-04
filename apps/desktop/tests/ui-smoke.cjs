@@ -369,22 +369,44 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const siteScreenshots = await runProductSiteChecks({ newPage, screenshotDir: path.dirname(screenshot), checks });
 
     const missing = await newPage();
-    await missing.route('**/companion-v1/**', route => route.abort());
+    await missing.route('**/companion-v1/social.webp', route => route.abort());
     await missing.route('**/assets/soft-pet/poses.png', route => route.abort());
     await missing.route('**/assets/motions/sprite.png', route => route.abort());
     await missing.goto(origin); await openCatalog(missing);
-    await missing.locator('.companion-figure').first().waitFor();
-    assert.equal(await missing.locator('.pet-placeholder').count(), 0);
-    assert.ok(await missing.locator('.companion-pet[data-assets="ready"]').count() >= 6);
-    checks.push('all sprite requests may fail while the articulated product pets remain available without downloads');
+    await missing.getByRole('img', { name: '펫 이미지 없음' }).first().waitFor();
+    assert.equal(await missing.locator('.pet-sprite').count(), 0);
+    checks.push('missing PNG produces an explicit image placeholder');
+
     await missing.close();
+    const fallbackPet = await newPage();
+    await fallbackPet.route('**/companion-v1/social.webp', route => route.abort());
+    await fallbackPet.route('**/assets/soft-pet/poses.png', route => route.abort());
+    await fallbackPet.goto(origin); await openCatalog(fallbackPet);
+    await fallbackPet.locator('[data-asset="legacy"]').first().waitFor();
+    assert.equal(await fallbackPet.locator('.pet-placeholder').count(), 0);
+    const softPet = await newPage();
+    await softPet.route('**/companion-v1/social.webp', route => route.abort());
+    await softPet.goto(origin); await openCatalog(softPet);
+    await softPet.locator('[data-asset="soft"]').first().waitFor();
+    assert.equal(await softPet.locator('.pet-soft').first().evaluate(el => getComputedStyle(el).imageRendering), 'auto');
+    await softPet.emulateMedia({ reducedMotion: 'reduce' });
+    await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    await softPet.unroute('**/companion-v1/social.webp');
+    await softPet.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
+    await softPet.emulateMedia({ reducedMotion: 'no-preference' });
+    await softPet.locator('.pet-home .companion-pet[data-playing="true"]').waitFor();
+    await softPet.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    await softPet.locator('.pet-home .companion-pet[data-playing="false"]').waitFor();
+    checks.push('soft pet is smooth, obeys reduced motion and hidden windows, and restores legacy art if unavailable');
+    await fallbackPet.close(); await softPet.close();
 
     const manager = await newPage();
     await mockBridge(manager, fixture);
     await manager.goto(origin);
     await manager.locator('.app-settings > summary').click(); await manager.getByRole('button', {name:'연결 설정',exact:true}).click(); await manager.getByText('이전에 연결한 작업', { exact: true }).click();
-    await manager.locator('.pet-stage .companion-figure').first().waitFor();
-    assert.equal(await manager.locator('.pet-stage .companion-pet[data-state="planning"]').count(), 1);
+    await manager.locator('.pet-sprite').first().waitFor();
+    assert.equal(await manager.locator('.sprite-research').count(), 1);
     await manager.getByRole('button', { name: '＋ 작업 연결' }).click();
     await manager.locator('.picker-row').filter({ hasText: '보고서 작성' }).click();
     assert.equal(await manager.getByRole('button', { name: '이 작업 연결하기' }).isEnabled(), true);
@@ -577,8 +599,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       await pet.getByText(state.sessions[index].label, { exact: true }).waitFor();
       overlays.push(pet);
     }
-    await overlays[1].locator('.companion-pet[data-state="working"]').waitFor();
-    await overlays[2].locator('.companion-pet[data-state="complete"]').waitFor();
+    await overlays[1].locator('.sprite-writing').waitFor();
+    await overlays[2].locator('.sprite-celebrate').waitFor();
     const pet = overlays[0];
     await pet.bringToFront();
     await pet.evaluate(template => {
@@ -635,8 +657,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     assert.ok(acknowledged.calls.some(call => call.name === 'acknowledge_attention' && call.args.attentionId === 'elapsed-actual-id' && call.args.sessionId === 'fixture-research-id'));
     await pet.evaluate(() => { window.__uiTest.state.sessions[0].connection = 'unknown'; });
     await pet.locator('.floating-status.unknown').waitFor();
-    assert.equal(await pet.locator('.companion-pet[data-state="planning"]').count(), 0);
-    assert.equal(await pet.locator('.companion-pet[data-state="idle"]').count(), 1);
+    assert.equal(await pet.locator('.sprite-research').count(), 0);
+    assert.equal(await pet.locator('.sprite-paused').count(), 1);
     assert.equal(await pet.getByRole('button', { name: /허용|거절|일시정지/ }).count(), 0);
     checks.push('three overlays bind independently; exact attention acknowledgement preserves work; unknown state stops activity animation');
     await pet.evaluate(() => {
@@ -648,11 +670,11 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     });
     await pet.locator('.floating-status.tool-error').waitFor();
     await pet.getByText('전체 작업이 실패한 것은 아니며,', { exact: false }).waitFor();
-    assert.equal(await pet.locator('.companion-pet[data-state="error"]').count(), 1);
+    assert.equal(await pet.locator('.sprite-angry').count(), 1);
     await pet.getByRole('button', { name: '알림 확인', exact: true }).click();
     await pet.locator('.attention-card').waitFor({ state: 'hidden' });
     assert.equal(await pet.evaluate(() => window.__uiTest.state.sessions[0].state), 'working');
-    await pet.locator('.companion-pet[data-state="working"]').waitFor();
+    await pet.locator('.sprite-tool').waitFor();
     checks.push('structured tool-error uses anger, returns to observed tool motion after acknowledgment and never stops the task');
     await pet.setViewportSize({ width: 300, height: 460 });
     const smallBounds = await pet.locator('.pet-overlay').evaluate(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height, scrollWidth: element.scrollWidth }));

@@ -9,7 +9,7 @@ import './visual-cards.css';
 import './result-preview.css';
 
 // Presentation only: a prop describes the role, never a connected or running tool.
-export function TaskPetArt({ entry, motion = 'idle', paused = false, small = false, state, runKey, interactive = true, example = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean }) {
+export function TaskPetArt({ entry, motion = 'idle', paused = true, small = false, state, runKey, interactive = true, example = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean }) {
   const id = useId().replace(/:/g, '');
   const role = entry?.id ?? 'ui-webpage';
   const root = useRef<HTMLSpanElement>(null);

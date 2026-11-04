@@ -50,14 +50,9 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  assert.equal(await aPet.locator('[data-clip="greet"]').count(),0,'interacting with a working pet preserves its work pose');
  await aPet.locator('[data-clip="working"]').waitFor();
  const update=async(state,connected=true)=>live.evaluate(({state,connected})=>{const a=window.__uiTest.state.petLinks[0];a.run.state=state;a.connected=connected;window.__uiTest.emitEvent('autopets://snapshot',structuredClone(window.__uiTest.state));},{state,connected});
- await aPet.locator('.rig-head-pose').evaluate(element=>{window.__previousHead=element;});
+ await aPet.locator('.companion-sprite:not(.companion-previous-pose)').evaluate(element=>{element.getAnimations().forEach(animation=>animation.pause());window.__previousPose=getComputedStyle(element).backgroundPosition;});
  await update('waiting');await aPet.locator('[data-clip="waiting"]').waitFor();
- const transition=await aPet.locator('.rig-head-pose').evaluate(async element=>{
-   const angles=[];for(let i=0;i<18;i++){await new Promise(requestAnimationFrame);const matrix=new DOMMatrix(getComputedStyle(element).transform);angles.push(Math.atan2(matrix.b,matrix.a)*180/Math.PI);}
-   return {sameHead:element===window.__previousHead,range:Math.max(...angles)-Math.min(...angles),largestStep:Math.max(...angles.slice(1).map((a,i)=>Math.abs(a-angles[i])))};
- });
- assert.equal(transition.sameHead,true,'changing activity keeps the same articulated character');
- assert.ok(transition.range>1 && transition.largestStep<4,'head retargets continuously instead of replacing a pose image');
+ assert.equal(await aPet.locator('.companion-previous-pose').evaluate(element=>element.style.backgroundPosition===window.__previousPose),true,'pose transition preserves the rendered frame before canceling its animation');
  await update('working');await live.waitForFunction(()=>document.querySelector('.pet-card-0 .companion-pet')?.dataset.state==='working');await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="working"]').waitFor();
  await live.evaluate(()=>{window.__completedClips=0;let last='working';new MutationObserver(()=>{const clip=document.querySelector('.pet-card-0 .companion-sprite')?.dataset.clip;if(clip==='complete' && last!=='complete')window.__completedClips++;last=clip;}).observe(document.querySelector('.pet-card-0'),{subtree:true,attributes:true,attributeFilter:['data-clip']});});
  await update('complete'); await aPet.scrollIntoViewIfNeeded(); await aPet.locator('[data-clip="complete"]').waitFor(); await aPet.locator('[data-clip="blink"]').waitFor();
@@ -75,27 +70,17 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  assert.equal(await aPet.getAttribute('data-state'),'error');
  await live.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
  await live.waitForFunction(()=>[...document.querySelectorAll('.companion-pet')].every(el=>el.dataset.playing==='false'));
- assert.equal(await live.locator('.companion-sprite').evaluateAll(nodes=>nodes.reduce((n,e)=>n+e.getAnimations({subtree:true}).length,0)),0);
+ assert.equal(await live.locator('.companion-sprite').evaluateAll(nodes=>nodes.reduce((n,e)=>n+e.getAnimations().length,0)),0);
  await live.close();
 
- const fallback=await newPage(); await fallback.route('**/companion-v1/**',route=>route.abort());await fallback.goto(origin);await fallback.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
- await fallback.locator('.pet-home .companion-figure').waitFor();
- assert.equal(await fallback.locator('.pet-home .companion-pet').getAttribute('data-assets'),'ready','the articulated pet needs no sprite download');await fallback.close();
- const idleOverlay=await newPage({width:220,height:250});
- await mockBridge(idleOverlay,{...structuredClone(fixture),sessions:[],slots:[{index:0,sessionId:null}],petLinks:[]});await idleOverlay.goto(origin+'/?pet=0');
- const idle=idleOverlay.locator('.companion-pet[data-state="idle"][data-playing="true"]');await idle.waitFor();
- const motion=await idle.locator('.rig-tail').evaluate(async element=>{
-   const angles=[];for(let i=0;i<35;i++){await new Promise(requestAnimationFrame);const matrix=new DOMMatrix(getComputedStyle(element).transform);angles.push(Math.atan2(matrix.b,matrix.a)*180/Math.PI);}
-   return {unique:new Set(angles.map(a=>a.toFixed(2))).size,range:Math.max(...angles)-Math.min(...angles),largestStep:Math.max(...angles.slice(1).map((a,i)=>Math.abs(a-angles[i])))};
- });
- assert.ok(motion.unique>20 && motion.range>4 && motion.largestStep<6,'an unconnected overlay has continuous idle movement without pretending to run a task');
- assert.deepEqual(await idleOverlay.evaluate(()=>window.__uiTest.calls.filter(call=>call.name!=='set_pet_expanded')),[]);await idleOverlay.close();
+ const fallback=await newPage(); await fallback.route('**/companion-v1/social.webp',route=>route.abort());await fallback.goto(origin);await fallback.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
+ await fallback.locator('.pet-home [data-assets="failed"] [data-asset="soft"]').waitFor(); await fallback.close();
  const locks=await newPage();await locks.goto(origin);
  const claimed=await locks.evaluate(async()=>{const m=await import('/src/features/pets/companionMotion.ts');return Promise.all(Array.from({length:8},()=>m.claimCompletion('test-shared-run')));});
  assert.equal(claimed.filter(Boolean).length,1,'concurrent completion receipts claim once');
  await locks.evaluate(()=>localStorage.setItem('autopets.companion-completions.v1','broken'));
  assert.equal(await locks.evaluate(async()=>{const m=await import('/src/features/pets/companionMotion.ts');return m.claimCompletion('another-run');}),false,'damaged receipt suppresses celebration');
  await locks.close();
- checks.push('articulated character moves continuously in an unconnected overlay, smoothly retargets its head without changing figures, keeps working on interaction, and honors reduced motion/hidden views; A/B isolation, completion dedupe/reload/reconnect and serialized receipts remain; no sprite download required');
+ checks.push('home greeting focuses pet selection without backend changes; small viewports and reduced motion; A/B isolation; completion dedupe/reload/reconnect; hidden playback stops; failed assets fall back; concurrent receipts serialize');
  return screenshots;
 };

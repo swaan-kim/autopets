@@ -75,7 +75,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
     : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
     : link.template.planFirst ? '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.' : '같은 Codex 채팅에서 펫에게 일을 맡겨보세요.';
   return <div className={`explicit-pet ${compact ? 'explicit-compact' : ''}`} aria-label={`연결된 ${link.template.name}`} data-agent-scope="task-card" data-agent-id="task-card.root" data-agent-item={`slot-${link.slot}`}>
-    {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} motion={explicitPetMotion(link, disconnected)} state={companionState(link, disconnected)} runKey={companionRunKey(link)} interactive={active} /></div>}
+    {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={!active} motion={explicitPetMotion(link, disconnected)} state={companionState(link, disconnected)} runKey={companionRunKey(link)} interactive={active} /></div>}
     <div className="explicit-identity" data-agent-id="task-card.identity">
       <header className="explicit-heading"><strong>{displayLabel || link.template.name}</strong><span>Codex</span></header>
       <div className="explicit-location">{displayLabel && <p className="explicit-role">{link.template.name}</p>}<p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>

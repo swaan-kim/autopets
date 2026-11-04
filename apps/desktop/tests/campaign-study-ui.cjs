@@ -232,8 +232,8 @@ async function run() {
   await reduced.waitForFunction(() => document.querySelector('.companion-pet')?.dataset.reduced === 'true' && document.querySelector('.companion-pet')?.dataset.playing === 'false');
   await verifyIsolation(reduced, 'OS reduced motion');
   const broken = await createPage({ failImages: true });
-  await broken.waitForFunction(() => document.querySelector('.companion-pet')?.dataset.assets === 'ready');
-  const fallbackPet = broken.locator('.companion-figure');
+  await broken.waitForFunction(() => document.querySelector('.companion-pet')?.dataset.assets === 'failed');
+  const fallbackPet = broken.locator('.pet-art[data-asset="soft"],.pet-art[data-asset="legacy"],.pet-art[data-asset="missing"]');
   await fallbackPet.waitFor();
   assert.ok(await fallbackPet.isVisible(), 'fallback pet remains visible');
   const fallbackBounds = await fallbackPet.boundingBox();
