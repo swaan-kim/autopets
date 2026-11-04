@@ -27,7 +27,7 @@ export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultL
     try {
       const result = await command<SetupState>(name, { hostId });
       setLatest(result);
-      setNotice([name === 'connect_ai' ? '펫 호출 스킬을 준비했어요. 나의 펫에서 시작 요청을 복사해 Codex 채팅에 보내주세요.' : 'AutoPets 연결 설정을 해제했어요.', ...(result.warnings || [])].join(' '));
+      setNotice([name === 'connect_ai' ? '펫 호출 스킬을 준비했어요. 쓰던 Codex 채팅에서 AutoPets 스킬을 선택해 펫을 불러주세요.' : 'AutoPets 연결 설정을 해제했어요.', ...(result.warnings || [])].join(' '));
     } catch { setError('연결 설정을 바꾸지 못했어요. 앱과 Codex 상태를 확인한 뒤 다시 시도해 주세요.'); }
     finally { working.current = false; setBusy(false); }
   };
@@ -36,7 +36,22 @@ export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultL
     <section className="connection-manage-card" aria-label="AI 연결 관리">
       <div className="setup-step-title"><h2>{host?.label ?? 'Codex · Windows'}</h2><span className="setup-status">{petConnected ? '펫 연결됨' : configured ? '호출 준비됨' : '연결 전'}</span></div>
       {host?.connectAvailable ? <>
+        <ol className="setup-progress" aria-label="펫 연결 순서">
+          {[
+            { label: '앱 준비', done: isDesktop && latest?.appReady === true },
+            { label: '호출 스킬 준비', done: configured },
+            { label: '현재 채팅 연결', done: petConnected },
+          ].map((step, index) => <li key={step.label} data-done={step.done}>
+            <span className="setup-step-number" aria-hidden="true">{step.done ? '✓' : index + 1}</span>
+            <span>{step.label}<small>{step.done ? '확인됨' : '아직 확인 전'}</small></span>
+          </li>)}
+        </ol>
         <p>{petConnected ? '연결된 펫의 작업과 설정은 나의 펫에서 확인하세요.' : configured ? '준비한 스킬을 Codex 채팅에서 부르면 펫이 연결돼요.' : '이 PC에 펫 호출 스킬을 준비하면 기존 Codex 채팅에서 사용할 수 있어요.'}</p>
+        {configured && !petConnected && <div className="setup-next-step">
+          <strong>이제 쓰던 Codex 채팅에서 불러주세요.</strong>
+          <p>AutoPets 스킬을 선택하고 <q>제작 펫 연결해줘</q>라고 말해보세요.</p>
+          <small>펫을 연결한 뒤 앱에서 선택·적용해요. 역할 지침이나 설정을 붙여넣을 필요가 없어요.</small>
+        </div>}
         <div className="setup-actions">{configured ? <><button className="button secondary" disabled={!isDesktop || busy} onClick={() => void run('connect_ai')}>연결 복구</button><details><summary>연결 해제</summary><p>이 PC의 AutoPets 호출 설정을 해제해요. 기존 Codex 작업은 계속돼요.</p><button className="text-button danger-text" disabled={!isDesktop || busy} onClick={() => void run('disconnect_ai')}>이 AI 연결 해제</button></details></> : <button className="button primary" disabled={!isDesktop || busy} onClick={() => void run('connect_ai')}>{busy ? '준비하는 중…' : '이 AI 연결하기'}</button>}</div>
         <details className="setup-help"><summary>펫이 연결되지 않나요?</summary><p>Codex의 스킬 목록에서 AutoPets를 선택하고 “제작 펫 연결”을 보내세요. 새 스킬이 보이지 않으면 작업을 마친 뒤 Codex를 다시 열어주세요.</p><small>펫 호출에는 새 훅 허용이 필요하지 않아요. 기존 훅 설정은 변경하지 않아요.</small></details>
       </> : <p className="setup-guidance">{host?.execution === 'cloud' ? '이 웹·클라우드 환경은 아직 펫과 연결되지 않아요.' : '이 환경의 실제 펫 연결은 아직 검증하지 않았어요.'} <button className="text-button" onClick={onPreferences}>요청 문구·설정 안내 보기 →</button></p>}
@@ -51,6 +66,13 @@ export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultL
       <details className="setup-help"><summary>실제 설정 확인</summary><p>모델 {connection?.settingsVerified.model ? '확인' : '미검증'} · 추론 {connection?.settingsVerified.reasoning ? '확인' : '미검증'} · 제출 보호 {connection?.settingsVerified.submission ? '확인' : '미검증'}</p><p>부모 채팅의 설정과 펫 하위 작업은 구분해요. 펫 작업의 확인값은 해당 펫 카드에서 볼 수 있어요.</p></details>
       <div className="setup-default"><span>기존 자동 도움 기본값 <strong>{defaultLabel}</strong></span><button className="text-button" onClick={onPreferences}>작업 방식 보기 →</button></div>
       <details className="setup-help"><summary>연결 파일 위치</summary><code className="path-code">{connectionPath || '연결 파일 준비 전'}</code></details>
+    </details>
+    <details className="connection-preset-share"><summary>다른 AI에서도 펫 설정 쓰기</summary>
+      <h2>저장한 작업 방식을 그대로 가져가요.</h2>
+      <p>Claude의 로컬 확장에 연결 도구를 추가하면, 사용자가 고른 펫의 지침을 읽는 경로를 준비할 수 있어요.</p>
+      <ol><li>이 앱에서 원하는 펫 구성을 저장해요.</li><li>확장 파일을 받고 Claude의 확장 설정에서 설치해요.</li><li>쓰던 대화에서 “AutoPets에 저장한 펫 찾아줘”라고 말해요.</li></ol>
+      <a className="button secondary" href="/assets/connectors/AutoPets-pet-preferences.mcpb" download="AutoPets-pet-preferences.mcpb">Claude용 연결 파일 받기</a>
+      <p className="small-note">연결 준비판 · 실제 Claude 설치·활용 검증 전이에요. 펫 설정 읽기만 준비하며, 대화 공유·스킬 실행·모델 변경은 확인하지 않았어요. ChatGPT 웹·Work의 클라우드 연결은 별도예요.</p>
     </details>
     <AppUpdate />
   </div>;

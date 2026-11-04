@@ -44,6 +44,10 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
 
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
   await page.getByText('호출 준비됨', { exact: true }).waitFor();
+  await page.getByText('이제 쓰던 Codex 채팅에서 불러주세요.', { exact: true }).waitFor();
+  assert.equal(await page.locator('.setup-progress li[data-done="true"]').count(), 2, 'app and skill preparation do not claim a connected conversation');
+  assert.equal(await page.locator('.setup-next-step').innerText().then(text => text.includes('붙여넣을 필요가 없어요')), true);
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '', 'connection preparation does not copy a prompt');
   await page.getByText('펫이 연결되지 않나요?', { exact: true }).click();
   await page.getByText(/펫 호출에는 새 훅 허용이 필요하지 않아요/).waitFor();
   assert.equal(await page.getByText('펫 연결됨', { exact: true }).count(), 0);
@@ -63,6 +67,7 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   await page.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('work-local');
   await page.getByText('호환성 확인 전', { exact: true }).waitFor();
+  assert.equal(await page.locator('.setup-progress').count(), 0, 'an unsupported host never inherits Codex preparation steps');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).count(), 0);
   assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('chatgpt-web');
@@ -84,6 +89,19 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).isEnabled(), true);
   checks.push('disconnect and failed setup leave a retryable connection and never fabricate a first task');
+
+  const beforeDownload = await page.evaluate(() => window.__uiTest.calls.length);
+  await page.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  const bundle = await download;
+  assert.equal(bundle.suggestedFilename(), 'AutoPets-pet-preferences.mcpb');
+  assert.equal(await bundle.failure(), null);
+  const stream = await bundle.createReadStream(); const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  assert.equal(Buffer.concat(chunks).readUInt32LE(0), 0x04034b50, 'the user receives an actual local extension ZIP');
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.length), beforeDownload, 'download never installs, changes permissions, or connects a host');
+  checks.push('Claude preference bundle downloads only on click without installing or granting any host capability; browser download is not native-host installation evidence');
 
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name.includes('app_update'))), false);
   await page.getByText('앱 업데이트', { exact: true }).click();

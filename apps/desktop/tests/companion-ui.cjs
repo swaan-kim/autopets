@@ -7,6 +7,9 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  const page=await newPage({width:992,height:688});
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.goto(origin);
+ await page.locator('.workspace-role-grid').waitFor();
+ assert.equal(await page.locator('.pet-home').count(),0,'first use opens the useful catalog without an extra home step');
+ await page.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
  const home=page.locator('.pet-home');
  assert.equal(await home.getAttribute('data-agent-scope'),'home');
  for(const id of ['home.root','home.greeting','home.title','home.intro','home.choose-pet','home.connection']) assert.equal(await home.locator(`[data-agent-id="${id}"]`).count()+(id==='home.root'?1:0),1,'each home feedback target has a unique stable id');
@@ -40,7 +43,15 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  const aPet=live.locator('.pet-card-0 .companion-pet'), bPet=live.locator('.pet-card-1 .companion-pet');
  await aPet.scrollIntoViewIfNeeded();
  await aPet.locator('[data-clip="working"]').waitFor();
+ await live.locator('.pet-card-0 .task-pet-art').dispatchEvent('pointerdown');
+ await live.waitForTimeout(250);
+ assert.equal(await aPet.locator('[data-clip="greet"]').count(),0,'interacting with a working pet preserves its work pose');
+ await aPet.locator('[data-clip="working"]').waitFor();
  const update=async(state,connected=true)=>live.evaluate(({state,connected})=>{const a=window.__uiTest.state.petLinks[0];a.run.state=state;a.connected=connected;window.__uiTest.emitEvent('autopets://snapshot',structuredClone(window.__uiTest.state));},{state,connected});
+ await aPet.locator('.companion-sprite:not(.companion-previous-pose)').evaluate(element=>{element.getAnimations().forEach(animation=>animation.pause());window.__previousPose=getComputedStyle(element).backgroundPosition;});
+ await update('waiting');await aPet.locator('[data-clip="waiting"]').waitFor();
+ assert.equal(await aPet.locator('.companion-previous-pose').evaluate(element=>element.style.backgroundPosition===window.__previousPose),true,'pose transition preserves the rendered frame before canceling its animation');
+ await update('working');await live.waitForFunction(()=>document.querySelector('.pet-card-0 .companion-pet')?.dataset.state==='working');await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="working"]').waitFor();
  await live.evaluate(()=>{window.__completedClips=0;let last='working';new MutationObserver(()=>{const clip=document.querySelector('.pet-card-0 .companion-sprite')?.dataset.clip;if(clip==='complete' && last!=='complete')window.__completedClips++;last=clip;}).observe(document.querySelector('.pet-card-0'),{subtree:true,attributes:true,attributeFilter:['data-clip']});});
  await update('complete'); await aPet.scrollIntoViewIfNeeded(); await aPet.locator('[data-clip="complete"]').waitFor(); await aPet.locator('[data-clip="blink"]').waitFor();
  const count=await live.evaluate(()=>window.__completedClips);assert.equal(count,1);
@@ -60,7 +71,7 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  assert.equal(await live.locator('.companion-sprite').evaluateAll(nodes=>nodes.reduce((n,e)=>n+e.getAnimations().length,0)),0);
  await live.close();
 
- const fallback=await newPage(); await fallback.route('**/companion-v1/social.webp',route=>route.abort());await fallback.goto(origin);
+ const fallback=await newPage(); await fallback.route('**/companion-v1/social.webp',route=>route.abort());await fallback.goto(origin);await fallback.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
  await fallback.locator('.pet-home [data-assets="failed"] [data-asset="soft"]').waitFor(); await fallback.close();
  const locks=await newPage();await locks.goto(origin);
  const claimed=await locks.evaluate(async()=>{const m=await import('/src/features/pets/companionMotion.ts');return Promise.all(Array.from({length:8},()=>m.claimCompletion('test-shared-run')));});

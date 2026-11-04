@@ -19,6 +19,7 @@ const { runPetTaskReturnChecks } = require('./pet-task-return-ui.cjs');
 const { runCompanionChecks } = require('./companion-ui.cjs');
 const { runFirstSuccessChecks } = require('./first-success-ui.cjs');
 const { runVisualSimplicityChecks } = require('./visual-simplicity-ui.cjs');
+const { runPromptIdeaChecks } = require('./prompt-ideas-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
@@ -339,7 +340,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     const empty = await newPage();
     await empty.goto(origin);
-    await empty.getByRole('heading', { name: '어떤 펫과 일할까요?', exact: true }).waitFor();
+    await empty.getByRole('heading', { name: '펫 고르기', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await chooseRole(empty, '웹페이지 만들기');
     assert.equal(await empty.getByRole('button', { name: 'Codex에 펫 준비', exact: true }).isEnabled(), false);
@@ -357,6 +358,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const siteScreenshots = await runProductSiteChecks({ newPage, screenshotDir: path.dirname(screenshot), checks });
 
     const missing = await newPage();
+    await missing.route('**/companion-v1/social.webp', route => route.abort());
     await missing.route('**/assets/soft-pet/poses.png', route => route.abort());
     await missing.route('**/assets/motions/sprite.png', route => route.abort());
     await missing.goto(origin); await openCatalog(missing);
@@ -366,16 +368,19 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
 
     await missing.close();
     const fallbackPet = await newPage();
+    await fallbackPet.route('**/companion-v1/social.webp', route => route.abort());
     await fallbackPet.route('**/assets/soft-pet/poses.png', route => route.abort());
     await fallbackPet.goto(origin); await openCatalog(fallbackPet);
     await fallbackPet.locator('[data-asset="legacy"]').first().waitFor();
     assert.equal(await fallbackPet.locator('.pet-placeholder').count(), 0);
     const softPet = await newPage();
+    await softPet.route('**/companion-v1/social.webp', route => route.abort());
     await softPet.goto(origin); await openCatalog(softPet);
     await softPet.locator('[data-asset="soft"]').first().waitFor();
     assert.equal(await softPet.locator('.pet-soft').first().evaluate(el => getComputedStyle(el).imageRendering), 'auto');
     await softPet.emulateMedia({ reducedMotion: 'reduce' });
     await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
+    await softPet.unroute('**/companion-v1/social.webp');
     await softPet.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
     await softPet.emulateMedia({ reducedMotion: 'no-preference' });
     await softPet.locator('.pet-home .companion-pet[data-playing="true"]').waitFor();
@@ -707,6 +712,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     graphScreenshots.push(...await runCopyFreeChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
+    graphScreenshots.push(...await runPromptIdeaChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runFirstSuccessChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

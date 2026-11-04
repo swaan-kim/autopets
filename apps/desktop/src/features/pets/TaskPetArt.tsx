@@ -14,7 +14,7 @@ export function TaskPetArt({ entry, motion = 'idle', paused = true, small = fals
   const root = useRef<HTMLSpanElement>(null);
   const [hovered, setHovered] = useState(false);
   const [interaction, setInteraction] = useState(0);
-  const companion = entry?.id === 'ui-webpage';
+  const companion = Boolean(entry);
   const companionView: CompanionState = state ?? ({ idle: 'idle', research: 'planning', thinking: 'planning', writing: 'working', tool: 'working', dizzy: 'waiting', celebrate: 'complete', angry: 'error' } as const)[motion];
   useEffect(() => {
     if (!companion || !interactive) return;

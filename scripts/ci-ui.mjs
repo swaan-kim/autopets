@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import { packagePetPreferences } from './package-pet-preferences.mjs';
 const desktopRequire = createRequire(new URL('../apps/desktop/package.json', import.meta.url));
 const { createServer } = await import(pathToFileURL(desktopRequire.resolve('vite')).href);
 
@@ -9,6 +10,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const appRoot = fileURLToPath(new URL('../apps/desktop/', import.meta.url));
 let server;
 try {
+  await packagePetPreferences({ out: fileURLToPath(new URL('../apps/desktop/public/assets/connectors/AutoPets-pet-preferences.mcpb', import.meta.url)) });
   // Await the actual listener, independent of Vite's colored/TTY log formatting.
   // strictPort rejects an occupied port instead of testing an unrelated server.
   server = await createServer({ root: appRoot, logLevel: 'error', clearScreen: false,

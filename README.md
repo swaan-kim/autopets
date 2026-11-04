@@ -52,6 +52,8 @@ https://github.com/swaan-kim/autopets/blob/main/INSTALL.md 를 읽고,
 
 펫마다 결과 예시와 스킬 출처를 확인할 수 있습니다. 웹페이지 펫은 고정 버전의 **Anthropic frontend-design**을 사용합니다. 즐겨찾기와 저장한 구성으로 같은 방식을 다시 쓸 수 있고, 외부 도구 연결은 필요한 경우에만 선택합니다. Figma는 기본 꺼짐입니다.
 
+개발 소스에서는 이미지·영상의 **구도 예시**와 요청 조건을 고르고, 프롬프트를 정리하는 펫 설정에 담을 수 있습니다. 예시 그림은 실제 생성 결과와 구분합니다. 첫 실행은 선택 화면, 기존 작업이 있으면 작업 목록으로 바로 들어갑니다.
+
 ## 현재 확인한 범위
 
 | 구분 | 상태 |
@@ -114,5 +116,7 @@ node scripts/validate-release.mjs
 [Windows 빌드](docs/releases/windows.md) · [내부 구조](docs/architecture/layout.md) · [Windows CI](https://github.com/swaan-kim/autopets/actions/workflows/windows.yml)
 
 기존 앱 ID `local.autopets.desktop`과 데이터 위치를 유지합니다. DB·인증값·개인 채팅·로컬 진단은 공개하지 않습니다. `campaign-study.html`과 [공개 소개](https://swaan-kim.github.io/autopets/)는 별도 예시·시제품이며 실제 실행 증거로 사용하지 않습니다.
+
+[다른 AI에서 펫 설정 읽기](integrations/mcp/README.md)는 읽기 전용 MCP 연결 준비판입니다. 앱의 연결 설정에서 Claude용 파일을 받을 수 있으며, 실제 호스트 설치·활용·대화 공유는 별도 검증입니다. [이번 사용성 변경과 검사](docs/testing/ux-flow-20261104.md).
 
 </details>
