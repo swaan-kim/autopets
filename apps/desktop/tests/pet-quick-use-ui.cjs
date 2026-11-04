@@ -64,15 +64,16 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
   }
   await page.evaluate(() => { window.__uiTest.preferenceExportError = true; });
   const exportButton = composer.getByRole('button', { name: 'Claude 연결 파일', exact: true });
+  const exportStatus = composer.locator('.composer-claude-connector').getByRole('status');
   await exportButton.click();
   await composer.getByRole('alert').filter({ hasText: '연결 파일을 저장하지 못했어요' }).waitFor();
-  assert.equal(await composer.getByText('파일 저장됨', { exact: true }).count(), 0);
+  assert.equal(await exportStatus.count(), 0);
   await page.evaluate(() => { window.__uiTest.preferenceExportError = false; window.__uiTest.holdPreferenceExport = true; });
   await exportButton.evaluate(button => { button.click(); button.click(); });
   await page.waitForFunction(() => typeof window.__uiTest.releasePreferenceExport === 'function');
   assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'export_pet_preferences').length), 2);
   await page.evaluate(() => window.__uiTest.releasePreferenceExport());
-  await composer.getByText('파일 저장됨', { exact: true }).waitFor();
+  await exportStatus.waitFor();
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|install|submit|execute|open_pet_task/.test(call.name))), false);
   checks.push('quick-use: disconnected create, failed save and repeated click, one stored pet with unchanged chats/clipboard and no AI; flat settings/request modal, Escape focus return, keyboard containment, preserved draft and small layouts; compact connector export failures/duplicates never claim installation');
   await page.close();

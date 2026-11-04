@@ -19,7 +19,7 @@ export function PetPreferencesConnector({ compact = false }: { compact?: boolean
   if (compact) return <div className="composer-claude-connector">
     {isDesktop ? <button className="button secondary" disabled={busy} onClick={() => void save()}>{busy ? '저장 중…' : 'Claude 연결 파일'}<span aria-hidden="true">↓</span></button>
       : <a className="button secondary" href="/assets/connectors/AutoPets-pet-preferences.mcpb" download="AutoPets-pet-preferences.mcpb">Claude 연결 파일<span aria-hidden="true">↓</span></a>}
-    {fileName && <p className="setup-notice" role="status">파일 저장됨</p>}
+    {fileName && <p className="setup-notice" role="status">다운로드/AutoPets에 저장했어요.<br />Claude 설정 → 확장 프로그램 → 고급 설정에서 설치하세요.</p>}
     {error && <p className="error" role="alert">{error}</p>}
   </div>;
   return <details className="connection-preset-share"><summary>다른 AI에서도 펫 설정 쓰기</summary>
