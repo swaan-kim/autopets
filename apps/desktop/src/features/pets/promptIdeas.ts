@@ -5,9 +5,9 @@ import type { PetRoleTemplate } from '@autopets/contracts/types';
 export type PromptIdea = { id: string; kind: 'image' | 'video'; title: string; summary: string; art: string; prompt: string; conditions: string[] };
 export const promptIdeas: PromptIdea[] = [
   { id: 'product', kind: 'image', title: '작은 브랜드의 제품 사진', summary: '부드러운 자연광과 넉넉한 여백', art: 'product', prompt: '[제품명] 하나를 크림색 배경에 배치해줘. 왼쪽 창에서 들어오는 부드러운 자연광, 짧은 그림자, 읽기 쉬운 라벨과 넉넉한 여백을 담아줘.', conditions: ['3:2 가로 구도', '자연광', '제품 사진'] },
-  { id: 'coast', kind: 'video', title: '느긋한 해변의 한 장면', summary: '잔잔한 파도와 천천히 움직이는 카메라', art: 'coast', prompt: '해 질 무렵 고요한 해변. 잔잔한 파도가 모래 위로 밀려오고 카메라가 천천히 앞으로 이동한다. 따뜻한 빛과 일정한 속도를 유지하는 한 장면.', conditions: ['가로 화면', '느린 전진', '한 장면'] },
+  { id: 'coast', kind: 'video', title: '호수 위의 느린 오후', summary: '백조의 움직임과 물 위에 번지는 잔물결', art: 'swans', prompt: '늦은 오후의 잔잔한 호수. 백조들이 천천히 헤엄치며 물 위로 잔물결을 남긴다. 따뜻한 노을빛과 호수의 반사를 담아 고요한 한 장면으로 만들어줘.', conditions: ['가로 화면', '느린 움직임', '호수 풍경'] },
   { id: 'poster', kind: 'image', title: '시선이 머무는 포스터', summary: '큰 제목과 따뜻한 종이의 질감', art: 'poster', prompt: '[행사명]을 위한 미니멀 포스터. 아이보리 종이, 짙은 녹색의 큰 제목, 작은 일정 정보와 충분한 여백. 행사명·날짜·장소를 확인하고 정확하게 배치해줘.', conditions: ['세로 포스터', '타이포그래피', '행사 홍보'] },
-  { id: 'orbit', kind: 'video', title: '제품을 천천히 둘러보기', summary: '제품의 형태를 유지하는 작은 회전', art: 'orbit', prompt: '[제품명]이 밝은 스튜디오 받침대에 놓여 있다. 카메라가 제품을 중심으로 천천히 작은 각도로 이동한다. 형태와 라벨을 유지하고 조명은 일정하게.', conditions: ['가로 화면', '작은 회전', '제품 영상'] },
+  { id: 'orbit', kind: 'video', title: '네온빛이 번지는 밤', summary: '젖은 거리와 우산을 쓴 인물의 걸음', art: 'rain', prompt: '비 오는 네온 거리에서 후드를 입은 인물이 우산을 들고 앞으로 걷는다. 젖은 바닥에 분홍색과 청록색 조명이 비치고, 걸음과 빗방울이 자연스럽게 이어지는 짧은 장면으로 만들어줘.', conditions: ['가로 화면', '걷는 인물', '비와 네온'] },
 ];
 
 const base = roles.find(role => role.id === 'research-document') as PetRoleTemplate;
