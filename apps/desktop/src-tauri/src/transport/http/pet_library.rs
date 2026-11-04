@@ -19,13 +19,13 @@ pub(super) async fn read(
     Json(input): Json<ReadLibrary>,
 ) -> BridgeResult<serde_json::Value> {
     let store = state.store.lock().map_err(state_error)?;
-    let mut pets = store.roles_snapshot()
-        .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "pet-library-unavailable"))?.pets;
     match input {
         ReadLibrary::List { offset } => {
             if offset > 100_000 {
                 return Err(error(StatusCode::UNPROCESSABLE_ENTITY, "invalid-library-offset"));
             }
+            let mut pets = store.saved_pets()
+                .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "pet-library-unavailable"))?;
             pets.sort_by(|a, b| a.id.cmp(&b.id));
             let next = (pets.len() > offset.saturating_add(20)).then_some(offset + 20);
             let entries: Vec<_> = pets.into_iter().skip(offset).take(20).map(|pet|
@@ -37,7 +37,8 @@ pub(super) async fn read(
             if pet_id.len() > 128 || pet_id.chars().any(char::is_control) {
                 return Err(error(StatusCode::UNPROCESSABLE_ENTITY, "invalid-pet-id"));
             }
-            let pet = pets.into_iter().find(|pet| pet.id == pet_id)
+            let pet = store.saved_pet(&pet_id)
+                .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "pet-library-unavailable"))?
                 .ok_or_else(|| error(StatusCode::NOT_FOUND, "pet-not-found"))?;
             if pet.revision != expected_revision {
                 return Err(error(StatusCode::CONFLICT, "saved-pet-revision-changed"));

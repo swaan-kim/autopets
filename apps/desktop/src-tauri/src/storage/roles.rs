@@ -7,11 +7,15 @@ impl Store {
     pub(crate) fn init_roles(&self) -> Result<(), String> {
         self.db.execute_batch("CREATE TABLE IF NOT EXISTS pet_templates_v1 (id TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS pet_roles_v1 (identity TEXT PRIMARY KEY, value TEXT NOT NULL);").map_err(err)
     }
-    pub fn roles_snapshot(&self) -> Result<Snapshot, String> {
+    pub fn saved_pets(&self) -> Result<Vec<SavedPet>, String> {
         let mut pets = self.db.prepare("SELECT value FROM pet_templates_v1 ORDER BY id").map_err(err)?;
         let pets = pets.query_map([], |r| r.get::<_, String>(0)).map_err(err)?
             .map(|r| serde_json::from_str::<SavedPet>(&r.map_err(err)?).map_err(err)).collect::<Result<Vec<_>,_>>()?;
         for pet in &pets { pet.template.validate()?; }
+        Ok(pets)
+    }
+    pub fn roles_snapshot(&self) -> Result<Snapshot, String> {
+        let pets = self.saved_pets()?;
         let mut bindings = self.db.prepare("SELECT value FROM pet_roles_v1 ORDER BY identity").map_err(err)?;
         let bindings = bindings.query_map([], |r| r.get::<_, String>(0)).map_err(err)?
             .map(|r| serde_json::from_str::<Binding>(&r.map_err(err)?).map_err(err)).collect::<Result<Vec<_>,_>>()?;
