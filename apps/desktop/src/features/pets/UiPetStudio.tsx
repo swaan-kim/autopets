@@ -125,10 +125,6 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
   const currentSetup = localSetup ?? setup;
   const prepared = explicitSetupReady(currentSetup);
   const target = links.find(link => targetKey(link) === selectedTarget);
-  useEffect(() => {
-    if (!open || selectedTarget || links.length !== 1 || !links[0].connected) return;
-    setSelectedTarget(targetKey(links[0]));
-  }, [open, selectedTarget, links]);
   const matchingLinks = saved && !dirty && !staleSaved ? links.filter(link => link.connected && link.savedPet?.id === saved.id && link.savedPet.revision === saved.revision) : [];
   const uiPets = library.snapshot.pets.filter(pet => catalogFor(pet.template));
   const entry = catalogFor(draft) ?? petCatalog.find(item => item.id === 'ui-webpage')!;
@@ -228,7 +224,9 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
     setTask(value.task); setAudience(value.audience); setMessage(value.message); setPrompt(value.prompt); setCopied(value.copied);
     setManualCopy(value.manualCopy); setNotice(value.notice); setHandoff(value.handoff); setReuseTarget(value.reuseTarget); setNewTask(value.newTask);
     setCopyExpanded(key.startsWith('home:') || value.manualCopy || Boolean(value.prompt));
-    setSelectedTarget(value.reuseTarget ? JSON.stringify([value.reuseTarget.sourceId, value.reuseTarget.threadId, value.reuseTarget.cwd]) : '');
+    const available = disconnected ? [] : links.filter(link => link.connected && link.enabled && !unresolvedPetRun(link));
+    setSelectedTarget(value.reuseTarget ? JSON.stringify([value.reuseTarget.sourceId, value.reuseTarget.threadId, value.reuseTarget.cwd])
+      : available.length === 1 ? targetKey(available[0]) : '');
     setApplied(null);
     selectionButton.current = document.activeElement as HTMLElement; setOpen(true);
   };

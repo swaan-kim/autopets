@@ -1,5 +1,6 @@
 import data from '../../../../../packages/contracts/data/pet-catalog.json';
 import type { PetRoleTemplate } from '@autopets/contracts/types';
+import { promptPets } from './promptIdeas';
 
 export interface PetCatalogEntry {
   id: string; category: 'daily' | 'work'; name: string; summary: string;
@@ -8,5 +9,10 @@ export interface PetCatalogEntry {
   publisher: string; source: string | null; template: PetRoleTemplate;
 }
 export const petCatalog = data as PetCatalogEntry[];
-export const catalogFor = (template: PetRoleTemplate) => petCatalog.find(entry =>
-  entry.template.id === template.id && entry.template.skills[0]?.id === template.skills[0]?.id);
+export const allPetCatalog = [...petCatalog, ...promptPets];
+export const catalogFor = (template: PetRoleTemplate) => {
+  const candidates = allPetCatalog.filter(entry =>
+    entry.template.id === template.id && entry.template.skills[0]?.id === template.skills[0]?.id);
+  return candidates.find(entry => entry.template.name === template.name)
+    ?? (template.id === 'research-document' ? undefined : candidates[0]);
+};

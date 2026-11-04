@@ -9,6 +9,9 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await mockBridge(page, { ...structuredClone(fixture), sessions: [], slots: [], petLinks: [],
     setup: { version: 1, connectionMode: 'explicit-pet', connections: [{ hostId: 'codex-windows-local', configured: true }] } });
   await page.goto(origin);
+  await page.locator('.workspace-role-grid').waitFor();
+  assert.equal(await page.locator('.pet-home').count(), 0, 'new users start at choices without a greeting gate');
+  await page.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
   const capture = async name => { const file = path.join(screenshotDir, `after-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
   const home = page.locator('.pet-home');
   await home.getByRole('heading', { name: '어떤 펫과 일할까요?', exact: true }).waitFor();
@@ -109,9 +112,9 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
     run: { id: `run-${slot}`, profile: slot ? 'plan' : 'light', state: slot ? 'waiting' : 'complete' },
   })) };
   await mockBridge(returning, value); await returning.goto(origin);
-  const items = returning.locator('.pet-home .workspace-live-card');
+  const items = returning.locator('.workspace-live-card');
   await items.first().waitFor();
-  await returning.locator('[data-agent-id="home.connection"]').getByText('연결된 Codex 채팅 2개', { exact: true }).waitFor();
+  assert.equal(await returning.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).getAttribute('aria-current'), 'page', 'returning users go straight to their registered work');
   assert.ok((await items.first().getAttribute('class')).includes('pet-card-1'), 'attention precedes recent completion');
   await items.first().getByRole('button', { name: '계획 보러 가기', exact: true }).click();
   await items.first().getByText(/Codex에 열기를 요청했어요/).waitFor();
@@ -120,6 +123,6 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   const output = path.join(screenshotDir, 'after-task-return.png');
   await returning.screenshot({ path: output, fullPage: true, animations: 'disabled' }); images.push(output);
   await returning.close();
-  checks.push('returning home prioritizes confirmation and dispatches the exact registered B without changing A/B records');
+  checks.push('returning users skip home, see attention first, and dispatch the exact registered B without changing A/B records');
   return images;
 };

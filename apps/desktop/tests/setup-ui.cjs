@@ -44,6 +44,10 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
 
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
   await page.getByText('호출 준비됨', { exact: true }).waitFor();
+  await page.getByText('이제 쓰던 Codex 채팅에서 불러주세요.', { exact: true }).waitFor();
+  assert.equal(await page.locator('.setup-progress li[data-done="true"]').count(), 2, 'app and skill preparation do not claim a connected conversation');
+  assert.equal(await page.locator('.setup-next-step').innerText().then(text => text.includes('붙여넣을 필요가 없어요')), true);
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '', 'connection preparation does not copy a prompt');
   await page.getByText('펫이 연결되지 않나요?', { exact: true }).click();
   await page.getByText(/펫 호출에는 새 훅 허용이 필요하지 않아요/).waitFor();
   assert.equal(await page.getByText('펫 연결됨', { exact: true }).count(), 0);
@@ -63,6 +67,7 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   await page.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('work-local');
   await page.getByText('호환성 확인 전', { exact: true }).waitFor();
+  assert.equal(await page.locator('.setup-progress').count(), 0, 'an unsupported host never inherits Codex preparation steps');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).count(), 0);
   assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('chatgpt-web');
@@ -84,6 +89,38 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).isEnabled(), true);
   checks.push('disconnect and failed setup leave a retryable connection and never fabricate a first task');
+
+  const beforeDownload = await page.evaluate(() => window.__uiTest.calls.length);
+  await page.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
+  await page.evaluate(() => { window.__uiTest.holdPreferenceExport = true; });
+  await page.getByRole('button', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '파일 저장 중…', exact: true }).isDisabled(), true);
+  await page.evaluate(() => { window.__uiTest.releasePreferenceExport(); window.__uiTest.holdPreferenceExport = false; });
+  await page.getByText(/다운로드 폴더의 AutoPets에 저장했어요/).waitFor();
+  assert.deepEqual(await page.evaluate(index => window.__uiTest.calls.slice(index), beforeDownload), [{ name: 'export_pet_preferences', args: {} }]);
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '');
+  await page.evaluate(() => { window.__uiTest.preferenceExportError = true; });
+  await page.getByRole('button', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '연결 파일을 저장하지 못했어요' }).waitFor();
+  assert.equal(await page.getByText(/다운로드 폴더의 AutoPets에 저장했어요/).count(), 0, 'failed export does not retain the previous success');
+  assert.equal(await page.getByRole('button', { name: 'Claude용 연결 파일 받기', exact: true }).isEnabled(), true);
+  checks.push('native connector export is click-only, suppresses duplicate clicks and reports save failure without installing or granting host capability');
+
+  const browserPage = await newPage();
+  await browserPage.goto(origin);
+  await browserPage.locator('.app-settings > summary').click();
+  await browserPage.getByRole('button', { name: '연결 설정', exact: true }).click();
+  await browserPage.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
+  const download = browserPage.waitForEvent('download');
+  await browserPage.getByRole('link', { name: 'Claude용 연결 파일 받기', exact: true }).click();
+  const bundle = await download;
+  assert.equal(bundle.suggestedFilename(), 'AutoPets-pet-preferences.mcpb');
+  assert.equal(await bundle.failure(), null);
+  const stream = await bundle.createReadStream(); const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  assert.equal(Buffer.concat(chunks).readUInt32LE(0), 0x04034b50, 'the user receives an actual local extension ZIP');
+  await browserPage.close();
+  checks.push('browser preview downloads an actual local extension ZIP; file download is distinct from native export and host installation');
 
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name.includes('app_update'))), false);
   await page.getByText('앱 업데이트', { exact: true }).click();

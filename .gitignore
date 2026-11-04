@@ -15,3 +15,5 @@ connection.json
 *.sqlite3-wal
 .env
 .env.*
+apps/desktop/public/assets/connectors/AutoPets-pet-preferences.mcpb
+apps/desktop/public/assets/connectors/AutoPets-pet-preferences.mcpb.sha256

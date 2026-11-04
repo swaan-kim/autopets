@@ -71,6 +71,13 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   assert.equal(await waiting.composer.locator('.composer-copy-fallback').evaluate(el => el.open), false);
   assert.equal(await waiting.composer.getByRole('button', { name: 'Codex 작업 열기', exact: true }).count(), 0);
   assert.deepEqual(await waiting.page.evaluate(() => window.__uiTest.calls), [], 'prepared but unlinked state does not install, copy, guess a chat, or dispatch work');
+  await waiting.page.evaluate(next => { window.__uiTest.state.petLinks = [next]; window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); }, link(A));
+  const lateTarget = waiting.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
+  await lateTarget.waitFor({ state: 'attached' });
+  assert.equal(await lateTarget.inputValue(), '', 'a newly discovered chat never silently retargets an open composer');
+  await lateTarget.selectOption(key(link(A)));
+  await lateTarget.selectOption('');
+  assert.equal(await lateTarget.inputValue(), '', 'clearing the chosen chat remains the user choice');
   await waiting.page.close();
   const browser = await newPage();
   await browser.goto(origin); await chooseRole(browser, '웹페이지 만들기');
@@ -156,6 +163,7 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   ]) {
     const blocked = await create([{ ...link(A), ...patch }]);
     const target = blocked.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
+    assert.equal(await target.inputValue(), '', `${name} is never selected by default`);
     await target.selectOption(key(link(A)));
     assert.equal(await mainApply(blocked.composer).isDisabled(), true, name);
     assert.equal(await blocked.composer.locator('.composer-applied').count(), 0, name);

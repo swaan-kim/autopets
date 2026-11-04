@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node ../../scripts/package-pet-preferences.mjs --out public/assets/connectors/AutoPets-pet-preferences.mcpb && vite --host 127.0.0.1",
+    "build": "node ../../scripts/package-pet-preferences.mjs --out public/assets/connectors/AutoPets-pet-preferences.mcpb && tsc --noEmit && vite build",
     "desktop": "tauri dev",
     "desktop:build": "tauri build --no-bundle",
     "tauri": "tauri"

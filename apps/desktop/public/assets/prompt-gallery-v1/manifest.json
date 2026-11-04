@@ -1,0 +1,53 @@
+{
+  "createdOn": "2026-11-04",
+  "tool": "built-in image_gen",
+  "modelIdentifier": "not-returned-by-tool",
+  "generationCalls": 4,
+  "productAITurns": 0,
+  "images": [
+    {
+      "id": "product",
+      "kind": "image-result-example",
+      "prompt": "Use case: product-mockup. Asset type: a landscape photographic result example for a prompt inspiration gallery in AutoPets. Create one beautiful, believable commercial product photograph. A single sage green frosted glass cosmetic bottle with a simple dark green cap and a small warm ivory label that says exactly \"mori\" in small restrained serif letters. The fictional product stands on a matte warm ivory surface, against a continuous warm ivory background. Soft natural window light comes from the left, with a gentle short shadow and a subtle diagonal patch of sunlight. Center the full bottle with generous breathing room, show authentic frosted glass texture and realistic contact shadow, softly lit minimal composition. Landscape 3:2 framing. No interface, no border, no collage, no watermark, no extra bottles, no unrelated props. Photographic, not an illustration.",
+      "url": "/assets/prompt-gallery-v1/product.webp",
+      "width": 1536,
+      "height": 1024,
+      "sourceSha256": "13febd0a22703b7bcd89042d2e78498166938f3e60b4718829fb245f456d7536",
+      "sha256": "82dea293507014c2dda869b4242ecbeacb9d190e2e9a235c1f72f608485ec755",
+      "bytes": 22820
+    },
+    {
+      "id": "coast",
+      "kind": "video-reference-image",
+      "prompt": "Use case: photorealistic-natural. Asset type: landscape still reference frame for a video prompt inspiration gallery, not an actual video. Create one cinematic photograph of a quiet empty beach just before sunset. Small gentle waves roll over wet sand; peach sunlight reflects on the shallow water. A low forested headland sits far to the left, a warm sky with a small pale sun above the horizon, calm clear air and believable fine sand and sea foam. Camera at a comfortable standing height facing diagonally down the coast, open beach foreground and horizon near the upper third, wide 35mm composition, natural subtle colors. Landscape 3:2 frame, continuous single scene. The scene should suggest a very slow forward camera move but the deliverable is one sharp static photograph. No people, text, overlays, interface, border, watermark, huge dramatic surf or surreal objects.",
+      "url": "/assets/prompt-gallery-v1/coast.webp",
+      "width": 1536,
+      "height": 1024,
+      "sourceSha256": "60861d21f053c0b96edb600aec96968183cd4297eb49818ea309672c951ae110",
+      "sha256": "a1a95aebb088f0acd133b7f7c3f5ff60f77bd0d11cd6ddca9350c2ae96b389f3",
+      "bytes": 233056
+    },
+    {
+      "id": "poster",
+      "kind": "image-result-example",
+      "prompt": "Use case: ads-marketing. Asset type: a photographic design result example for a prompt inspiration gallery. One elegant minimal event poster, photographed on warm light beige textured paper on an ivory wall in gentle natural light. The paper is portrait oriented and visible completely inside a landscape 3:2 photograph, with a very slight natural tilt and delicate realistic paper edge shadow. On the poster: small spaced uppercase header exactly \"A LITTLE TIME FOR YOURSELF\"; the main large dark forest green serif headline exactly \"SLOW SUNDAY\" on two beautifully balanced lines; one simple warm terracotta circle in the lower half; subtle thin green rules and a small neatly typeset footer exactly \"OPEN GARDEN · 08 NOV · 13:00\". Restrained editorial typography, generous negative space, tactile paper grain, premium independent cultural event design. No interface, no border, no collage, no watermark, no real company logos, no extra text. Keep every requested word accurate.",
+      "url": "/assets/prompt-gallery-v1/poster.webp",
+      "width": 1536,
+      "height": 1024,
+      "sourceSha256": "c5825ef84067ad1f23e54b47daf21419e195aa424ccdd0ec22c25a37656b6996",
+      "sha256": "c9e2be3589987ab3539a485a4476643b55dc872bebee8154052602f83bbac9f7",
+      "bytes": 161474
+    },
+    {
+      "id": "orbit",
+      "kind": "video-reference-image",
+      "prompt": "Use case: product-mockup. Asset type: a static first-frame reference for a product video prompt gallery, not an actual video. Create one sophisticated studio product photograph of a single sage green frosted glass cosmetic bottle with a simple dark green cap and a small warm ivory label saying exactly \"mori\" in small restrained serif lettering. The full bottle stands on a low round matte cream pedestal in a seamless warm gray ivory studio. Camera faces the bottle with a very small three-quarter angle, wide generous breathing room, realistic bottle geometry, soft stable diffused studio light, fine believable glass and label texture, subtle contact shadows. The composition is suitable as a reference for a subsequent small slow camera orbit around the stationary product. Landscape 3:2 framing. Deliver only one still photograph. No motion trails, no duplicate bottles, no text outside the small label, no interface, no border, no collage, no watermark.",
+      "url": "/assets/prompt-gallery-v1/orbit.webp",
+      "width": 1536,
+      "height": 1024,
+      "sourceSha256": "cb08d3f2e1016d594e112d50944b429757dfade455f124b76e1e85c5c0575bd5",
+      "sha256": "1a5d70a59b5f18475cfed72dcbf001b37befec432bfb1686654956fb02f7e958",
+      "bytes": 18700
+    }
+  ]
+}
