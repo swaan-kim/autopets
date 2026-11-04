@@ -1,8 +1,17 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
+import examples from '../../../public/assets/prompt-gallery-v1/manifest.json';
 
 export function PromptArtwork({ kind, large = false }: { kind: string; large?: boolean }) {
   const id = useId().replace(/:/g, '');
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [kind]);
   const video = kind === 'coast' || kind === 'orbit';
+  const generated = examples.images.find(image => image.id === kind);
+  if (generated && !failed) return <div className={`ux-art ux-art-${kind} ${large ? 'ux-art-large' : ''}`} data-evidence="ai-generated-image" data-kind={generated.kind}>
+    <img className={`ux-art-generated ${kind === 'coast' ? 'ux-art-scene' : ''}`} src={generated.url} width={generated.width} height={generated.height}
+      alt={video ? 'AI로 제작한 영상 장면 참고 이미지 · 정지 이미지' : '이 프롬프트로 AI 제작한 정적 결과 예시'} loading={large ? 'eager' : 'lazy'} decoding="async" onError={() => setFailed(true)} />
+    <span className="ux-art-evidence">{video ? '영상 참고 이미지' : 'AI 생성 예시'}</span>
+  </div>;
   return <div className={`ux-art ux-art-${kind} ${large ? 'ux-art-large' : ''}`} data-evidence="design-example">
     <svg viewBox="0 0 480 320" role="img" aria-label={`${video ? '영상의 구도와 움직임' : '이미지의 구도'}을 보여주는 직접 그린 디자인 예시`}>
       <defs><linearGradient id={`${id}sky`} x2="0" y2="1"><stop stopColor="#f4cbaa" /><stop offset="1" stopColor="#f8e5cd" /></linearGradient><radialGradient id={`${id}light`}><stop stopColor="#fffef5" /><stop offset="1" stopColor="#e7e6d9" /></radialGradient></defs>

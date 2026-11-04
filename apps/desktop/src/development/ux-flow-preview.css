@@ -89,6 +89,7 @@ button { color: inherit; }
 .ux-example-card:hover .ux-art { box-shadow: 0 6px 18px #38432a12; }
 .ux-art { position: relative; border-radius: 10px; overflow: hidden; background: #eeeee5; aspect-ratio: 1.5; isolation: isolate; transition: box-shadow .2s; }
 .ux-art svg { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ux-art .ux-art-generated { display: block; width: 100%; height: 100%; object-fit: cover; animation: none !important; }
 .ux-art-evidence { position: absolute; bottom: 10px; left: 10px; font-size: 8px; padding: 4px 7px; color: #5c6857; background: #fffef5df; border-radius: 4px; }
 .ux-art-play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 35px; color: #fffef4; text-shadow: 0 1px 8px #3c44374a; }
 .ux-example-card:hover .ux-art-scene, .ux-example-card:focus-visible .ux-art-scene, .ux-art-large .ux-art-scene { animation: ux-coast 6s ease-in-out infinite alternate; transform-origin: center; }

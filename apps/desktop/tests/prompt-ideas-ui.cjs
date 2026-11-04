@@ -14,13 +14,21 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await openCatalog(page);
   const ideas = page.getByRole('region', { name: '이미지와 영상 아이디어', exact: true });
   assert.equal(await ideas.locator('.prompt-idea-card').count(), 4);
+  await page.waitForFunction(() => [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].length === 4
+    && [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].every(image => image.complete && image.naturalWidth === 1536 && image.naturalHeight === 1024));
+  assert.equal(await ideas.locator('[data-kind="video-reference-image"]').count(), 2);
+  assert.equal(await ideas.locator('.ux-art-play').count(), 0, 'static reference frames do not imply a generated video player');
   await ideas.getByRole('button', { name: '영상 예시', exact: true }).click();
   assert.equal(await ideas.locator('.prompt-idea-card').count(), 2);
   await ideas.getByRole('button', { name: '이미지 예시', exact: true }).click();
   const trigger = ideas.getByRole('button', { name: '작은 브랜드의 제품 사진 예시 살펴보기', exact: true });
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: '작은 브랜드의 제품 사진', exact: true });
-  await dialog.waitFor(); await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
+  await dialog.waitFor();
+  await dialog.getByText('이 이미지를 만든 프롬프트', { exact: true }).click();
+  assert.match(await dialog.locator('.prompt-idea-source pre').textContent(), /sage green frosted glass/);
+  assert.match(await dialog.locator('.prompt-idea-source').textContent(), /1536×1024/);
+  await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
   assert.equal(await trigger.evaluate(element => element === document.activeElement), true);
   await trigger.click(); await dialog.getByRole('button', { name: /이 방식으로 펫 준비/ }).click();
   const composer = page.locator('.pet-composer');
@@ -55,6 +63,14 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await ideas.getByRole('button', { name: ' 느긋한 해변의 한 장면 예시 살펴보기'.trim(), exact: true }).click();
   assert.equal(await page.locator('.prompt-idea-dialog .ux-art-scene').evaluate(element => getComputedStyle(element).animationName), 'none');
   await page.close();
+  const fallback = await newPage();
+  await mockBridge(fallback, state);
+  await fallback.route('**/prompt-gallery-v1/product.webp', route => route.abort());
+  await fallback.goto(origin); await openCatalog(fallback);
+  await fallback.locator('[data-agent-id="pet-selection.idea.product"] [data-evidence="design-example"] svg').waitFor();
+  assert.equal(await fallback.locator('[data-agent-id="pet-selection.idea.product"] .ux-art-generated').count(), 0);
+  await fallback.close();
   checks.push('result ideas filter image/video, preserve dialog focus, apply a bounded pinned-role preset without clipboard, preselect only eligible A, preserve B, and return to the exact existing conversation without submitting an AI request; 320/390/992px and reduced motion');
+  checks.push('four generated images load at recorded dimensions, exact production prompts can be inspected, video reference frames stay static, and a missing asset recovers to the original SVG composition');
   return shots;
 };

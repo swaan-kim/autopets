@@ -295,6 +295,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_PROMPT_IDEAS_ONLY === '1') {
+      const screenshots = await runPromptIdeaChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_COPY_FREE_ONLY === '1') {
       const screenshots = await runCopyFreeChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);

@@ -14,6 +14,8 @@
 .prompt-ideas-boundary { font-size: 11px; color: #7a846f; line-height: 1.9; margin: 20px 0 0; max-width: 730px; }
 .prompt-ideas .ux-art { position: relative; aspect-ratio: 1.5; border-radius: 11px; overflow: hidden; background: #f1f2ea; isolation: isolate; }
 .prompt-ideas .ux-art svg { display: block; width: 100%; height: 100%; }
+.prompt-ideas .ux-art-generated { display: block; width: 100%; height: 100%; object-fit: cover; animation: none !important; }
+.prompt-ideas .ux-art-large .ux-art-generated { height: auto; object-fit: contain; }
 .prompt-ideas .ux-art-evidence { position: absolute; left: 10px; bottom: 10px; padding: 3px 7px; background: #fffef6ed; color: #6d775f; font-size: 10px; border-radius: 4px; }
 .prompt-ideas .ux-art-play { position: absolute; inset: 0; display: grid; place-items: center; color: #fffef8; font-size: 35px; text-shadow: 0 2px 8px #30412530; }
 .prompt-idea-card:hover .ux-art-scene, .prompt-idea-card:focus-visible .ux-art-scene, .prompt-ideas .ux-art-large .ux-art-scene { transform-origin: center; animation: prompt-coast 6s ease-in-out infinite alternate; }
@@ -35,6 +37,10 @@
 .prompt-idea-note { color: #738568; font-size: 12px; line-height: 1.8; margin: 17px 0 22px; }
 .prompt-idea-detail .button { width: 100%; }
 .prompt-idea-detail small { display: block; font-size: 11px; color: #88977d; margin-top: 11px; text-align: center; }
+.prompt-idea-source { margin-top: 22px; border-top: 1px solid #e2e7d8; padding-top: 15px; }
+.prompt-idea-source > summary { font-size: 12px; color: #627357; cursor: pointer; }
+.prompt-idea-source p { font-size: 11px; color: #7b8970; line-height: 1.8; }
+.prompt-idea-source pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 11px; line-height: 1.9; color: #64765a; }
 .prompt-ideas[data-active="false"] * { animation: none !important; }
 @keyframes prompt-coast { to { transform: scale(1.08) translateX(-6px); } }
 @keyframes prompt-orbit { to { transform: translateX(12px) skewY(-1deg); } }
