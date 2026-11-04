@@ -2,13 +2,13 @@
 
 세 사람은 각자 별도 폴더에서 작업한다. 원래 개발 폴더와 다른 사람의 체크아웃을 함께 수정하지 않는다. 공통 규칙은 [공동 작업 안내](team-workflow.md)를 따른다.
 
-| 사람 | 개인 시작 브랜치 |
-| --- | --- |
-| 승완 | `team/seungwan` |
-| 서연 | `team/seoyeon` |
-| 도엽 | `team/doyeop` |
+| 사람 | GitHub 계정 | 개인 시작 브랜치 |
+| --- | --- | --- |
+| 승완 | [swaan-kim](https://github.com/swaan-kim) | `team/seungwan` |
+| 서연 | [k-seo-yeon](https://github.com/k-seo-yeon) | `team/seoyeon` |
+| 도엽 | [doyeop03](https://github.com/doyeop03) | `team/doyeop` |
 
-이 브랜치들은 각자 체크아웃을 준비하는 기준이다. 실제 작업은 담당 Issue를 정한 뒤 `task/<Issue번호>-<작업이름>` 브랜치 하나와 PR 하나로 진행한다. 브랜치를 만들었다고 저장소 쓰기 권한이 생기지는 않는다. 서연·도엽의 GitHub 계정을 확인하고 권한과 초대 수락 여부를 별도로 확인한다.
+이 브랜치들은 각자 체크아웃을 준비하는 기준이다. 실제 작업은 담당 Issue를 정한 뒤 `task/<Issue번호>-<작업이름>` 브랜치 하나와 PR 하나로 진행한다. 브랜치를 만들었다고 저장소 쓰기 권한이 생기지는 않는다. 서연·도엽은 각자 위 계정으로 [저장소 초대](https://github.com/swaan-kim/autopets/invitations)를 수락하고 쓰기 권한을 확인한다. 초대 발송과 수락 완료를 구분한다.
 
 처음에는 자기 이름의 브랜치를 골라 별도 폴더로 받는다. 아래는 서연의 예이며 승완·도엽은 브랜치와 폴더 이름을 바꾼다.
 
