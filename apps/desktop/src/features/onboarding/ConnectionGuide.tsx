@@ -7,8 +7,8 @@ import { PetPreferencesConnector } from './PetPreferencesConnector';
 import './connection.css';
 
 const stageLabel = { implementation: '연결 구현 · 실환경 검증 범위 확인', compatibility: '호환성 확인 전', planned: '연결 준비 중', guidance: '안내만 제공' };
-export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultLabel = '균형 있게', onBack, onPreferences }: {
-  connectionPath: string; setup?: SetupState | null; petLinks?: PetLink[]; defaultLabel?: string; onBack: () => void; onPreferences: () => void;
+export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultLabel = '균형 있게', backLabel = '나의 펫 보기', onBack, onPreferences }: {
+  connectionPath: string; setup?: SetupState | null; petLinks?: PetLink[]; defaultLabel?: string; backLabel?: string; onBack: () => void; onPreferences: () => void;
 }) {
   const [latest, setLatest] = useState(setup);
   const [hostId, setHostId] = useState('codex-windows-local');
@@ -33,7 +33,7 @@ export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultL
     finally { working.current = false; setBusy(false); }
   };
   return <div className="connection-guide">
-    <div className="page-heading setup-heading"><div><h1>연결 설정</h1><p>펫을 부르는 연결을 확인하고 관리해요.</p></div><button className="button secondary" onClick={onBack}>나의 펫 보기</button></div>
+    <div className="page-heading setup-heading"><div><h1>연결 설정</h1><p>펫을 부르는 연결을 확인하고 관리해요.</p></div><button className="button secondary" onClick={onBack}>{backLabel}</button></div>
     <section className="connection-manage-card" aria-label="AI 연결 관리">
       <div className="setup-step-title"><h2>{host?.label ?? 'Codex · Windows'}</h2><span className="setup-status">{petConnected ? '펫 연결됨' : configured ? '호출 준비됨' : '연결 전'}</span></div>
       {host?.connectAvailable ? <>
