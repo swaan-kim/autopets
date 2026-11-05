@@ -3,26 +3,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeZip } from './package-chatgpt.mjs';
 import { digest } from '../integrations/codex/bootstrap/files.mjs';
+import { collectConnectorFiles } from './stage-desktop-resources.mjs';
 
 export async function packageBootstrap({ root, installer, node, license, out }) {
   const appVersion = JSON.parse(await fs.readFile(path.join(root, 'apps/desktop/package.json'), 'utf8')).version;
-  const files = [];
+  const files = await collectConnectorFiles({ root, node, license });
   async function add(name, file) {
     if ((await fs.lstat(file)).isSymbolicLink()) throw Error('No linked release files');
     files.push({ name, data: await fs.readFile(file) });
   }
-  async function walk(relative) {
-    for (const entry of await fs.readdir(path.join(root, relative), { withFileTypes: true })) {
-      if (['tests', 'node_modules', '.local'].includes(entry.name)) continue;
-      const name = `${relative}/${entry.name}`;
-      if (entry.isSymbolicLink()) throw Error('No linked release files');
-      if (entry.isDirectory()) await walk(name);
-      else if (/\.(mjs|json|md|ts)$/u.test(name)) await add(name, path.join(root, name));
-    }
-  }
-  for (const directory of ['integrations/codex/bootstrap', 'integrations/codex/hooks', 'integrations/codex/assistance', 'integrations/codex/skills', 'packages/contracts', 'packages/guidance']) await walk(directory);
-  for (const file of ['docs/releases/start.md', 'docs/releases/channel.json', 'docs/testing/one-call-setup.md']) await add(file, path.join(root, file));
-  await add('runtime/node.exe', node); await add('runtime/LICENSE', license);
   const installerName = `app/AutoPets_${appVersion}_x64-setup.exe`;
   await add(installerName, installer);
   await add('install.ps1', path.join(root, 'integrations/codex/bootstrap/install.ps1'));

@@ -1,8 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "platform": "win32-x64",
   "publicRelease": null,
   "verifiedCodexVersions": [],
   "publicOneCallVerified": false,
-  "note": "Public release requires signed/disclosed artifacts and real Windows/Codex evidence. CI artifacts are review-only."
+  "productPage": "https://swaan-kim.github.io/autopets/start/",
+  "installerFormat": "nsis-exe",
+  "updateOwner": "autopets-signed-updater",
+  "note": "Both entrypoints use one pinned EXE. Public release requires Authenticode, signed updates and actual Windows/Codex evidence; CI artifacts are review-only."
 }

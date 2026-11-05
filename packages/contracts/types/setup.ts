@@ -1,3 +1,4 @@
+import type { ConnectionHost, ConnectionProgress } from './connections';
 /** Installation evidence is independent from AI feature verification. */
 export interface SetupState {
   version: 1;
@@ -9,6 +10,12 @@ export interface SetupState {
   protection: { model: boolean; reasoning: boolean; submission: boolean };
   retryable: boolean;
   nextAction: 'start' | 'review-hooks' | 'send-message' | 'none';
+  /** Additive fields retain compatibility with the original v1 setup response. */
+  currentHostId?: string | null;
+  entryPoint?: 'desktop' | 'ai' | 'store' | null;
+  hosts?: ConnectionHost[];
+  connections?: ConnectionProgress[];
+  warnings?: string[];
 }
 export interface InstallManifest {
   version: 1;
@@ -16,6 +23,8 @@ export interface InstallManifest {
   installedVersion: string;
   packageDigest: string;
   appDirectory: string;
+  /** Read-only connector files included in the installed EXE. */
+  resourceDirectory?: string;
   appDigest: string;
   completedSteps: string[];
   ownedFiles: { path: string; sha256: string }[];
@@ -23,4 +32,8 @@ export interface InstallManifest {
   skillPath: string | null;
   skillDigest?: string;
   updatedAt: number;
+  installSource?: 'direct' | 'store' | 'legacy' | 'unknown';
+  entryPoint?: 'desktop' | 'ai' | 'store';
+  connectionStates?: { hostId: string; configured: boolean }[];
+  updateOwner?: 'autopets-signed-updater';
 }

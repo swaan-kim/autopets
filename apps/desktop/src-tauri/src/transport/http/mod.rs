@@ -114,6 +114,7 @@ pub async fn start(
         .route("/v1/assistance-status", get(assistance_status))
         .route("/v1/workflow", post(workflow))
         .route("/v1/setup", get(setup_status).post(setup_start))
+        .route("/v1/setup/disconnect", post(setup_disconnect))
         .route("/v1/approvals", post(approvals))
         .route("/v1/approvals/{request_id}/wait", get(wait))
         .route("/v1/approvals/{request_id}/returned", post(returned))
