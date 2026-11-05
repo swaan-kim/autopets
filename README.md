@@ -119,6 +119,6 @@ node scripts/validate-release.mjs
 
 기존 앱 ID `local.autopets.desktop`과 데이터 위치를 유지합니다. DB·인증값·개인 채팅·로컬 진단은 공개하지 않습니다. `campaign-study.html`과 [공개 소개](https://swaan-kim.github.io/autopets/)는 별도 예시·시제품이며 실제 실행 증거로 사용하지 않습니다.
 
-[다른 AI에서 펫 설정 읽기](integrations/mcp/README.md)는 읽기 전용 MCP 연결 준비판입니다. 앱의 연결 설정에서 Claude용 파일을 받을 수 있으며, 실제 호스트 설치·활용·대화 공유는 별도 검증입니다. [이번 사용성 변경과 검사](docs/testing/ux-flow-20261104.md).
+[쓰던 AI에서 펫 설정 읽기](integrations/mcp/README.md)는 읽기 전용 MCP 연결 준비판입니다. 이 개발 소스에서는 앱의 명시적인 Codex 연결 버튼으로 호출 스킬과 펫 읽기 도구를 함께 준비하며, 기존 설정은 보존합니다. 새 도구가 보이지 않으면 작업을 마친 뒤 사용자가 Codex를 재시작합니다. 실제 새 설치·일반 입력 활용·대화 공유는 별도 검증입니다. Claude용 파일도 받을 수 있지만 실제 설치·시험은 후순위입니다. [이번 사용성 변경과 검사](docs/testing/ux-flow-20261104.md).
 
 </details>
