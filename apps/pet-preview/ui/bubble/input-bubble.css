@@ -1,0 +1,148 @@
+/* Input bubble beside the pet. Its footprint must match bubble.rs:
+   gap + width + edge = AREA_WIDTH (320), height + 2 * vmargin = AREA_HEIGHT (268). */
+.stage {
+  --bubble-gap: 12px;
+  --bubble-width: 300px;
+  --bubble-edge: 8px; /* 12 + 300 + 8 = 320 */
+  --bubble-height: 252px;
+  --bubble-vmargin: 8px; /* 8 + 252 + 8 = 268 */
+}
+
+.bubble {
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--bubble-width);
+  height: var(--bubble-height);
+  margin: var(--bubble-vmargin) var(--bubble-edge) var(--bubble-vmargin) var(--bubble-gap);
+  padding: 10px 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 16px;
+  background: #fffdf8;
+  border: 1px solid #f3d9b5;
+  box-shadow: 0 3px 8px rgba(80, 50, 20, 0.22);
+  color: #2b2620;
+  cursor: default;
+  user-select: text;
+  -webkit-user-select: text;
+  animation: bubble-in 140ms ease-out;
+}
+
+/* Bubble on the left: the gap faces the pet on the right. */
+.stage[data-side="left"] .bubble {
+  margin: var(--bubble-vmargin) var(--bubble-gap) var(--bubble-vmargin) var(--bubble-edge);
+}
+
+/* Tail pointing at the pet's centre: the pet sits at the bottom of the
+   window when it grew up (data-vert=up) and at the top when it grew down. */
+.bubble::before {
+  content: "";
+  position: absolute;
+  bottom: calc(var(--pet-row, 120px) / 2 - var(--bubble-vmargin) - 6px);
+  left: -7px;
+  width: 12px;
+  height: 12px;
+  background: #fffdf8;
+  border-left: 1px solid #f3d9b5;
+  border-bottom: 1px solid #f3d9b5;
+  transform: rotate(45deg);
+}
+
+.stage[data-vert="down"] .bubble::before {
+  bottom: auto;
+  top: calc(var(--pet-row, 120px) / 2 - var(--bubble-vmargin) - 6px);
+}
+
+.stage[data-side="left"] .bubble::before {
+  left: auto;
+  right: -7px;
+  transform: rotate(-135deg);
+}
+
+.bubble-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: #8a7a66;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bubble-note.has-message {
+  color: #b35a22;
+}
+
+.bubble-form {
+  flex: 0 0 38px;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.bubble-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: none;
+  padding: 7px 10px;
+  border: 1px solid #e8dccb;
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  font: 13.5px/1.35 "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  outline: none;
+}
+
+.bubble-input::placeholder {
+  color: #a99a87;
+}
+
+.bubble-input:focus {
+  border-color: var(--accent, #f2a65a);
+  box-shadow: 0 0 0 2px var(--accent-soft, rgba(242, 166, 90, 0.25));
+}
+
+.bubble-send {
+  flex: 0 0 36px;
+  align-self: center;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffb547, #f2784b);
+  color: #fff;
+  cursor: pointer;
+}
+
+.bubble-send:disabled {
+  background: #eadfd0;
+  color: #fff;
+  cursor: default;
+}
+
+.bubble-send:focus-visible {
+  outline: 2px solid #b35a22;
+  outline-offset: 2px;
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble { animation: none; }
+}
+
+/* While the Codex chat waits for an answer, the question uses the whole
+   bubble (pet.js toggles this class). */
+.bubble.bubble-question .bubble-note,
+.bubble.bubble-question .bubble-form {
+  display: none;
+}

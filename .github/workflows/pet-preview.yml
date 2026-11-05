@@ -1,0 +1,52 @@
+name: Experimental pet Windows checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/pet-preview/**'
+      - '.github/workflows/pet-preview.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/pet-preview/**'
+      - '.github/workflows/pet-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pet-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check preview JavaScript syntax
+        run: |
+          $previewScripts = Get-ChildItem -LiteralPath apps/pet-preview -Recurse -File | Where-Object { $_.Extension -in '.js', '.mjs' }
+          foreach ($previewScript in $previewScripts) {
+            node --check $previewScript.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Preview JavaScript syntax check failed.' }
+          }
+      - name: Select Rust MSVC toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Rust installation failed.' }
+          rustup default stable
+          if ($LASTEXITCODE -ne 0) { throw 'Rust toolchain selection failed.' }
+      - name: Compile preview and test checkpoint validation
+        run: |
+          cargo test --locked --manifest-path apps/pet-preview/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Experimental pet Rust tests failed.' }

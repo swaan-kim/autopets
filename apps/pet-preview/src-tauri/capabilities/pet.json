@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "pet",
+  "description": "The preview pet window may only drag itself and call its own hide/close commands.",
+  "windows": ["autopet"],
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
+}

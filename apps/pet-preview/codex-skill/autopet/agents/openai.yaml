@@ -1,0 +1,6 @@
+interface:
+  display_name: "오토펫 · autopet"
+  short_description: "AutoPets 테스트 펫을 띄우고, 펫에서 고른 작업을 이 채팅에서 실행합니다 (실험 기능)"
+  default_prompt: "오토펫 테스트 펫을 화면에 띄워줘."
+policy:
+  allow_implicit_invocation: false

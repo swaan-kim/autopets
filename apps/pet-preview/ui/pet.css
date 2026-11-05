@@ -1,0 +1,164 @@
+/* Window behaviour and controls only. The pet's look is in appearance/. */
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+/* Row of [pet column][bubble]. While the bubble is open the pet column keeps
+   the closed window width (--pet-col) and stays on its side of the window,
+   so the pet does not move on screen when the window grows or shrinks. */
+.stage {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: flex-end; /* window grew upwards: pet at the bottom */
+  overflow: hidden;
+}
+
+.stage[data-vert="down"] {
+  align-items: flex-start;
+}
+
+.stage[data-side="left"] {
+  flex-direction: row-reverse;
+}
+
+.pet-column {
+  position: relative;
+  flex: 0 0 var(--pet-col, 100vw);
+  height: var(--pet-row, 100vh);
+  display: grid;
+  place-items: center;
+}
+
+.pet {
+  width: 88px;
+  height: 88px;
+  cursor: grab;
+}
+
+.pet:active {
+  cursor: grabbing;
+}
+
+.controls {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.pet-column:hover .controls,
+.controls:focus-within {
+  opacity: 1;
+}
+
+.controls button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: rgba(32, 36, 48, 0.82);
+  color: #fff;
+  font-size: 15px;
+  line-height: 20px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.controls button:hover {
+  background: rgba(32, 36, 48, 1);
+}
+
+.controls button:focus-visible {
+  outline: 2px solid #ffd166;
+  outline-offset: 1px;
+}
+
+/* Task status on the pet itself (pet.js showPetStatus). Not interactive, so
+   clicks and drags still reach the pet. */
+.pet {
+  position: relative;
+}
+
+.pet-status {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  max-width: 112px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(32, 36, 48, 0.82);
+  color: #fff;
+  font-size: 10.5px;
+  line-height: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.pet-status[data-phase="question"] {
+  background: var(--accent, #d9662f);
+  font-weight: 700;
+}
+
+.pet-status[data-phase="completed"] {
+  background: #2f8a4c;
+}
+
+.pet-status[data-phase="failed"] {
+  background: #c2412d;
+}
+
+/* The chat is waiting for the user's answer: ring + small badge. */
+.pet[data-attention="question"]::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  border: 3px solid var(--accent, #d9662f);
+  pointer-events: none;
+  animation: pet-attention 1.6s ease-out infinite;
+}
+
+.pet[data-attention="question"]::after {
+  content: "?";
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: var(--accent, #d9662f);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes pet-attention {
+  0% { transform: scale(0.96); opacity: 1; }
+  100% { transform: scale(1.1); opacity: 0.15; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet[data-attention="question"]::before { animation: none; }
+}
