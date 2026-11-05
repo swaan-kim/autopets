@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoPets 테스트 펫</title>
+  <link rel="stylesheet" href="pet.css">
+  <link rel="stylesheet" href="appearance/circle.css">
+  <link rel="stylesheet" href="bubble/input-bubble.css">
+  <link rel="stylesheet" href="features/feature-panel.css">
+  <script type="module" src="pet.js"></script>
+</head>
+<body>
+  <main class="stage">
+    <div class="pet-column">
+      <!-- The appearance module fills this element; behaviour lives in pet.js. -->
+      <div id="pet" class="pet" role="button" tabindex="-1" aria-label="AutoPets 테스트 펫. 클릭하면 입력창, 드래그하면 이동합니다." title="클릭: 입력창 열기·닫기 / 드래그: 옮기기"></div>
+      <div class="controls">
+        <button id="hide" type="button" title="숨기기" aria-label="펫 숨기기">&#8211;</button>
+        <button id="close" type="button" title="닫기" aria-label="펫 닫기">&#215;</button>
+      </div>
+    </div>
+    <!-- pet.js appends the input bubble (bubble/input-bubble.js) here. -->
+  </main>
+</body>
+</html>

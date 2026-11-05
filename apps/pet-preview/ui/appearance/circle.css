@@ -1,0 +1,42 @@
+/* Default colours are the original orange pet; a selected feature overrides
+   them through applyTheme() in circle.js. */
+.appearance-circle {
+  --pet-light: #fff3c4;
+  --pet-mid: #ffb547;
+  --pet-dark: #f2784b;
+  --pet-shade: rgba(160, 60, 20, 0.35);
+  display: grid;
+  place-items: center;
+}
+
+.circle-core {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--pet-light) 0%, var(--pet-mid) 38%, var(--pet-dark) 100%);
+  box-shadow:
+    inset -6px -8px 14px var(--pet-shade),
+    0 4px 10px rgba(0, 0, 0, 0.28);
+  animation: circle-breathe 3.2s ease-in-out infinite;
+}
+
+/* Short pop when the colour changes, so the switch is noticeable. */
+.appearance-circle.theme-changed .circle-core {
+  animation: circle-pop 360ms ease-out, circle-breathe 3.2s ease-in-out 360ms infinite;
+}
+
+@keyframes circle-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes circle-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .circle-core,
+  .appearance-circle.theme-changed .circle-core { animation: none; }
+}

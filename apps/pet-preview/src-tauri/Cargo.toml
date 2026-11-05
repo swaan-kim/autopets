@@ -1,0 +1,28 @@
+[package]
+name = "autopets-pet-preview"
+version = "0.0.1"
+description = "Experimental AutoPets preview pet invoked from a Codex skill"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "autopet-preview"
+path = "src/main.rs"
+
+[features]
+default = ["custom-protocol"]
+# Embed ui/ into the executable so it runs without a dev server.
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+strip = true
