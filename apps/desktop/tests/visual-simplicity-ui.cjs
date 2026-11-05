@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { openCatalog, chooseRole, openCopy } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openCopy, leaveComposer, closePetPanel } = require('./entry-navigation.cjs');
 
 exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
   const images = [];
@@ -36,13 +36,13 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'browsing never saves, connects or executes');
   await page.locator('.workspace-role-detail').getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
   const composer = page.locator('.pet-composer');
-  assert.equal(await composer.locator('.composer-copy-fallback').evaluate(el => el.open), false, 'app task composition is a secondary, disclosed path');
+  assert.equal(await composer.locator('.composer-copy-fallback').isVisible(), false, 'app task composition is a secondary, disclosed path');
   assert.equal(await composer.getByLabel('펫에게 맡길 일', { exact: true }).isVisible(), false);
   await openCopy(composer);
   const task = composer.getByLabel('펫에게 맡길 일', { exact: true });
   await task.fill('학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
   assert.equal(await composer.locator('.result-preview').count(), 0);
-  assert.equal(await composer.locator('.composer-more').evaluate(el => el.open), false);
+  assert.equal(await composer.locator('.composer-settings').isVisible(), false);
   await capture('composer');
   await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   await composer.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
@@ -50,7 +50,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.equal(await composer.locator('.composer-applied, .composer-observed').count(), 0, 'copy never becomes application or execution evidence');
   assert.deepEqual(await page.evaluate(() => window.__uiTest.state.petLinks), []);
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|submit|send|execute/.test(call.name))), false);
-  await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
+  await leaveComposer(composer);
   await openCatalog(page);
   assert.equal(await page.locator('.workspace-role-card').count(), 6);
   await page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
@@ -75,6 +75,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await detail.getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
   await openCopy(composer);
   await task.fill('역할별 기존 초안: 작품 소개 웹페이지');
+  await closePetPanel(composer);
   await page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
   await composer.waitFor({ state: 'detached' });
   assert.equal(await composer.count(), 0, 'the current top-level navigation also leaves the composer');
@@ -85,11 +86,11 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await chooseRole(page, '공부 도우미');
   await openCopy(composer);
   await task.fill('공부 역할에만 남기는 선택형 초안');
-  await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
+  await leaveComposer(composer);
   await chooseRole(page, '웹페이지 만들기');
   await openCopy(composer);
   assert.equal(await task.inputValue(), '역할별 기존 초안: 작품 소개 웹페이지', 'browsing and another role cannot overwrite an optional role draft');
-  await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
+  await leaveComposer(composer);
   await openCatalog(page);
   await chooseRole(page, '공부 도우미');
   await composer.getByRole('heading', { name: '공부 도우미', exact: true }).waitFor();

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { chooseRole, openCopy } = require('./entry-navigation.cjs');
+const { chooseRole, openCopy, openPetSettings, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
 
 const A = '11111111-2222-4333-8444-555555555555';
 const B = '11111111-2222-4333-8444-666666666666';
@@ -66,11 +66,9 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
 
   // Preparation is not connection, and a browser cannot mutate the native app.
   const waiting = await create([]);
-  await waiting.composer.locator('.composer-connect-instruction').waitFor();
-  assert.match(await waiting.composer.locator('.composer-connect-instruction').innerText(), /제작 펫 연결/);
-  assert.equal(await waiting.composer.locator('.composer-copy-fallback').evaluate(el => el.open), false);
-  assert.equal(await waiting.composer.getByRole('button', { name: 'Codex 작업 열기', exact: true }).count(), 0);
-  assert.deepEqual(await waiting.page.evaluate(() => window.__uiTest.calls), [], 'prepared but unlinked state does not install, copy, guess a chat, or dispatch work');
+  await waiting.composer.getByRole('button', { name: '펫 만들기', exact: true }).waitFor();
+  assert.equal(await waiting.composer.locator('.composer-copy-fallback').isVisible(), false);
+  assert.deepEqual(await waiting.page.evaluate(() => window.__uiTest.calls), [], 'no-link state never installs, copies, guesses a chat, or dispatches work');
   await waiting.page.evaluate(next => { window.__uiTest.state.petLinks = [next]; window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); }, link(A));
   const lateTarget = waiting.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
   await lateTarget.waitFor({ state: 'attached' });
@@ -81,10 +79,10 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   await waiting.page.close();
   const browser = await newPage();
   await browser.goto(origin); await chooseRole(browser, '웹페이지 만들기');
-  assert.equal(await browser.locator('.pet-composer .composer-action button').first().isDisabled(), true);
-  assert.match(await browser.locator('.workspace-note').innerText(), /브라우저 미리보기/);
+  assert.equal(await browser.locator('.pet-composer').getByRole('button', { name: '펫 만들기', exact: true }).isDisabled(), true);
+  assert.match(await browser.locator('.workspace-note').innerText(), /설치 앱/);
   await browser.close();
-  checks.push('copy-free entry: prepared/no-link state shows the short current-chat skill invocation, keeps free-text copying secondary, and never guesses a destination; browser preview remains non-executing');
+  checks.push('copy-free entry: no-link state offers independent pet creation, keeps free-text copying secondary, and never guesses a destination; browser preview remains non-executing');
 
   const { page, composer } = await create([link(A), link(B, 1)], { holdApply: true });
   const select = composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
@@ -95,14 +93,14 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   assert.equal(await mainApply(composer).getAttribute('data-agent-id'), 'pet-selection.composer.apply');
   const targetDetails = composer.locator('.composer-target-details');
   assert.equal(await targetDetails.locator('.composer-target-id').isVisible(), false, 'technical target details stay optional');
-  await targetDetails.locator('summary').click();
+  await openPetSettings(composer);
   assert.ok((await targetDetails.innerText()).includes(A), 'expanded target details retain the exact selected chat ID');
-  await targetDetails.locator('summary').click();
+  await closePetPanel(composer);
   await select.focus(); await page.keyboard.press('Tab');
   await openCopy(composer);
   const draft = composer.getByLabel('펫에게 맡길 일', { exact: true });
   await draft.fill('앱에만 남기는 초안\n이 문장을 아직 보내지 마.');
-  await composer.locator('.composer-copy-fallback > summary').click();
+  await closePetPanel(composer);
   const beforeB = await page.evaluate(() => structuredClone(window.__uiTest.state.petLinks[1]));
   await mainApply(composer).evaluate(button => { button.click(); button.click(); });
   await page.waitForFunction(() => typeof window.__uiTest.releaseApply === 'function');

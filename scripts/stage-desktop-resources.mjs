@@ -29,6 +29,10 @@ export async function collectConnectorFiles({ root, node, license }) {
     const file = `integrations/codex/scripts/${name}`;
     await add(file, path.join(root, file));
   }
+  for (const name of ['server.mjs', 'client.mjs', 'README.md']) {
+    const file = `integrations/mcp/${name}`;
+    await add(file, path.join(root, file));
+  }
   for (const file of ['LICENSE', 'INSTALL.md', 'docs/releases/start.md', 'docs/releases/channel.json', 'docs/testing/one-call-setup.md']) await add(file, path.join(root, file));
   await add('runtime/node.exe', node);
   await add('runtime/LICENSE', license);
