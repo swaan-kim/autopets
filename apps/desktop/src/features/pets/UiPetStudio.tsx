@@ -340,7 +340,7 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
     <div className="composer-layout">
       <header className="composer-identity" data-agent-id="pet-selection.composer.identity">
         <TaskPetArt entry={entry} small paused interactive={false} />
-        <div><span className="composer-eyebrow">{savedReady ? '내 펫' : '새 펫'}</span><h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
+        <div><span className="composer-eyebrow">{saved ? '내 펫' : '새 펫'}</span><h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
         <FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} />
       </header>
       <div className="composer-main">
@@ -354,11 +354,11 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
               : confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
               : <button className="button primary" data-agent-id="pet-selection.composer.apply" disabled={disabled || !routingSupported || !target || Boolean(targetBlocker)} onClick={() => void apply()}>{busy ? '적용 확인 중…' : '이 채팅에 펫 적용'}<span aria-hidden="true">↗</span></button>}
           </div>
-          {!savedReady && <button className="text-button composer-save-only" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>펫만 저장</button>}
+          {!savedReady && <button className="text-button composer-save-only" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{saved ? '변경 저장' : '펫만 저장'}</button>}
         </section> : <section className="composer-launch" aria-label="펫 만들고 사용하기">
-          {!savedReady ? <button className="button primary composer-create" data-agent-id="pet-selection.composer.save" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{busy ? '저장 중…' : '펫 만들기'}<span aria-hidden="true">＋</span></button>
+          {!savedReady ? <button className="button primary composer-create" data-agent-id="pet-selection.composer.save" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{busy ? '저장 중…' : saved ? '변경 저장' : '펫 만들기'}<span aria-hidden="true">{saved ? '✓' : '＋'}</span></button>
             : <div className="composer-hosts" aria-label="AI에서 사용하기">
-              {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결<span aria-hidden="true">↗</span></button>
+              {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결 설정<span aria-hidden="true">↗</span></button>
                 : <button className="button primary" data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>}
               <PetPreferencesConnector compact />
             </div>}
