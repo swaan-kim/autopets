@@ -21,8 +21,7 @@ import { RoleStudio } from '../features/roles/RoleStudio';
 import { UiPetStudio } from '../features/pets/UiPetStudio';
 
 export function Manager({ snapshot, error, assistance, workflow }: { snapshot: Snapshot; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
-  const [settings, setSettings] = useState<ManagerSection>(() =>
-    snapshot.petLinks?.length || snapshot.sessions.length ? 'pets' : 'catalog');
+  const [settings, setSettings] = useState<ManagerSection>('home');
   const [navigationRevision, setNavigationRevision] = useState(0);
   const navigate = (section: ManagerSection) => { setSettings(section); setNavigationRevision(value => value + 1); };
   useEffect(() => { window.scrollTo(0, 0); }, [settings, navigationRevision]);

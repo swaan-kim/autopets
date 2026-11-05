@@ -6,7 +6,9 @@ const dismissRoleDetail = async page => {
 const openCatalog = async page => {
   const close = page.locator('.pet-composer').getByRole('button', { name: '← 돌아가기', exact: true });
   if (await close.isVisible()) await close.click();
-  await page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
+  // Home hides the header shortcut because its own '펫 고르기' button is on the page.
+  const header = page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true });
+  await (await header.isVisible() ? header : page.locator('.pet-home-find')).click();
   await page.locator('.workspace-shelf-tabs').waitFor();
 };
 const chooseRole = async (page, name) => {

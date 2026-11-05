@@ -22,8 +22,8 @@ export function AppShell({ settings, bound, disconnected, busy, error, onNavigat
   return <div className="app-shell">
     <a className="skip-to-content" href="#main-content">본문으로 건너뛰기</a>
     <header className="app-header">
-      <div className="brand"><img className="brand-logo" src="/assets/brand/autopets-logo.svg" alt="AutoPets" width="142" height="33" /></div>
-      <nav aria-label="앱 메뉴">{navigation('home')}{navigation('catalog')}{navigation('pets')}</nav>
+      <button type="button" className="brand brand-home" disabled={busy} aria-label="AutoPets 홈으로" aria-current={settings === 'home' ? 'page' : undefined} onClick={() => { onNavigate('home'); if (menu.current) menu.current.open = false; }}><img className="brand-logo" src="/assets/brand/autopets-logo.svg" alt="" width="142" height="33" /></button>
+      <nav aria-label="앱 메뉴">{settings !== 'home' && navigation('catalog')}{navigation('pets')}</nav>
       <details className="app-settings" ref={menu} onKeyDown={event => { if (event.key === 'Escape' && menu.current) { menu.current.open = false; menu.current.querySelector('summary')?.focus(); } }}>
         <summary>설정</summary><div className="settings-menu">{navigation('connection')}{navigation('assistance')}{navigation('intro')}{navigation('roles')}<span className={`connection-pill ${disconnected ? 'offline' : ''}`}>{!isDesktop ? '미리보기 · 연결 없음' : disconnected ? '앱 연결 확인 필요' : '앱 실행 중'}</span><button className="text-button" disabled={!isDesktop || busy} onClick={onQuit}>AutoPets 종료</button><span className="version">이 PC에 저장돼요 · 0.1</span></div>
       </details>

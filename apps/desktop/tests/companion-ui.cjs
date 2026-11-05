@@ -8,9 +8,7 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  const page=await newPage({width:992,height:688});
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.goto(origin);
- await page.locator('.workspace-role-grid').waitFor();
- assert.equal(await page.locator('.pet-home').count(),0,'first use opens the useful catalog without an extra home step');
- await page.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
+ await page.locator('.pet-home').waitFor(); // first use opens on home
  const home=page.locator('.pet-home');
  assert.equal(await home.getAttribute('data-agent-scope'),'home');
  for(const id of ['home.root','home.greeting','home.title','home.intro','home.choose-pet','home.connection']) assert.equal(await home.locator(`[data-agent-id="${id}"]`).count()+(id==='home.root'?1:0),1,'each home feedback target has a unique stable id');
@@ -73,7 +71,7 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  assert.equal(await live.locator('.companion-sprite').evaluateAll(nodes=>nodes.reduce((n,e)=>n+e.getAnimations().length,0)),0);
  await live.close();
 
- const fallback=await newPage(); await fallback.route('**/companion-v1/social.webp',route=>route.abort());await fallback.goto(origin);await fallback.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
+ const fallback=await newPage(); await fallback.route('**/companion-v1/social.webp',route=>route.abort());await fallback.goto(origin);await fallback.locator('.app-header').getByRole('button',{name:'AutoPets 홈으로',exact:true}).click();
  await fallback.locator('.pet-home [data-assets="failed"] [data-asset="soft"]').waitFor(); await fallback.close();
  const locks=await newPage();await locks.goto(origin);
  const claimed=await locks.evaluate(async()=>{const m=await import('/src/features/pets/companionMotion.ts');return Promise.all(Array.from({length:8},()=>m.claimCompletion('test-shared-run')));});

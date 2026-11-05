@@ -108,13 +108,17 @@
 /* The same navigation is visible at all desktop widths. Settings are secondary. */
 .app-header { display: flex; gap: 24px; align-items: center; padding: 18px clamp(18px, 3.2vw, 48px); border-bottom: 1px solid var(--line); background: #fff; position: relative; z-index: 5; }
 .app-header .brand { padding: 0; flex-shrink: 0; }
+.app-header .brand-home { border: 0; background: none; margin: 0; border-radius: 8px; cursor: pointer; font: inherit; color: inherit; line-height: 0; }
+.app-header .brand-home:hover .brand-logo { opacity: .75; }
+.app-header .brand-home:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.app-header .brand-home:disabled { cursor: default; }
 .app-header .brand-logo { width: 132px; filter: grayscale(1); }
-.app-header > nav { display: flex; align-items: center; gap: 8px; margin: 0 auto; }
+.app-header > nav { display: flex; align-items: center; gap: 8px; margin: 0 0 0 auto; }
 .app-header .nav-item { width: auto; margin: 0; padding: 10px 16px; color: var(--muted); }
 .app-header .nav-item.active { color: var(--ink); background: var(--tint); }
 .app-header .nav-item.active::after { content: '✓'; font-size: 12px; }
 .app-header > nav .nav-icon { display: none; }
-.app-settings { position: relative; }
+.app-settings { position: relative; margin-left: -16px; /* header gap 24px → 8px, same as between nav items */ }
 .app-settings > summary { cursor: pointer; list-style: none; border-radius: 10px; padding: 10px 14px; min-height: 44px; color: var(--muted); }
 .app-settings > summary::-webkit-details-marker { display: none; }
 .app-settings[open] > summary { background: var(--tint); color: var(--ink); }
