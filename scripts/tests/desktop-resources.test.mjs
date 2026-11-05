@@ -86,6 +86,36 @@ test('installer resources work detached from checkout and contain no installer o
   await assert.rejects(fs.stat(f.env.CODEX_HOME), { code: 'ENOENT' });
 });
 
+test('installed preference MCP runs outside the checkout and remains integrity checked', async t => {
+  const f = await fixture(t);
+  const server = path.join(f.report.connector, 'integrations/mcp/server.mjs');
+  const requests = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'detached-installer-fixture', version: '1' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'autopets_read_pet', arguments: { petId: 'fixture-selected-pet', expectedRevision: 1 } } },
+  ];
+  const result = spawnSync(process.execPath, [server], { cwd: f.temporary, windowsHide: true, encoding: 'utf8', timeout: 10000,
+    env: { ...process.env, ...f.env, AUTOPETS_CONNECTION_FILE: path.join(f.temporary, 'missing-app-connection.json') },
+    input: requests.map(request => JSON.stringify(request)).join('\n') + '\n' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  const responses = result.stdout.trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(responses.find(response => response.id === 1).result.serverInfo.name, 'autopets-pet-preferences');
+  const tools = responses.find(response => response.id === 2).result.tools;
+  assert.deepEqual(tools.map(tool => tool.name), ['autopets_list_pets', 'autopets_read_pet']);
+  assert.ok(tools.every(tool => tool.annotations.readOnlyHint && !tool.annotations.destructiveHint));
+  const unavailable = responses.find(response => response.id === 3).result;
+  assert.equal(unavailable.isError, true);
+  assert.match(unavailable.content[0].text, /AutoPets를 실행/u);
+  assert.ok(!result.stdout.includes(f.temporary));
+  const manifest = await verifyPackage(f.report.connector, { installedResource: true });
+  for (const file of ['server.mjs', 'client.mjs', 'README.md']) assert.ok(manifest.files.some(entry => entry.path === `integrations/mcp/${file}`));
+  await fs.appendFile(server, '\n// fixture tampering\n');
+  await assert.rejects(verifyPackage(f.report.connector, { installedResource: true }), /integrity/u);
+  await assert.rejects(fs.stat(f.env.CODEX_HOME), { code: 'ENOENT' });
+});
+
 test('packaging rejects a removed historical skill before collecting a release', async t => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'autopets-skill-package-'));
   t.after(async () => {
