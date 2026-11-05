@@ -5,6 +5,45 @@ const dailyTemplate = require('../../../packages/contracts/data/pet-catalog.json
 
 exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screenshotDir,checks}) => {
  const screenshots=[];
+ const unassigned = await newPage({ width: 180, height: 230 });
+ await unassigned.emulateMedia({ reducedMotion: 'no-preference' });
+ await mockBridge(unassigned, { ...structuredClone(fixture), sessions: [], petLinks: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+ await unassigned.goto(`${origin}/?pet=0`);
+ await unassigned.locator('.pet-hit [role="img"]').waitFor();
+ const idlePet = unassigned.locator('.pet-hit .companion-pet');
+ assert.equal(await idlePet.count(), 1, 'an unassigned overlay must not remain a paused still image');
+ await unassigned.locator('.pet-hit .companion-pet[data-assets="ready"][data-playing="true"]').waitFor();
+ await idlePet.locator('[data-clip="blink"]').waitFor();
+ assert.equal(await idlePet.getAttribute('data-state'), 'idle');
+ assert.ok(await idlePet.evaluate(element => element.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')));
+ const idleBefore = await unassigned.evaluate(() => JSON.stringify({ calls: window.__uiTest.calls, sessions: window.__uiTest.state.sessions, links: window.__uiTest.state.petLinks, slots: window.__uiTest.state.slots }));
+ const idleStatus = await unassigned.locator('.floating-status').textContent();
+ await unassigned.locator('.pet-hit').dispatchEvent('pointerdown', { button: 0 });
+ await idlePet.locator('[data-clip="greet"]').waitFor();
+ assert.equal(await unassigned.evaluate(() => JSON.stringify({ calls: window.__uiTest.calls, sessions: window.__uiTest.state.sessions, links: window.__uiTest.state.petLinks, slots: window.__uiTest.state.slots })), idleBefore, 'an idle reaction never connects, assigns or executes work');
+ assert.equal(await unassigned.getByRole('button', { name: '모스 · 작업 카드 열기', exact: true }).count(), 1);
+ assert.equal(await unassigned.locator('.floating-status').textContent(), idleStatus);
+ await unassigned.setViewportSize({ width: 328, height: 600 });
+ for (const key of ['Enter', 'Space']) {
+   await unassigned.locator('.pet-hit').focus();
+   await unassigned.keyboard.press(key);
+   await unassigned.locator('.pet-quick-card').waitFor();
+   assert.equal(await unassigned.locator('.pet-hit').getAttribute('aria-expanded'), 'true');
+   await idlePet.locator('[data-clip="greet"]').waitFor();
+   await unassigned.keyboard.press('Escape');
+   await unassigned.locator('.pet-quick-card').waitFor({ state: 'hidden' });
+   assert.equal(await unassigned.locator('.pet-hit').evaluate(element => element === document.activeElement), true);
+ }
+ await unassigned.emulateMedia({ reducedMotion: 'reduce' });
+ await unassigned.waitForFunction(() => document.querySelector('.pet-hit .companion-pet')?.dataset.playing === 'false');
+ assert.equal(await idlePet.evaluate(element => element.getAnimations({ subtree: true }).length), 0);
+ await unassigned.emulateMedia({ reducedMotion: 'no-preference' });
+ await unassigned.waitForFunction(() => document.querySelector('.pet-hit .companion-pet')?.dataset.playing === 'true');
+ await unassigned.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+ await unassigned.waitForFunction(() => document.querySelector('.pet-hit .companion-pet')?.dataset.playing === 'false');
+ assert.equal(await idlePet.evaluate(element => element.getAnimations({ subtree: true }).length), 0);
+ await unassigned.close();
+ checks.push('unassigned compact overlay breathes/blinks and reacts to touch without assigning or running work; Enter/Space preserve menu and Escape focus; its identity/waiting status and reduced/hidden stop remain intact');
  const page=await newPage({width:992,height:688});
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.goto(origin);
@@ -45,17 +84,42 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  await aPet.scrollIntoViewIfNeeded();
  await aPet.locator('[data-clip="working"]').waitFor();
  assert.equal(await aPet.getAttribute('data-playing'),'true','a compact daily pet animates its real work state as a UI pet does');
+ await aPet.evaluate(pet=>{
+  const sprite=pet.querySelector('.companion-sprite:not(.companion-previous-pose)');
+  const clip=sprite.getAnimations().find(animation=>animation.effect.getKeyframes().some(frame=>frame.backgroundPosition));
+  clip.pause();clip.currentTime=900;
+  const presence=pet.querySelector('.companion-body').getAnimations()[0];presence.pause();presence.currentTime=1100;
+  window.__continuingMotion={clip,presence,position:getComputedStyle(sprite).backgroundPosition};
+ });
  await live.locator('.pet-card-0 .task-pet-art').dispatchEvent('pointerdown');
- await live.waitForTimeout(250);
+ await live.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ assert.equal(await aPet.evaluate(pet=>{
+  const sprite=pet.querySelector('.companion-sprite:not(.companion-previous-pose)');
+  return sprite.getAnimations().includes(window.__continuingMotion.clip) && window.__continuingMotion.clip.currentTime===900
+   && getComputedStyle(sprite).backgroundPosition===window.__continuingMotion.position;
+ }),true,'touching a working pet preserves its exact animation and rendered pose');
  assert.equal(await aPet.locator('[data-clip="greet"]').count(),0,'interacting with a working pet preserves its work pose');
  await aPet.locator('[data-clip="working"]').waitFor();
  const update=async(state,connected=true)=>live.evaluate(({state,connected})=>{const a=window.__uiTest.state.petLinks[0];a.run.state=state;a.connected=connected;window.__uiTest.emitEvent('autopets://snapshot',structuredClone(window.__uiTest.state));},{state,connected});
  await aPet.locator('.companion-sprite:not(.companion-previous-pose)').evaluate(element=>{element.getAnimations().forEach(animation=>animation.pause());window.__previousPose=getComputedStyle(element).backgroundPosition;});
  await update('waiting');await aPet.locator('[data-clip="waiting"]').waitFor();
+ assert.equal(await aPet.evaluate(pet=>pet.querySelector('.companion-body').getAnimations().includes(window.__continuingMotion.presence)
+  && window.__continuingMotion.presence.currentTime===1100),true,'presence motion keeps its clock while the task changes state');
+ await live.evaluate(()=>window.__continuingMotion.presence.play());
  assert.equal(await aPet.locator('.companion-previous-pose').evaluate(element=>element.style.backgroundPosition===window.__previousPose),true,'pose transition preserves the rendered frame before canceling its animation');
  await update('working');await live.waitForFunction(()=>document.querySelector('.pet-card-0 .companion-pet')?.dataset.state==='working');await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="working"]').waitFor();
  await live.evaluate(()=>{window.__completedClips=0;let last='working';new MutationObserver(()=>{const clip=document.querySelector('.pet-card-0 .companion-sprite')?.dataset.clip;if(clip==='complete' && last!=='complete')window.__completedClips++;last=clip;}).observe(document.querySelector('.pet-card-0'),{subtree:true,attributes:true,attributeFilter:['data-clip']});});
- await update('complete'); await aPet.scrollIntoViewIfNeeded(); await aPet.locator('[data-clip="complete"]').waitFor(); await aPet.locator('[data-clip="blink"]').waitFor();
+ await update('complete'); await aPet.scrollIntoViewIfNeeded(); await aPet.locator('[data-clip="complete"]').waitFor();
+ await aPet.evaluate(pet=>{
+  const clip=pet.querySelector('.companion-sprite:not(.companion-previous-pose)').getAnimations().find(animation=>animation.effect.getKeyframes().some(frame=>frame.backgroundPosition));
+  clip.pause();clip.currentTime=450;window.__completionMotion=clip;
+ });
+ await live.locator('.pet-card-0 .task-pet-art').dispatchEvent('pointerdown');
+ await live.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ assert.equal(await aPet.evaluate(pet=>pet.querySelector('.companion-sprite:not(.companion-previous-pose)').getAnimations().includes(window.__completionMotion)
+  && window.__completionMotion.currentTime===450),true,'touching a completion does not cancel or replay its one-shot clip');
+ await live.evaluate(()=>window.__completionMotion.play());
+ await aPet.locator('[data-clip="blink"]').waitFor();
  const count=await live.evaluate(()=>window.__completedClips);assert.equal(count,1);
  await update('complete');await update('complete',false);await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="still"]').waitFor();await update('complete');await live.waitForTimeout(1700);
  assert.equal(await live.evaluate(()=>window.__completedClips),1,'duplicate and reconnect do not replay completion');
@@ -68,9 +132,15 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  assert.equal(await aPet.locator('[data-clip="complete"]').count(),0,'restored result does not celebrate');
  await update('unknown');await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="still"]').waitFor();
  assert.equal(await aPet.getAttribute('data-state'),'error');
+ await update('working');await live.waitForFunction(()=>document.querySelector('.pet-card-0 .companion-pet')?.dataset.state==='working');
+ await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="working"]').waitFor();
+ await live.emulateMedia({reducedMotion:'reduce'});
+ await live.waitForFunction(()=>[...document.querySelectorAll('.companion-pet')].every(el=>el.dataset.playing==='false'));
+ assert.equal(await live.locator('.companion-pet, .companion-pet *').evaluateAll(nodes=>nodes.reduce((n,el)=>n+el.getAnimations().length,0)),0,'reduced motion stops every presentation layer');
+ await live.emulateMedia({reducedMotion:'no-preference'});await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="working"]').waitFor();
  await live.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
  await live.waitForFunction(()=>[...document.querySelectorAll('.companion-pet')].every(el=>el.dataset.playing==='false'));
- assert.equal(await live.locator('.companion-sprite').evaluateAll(nodes=>nodes.reduce((n,e)=>n+e.getAnimations().length,0)),0);
+ assert.equal(await live.locator('.companion-pet, .companion-pet *').evaluateAll(nodes=>nodes.reduce((n,e)=>n+e.getAnimations().length,0)),0);
  await live.close();
 
  const fallback=await newPage(); await fallback.route('**/companion-v1/social.webp',route=>route.abort());await fallback.goto(origin);await fallback.locator('.app-header nav').getByRole('button',{name:'홈',exact:true}).click();
@@ -81,6 +151,6 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  await locks.evaluate(()=>localStorage.setItem('autopets.companion-completions.v1','broken'));
  assert.equal(await locks.evaluate(async()=>{const m=await import('/src/features/pets/companionMotion.ts');return m.claimCompletion('another-run');}),false,'damaged receipt suppresses celebration');
  await locks.close();
- checks.push('home greeting focuses pet selection without backend changes; small viewports and reduced motion; A/B isolation; completion dedupe/reload/reconnect; hidden playback stops; failed assets fall back; concurrent receipts serialize');
+ checks.push('home greeting; work/completion interaction preserves exact timeline and pose; presence clock spans task states; A/B isolation; completion dedupe/reload/reconnect; reduced/hidden stops all layers; small viewports, fallback and concurrent receipts');
  return screenshots;
 };

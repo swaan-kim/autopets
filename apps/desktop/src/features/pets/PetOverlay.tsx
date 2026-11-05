@@ -21,6 +21,17 @@ import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
 import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet';
 import { companionState, companionRunKey } from './companionMotion';
+import { CompanionPet } from './CompanionPet';
+
+function UnassignedPetButton({ index, expanded, onToggle }: { index: number; expanded: boolean; onToggle: () => void }) {
+  const [interaction, setInteraction] = useState(0);
+  const react = () => setInteraction(value => value + 1);
+  return <button className="pet-hit" aria-expanded={expanded} aria-label={`${PET_NAMES[index]} · 작업 카드 열기`} onClick={onToggle}
+    onPointerDown={event => { if (event.button === 0) react(); }}
+    onKeyDown={event => { if (!event.repeat && (event.key === 'Enter' || event.key === ' ')) react(); }}>
+    <span className="overlay-idle-pet"><CompanionPet state="idle" interaction={interaction} /></span>
+  </button>;
+}
 
 export function PetOverlay({ snapshot, index, error, assistance, workflow }: { snapshot: Snapshot; index: number; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
   const [expanded, setExpanded] = useState(false);
@@ -113,7 +124,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     </div>}
     <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
-      <button className="pet-hit" aria-expanded={expanded} aria-label={`${session?.label || PET_NAMES[index]} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session?.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+      {session ? <button className="pet-hit" aria-expanded={expanded} aria-label={`${session.label} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} />}
       {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`} title={help}>{help}</span>
     </div>

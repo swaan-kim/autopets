@@ -28,6 +28,8 @@ const fallbackMotion: Record<CompanionState, PetMotion> = { idle: 'idle', receiv
 export function CompanionPet({ state = 'idle', paused = false, runKey, interaction = 0, example = false }: { state?: CompanionState; paused?: boolean; runKey?: string; interaction?: number; example?: boolean }) {
   const { ref, playing, reduced } = usePetVisibility(!paused);
   const sprite = useRef<HTMLSpanElement>(null);
+  const reactionElement = useRef<HTMLSpanElement>(null);
+  const lastReactionTransform = useRef<string | undefined>(undefined);
   const previousPose = useRef<HTMLSpanElement>(null);
   const currentSheet = useRef<Sheet | undefined>(undefined);
   const lastRenderedPose = useRef<{ backgroundImage: string; backgroundPosition: string; backgroundSize: string } | null>(null);
@@ -37,6 +39,8 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
   const consumed = useRef(0);
   const greeted = useRef(false);
   const reaction = useRef(0);
+  const idleInteraction = state === 'idle' ? interaction : 0;
+  const canReact = state !== 'idle' && state !== 'error';
 
   useEffect(() => {
     let disposed = false;
@@ -63,6 +67,29 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
   }, [state, runKey, playing, example]);
 
   useEffect(() => {
+    const element = reactionElement.current;
+    if (!canReact || !playing || assets !== 'ready' || !element) {
+      lastReactionTransform.current = undefined;
+      if (canReact) reaction.current = interaction;
+      return;
+    }
+    if (interaction === reaction.current) return;
+    reaction.current = interaction;
+    // A touch acknowledges the user without replacing the current task clip.
+    const from = lastReactionTransform.current ?? getComputedStyle(element).transform;
+    const animation = element.animate([
+      { transform: from },
+      { transform: 'rotate(-2deg) translateY(-1px)', offset: .4 },
+      { transform: 'none' },
+    ], { duration: 380, easing: 'ease-in-out' });
+    lastReactionTransform.current = undefined;
+    return () => {
+      lastReactionTransform.current = getComputedStyle(element).transform;
+      animation.cancel();
+    };
+  }, [interaction, canReact, playing, assets]);
+
+  useEffect(() => {
     const element = sprite.current;
     if (!element || assets !== 'ready') return;
     const still = stillFor(state);
@@ -72,9 +99,11 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
     let blend: Animation | undefined;
     const paint = (sheet: Sheet, frame: number) => {
       const previous = previousPose.current;
+      const next = poseStyle(sheet, frame);
       // Fade the last rendered pose, including a frame interrupted mid-clip.
       // The task state updates immediately; only its artwork settles in.
-      if (playing && currentSheet.current && currentSheet.current !== sheet && previous) {
+      if (playing && currentSheet.current && previous && (currentSheet.current !== sheet
+        || lastRenderedPose.current && lastRenderedPose.current.backgroundPosition !== next.backgroundPosition)) {
         const rendered = lastRenderedPose.current ?? getComputedStyle(element);
         Object.assign(previous.style, {
           backgroundImage: rendered.backgroundImage,
@@ -84,7 +113,7 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
         blend?.cancel();
         blend = previous.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' });
       }
-      Object.assign(element.style, poseStyle(sheet, frame));
+      Object.assign(element.style, next);
       currentSheet.current = sheet;
       lastRenderedPose.current = null;
     };
@@ -120,15 +149,9 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       if (!cancelled) { Object.assign(element.style, poseStyle(clip.sheet, clip.frames.at(-1)![0])); animation.cancel(); }
     };
     void (async () => {
-      if (interaction !== reaction.current) {
-        reaction.current = interaction;
-        // An interaction must not replace a working/waiting pose with a greeting.
-        if (state === 'idle' || state === 'complete') await play('greet');
-        else if (state !== 'error') hop = element.animate([
-          { transform: 'rotate(0) translateY(0)' },
-          { transform: 'rotate(-2deg) translateY(-1px)', offset: .4 },
-          { transform: 'rotate(0) translateY(0)' },
-        ], { duration: 380, easing: 'ease-in-out' });
+      if (state === 'idle' && idleInteraction !== reaction.current) {
+        reaction.current = idleInteraction;
+        await play('greet');
       }
       if (cancelled) return;
       if (state === 'complete' && celebration > consumed.current) {
@@ -149,9 +172,9 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       lastRenderedPose.current = { backgroundImage: rendered.backgroundImage, backgroundPosition: rendered.backgroundPosition, backgroundSize: rendered.backgroundSize };
       animation?.cancel(); hop?.cancel(); blend?.cancel();
     };
-  }, [assets, state, runKey, playing, interaction, celebration]);
+  }, [assets, state, runKey, playing, idleInteraction, celebration]);
 
   return <span ref={ref} className={`companion-pet ${!playing ? 'companion-paused' : ''}`} data-state={state} data-playing={playing && assets === 'ready'} data-assets={assets} data-reduced={reduced}>
-    {assets === 'ready' ? <span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}
+    {assets === 'ready' ? <span ref={reactionElement} className="companion-reaction"><span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}
   </span>;
 }

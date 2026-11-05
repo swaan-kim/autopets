@@ -1,12 +1,10 @@
 .companion-pet { --frame: var(--pet-size, 160px); display: inline-block; position: relative; width: var(--frame); height: var(--frame); flex-shrink: 0; }
+.overlay-idle-pet { --pet-size: 128px; }
 .companion-sprite { display: block; width: 100%; height: 100%; background-repeat: no-repeat; image-rendering: auto; transform-origin: 50% 90%; }
-.companion-body { position: relative; display: block; width: 100%; height: 100%; transform-origin: 50% 90%; }
+.companion-reaction, .companion-body { position: relative; display: block; width: 100%; height: 100%; transform-origin: 50% 90%; }
 .companion-previous-pose { position: absolute; inset: 0; opacity: 0; }
-.companion-pet[data-playing="true"][data-state="idle"] .companion-body,
-.companion-pet[data-playing="true"][data-state="complete"] .companion-body { animation: companion-breathe 4.8s ease-in-out infinite; }
-.companion-pet[data-playing="true"][data-state="working"] .companion-body { animation: companion-focus 3.8s ease-in-out infinite; }
-@keyframes companion-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.006, 1.012); } }
-@keyframes companion-focus { 0%, 100% { transform: rotate(-.35deg); } 45% { transform: translateY(.5px) rotate(.35deg); } }
+.companion-pet[data-playing="true"]:not([data-state="error"]) .companion-body { animation: companion-presence 4.8s ease-in-out infinite; }
+@keyframes companion-presence { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.006, 1.012); } }
 .companion-pet > .pet-art { --frame: var(--pet-size, 160px); }
 .task-pet-art[data-companion="true"] .task-pet-prop { display: none; }
 .workspace-role-card .task-pet-art[data-companion-state="idle"] .task-pet-prop,
@@ -14,4 +12,4 @@
 .composer-pet-stage .task-pet-art[data-companion-state="idle"] .task-pet-prop { display: block; }
 .task-pet-art[data-companion="true"][data-companion-state="working"] .task-pet-prop { display: block; width: 56%; height: 48%; right: 21%; bottom: -1%; }
 .companion-pet, .companion-sprite { pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .companion-sprite { transform: none !important; } .companion-body { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .companion-reaction, .companion-sprite { transform: none !important; } .companion-body { animation: none !important; } }
