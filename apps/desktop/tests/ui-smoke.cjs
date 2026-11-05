@@ -352,6 +352,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     const empty = await newPage();
     await empty.goto(origin);
+    await empty.locator('.pet-home').waitFor();
+    await openCatalog(empty);
     await empty.getByRole('heading', { name: '펫 고르기', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await chooseRole(empty, '웹페이지 만들기');
@@ -393,7 +395,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await softPet.emulateMedia({ reducedMotion: 'reduce' });
     await softPet.waitForFunction(() => [...document.querySelectorAll('.pet-soft')].every(el => getComputedStyle(el).animationName === 'none'));
     await softPet.unroute('**/companion-v1/social.webp');
-    await softPet.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
+    await softPet.locator('.app-header').getByRole('button', { name: 'AutoPets 홈으로', exact: true }).click();
     await softPet.emulateMedia({ reducedMotion: 'no-preference' });
     await softPet.locator('.pet-home .companion-pet[data-playing="true"]').waitFor();
     await softPet.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });

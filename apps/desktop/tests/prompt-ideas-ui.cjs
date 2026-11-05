@@ -10,8 +10,7 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   const page = await newPage({ width: 992, height: 688 });
   const state = { ...structuredClone(fixture), sessions: [], slots: [], petLinks: [link, other], setup: { version: 1, appReady: true, connectionMode: 'explicit-pet', connections: [{ hostId: 'codex-windows-local', configured: true }] } };
   await mockBridge(page, state); await page.goto(origin);
-  await page.getByRole('heading', { name: '내 작업', exact: true }).waitFor();
-  assert.equal(await page.locator('.pet-home').count(), 0, 'existing work is the entry point');
+  await page.locator('.pet-home').waitFor(); // the app always opens on home, even with existing work
   await openCatalog(page);
   const ideas = page.getByRole('region', { name: '이미지와 영상 아이디어', exact: true });
   assert.equal(await ideas.locator('.prompt-idea-card').count(), 4);

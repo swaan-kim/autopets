@@ -61,7 +61,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const capture = async name => { const file = path.join(screenshotDir, `ux-v2-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
   assert.equal(await page.locator('.workspace-role-card').count(), 6);
   assert.equal(await page.getByRole('button',{name:'펫 고르기',exact:true}).getAttribute('aria-current'),'page');
-  assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(),['홈','펫 고르기','내 작업']);
+  assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(),['펫 고르기','내 작업']);
   assert.equal(await page.locator('.pet-journey').count(), 0);
   assert.equal(await page.locator('.pet-card').count(), 0);
   await page.locator('.workspace-role-card .companion-pet[data-assets="ready"]').first().waitFor();

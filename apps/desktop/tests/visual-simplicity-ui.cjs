@@ -9,14 +9,13 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await mockBridge(page, { ...structuredClone(fixture), sessions: [], slots: [], petLinks: [],
     setup: { version: 1, connectionMode: 'explicit-pet', connections: [{ hostId: 'codex-windows-local', configured: true }] } });
   await page.goto(origin);
-  await page.locator('.workspace-role-grid').waitFor();
-  assert.equal(await page.locator('.pet-home').count(), 0, 'new users start at choices without a greeting gate');
-  await page.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
+  await page.locator('.pet-home').waitFor();
+  assert.equal(await page.locator('.app-header').getByRole('button', { name: 'AutoPets 홈으로', exact: true }).getAttribute('aria-current'), 'page', 'the app always opens on home');
   const capture = async name => { const file = path.join(screenshotDir, `after-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
   const home = page.locator('.pet-home');
   await home.getByRole('heading', { name: '어떤 펫과 일할까요?', exact: true }).waitFor();
   await home.locator('[data-assets="ready"]').first().waitFor();
-  assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(), ['홈', '펫 고르기', '내 작업']);
+  assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(), ['내 작업'], 'home hides the header pet shortcut; its own button is below');
   assert.equal(await home.locator('.result-preview, .experience-output, textarea, input').count(), 0, 'home chooses a pet; requests remain in the existing Codex chat');
   for (const viewport of [{ width: 992, height: 688 }, { width: 716, height: 701 }]) {
     await page.setViewportSize(viewport);
@@ -80,7 +79,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await composer.waitFor({ state: 'detached' });
   assert.equal(await composer.count(), 0, 'the current top-level navigation also leaves the composer');
   assert.equal(await page.locator('.workspace-role-card').count(), 6, 'same-navigation return preserves the all-role filter');
-  await page.locator('.app-header nav').getByRole('button', { name: '홈', exact: true }).click();
+  await page.locator('.app-header').getByRole('button', { name: 'AutoPets 홈으로', exact: true }).click();
   assert.equal(await home.locator('textarea, input').count(), 0, 'returning home never asks the user to re-enter a Codex task');
   await page.locator('.pet-home-find').click();
   await chooseRole(page, '공부 도우미');
@@ -113,9 +112,11 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
     run: { id: `run-${slot}`, profile: slot ? 'plan' : 'light', state: slot ? 'waiting' : 'complete' },
   })) };
   await mockBridge(returning, value); await returning.goto(origin);
+  assert.equal(await returning.locator('.app-header').getByRole('button', { name: 'AutoPets 홈으로', exact: true }).getAttribute('aria-current'), 'page', 'returning users also open on home');
+  await returning.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).click();
   const items = returning.locator('.workspace-live-card');
   await items.first().waitFor();
-  assert.equal(await returning.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).getAttribute('aria-current'), 'page', 'returning users go straight to their registered work');
+  assert.equal(await returning.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).getAttribute('aria-current'), 'page');
   assert.ok((await items.first().getAttribute('class')).includes('pet-card-1'), 'attention precedes recent completion');
   await items.first().getByRole('button', { name: '계획 보러 가기', exact: true }).click();
   await items.first().getByText(/Codex에 열기를 요청했어요/).waitFor();
