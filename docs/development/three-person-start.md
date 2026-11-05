@@ -15,16 +15,22 @@
 ```powershell
 git clone --branch team/seoyeon https://github.com/swaan-kim/autopets.git autopets-seoyeon
 cd autopets-seoyeon
+git status --short --branch
 git fetch origin
-git switch -c task/<Issue번호>-<작업이름> origin/main
 ```
 
-Issue에 목적·사람 담당자·수정 범위·완료 기준을 적고 시작한다. AI에는 `AGENTS.md` → 공동 안내 → 담당 Issue → 관련 PR·실제 diff → 검사 순서로 읽게 한다. 공통 스타일·패키지·CI·연동 파일은 작업마다 통합 담당을 정하고 수정 순서를 맞춘다.
-
-작업 브랜치를 push한 뒤 `main`을 대상으로 PR을 연다. PR에는 사용자 변화·같은 조건의 Before/After·검사와 한계·다음 AI 인계를 남기고, 필요한 검사와 다른 사람 한 명의 승인을 받은 뒤 병합한다. 다른 사람의 승인을 AI가 대신 작성하지 않는다.
+이제 GitHub의 열린 PR을 확인한다. 다른 사람이 올린 최신 PR은 본문·바뀐 파일·검사 결과를 직접 읽는 것을 권하며, 내 작업과 관련되거나 파일이 겹치는 PR은 반드시 확인한다. Issue에 목적·사람 담당자·수정 범위·완료 기준과 관련 PR을 적고, 최신 `origin/main`에서 새 작업 브랜치를 만든다. 아래의 `123`과 `short-name`은 실제 Issue 번호와 작업 이름으로 바꾼다.
 
 ```powershell
-git push -u origin task/<Issue번호>-<작업이름>
+git switch -c task/123-short-name origin/main
+```
+
+다음 날 같은 작업을 이어갈 때도 [작업 시작 절차](team-workflow.md#매번-작업을-시작하거나-이어갈-때)에 따라 내 변경 보존 → 최신 코드 받기 → PR 확인 → 최신 main 반영을 먼저 한다. AI에는 `AGENTS.md` → 공동 안내 → 담당 Issue → 관련 PR·실제 diff → 검사 순서로 읽게 한다. 공통 스타일·패키지·CI·연동 파일은 작업마다 통합 담당을 정하고 수정 순서를 맞춘다.
+
+작업 브랜치를 push한 뒤 `main`을 대상으로 PR을 연다. PR에는 짧은 요약과 사용 흐름의 전후 변화, 바꾼 의도와 장단점, 확인한 내용과 남은 점을 쉬운 말로 설명한다. 상세 비교 조건과 인계는 접힌 개발 기록에 모은다. 필요한 검사와 다른 사람 한 명의 승인을 받은 뒤 병합하며, 다른 사람의 승인을 AI가 대신 작성하지 않는다.
+
+```powershell
+git push -u origin task/123-short-name
 ```
 
 병합 후 다음 작업은 최신 `origin/main`에서 새 작업 브랜치를 만든다. 개인 시작 브랜치나 작업 브랜치에 다른 사람의 변경이 있으면 강제로 초기화하지 않는다. PR #24·#26의 병합 상태와 이번 시작 브랜치의 실제 기준 커밋은 GitHub의 해당 PR·브랜치가 기준이며, 준비 중인 내용을 이미 `main`에 있다고 취급하지 않는다.
