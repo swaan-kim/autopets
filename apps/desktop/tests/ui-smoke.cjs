@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { emptyWorkflow, runWorkflowChecks } = require('./workflow-ui.cjs');
+const { runSetupChecks } = require('./setup-ui.cjs');
+const { runProductSiteChecks } = require('./product-site-ui.cjs');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -58,6 +60,20 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'plugin:event|listen') return 1;
         if (name.startsWith('plugin:event|')) return null;
         calls.push({ name, args });
+        if (name === 'check_app_update') return window.__uiTest.update || { status: 'disabled', message: '이 빌드에서는 공개 업데이트를 제공하지 않아요.' };
+        if (name === 'install_app_update') return null;
+        if (name === 'connect_ai' || name === 'disconnect_ai') {
+          if (args?.hostId !== 'codex-windows-local') throw Error('지원하지 않는 연결입니다.');
+          if (window.__uiTest.connectionError) throw Error(window.__uiTest.connectionError);
+          const connection = state.setup.connections.find(item => item.hostId === args.hostId);
+          connection.configured = name === 'connect_ai';
+          connection.status = connection.configured ? 'waiting-for-event' : 'disconnected';
+          connection.firstTask = null;
+          connection.guidanceDelivered = false;
+          connection.settingsVerified = { model: false, reasoning: false, submission: false };
+          state.setup.currentHostId = args.hostId;
+          return structuredClone(state.setup);
+        }
         const session = state.sessions.find(session => session.id === args?.sessionId);
         const task = assistance.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
         const workflowTask = workflow.tasks.find(task => JSON.stringify(task.identity) === JSON.stringify(args?.identity));
@@ -164,18 +180,22 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
   try {
     const empty = await newPage();
     await empty.goto(origin);
+    await empty.getByRole('heading', { name: /펫과 함께 시작해요/ }).waitFor();
+    await empty.getByRole('button', { name: '나의 펫 보기', exact: true }).click();
     await empty.locator('.pet-grid').waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 3);
     assert.equal(await empty.getByRole('button', { name: '＋ 작업 연결' }).first().isEnabled(), false);
     await empty.getByText('브라우저 미리보기 · 연결 없음', { exact: true }).waitFor();
     await empty.getByRole('button', { name: '연결 안내 →' }).click();
-    await empty.getByRole('heading', { name: 'Codex와 연결하기' }).waitFor();
+    await empty.getByRole('heading', { name: /펫과 함께 시작해요/ }).waitFor();
     assert.equal(await empty.locator('input[type=checkbox]').count(), 0);
     assert.equal(await empty.getByRole('button', { name: /허용|거절|승인/ }).count(), 0);
     await empty.getByRole('button', { name: '자동 도움', exact: true }).click();
     await empty.getByText('브라우저 미리보기 · 연결 없음. 설정은 저장되지 않아요.', { exact: true }).waitFor();
     assert.equal(await empty.getByRole('button', { name: '추천 설정으로 켜기' }).isEnabled(), false);
     checks.push('empty/offline UI has no fabricated activity or approval controls');
+    const setupScreenshots = await runSetupChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+    const siteScreenshots = await runProductSiteChecks({ newPage, screenshotDir: path.dirname(screenshot), checks });
 
     const missing = await newPage();
     await missing.route('**/assets/motions/sprite.png', route => route.abort());
@@ -434,6 +454,32 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await pet.getByRole('button', { name: '상세 설정 열기 →', exact: true }).click();
     checks.push('quick card stays within a smaller viewport while details remain reachable by scrolling');
 
+    const setupPage = await newPage({ width: 1120, height: 1040 });
+    const setupFixture = { ...structuredClone(fixture), setup: { version: 1, installedVersion: '0.1.0', phase: 'connecting', appReady: true, chatConnected: false, guidanceDelivered: false, protection: { model: false, reasoning: false, submission: false }, retryable: true, nextAction: 'review-hooks' } };
+    await mockBridge(setupPage, setupFixture);
+    await setupPage.goto(origin);
+    await setupPage.getByRole('button', { name: '연결 설정', exact: true }).click();
+    await setupPage.getByRole('heading', { name: '앱 준비', exact: true }).waitFor();
+    await setupPage.getByRole('heading', { name: '첫 작업 확인', exact: true }).waitFor();
+    await setupPage.getByText('실제 설정 확인', { exact: true }).click();
+    await setupPage.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
+    await setupPage.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 시연 데이터 · 실제 연결 미검증'; });
+    await setupPage.evaluate(() => { window.__uiTest.state.setup.chatConnected = true; window.__uiTest.state.setup.phase = 'ready'; });
+    await setupPage.getByText('자동 도움 전달 · 미확인', { exact: true }).waitFor();
+    assert.equal(await setupPage.locator('.setup-step').nth(2).locator('.setup-status').textContent(), '확인 전');
+    checks.push('legacy setup remains readable without promoting a global observed-chat flag into host-specific first-task evidence');
+
+    const waitingPet = await newPage({ width: 220, height: 250 });
+    await mockBridge(waitingPet, { ...setupFixture, sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+    await waitingPet.goto(`${origin}/?pet=0`);
+    await waitingPet.getByText('채팅 연결 대기', { exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: '펫 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: '펫 카드 메뉴', exact: true }).click();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).waitFor();
+    await waitingPet.getByRole('button', { name: 'AutoPets 종료', exact: true }).click();
+    assert.ok(await waitingPet.evaluate(() => window.__uiTest.calls.some(call => call.name === 'quit_app')));
+    checks.push('first pet waits without a fabricated task and keeps exit reachable');
+
     const workflowScreenshots = await runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir: path.dirname(screenshot), checks });
 
     const compact = await newPage({ width: 1120, height: 1120 });
@@ -451,6 +497,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     });
     await compact.screenshot({ path: path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), fullPage: true, animations: 'disabled' });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...workflowScreenshots], checks, pageErrors: errors }, null, 2));
+    console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots: [screenshot, path.join(path.dirname(screenshot), 'native-ui-assistance.png'), path.join(path.dirname(screenshot), 'native-ui-assistance-compact.png'), path.join(path.dirname(screenshot), 'native-ui-overlay.png'), ...workflowScreenshots, ...setupScreenshots, ...siteScreenshots], checks, pageErrors: errors }, null, 2));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

@@ -16,5 +16,16 @@
       "capabilities": ["default"]
     }
   },
-  "bundle": {"active":false,"icon":["icons/icon.png","icons/icon.ico"]}
+  "plugins": {
+    "updater": {"pubkey": "", "endpoints": [], "requireSignedVersion": true, "allowDowngrades": false}
+  },
+  "bundle": {
+    "active": false,
+    "publisher": "swaan-kim",
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": {"type": "offlineInstaller"},
+      "nsis": {"installMode": "currentUser", "installerHooks": "windows/installer-hooks.nsh"}
+    }
+  }
 }

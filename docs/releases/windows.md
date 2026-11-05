@@ -1,5 +1,9 @@
 # Windows 빌드와 배포 검증
 
+최신 배포 경로는 **단일 NSIS EXE → 앱에서 AI 연결**이다. EXE에 Node·연결 도구·라이선스·offline WebView2를 포함한다. 직접 설치와 AI 호출은 같은 파일을 사용하며, 서명·공개 Windows/Codex 검증 전에는 리뷰용으로만 제공한다. Store 등록과 실제 PC 설치는 이번 구현에 포함하지 않는다. [최신 배포 계약](../architecture/distribution.md) · [통합 검수](../testing/unified-distribution.md).
+
+아래 이전 companion ZIP과 과거 설치 기록은 개발 호환·역사적 증거이며 현재 사용자 설치 흐름을 대신하지 않는다.
+
 2026-09-21 자동 도움 변경은 [구현 검수](../testing/assistance-implementation.md)를 따른다. 새 빌드는 별도 CI에서 검증하며 이번 작업에서 사용자 PC에 설치하지 않는다. 기존 설치 성공은 새 기능의 연결 증거가 아니다.
 
 후속 검증(2026-09-20): 기존 설치 파일을 이 PC에 설치하고 앱 프로세스·창·인증된 로컬 브리지 응답을 확인했다. 서명은 여전히 `NotSigned`다. 아래 첫 CI 기록과 실제 Desktop 연결 검증은 구분하며 최신 상태는 [M1 증거](../testing/m1-evidence.md)를 따른다.

@@ -1,5 +1,46 @@
 use super::*;
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct DisconnectSetup { host_id: String }
+pub(super) async fn setup_disconnect(
+    State(state): State<BridgeState>,
+    Json(input): Json<DisconnectSetup>,
+) -> BridgeResult<serde_json::Value> {
+    let mut store = state.store.lock().map_err(state_error)?;
+    let value = store.disconnect_setup(&input.host_id)
+        .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    let snapshot = store.snapshot();
+    drop(store);
+    (state.on_change)(snapshot);
+    Ok(Json(value))
+}
+
+pub(super) async fn setup_status(
+    State(state): State<BridgeState>,
+) -> BridgeResult<serde_json::Value> {
+    let value = state
+        .store
+        .lock()
+        .map_err(state_error)?
+        .setup_status()
+        .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    Ok(Json(value))
+}
+pub(super) async fn setup_start(
+    State(state): State<BridgeState>,
+    Json(input): Json<crate::application::setup::SetupRequest>,
+) -> BridgeResult<serde_json::Value> {
+    let mut store = state.store.lock().map_err(state_error)?;
+    let value = store
+        .begin_setup(input)
+        .map_err(|e| error(StatusCode::CONFLICT, e))?;
+    let snapshot = store.snapshot();
+    drop(store);
+    (state.on_change)(snapshot);
+    Ok(Json(value))
+}
+
 pub(super) async fn assistance_status(
     State(state): State<BridgeState>,
 ) -> BridgeResult<serde_json::Value> {

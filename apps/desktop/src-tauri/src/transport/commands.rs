@@ -6,6 +6,16 @@ use crate::application::{
 use crate::platform::windows::Desktop;
 
 #[tauri::command]
+pub(crate) fn get_setup_state(
+    store: tauri::State<SharedStore>,
+) -> Result<serde_json::Value, String> {
+    store
+        .lock()
+        .map_err(|_| "상태를 읽을 수 없습니다.")?
+        .setup_status()
+}
+
+#[tauri::command]
 pub(crate) fn get_snapshot(store: tauri::State<SharedStore>) -> Result<Snapshot, String> {
     Ok(store
         .lock()

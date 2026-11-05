@@ -267,7 +267,10 @@ impl AssistanceStore {
                     bounded(model, 128, false)?;
                 }
                 if record.receipt.as_ref().is_some_and(|r| {
-                    r.hash == guidance_hash
+                    // A legacy project hook and a user hook can format identical
+                    // policy with different helper paths. One current turn gets
+                    // one preparation at the same revisions, regardless of path.
+                    (r.hash == guidance_hash || (binding.is_some() && r.binding == binding))
                         && match (&r.workflow_binding, &workflow_binding) {
                             (None, None) => true,
                             (Some(previous), Some(current)) => previous.same_policy(current),

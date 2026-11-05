@@ -28,7 +28,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const helpTask = assistance.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const workflowTask = workflow.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
-  const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결 확인 필요' : '작업 연결 전' };
+  const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결 확인 필요' : snapshot.setup?.phase === 'connecting' ? '채팅 연결 대기' : '작업 연결 전' };
   const attention = session ? dueAttention(session, snapshot.now) : null;
   useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {
@@ -60,7 +60,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     : helpTask && (!assistance.snapshot.preferences.enabled || !helpTask.enabled) ? '이번 채팅의 자동 도움은 꺼져 있어요'
     : session ? currentAction(session) : '함께할 작업을 기다려요';
   return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
-    {expanded && <div className="quick-card-stack"><PetQuickCard title={session?.label || '작업 연결 전'} help={help}
+    {expanded && <div className="quick-card-stack"><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}

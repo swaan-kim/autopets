@@ -70,6 +70,21 @@ pub(crate) fn show_manager(
     }
 }
 
+pub(crate) fn reopen(app: &tauri::AppHandle) {
+    if let Some(desktop) = app.try_state::<Desktop>() {
+        desktop.visible.store(true, Ordering::Relaxed);
+        if let Ok(mut hidden) = desktop.hidden_slots.lock() {
+            *hidden = [false; 3];
+        }
+    }
+    if let Some(store) = app.try_state::<SharedStore>() {
+        if let Ok(store) = store.lock() {
+            emit(app, store.snapshot());
+        }
+    }
+    show_manager(app.clone(), None, None);
+}
+
 pub(crate) fn set_pets_visible(
     app: tauri::AppHandle,
     store: tauri::State<SharedStore>,

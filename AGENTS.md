@@ -20,3 +20,7 @@ The requested directory layout is documented in `docs/architecture/layout.md`. T
 ## Planning and execution presets
 
 The accepted follow-up is [planning/execution presets](docs/product/planning-execution.md). Defaults are opt-in and apply to new work; preserve existing assistance JSON and running chats. Phase is separate from request recipe. Plan confirmation and one-use exceptions are chat/revision-bound, and fresh submission observations are required for protection. Initial model combinations are evaluation candidates, not validated savings claims. Treat model, reasoning and native Plan-mode observations separately. No new runtime model calls or unobserved usage estimates.
+
+## Unified distribution
+
+Follow [the accepted two-entry product](docs/product/distribution.md). The product page and AI invocation use the same pinned, self-contained EXE. Setup only configures AI after an explicit app action. Keep host surfaces/locality separate from providers, and preserve old strict chat contracts. No public release, Store/directory submission, or installation on the user PC in this implementation. Signed app update authority is shared across direct and Store EXE; unsigned review builds have updating disabled. Publication metadata is checked by scripts/validate-release.mjs; declarations are not substitutes for actual signature and connection evidence.
