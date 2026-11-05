@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "videos": [
+    {
+      "id": "swans",
+      "title": "호수 위의 느린 오후",
+      "url": "/assets/prompt-videos-v1/swans.webm",
+      "poster": "/assets/prompt-videos-v1/swans-poster.webp",
+      "width": 720,
+      "height": 480,
+      "duration": 6.125,
+      "author": "VulcanSphere",
+      "model": "CogVideoX",
+      "created": "2024-12-24",
+      "sourceTitle": "File:Late Afternoon Swans (CogVideoX).webm",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Late_Afternoon_Swans_(CogVideoX).webm",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/Late_Afternoon_Swans_%28CogVideoX%29.webm",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "bytes": 274586,
+      "sha256": "266151ec6beef00fa8cc6ce22d557c82ebcffb1fbbc5a46838ab0e2fe248d4e6",
+      "posterSha256": "e8e0e321b1dc8f4aa6c986544224011dd009bcf527b2fe0521e9fe340face133",
+      "posterFrameSeconds": 0.5
+    },
+    {
+      "id": "rain",
+      "title": "네온빛이 번지는 밤",
+      "url": "/assets/prompt-videos-v1/rain.webm",
+      "poster": "/assets/prompt-videos-v1/rain-poster.webp",
+      "width": 1280,
+      "height": 720,
+      "duration": 5.64,
+      "author": "VulcanSphere",
+      "model": "Hailuo AI",
+      "created": "2024-12-24",
+      "sourceTitle": "File:Cyberpunk Rainy Street (Hailuo AI).webm",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cyberpunk_Rainy_Street_(Hailuo_AI).webm",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/a/ae/Cyberpunk_Rainy_Street_%28Hailuo_AI%29.webm",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "bytes": 3117507,
+      "sha256": "d90d65ec221d509221517775a70e0e3c9ee95623ea54bcb393c000622b55a9ad",
+      "posterSha256": "a5fe828f34a2c48aafdddeff6870657649642d23c72e95b60896afd332060af5",
+      "posterFrameSeconds": 0.5
+    }
+  ]
+}

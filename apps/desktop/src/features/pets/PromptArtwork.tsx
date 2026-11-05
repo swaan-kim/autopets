@@ -1,5 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import examples from '../../../public/assets/prompt-gallery-v1/manifest.json';
+import videos from '../../../public/assets/prompt-videos-v1/manifest.json';
+import { PromptVideoArtwork } from './PromptVideoArtwork';
 
 export function PromptArtwork({ kind, large = false }: { kind: string; large?: boolean }) {
   const id = useId().replace(/:/g, '');
@@ -7,6 +9,8 @@ export function PromptArtwork({ kind, large = false }: { kind: string; large?: b
   useEffect(() => setFailed(false), [kind]);
   const video = kind === 'coast' || kind === 'orbit';
   const generated = examples.images.find(image => image.id === kind);
+  const recorded = videos.videos.find(video => video.id === kind);
+  if (recorded) return <PromptVideoArtwork video={recorded} large={large} />;
   if (generated && !failed) return <div className={`ux-art ux-art-${kind} ${large ? 'ux-art-large' : ''}`} data-evidence="ai-generated-image" data-kind={generated.kind}>
     <img className={`ux-art-generated ${kind === 'coast' ? 'ux-art-scene' : ''}`} src={generated.url} width={generated.width} height={generated.height}
       alt={video ? 'AI로 제작한 영상 장면 참고 이미지 · 정지 이미지' : '이 프롬프트로 AI 제작한 정적 결과 예시'} loading={large ? 'eager' : 'lazy'} decoding="async" onError={() => setFailed(true)} />

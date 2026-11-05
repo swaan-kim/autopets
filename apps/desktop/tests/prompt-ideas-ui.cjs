@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
 const { openCatalog } = require('./entry-navigation.cjs');
+const { runPromptVideoChecks } = require('./prompt-video-ui.cjs');
 
 exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
   const link = { version: 1, target: { sourceId: 'codex-windows-local', threadId: '11111111-2222-4333-8444-555555555555', cwd: 'C:/UI fixture only A' }, slot: 0, revision: 1, enabled: true, connected: true, profile: 'light', template, run: null };
@@ -14,10 +15,10 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await openCatalog(page);
   const ideas = page.getByRole('region', { name: '이미지와 영상 아이디어', exact: true });
   assert.equal(await ideas.locator('.prompt-idea-card').count(), 4);
-  await page.waitForFunction(() => [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].length === 4
+  await page.waitForFunction(() => [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].length === 2
     && [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].every(image => image.complete && image.naturalWidth === 1536 && image.naturalHeight === 1024));
-  assert.equal(await ideas.locator('[data-kind="video-reference-image"]').count(), 2);
-  assert.equal(await ideas.locator('.ux-art-play').count(), 0, 'static reference frames do not imply a generated video player');
+  assert.equal(await ideas.locator('[data-evidence="public-ai-video"]').count(), 2);
+  assert.equal(await ideas.locator('.ux-art-play').count(), 2, 'play badges open real bundled video previews');
   await ideas.getByRole('button', { name: '영상 예시', exact: true }).click();
   assert.equal(await ideas.locator('.prompt-idea-card').count(), 2);
   await ideas.getByRole('button', { name: '이미지 예시', exact: true }).click();
@@ -68,22 +69,22 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
     const file = path.join(screenshotDir, `prompt-ideas-${width}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); shots.push(file);
   }
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await ideas.getByRole('button', { name: ' 느긋한 해변의 한 장면 예시 살펴보기'.trim(), exact: true }).click();
-  assert.equal(await page.locator('.prompt-idea-dialog .ux-art-scene').evaluate(element => getComputedStyle(element).animationName), 'none');
+  await ideas.getByRole('button', { name: '호수 위의 느린 오후 예시 살펴보기', exact: true }).click();
+  assert.equal(await page.locator('.prompt-idea-dialog video').evaluate(element => element.paused), true, 'reduced motion does not start playback');
   await page.close();
   const fallback = await newPage();
   await mockBridge(fallback, state);
   await fallback.route('**/prompt-gallery-v1/product.webp', route => route.abort());
-  await fallback.route('**/prompt-gallery-v1/coast.webp', route => route.abort());
+  await fallback.route('**/prompt-videos-v1/swans-poster.webp', route => route.abort());
   await fallback.goto(origin); await openCatalog(fallback);
   await fallback.locator('[data-agent-id="pet-selection.idea.product"] [data-evidence="design-example"] svg').waitFor();
   assert.equal(await fallback.locator('[data-agent-id="pet-selection.idea.product"] .ux-art-generated').count(), 0);
   const videoFallback = fallback.locator('[data-agent-id="pet-selection.idea.coast"]');
-  await videoFallback.locator('[data-evidence="design-example"] svg').waitFor();
-  assert.equal(await videoFallback.locator('.ux-art-play').count(), 0, 'a missing reference image must not become a pretend video player');
-  assert.equal(await videoFallback.locator('.ux-art-evidence').textContent(), '영상 구도 예시');
+  await videoFallback.locator('.ux-art-video-placeholder').waitFor();
+  assert.equal(await videoFallback.locator('.ux-art-evidence').textContent(), 'AI 영상 · 6초');
   await fallback.close();
   checks.push('result ideas filter image/video, preserve dialog focus, apply a bounded pinned-role preset without clipboard, preselect only eligible A, preserve B, and return to the exact existing conversation without submitting an AI request; 320/390/992px and reduced motion');
-  checks.push('four generated images load at recorded dimensions, exact production prompts can be inspected, video reference frames stay static, and a missing asset recovers to the original SVG composition');
+  checks.push('two generated image examples and two public AI video posters are distinct; exact image production prompts remain inspectable; missing image/poster assets have explicit fallbacks');
+  await runPromptVideoChecks({ newPage, mockBridge, state, origin, checks });
   return shots;
 };
