@@ -68,7 +68,8 @@ pub fn serve(action: String, nonce: String, host: crate::host::HostInfo) {
             crate::slides::pet_slides_cancel,
             crate::slides::pet_slides_status,
             crate::slides::pet_slides_open,
-            crate::slides::pet_chat_status
+            crate::slides::pet_chat_status,
+            crate::slides::pet_checkpoint_answer
         ])
         .on_window_event(|window, event| {
             if window.label() == LABEL && matches!(event, tauri::WindowEvent::Destroyed) {
@@ -234,6 +235,19 @@ fn hide(app: &AppHandle, nonce: &str) {
 fn quit(app: &AppHandle, nonce: &str) {
     write_status(nonce, "closed", false, current_position(app));
     app.exit(0);
+}
+
+/// Brings a hidden pet back when the chat asks the user something, so the
+/// question can be answered. The window is created unfocused (see `show`),
+/// so whatever the user is typing in another app keeps the keyboard.
+pub(crate) fn reveal(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let visible = handle.get_webview_window(LABEL).is_some() && !with_runtime(&handle, |rt| rt.closing);
+        if !visible {
+            show(&handle, String::new());
+        }
+    });
 }
 
 /// Handles a launcher request forwarded to the running pet.

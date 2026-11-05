@@ -259,6 +259,92 @@ pub fn cli_wait(args: &[String]) -> ExitCode {
     }
 }
 
+/// `ask`: the chat stops at a decision point. Blocks inside the chat's turn
+/// until the user answers in the pet, then prints the answer (once).
+/// Asking the same question again re-attaches to it (no second question).
+pub fn cli_ask(args: &[String]) -> ExitCode {
+    let Some(thread) = chat_thread(args) else {
+        return fail_line("no-chat", "CODEX_THREAD_ID가 없어 어느 Codex 채팅인지 알 수 없습니다.");
+    };
+    let Some(task) = crate::flag(args, "--task").filter(|t| safe_token(t)) else {
+        return fail_line("invalid-argument", "--task <작업 ID>가 필요합니다.");
+    };
+    let Some(file) = crate::flag(args, "--file") else {
+        return fail_line("invalid-argument", "--file <질문 JSON 파일>이 필요합니다.");
+    };
+    let file = std::env::current_dir().map(|cwd| cwd.join(&file)).unwrap_or_else(|_| PathBuf::from(&file));
+    let file = fs::canonicalize(&file).unwrap_or(file);
+    let file = file.to_string_lossy().trim_start_matches(r"\\?\").to_owned();
+    if file.contains('|') {
+        return fail_line("invalid-argument", "질문 파일 경로에 '|' 문자를 쓸 수 없습니다.");
+    }
+    let timeout = crate::flag(args, "--timeout")
+        .and_then(|t| t.parse::<u64>().ok())
+        .unwrap_or(WAIT_DEFAULT_SECS)
+        .clamp(10, 2 * 60 * 60);
+    let me = std::process::id().to_string();
+    let base = vec!["--task".to_owned(), task.clone(), "--thread".to_owned(), thread.clone()];
+    let mut register = base.clone();
+    register.extend(["--pid".to_owned(), me, "--file".to_owned(), file]);
+    let (question, delivered, pet_pid) = match forward("chat-ask", &register, Duration::from_secs(20)) {
+        Ok(reply) if reply.get("ok") == Some(&json!(true)) => {
+            let id = reply.get("questionId").and_then(Value::as_str).unwrap_or("").to_owned();
+            let delivered = reply.get("state").and_then(Value::as_str) == Some("delivered");
+            (id, delivered, read_state().and_then(|s| s.get("petPid").and_then(Value::as_u64)).unwrap_or(0) as u32)
+        }
+        Ok(reply) => return fail_line("refused", reply.get("message").and_then(Value::as_str).unwrap_or("펫이 질문을 받지 않았습니다.")),
+        Err(error) => return forward_error(error),
+    };
+    if !safe_token(&question) {
+        return fail_line("refused", "펫이 질문 ID를 돌려주지 않았습니다.");
+    }
+    let mut resume = base;
+    resume.extend(["--question".to_owned(), question.clone()]);
+    let deadline = Instant::now() + Duration::from_secs(timeout);
+    loop {
+        let state = read_state().unwrap_or(Value::Null);
+        let current = state.get("task").filter(|t| t.get("id").and_then(Value::as_str) == Some(task.as_str()));
+        let Some(current) = current else {
+            return fail_line("task-ended", "펫에서 이 작업이 없어졌습니다(펫이 다시 시작되었거나 작업이 끝났습니다).");
+        };
+        if current.get("state").and_then(Value::as_str) == Some("finished") {
+            return fail_line("task-ended", "이 작업은 펫에서 이미 끝났습니다.");
+        }
+        let checkpoint = current.get("checkpoint").filter(|c| c.get("id").and_then(Value::as_str) == Some(question.as_str()));
+        let state = if delivered { Some("delivered") } else { checkpoint.and_then(|c| c.get("state")).and_then(Value::as_str) };
+        match state {
+            Some("answered" | "delivered") => {
+                return match forward("chat-resume", &resume, Duration::from_secs(20)) {
+                    Ok(reply) => {
+                        print(&reply);
+                        if reply.get("ok") == Some(&json!(true)) {
+                            ExitCode::SUCCESS
+                        } else {
+                            ExitCode::from(1)
+                        }
+                    }
+                    Err(error) => forward_error(error),
+                };
+            }
+            Some("pending") => {}
+            _ => return fail_line("question-cancelled", "펫에서 이 질문이 취소되었습니다."),
+        }
+        if pet_pid != 0 && !process_alive(pet_pid) {
+            return fail_line("pet-closed", "펫이 닫혀서 질문 대기를 끝냈습니다.");
+        }
+        if Instant::now() > deadline {
+            print(&json!({
+                "ok": false,
+                "state": "ask-timeout",
+                "questionId": question,
+                "message": "사용자가 아직 펫에서 답하지 않았습니다. 질문은 펫에 그대로 남아 있습니다. 결과를 만들지 말고 같은 ask 명령을 다시 실행해 계속 기다리세요.",
+            }));
+            return ExitCode::from(1);
+        }
+        thread::sleep(Duration::from_millis(400));
+    }
+}
+
 /// `done` / `fail`: the chat reports the task's end; prints the pet's verdict.
 pub fn cli_report(args: &[String], failed: bool) -> ExitCode {
     let Some(thread) = chat_thread(args) else {
@@ -269,7 +355,8 @@ pub fn cli_report(args: &[String], failed: bool) -> ExitCode {
     };
     let mut extra = vec!["--task".to_owned(), task, "--thread".to_owned(), thread];
     if failed {
-        let reason: String = crate::flag(args, "--reason").unwrap_or_default().chars().filter(|c| !c.is_control()).take(300).collect();
+        // '|' separates arguments in the single-instance forward.
+        let reason: String = crate::flag(args, "--reason").unwrap_or_default().chars().filter(|c| !c.is_control()).map(|c| if c == '|' { '/' } else { c }).take(300).collect();
         extra.extend(["--reason".to_owned(), reason]);
     }
     match forward(if failed { "chat-fail" } else { "chat-done" }, &extra, Duration::from_secs(90)) {

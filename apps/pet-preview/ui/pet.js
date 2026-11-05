@@ -4,7 +4,7 @@
 // another module exposing the same mountAppearance/applyTheme functions.
 import { applyTheme, mountAppearance } from './appearance/circle.js';
 import { createInputBubble } from './bubble/input-bubble.js';
-import { createFeaturePanel, isActive } from './features/feature-panel.js';
+import { createFeaturePanel, isActive, openQuestion } from './features/feature-panel.js';
 
 const tauri = window.__TAURI__;
 const invoke = (command, args) => tauri?.core.invoke(command, args).catch((error) => console.error(command, error));
@@ -40,9 +40,34 @@ function showTheme(theme) {
 // (see src-tauri/src/slides.rs, handoff.rs). The panel only shows the status
 // the pet process reports; it is polled while active.
 let pollTimer = null;
+const petStatus = document.getElementById('pet-status');
+const PET_TITLE = pet.title;
+
+// Status on the pet itself, visible while the bubble is closed. A question
+// only adds a ring and a small badge: nothing opens or takes focus by itself,
+// so whatever the user is doing in another app is not interrupted.
+function showPetStatus(job) {
+  const question = openQuestion(job);
+  const decided = (job?.checkpoints ?? []).some((c) => c.stage === 'outline' && c.state === 'delivered');
+  let text = '';
+  if (question && job.phase === 'question') text = '선택이 필요해요';
+  else if (question) text = '계속 진행 중';
+  else if (job?.phase === 'running' || job?.phase === 'requesting') text = decided ? '제작 중…' : '구성 중…';
+  else if (job?.phase === 'completed') text = '완료';
+  else if (job?.phase === 'failed') text = '오류';
+  pet.dataset.attention = question && job.phase === 'question' ? 'question' : '';
+  pet.title = pet.dataset.attention ? `선택이 필요해요: ${question.title} — 클릭해서 답하기` : PET_TITLE;
+  petStatus.textContent = text;
+  petStatus.dataset.phase = text ? (pet.dataset.attention || job.phase) : '';
+  petStatus.hidden = !text;
+  // The question gets the whole bubble; the (not yet connected) test input
+  // row comes back once it is answered.
+  bubble.element.classList.toggle('bubble-question', Boolean(question));
+}
 
 function trackJob(status) {
   panel.setJob(status ?? null);
+  showPetStatus(status ?? null);
   clearTimeout(pollTimer);
   if (isActive(status)) {
     pollTimer = setTimeout(async () => trackJob(await invoke('pet_slides_status')), 1000);
@@ -74,6 +99,13 @@ async function initFeatures() {
     onStart: startJob,
     onOpen: (target) => invoke('pet_slides_open', { target }),
     onCancel: () => invoke('pet_slides_cancel'),
+    // The user's answer to the chat's open question; the pet process hands it
+    // to the chat's waiting `ask` command (errors are shown in the panel).
+    onAnswer: async (answer) => {
+      const status = await tauri.core.invoke('pet_checkpoint_answer', answer);
+      trackJob(status);
+      return status;
+    },
   });
   bubble.element.prepend(panel.element);
   showTheme(panel.theme);
@@ -93,6 +125,7 @@ window.autopet = {
   get config() { return panel?.config ?? null; },
   get job() { return panel?.job ?? null; },
   get link() { return panel?.link ?? null; },
+  get question() { return openQuestion(panel?.job ?? null); },
 };
 
 // --- Bubble open/close ---------------------------------------------------

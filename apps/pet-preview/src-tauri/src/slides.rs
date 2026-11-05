@@ -17,8 +17,18 @@
 //! `done`/`fail` report, which the pet verifies (HTML deck, full pinned skill
 //! text read in that chat after the claim). Every task leaves `run.json` next
 //! to the output.
+//!
+//! Human-in-the-loop: mid-task the chat pauses its own turn on
+//! `autopet-preview.exe ask` (see `checkpoint.rs`). The first question is
+//! required: the outline options the chat drafted. The deck only counts as
+//! done when that decision was delivered to the chat before the deck was
+//! written; the deck is also checked against the chosen outline.
 
-use crate::{handoff, host::HostInfo};
+use crate::{
+    checkpoint::{self, Checkpoint},
+    handoff,
+    host::HostInfo,
+};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -68,7 +78,9 @@ pub struct SkillEvidence {
 #[serde(rename_all = "camelCase")]
 pub struct JobStatus {
     id: String,
-    /// waiting (for a chat to claim) | requesting (claimed) | running | completed | failed
+    /// waiting (for a chat to claim) | requesting (claimed) | running |
+    /// question (paused: the chat asked the user through the pet) |
+    /// resuming (answered; the chat has not picked it up yet) | completed | failed
     phase: String,
     /// Always "chat": the invoking Codex chat runs the task.
     session: String,
@@ -97,6 +109,10 @@ pub struct JobStatus {
     completion: Option<String>,
     /// The chat's final answer for this turn (from its session record).
     chat_final: Option<String>,
+    /// The open question (pending, or answered but not yet delivered).
+    question: Option<Checkpoint>,
+    /// Every question of this task, in order (decision history).
+    checkpoints: Vec<Checkpoint>,
 }
 
 struct Waiter {
@@ -130,6 +146,12 @@ struct Task {
     final_deadline: Option<Instant>,
     result: Option<Value>,
     events: Vec<Value>,
+    checkpoints: Vec<Checkpoint>,
+    /// Time spent waiting for the user (not counted against RUN_TIMEOUT).
+    paused: Duration,
+    pause_started: Option<Instant>,
+    /// Work that skipped a decision (e.g. the deck existed before the answer).
+    violation: Option<String>,
 }
 
 impl Task {
@@ -138,6 +160,44 @@ impl Task {
             self.events.push(json!({ "at": now_ms(), "kind": kind, "detail": detail }));
         }
     }
+
+    fn open_question(&self) -> Option<&Checkpoint> {
+        self.checkpoints.iter().find(|c| c.is_open())
+    }
+
+    /// The outline decision the chat actually received.
+    fn delivered_outline(&self) -> Option<&Checkpoint> {
+        self.checkpoints.iter().rev().find(|c| c.stage == checkpoint::REQUIRED_STAGE && c.state == "delivered")
+    }
+
+    fn end_pause(&mut self) {
+        if let Some(started) = self.pause_started.take() {
+            self.paused += started.elapsed();
+        }
+    }
+
+    /// Working time since the claim, without the time spent waiting for the user.
+    fn active_time(&self) -> Duration {
+        let total = self.claim.as_ref().map(|c| c.at.elapsed()).unwrap_or_default();
+        let paused = self.paused + self.pause_started.map(|s| s.elapsed()).unwrap_or_default();
+        total.saturating_sub(paused)
+    }
+
+    fn html_exists(&self) -> bool {
+        self.output_dir.as_deref().and_then(|d| fs::read_dir(d).ok()).is_some_and(|entries| {
+            entries.flatten().any(|e| e.path().extension().is_some_and(|x| x.eq_ignore_ascii_case("html")))
+        })
+    }
+}
+
+/// Mirrors the task's questions into the status the pet UI polls.
+fn sync_questions(app: &AppHandle, task: &Task) {
+    let all = task.checkpoints.clone();
+    let open = task.open_question().cloned();
+    update(app, |s| {
+        s.checkpoints = all;
+        s.question = open;
+    });
 }
 
 #[derive(Default)]
@@ -208,7 +268,12 @@ fn publish(app: &AppHandle, link: &Link) {
         } else {
             "ready"
         };
-        json!({ "id": t.id, "thread": t.thread, "state": state, "chatThread": t.claim.as_ref().map(|c| c.thread.clone()) })
+        // The `ask` command of the chat polls this for the user's answer.
+        let question = t.checkpoints.last().map(|c| json!({ "id": c.id, "state": c.state, "stage": c.stage }));
+        json!({
+            "id": t.id, "thread": t.thread, "state": state,
+            "chatThread": t.claim.as_ref().map(|c| c.thread.clone()), "checkpoint": question
+        })
     });
     handoff::publish(&json!({
         "petPid": std::process::id(),
@@ -256,19 +321,38 @@ fn build_settings(config: &Value) -> Result<Value, String> {
     }))
 }
 
+/// The question file the chat writes for a stage (inside the output folder).
+fn question_file(dir: &Path, stage: &str) -> PathBuf {
+    dir.join(format!("checkpoint-{stage}.json"))
+}
+
+fn ask_command(exe: &str, task_id: &str, file: &Path) -> String {
+    format!("& '{exe}' ask --task {task_id} --file '{}'", file.display())
+}
+
+fn pet_exe() -> String {
+    std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| "autopet-preview.exe".into())
+}
+
 /// The exact request the chat's model receives (also shown in the chat).
-fn request_text(id: &str, settings: &Value, skill: &SkillEvidence, output_file: &Path) -> String {
+fn request_text(id: &str, settings: &Value, skill: &SkillEvidence, dir: &Path) -> String {
     let s = |k: &str| settings.get(k).and_then(Value::as_str).unwrap_or("").to_owned();
+    let outline_file = question_file(dir, checkpoint::REQUIRED_STAGE);
     format!(
         "AutoPets 발표자료 Pet 요청 (작업 {id})\n\
-         사용자가 이 채팅에서 불러온 데스크톱 Pet에서 아래 설정을 확인하고 '제작 시작'을 눌렀습니다. 이 버튼이 제작 확인이므로 계획 확인을 다시 묻지 말고 바로 만드세요. 부족한 정보는 합리적으로 정하세요.\n\
+         사용자가 이 채팅에서 불러온 데스크톱 Pet에서 아래 설정을 고르고 '제작 시작'을 눌렀습니다. 부족한 정보는 합리적으로 정하세요.\n\
          - 발표 목적: {}\n\
          - 발표 주제와 내용: {}\n\
          - 분량: {}\n\
          - 디자인: {}\n\
          - 작업 우선순위: {}\n\
          사용할 스킬: {SKILL_ID} {} (frontend-slides 기반 AutoPets 수정본). 먼저 {} 파일 전체를 한 번에 읽고(Get-Content -Raw) 그 지침을 따르세요.\n\
-         결과: {} 한 파일만 새로 만드세요(없는 폴더는 만드세요). CSS·JavaScript를 HTML 안에 넣고 외부 파일·네트워크에 의존하지 마세요. 다른 파일은 만들거나 수정하지 말고 PPTX·PDF는 만들지 마세요.\n\
+         사용자 확인은 이 채팅이 아니라 Pet에서 받습니다. 사용자는 다른 일을 하다가 Pet에서 바로 답합니다.\n\
+         1) 구성안 확인(필수): 요청을 분석해 방향이 실제로 다른 구성안 2~3개를 만드세요. 각 안에는 분량에 맞는 슬라이드 제목 목록을 넣으세요. 이 채팅에 구성안을 짧게 보여 준 다음, {} 파일에 아래 형식의 JSON(UTF-8)으로 저장하고 Pet 질문 명령을 샌드박스 밖 실행 승인과 함께 실행하세요: {}\n\
+         형식: {{\"stage\":\"outline\",\"title\":\"발표자료 구성안 선택\",\"question\":\"<사용자에게 보일 질문 한 문장>\",\"options\":[{{\"id\":\"A\",\"label\":\"<짧은 이름>\",\"summary\":\"<한 줄 설명>\",\"slides\":[\"<1장 제목>\",\"<2장 제목>\"]}}],\"allowCustom\":true}}\n\
+         2) 이 명령은 사용자가 Pet에서 답할 때까지 끝나지 않습니다. 그동안 결과 HTML을 만들거나 다른 작업을 하지 말고 같은 명령 세션을 계속 기다리세요. 출력의 choice가 사용자의 결정입니다. 출력의 chatSummary를 이 채팅에 그대로 보여 준 뒤 next 안내대로 만드세요. 구성안을 고른 경우 그 안의 슬라이드 제목을 순서대로 각 슬라이드 제목으로 그대로 쓰세요.\n\
+         3) 추가 질문(필요할 때만): 제작 중 사용자 합의가 꼭 필요하거나 결과 품질을 크게 바꾸는 판단(예: 분량을 지키려면 핵심 내용을 빼야 함, 근거가 부족한 내용을 넣을지 뺄지, 디자인 방향이 크게 갈림)이 생기면 같은 방식으로 묻습니다. stage는 length·design·evidence·other 중 하나, 파일은 같은 폴더의 checkpoint-<stage>.json입니다. 사소한 결정은 직접 정하고 추가 질문은 최대 2번입니다.\n\
+         결과: {} 한 파일로 만드세요(없는 폴더는 만드세요). Pet 질문 JSON 파일 외에 다른 파일은 만들거나 수정하지 마세요. CSS·JavaScript를 HTML 안에 넣고 외부 파일·네트워크에 의존하지 마세요. PPTX·PDF는 만들지 마세요.\n\
          검수: 사용자의 화면이나 브라우저를 조작하는 도구(computer-use, 브라우저 자동화)는 쓰지 말고, 글자 넘침·겹침은 HTML/CSS를 직접 검토해 확인하세요.",
         s("purpose"),
         s("topic"),
@@ -277,7 +361,9 @@ fn request_text(id: &str, settings: &Value, skill: &SkillEvidence, output_file: 
         s("priority"),
         skill.version,
         skill.path,
-        output_file.display(),
+        outline_file.display(),
+        ask_command(&pet_exe(), id, &outline_file),
+        dir.join(OUTPUT_NAME).display(),
     )
 }
 
@@ -563,6 +649,19 @@ fn process_record(app: &AppHandle, task: &mut Task, value: &Value) -> Option<Opt
                     walk_strings(item.get("content").unwrap_or(&Value::Null), &mut |s| text.push_str(s));
                     let phase = item.get("phase").and_then(Value::as_str).unwrap_or("");
                     task.log("agent-message", json!({ "phase": phase, "text": text.chars().take(2000).collect::<String>() }));
+                    // Did the chat show the user's decision after receiving it?
+                    let mut shown = false;
+                    for cp in task.checkpoints.iter_mut().filter(|c| c.state == "delivered" && !c.chat_shown) {
+                        let label = cp.answer.as_ref().map(|a| a.label.clone()).unwrap_or_default();
+                        if text.contains("선택 완료") && !label.is_empty() && text.contains(&label) {
+                            cp.chat_shown = true;
+                            shown = true;
+                        }
+                    }
+                    if shown {
+                        task.log("decision-shown-in-chat", json!(short(&text, 200)));
+                        sync_questions(app, task);
+                    }
                     let line = short(&text, 80);
                     update(app, |s| {
                         to_running(s);
@@ -671,8 +770,9 @@ fn tick(app: &AppHandle) {
                     finalize(app, task, "turn-end", None);
                 }
                 changed = true;
-            } else if !task.finished && task.claim.as_ref().is_some_and(|c| c.at.elapsed() > RUN_TIMEOUT) {
-                finalize(app, task, "timeout", Some("시간 초과: Codex 채팅이 30분 안에 결과를 보고하지 않았습니다.".into()));
+            } else if !task.finished && task.open_question().is_none() && task.active_time() > RUN_TIMEOUT {
+                // Time spent waiting for the user's answer does not count.
+                finalize(app, task, "timeout", Some("시간 초과: Codex 채팅이 작업 시간 30분 안에 결과를 보고하지 않았습니다.".into()));
                 changed = true;
             }
         }
@@ -703,8 +803,37 @@ fn finalize(app: &AppHandle, task: &mut Task, source: &str, reason: Option<Strin
         Some(Ok((path, slides))) => (Some(path.clone()), Some(*slides)),
         _ => (None, None),
     };
+    // A question still open means the work ended before the user's decision.
+    let open = task.open_question().map(|c| c.title.clone());
+    let now = now_ms();
+    for cp in task.checkpoints.iter_mut().filter(|c| c.is_open()) {
+        cp.state = "cancelled".into();
+    }
+    task.end_pause();
+    // The deck must follow the delivered outline decision: written after it,
+    // and checked against the chosen outline's slide titles.
+    let outline = task.delivered_outline().cloned();
+    let written_after = output.as_ref().zip(outline.as_ref()).map(|(path, cp)| {
+        let modified = fs::metadata(path).and_then(|m| m.modified()).ok();
+        let modified = modified.and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map(|d| d.as_millis() as u64).unwrap_or(0);
+        modified + 500 >= cp.delivered_at.unwrap_or(now)
+    });
+    let outline_match = output.as_ref().zip(outline.as_ref()).map(|(path, cp)| {
+        let text = fs::read_to_string(path).unwrap_or_default();
+        checkpoint::outline_match(cp, &text)
+    });
+    if let (Some(m), Some(cp)) = (&outline_match, &outline) {
+        if let Some(target) = task.checkpoints.iter_mut().find(|c| c.id == cp.id) {
+            target.outline_match = Some(m.clone());
+        }
+    }
     let error = if let Some(reason) = reason {
-        Some(reason)
+        Some(match open {
+            Some(title) => format!("{reason} (Pet 질문 '{title}'에 답하기 전이라 질문을 취소했어요.)"),
+            None => reason,
+        })
+    } else if let Some(title) = open {
+        Some(format!("Pet 질문 '{title}'에 답하기 전에 Codex 채팅의 턴이 끝났어요. 질문을 취소했어요."))
     } else if let Some(Err(e)) = html {
         Some(e)
     } else if html.is_none() {
@@ -713,9 +842,16 @@ fn finalize(app: &AppHandle, task: &mut Task, source: &str, reason: Option<Strin
         Some(format!("{SKILL_ID} 스킬 파일이 작업 중에 바뀌어 고정 버전과 다릅니다."))
     } else if !loaded {
         Some(format!("이 채팅에서 {SKILL_ID} 스킬 전체를 읽은 기록이 없어 완료로 처리하지 않았어요. 만들어진 파일은 남아 있어요."))
+    } else if let Some(violation) = task.violation.clone() {
+        Some(violation)
+    } else if outline.is_none() {
+        Some("Pet에서 구성안을 고르는 단계 없이 완료가 보고되어 완료로 처리하지 않았어요. 만들어진 파일은 남아 있어요.".into())
+    } else if written_after == Some(false) {
+        Some("결과 HTML이 구성안 선택을 받기 전에 만들어져서 완료로 처리하지 않았어요.".into())
     } else {
         None
     };
+    sync_questions(app, task);
     let record = task.output_dir.as_ref().map(|d| d.join("run.json"));
     let skill = task.skill.clone();
     update(app, |s| {
@@ -741,6 +877,8 @@ fn finalize(app: &AppHandle, task: &mut Task, source: &str, reason: Option<Strin
         "outputDir": task.output_dir.as_ref().map(|p| p.to_string_lossy().to_string()),
         "slideCount": slides,
         "skill": { "id": task.skill.id, "version": task.skill.version, "sha256": task.skill.sha256, "loaded": loaded, "evidence": task.skill.evidence },
+        "decisions": decisions(task),
+        "outlineMatch": outline_match,
         "runRecord": record.as_ref().map(|p| p.to_string_lossy().to_string()),
     });
     task.result = Some(result.clone());
@@ -748,12 +886,33 @@ fn finalize(app: &AppHandle, task: &mut Task, source: &str, reason: Option<Strin
     result
 }
 
+/// Short decision history for the chat's `done` output.
+fn decisions(task: &Task) -> Vec<Value> {
+    task.checkpoints
+        .iter()
+        .map(|c| {
+            json!({
+                "questionId": c.id, "stage": c.stage, "title": c.title, "question": c.question, "state": c.state,
+                "options": c.options.iter().map(|o| format!("{}: {}", o.id, o.label)).collect::<Vec<_>>(),
+                "answer": c.answer.as_ref().map(|a| match &a.custom {
+                    Some(text) => format!("직접 수정: {text}"),
+                    None => format!("{}안: {}", a.option_id.clone().unwrap_or_default(), a.label),
+                }),
+                "shownInChat": c.chat_shown,
+                "outlineMatch": c.outline_match,
+            })
+        })
+        .collect()
+}
+
 fn write_record(app: &AppHandle, task: &Task) {
     let Some(dir) = task.output_dir.as_ref() else { return };
     let _ = fs::create_dir_all(dir);
     let claim = task.claim.as_ref();
     let body = json!({
-        "kind": "autopets-pet-preview-run-v2",
+        "kind": "autopets-pet-preview-run-v3",
+        "humanInTheLoop": "the chat paused its own turn on `autopet-preview.exe ask` until the user answered in the pet; see checkpoints",
+        "checkpoints": task.checkpoints,
         "session": "the Codex chat that invoked the pet ran this task in its own turn (no separate Codex session)",
         "chatThread": claim.map(|c| c.thread.clone()),
         "chatRollout": claim.and_then(|c| c.rollout.as_ref()).map(|p| p.to_string_lossy().to_string()),
@@ -811,11 +970,30 @@ fn handle_chat(app: &AppHandle, action: &str, argv: &[String]) -> Value {
             json!({ "ok": true, "petPid": std::process::id() })
         }
         "chat-claim" => claim(app, &mut link, &thread, argv),
+        "chat-ask" | "chat-resume" => {
+            let id = arg(argv, "--task").unwrap_or_default();
+            match link.task.as_mut() {
+                Some(task) if task.id == id && task.claim.as_ref().is_some_and(|c| c.thread == thread) => {
+                    if task.finished {
+                        refuse("이 작업은 이미 끝났습니다.")
+                    } else if action == "chat-ask" {
+                        ask(app, task, argv)
+                    } else {
+                        resume(app, task, argv)
+                    }
+                }
+                Some(task) if task.id == id => refuse("이 작업은 다른 채팅이 맡았습니다."),
+                _ => refuse("펫에 해당 작업이 없습니다. 펫이 다시 시작되었거나 작업이 취소되었습니다."),
+            }
+        }
         "chat-done" | "chat-fail" => {
             let id = arg(argv, "--task").unwrap_or_default();
             match link.task.as_mut() {
                 Some(task) if task.id == id && task.claim.as_ref().is_some_and(|c| c.thread == thread) => {
-                    if action == "chat-done" {
+                    if action == "chat-done" && task.open_question().is_some_and(|_| !task.finished) {
+                        let title = task.open_question().map(|c| c.title.clone()).unwrap_or_default();
+                        refuse(&format!("Pet 질문 '{title}'에 사용자가 아직 답하지 않았습니다. 같은 ask 명령으로 답을 받은 뒤 이어서 진행하세요."))
+                    } else if action == "chat-done" {
                         finalize(app, task, "done", None)
                     } else {
                         let reason = arg(argv, "--reason").filter(|r| !r.trim().is_empty()).unwrap_or_else(|| "이유 없음".into());
@@ -831,6 +1009,121 @@ fn handle_chat(app: &AppHandle, action: &str, argv: &[String]) -> Value {
     };
     publish(app, &link);
     answer
+}
+
+/// `chat-ask`: the chat stops at a decision point and asks the user.
+/// The same question asked again (same content, e.g. after `ask` timed out)
+/// re-attaches to the existing one instead of creating a second question.
+fn ask(app: &AppHandle, task: &mut Task, argv: &[String]) -> Value {
+    let pid = arg(argv, "--pid").and_then(|p| p.parse::<u32>().ok()).unwrap_or(0);
+    let Some(file) = arg(argv, "--file").map(PathBuf::from).filter(|p| p.is_absolute()) else {
+        return refuse("질문 파일 경로(--file)가 올바르지 않습니다.");
+    };
+    let bytes = match fs::metadata(&file) {
+        Ok(meta) if meta.is_file() && meta.len() <= 64 * 1024 => fs::read(&file).unwrap_or_default(),
+        Ok(_) => return refuse("질문 파일이 너무 크거나 파일이 아닙니다."),
+        Err(_) => return refuse(&format!("질문 파일을 찾을 수 없습니다: {}", file.display())),
+    };
+    let parsed = match checkpoint::parse(&bytes) {
+        Ok(parsed) => parsed,
+        Err(problem) => return refuse(&problem),
+    };
+    let reattach = |cp: &Checkpoint| json!({ "ok": true, "questionId": cp.id, "state": cp.state, "reattached": true });
+    if let Some(open) = task.checkpoints.iter_mut().find(|c| c.is_open()) {
+        if open.digest != parsed.digest {
+            return refuse(&format!("아직 답을 받지 않은 Pet 질문({})이 있습니다. 그 질문의 ask 명령을 다시 실행해 답을 받으세요.", open.id));
+        }
+        open.ask_pid = pid;
+        let answer = reattach(open);
+        task.log("question-reattached", json!({ "questionId": answer["questionId"], "askPid": pid }));
+        crate::pet::reveal(app);
+        return answer;
+    }
+    if let Some(done) = task.checkpoints.iter().rev().find(|c| c.digest == parsed.digest && c.state == "delivered") {
+        return reattach(done); // already answered and delivered: `ask` prints it again
+    }
+    if task.checkpoints.len() >= checkpoint::MAX_PER_TASK {
+        return refuse("이 작업에서는 Pet 질문을 더 할 수 없습니다(최대 4번). 남은 결정은 합리적으로 정해 진행하세요.");
+    }
+    let outline_done = task.delivered_outline().is_some();
+    if parsed.stage == checkpoint::REQUIRED_STAGE && !outline_done && task.html_exists() {
+        task.violation = Some("구성안을 묻기 전에 결과 HTML이 이미 만들어져 있었어요. 사용자 선택이 반영되지 않아 완료로 처리하지 않아요.".into());
+        task.log("violation", json!("html-before-outline-question"));
+        return refuse("결과 HTML이 이미 있습니다. 구성안은 HTML을 만들기 전에 물어야 합니다.");
+    }
+    if parsed.stage != checkpoint::REQUIRED_STAGE && !outline_done {
+        return refuse("먼저 구성안 선택(stage \"outline\") 질문으로 사용자의 결정을 받으세요.");
+    }
+    let seq = task.checkpoints.len() as u32 + 1;
+    let cp = Checkpoint {
+        id: format!("q{seq}-{}", now_ms()),
+        task_id: task.id.clone(),
+        seq,
+        stage: parsed.stage,
+        title: parsed.title,
+        question: parsed.question,
+        reason: parsed.reason,
+        options: parsed.options,
+        allow_custom: parsed.allow_custom,
+        state: "pending".into(),
+        asked_at: now_ms(),
+        source_file: file.to_string_lossy().to_string(),
+        digest: parsed.digest,
+        ask_pid: pid,
+        ..Default::default()
+    };
+    task.log("question", json!({ "questionId": cp.id, "stage": cp.stage, "question": cp.question, "options": cp.options, "file": cp.source_file }));
+    let answer = json!({ "ok": true, "questionId": cp.id, "state": "pending", "reattached": false });
+    let title = cp.title.clone();
+    task.checkpoints.push(cp);
+    task.pause_started = Some(Instant::now());
+    update(app, |s| {
+        s.phase = "question".into();
+        s.last_event = Some(format!("선택이 필요해요: {title}"));
+    });
+    sync_questions(app, task);
+    // A question needs the pet on screen (shown without taking focus).
+    crate::pet::reveal(app);
+    answer
+}
+
+/// `chat-resume`: the chat's `ask` picks up the user's answer, exactly once.
+fn resume(app: &AppHandle, task: &mut Task, argv: &[String]) -> Value {
+    let id = arg(argv, "--question").unwrap_or_default();
+    // A deck that exists before the first outline decision ignored the user.
+    let deck_too_early = task.html_exists() && task.delivered_outline().is_none();
+    let Some(cp) = task.checkpoints.iter_mut().find(|c| c.id == id) else {
+        return refuse("이 작업에 그런 Pet 질문이 없습니다.");
+    };
+    match cp.state.as_str() {
+        "answered" => {}
+        "delivered" => {
+            let mut payload = checkpoint::answer_payload(cp);
+            payload["repeated"] = json!(true);
+            payload["next"] = json!("이 답은 이미 전달되어 작업에 반영 중입니다. 같은 작업을 다시 하지 말고 이어서 진행하세요.");
+            return payload;
+        }
+        "pending" => return refuse("사용자가 아직 답하지 않았습니다."),
+        _ => return refuse("이 질문은 취소되었습니다."),
+    }
+    cp.state = "delivered".into();
+    cp.delivered_at = Some(now_ms());
+    let payload = checkpoint::answer_payload(cp);
+    let label = cp.answer.as_ref().map(|a| a.label.clone()).unwrap_or_default();
+    let outline = cp.stage == checkpoint::REQUIRED_STAGE;
+    let detail = json!({ "questionId": cp.id, "answer": cp.answer });
+    if outline && deck_too_early {
+        task.violation = Some("구성안 질문에 답하기 전에 결과 HTML이 만들어졌어요. 사용자 선택이 반영되지 않아 완료로 처리하지 않아요.".into());
+        task.log("violation", json!("html-while-outline-question-open"));
+    }
+    task.log("answer-delivered", detail);
+    task.end_pause();
+    update(app, |s| {
+        s.phase = "running".into();
+        s.last_event = Some(format!("선택 반영: {label} · Codex 채팅이 이어서 진행"));
+    });
+    sync_questions(app, task);
+    payload
 }
 
 fn claim(app: &AppHandle, link: &mut Link, thread: &str, argv: &[String]) -> Value {
@@ -858,7 +1151,7 @@ fn claim(app: &AppHandle, link: &mut Link, thread: &str, argv: &[String]) -> Val
         Ok(dir) => dir,
         Err(e) => return refuse(&e),
     };
-    let text = request_text(&task.id, &task.settings, &task.skill, &dir.join(OUTPUT_NAME));
+    let text = request_text(&task.id, &task.settings, &task.skill, &dir);
     let rollout = handoff::find_rollout(thread);
     let offset = rollout.as_ref().and_then(|p| fs::metadata(p).ok()).map(|m| m.len()).unwrap_or(0);
     task.thread = Some(thread.to_owned());
@@ -883,8 +1176,9 @@ fn claim(app: &AppHandle, link: &mut Link, thread: &str, argv: &[String]) -> Val
 }
 
 fn task_payload(task: &Task) -> Value {
-    let exe = std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| "autopet-preview.exe".into());
+    let exe = pet_exe();
     let output_file = task.output_dir.as_ref().map(|d| d.join(OUTPUT_NAME).to_string_lossy().to_string());
+    let outline_file = task.output_dir.as_ref().map(|d| question_file(d, checkpoint::REQUIRED_STAGE));
     json!({
         "ok": true,
         "state": "task",
@@ -900,7 +1194,14 @@ fn task_payload(task: &Task) -> Value {
             "request": task.request_text,
             "outputDir": task.output_dir.as_ref().map(|p| p.to_string_lossy().to_string()),
             "outputFile": output_file,
+            "checkpoint": {
+                "required": checkpoint::REQUIRED_STAGE,
+                "file": outline_file.as_ref().map(|p| p.to_string_lossy().to_string()),
+                "ask": outline_file.as_ref().map(|p| ask_command(&exe, &task.id, p)),
+                "maxQuestions": checkpoint::MAX_PER_TASK,
+            },
             "report": {
+                "ask": format!("& '{exe}' ask --task {} --file '<질문 JSON 파일>'", task.id),
                 "done": format!("& '{exe}' done --task {}", task.id),
                 "fail": format!("& '{exe}' fail --task {} --reason '<짧은 이유>'", task.id)
             }
@@ -913,7 +1214,7 @@ fn task_payload(task: &Task) -> Value {
 #[tauri::command]
 pub fn pet_slides_start(app: AppHandle, config: Value) -> Result<JobStatus, String> {
     start_monitor(&app);
-    if snapshot(&app).is_some_and(|s| matches!(s.phase.as_str(), "waiting" | "requesting" | "running")) {
+    if snapshot(&app).is_some_and(|s| matches!(s.phase.as_str(), "waiting" | "requesting" | "running" | "question" | "resuming")) {
         return Err("이미 발표자료 작업이 진행 중이에요. 끝난 뒤 다시 시도하세요.".into());
     }
     let settings = build_settings(&config)?;
@@ -961,6 +1262,10 @@ pub fn pet_slides_start(app: AppHandle, config: Value) -> Result<JobStatus, Stri
         final_deadline: None,
         result: None,
         events: Vec::new(),
+        checkpoints: Vec::new(),
+        paused: Duration::ZERO,
+        pause_started: None,
+        violation: None,
     };
     task.log("created", json!({ "reservedFor": task.thread, "chatWaiting": waiter_thread.is_some() }));
     link.task = Some(task);
@@ -984,6 +1289,46 @@ pub fn pet_slides_cancel(app: AppHandle) -> Result<(), String> {
     }
     publish(&app, &link);
     Ok(())
+}
+
+/// The user's answer to the open question, from the pet. Bound to the task
+/// and question it was shown for; repeated clicks never resume twice.
+#[tauri::command]
+pub fn pet_checkpoint_answer(
+    app: AppHandle,
+    task_id: String,
+    question_id: String,
+    option_id: Option<String>,
+    custom: Option<String>,
+) -> Result<JobStatus, String> {
+    let mut link = lock_link(&app);
+    let task = link.task.as_mut().filter(|t| t.id == task_id).ok_or("이 질문의 작업이 더 이상 없어요.")?;
+    if task.finished {
+        return Err("작업이 이미 끝났어요.".into());
+    }
+    let cp = task.checkpoints.iter_mut().find(|c| c.id == question_id).ok_or("이 작업의 질문이 아니에요.")?;
+    let answer = checkpoint::answer(cp, option_id.as_deref(), custom.as_deref(), now_ms())?;
+    if cp.state != "pending" {
+        let same = cp.answer.as_ref().is_some_and(|a| a.option_id == answer.option_id && a.custom == answer.custom);
+        if same {
+            drop(link);
+            return snapshot(&app).ok_or_else(|| "작업이 없습니다.".into()); // duplicate click: nothing new
+        }
+        return Err("이미 답한 질문이에요.".into());
+    }
+    cp.answer = Some(answer.clone());
+    cp.state = "answered".into();
+    cp.answered_at = Some(answer.at);
+    let detail = json!({ "questionId": cp.id, "answer": answer });
+    task.log("answered-in-pet", detail);
+    update(&app, |s| {
+        s.phase = "resuming".into();
+        s.last_event = Some("선택한 방향으로 계속 진행할게요".into());
+    });
+    sync_questions(&app, task);
+    publish(&app, &link);
+    drop(link);
+    snapshot(&app).ok_or_else(|| "작업이 없습니다.".into())
 }
 
 #[tauri::command]

@@ -9,6 +9,10 @@
 // which only reports what it actually observed: the invoking Codex chat taking
 // the task, that chat's own session record, and its done/fail report.
 // `link` (setLink) says which chat is waiting for the pet right now.
+// Mid-task questions: when the chat pauses its turn on a decision (`ask`),
+// the job is in phase 'question' with `job.question` (options the chat drafted
+// from its own work). The answer goes back through `onAnswer`, bound to the
+// task id and question id; phase 'resuming' until the chat picks it up.
 import { flowFor, themeFor } from './flows.js';
 
 export const EMPTY_STATE = Object.freeze({
@@ -41,10 +45,23 @@ const PHASES = {
   waiting: { badge: '전달 대기', text: 'Codex 채팅에 전달 대기' },
   requesting: { badge: '전달됨', text: 'Codex 채팅이 요청을 받음' },
   running: { badge: '제작 중', text: 'Codex 채팅에서 제작 중' },
+  question: { badge: '선택 필요', text: '선택이 필요해요' },
+  resuming: { badge: '진행 재개', text: '선택한 방향으로 계속 진행할게요' },
   completed: { badge: '완료', text: '완료' },
   failed: { badge: '오류', text: '오류 발생' },
 };
-const ACTIVE = new Set(['waiting', 'requesting', 'running']);
+const ACTIVE = new Set(['waiting', 'requesting', 'running', 'question', 'resuming']);
+// The open question of a job (the chat paused its turn on it).
+export const openQuestion = (job) => (job && (job.phase === 'question' || job.phase === 'resuming') ? job.question ?? null : null);
+const outlineDecision = (job) => [...(job?.checkpoints ?? [])].reverse().find((c) => c.stage === 'outline' && c.state === 'delivered') ?? null;
+const answerText = (cp) => {
+  if (!cp?.answer) return '';
+  return cp.answer.custom ? `직접 수정: ${cp.answer.custom}` : `${cp.answer.optionId}. ${cp.answer.label}`;
+};
+/** Running text: before the outline decision the chat is drafting outlines. */
+function runningText(job) {
+  return outlineDecision(job) ? '발표자료 제작 중...' : '발표자료 구성 중...';
+}
 const shortId = (id) => (id ? `${id.slice(0, 8)}…` : '');
 
 /** One line on where the task runs — only what is actually connected. */
@@ -82,7 +99,7 @@ function elapsed(job) {
   return seconds < 60 ? `${seconds}초` : `${Math.floor(seconds / 60)}분 ${seconds % 60}초`;
 }
 
-export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen, onCancel }) {
+export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen, onCancel, onAnswer }) {
   const root = el('div', 'feature-panel');
   root.setAttribute('aria-live', 'polite');
   let state = normalize(initial, catalog);
@@ -91,6 +108,12 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
   let starting = false;
   let customStep = null; // step key whose "직접 입력" field is open
   let moveFocus = false;
+  // Answering the chat's open question (UI only until 이대로 진행).
+  let pick = null; // { questionId, optionId, custom } awaiting confirmation
+  let customOpen = null; // question id whose "직접 수정하기" field is open
+  let customDraft = '';
+  let answering = false;
+  let answerError = null;
 
   const entryFor = (id) => catalog.find((f) => f.id === id) ?? null;
 
@@ -268,10 +291,16 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
       if (!starting) root.append(actionsFor([['fp-secondary', '설정 수정', () => update({ stage: 'summary' })]]));
       return;
     }
+    const question = openQuestion(job);
+    if (question) { renderQuestion(entry, flow, question); return; }
     const phase = PHASES[job.phase] ?? PHASES.failed;
     root.append(selectedHeader(entry, flow, phase.badge));
     const line = el('p', `fp-phase fp-phase-${job.phase}`);
-    line.append(el('span', 'fp-phase-text', phase.text), el('span', 'fp-elapsed', elapsed(job)));
+    line.append(el('span', 'fp-phase-text', job.phase === 'running' ? runningText(job) : phase.text));
+    // Completed: the outline decision and how far the deck follows it, inline.
+    const settled = job.phase === 'completed' ? outlineDecision(job) : null;
+    if (settled) line.append(decisionLine(settled, true));
+    line.append(el('span', 'fp-elapsed', elapsed(job)));
     root.append(line);
     const session = el('p', 'fp-session', chatLine(job));
     session.title = job.chatThread ? `thread ${job.chatThread}` : '';
@@ -289,6 +318,8 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
     if (ACTIVE.has(job.phase)) {
       const facts = el('p', 'fp-facts', `명령 ${job.commandCount}회 · 파일 변경 ${job.fileChangeCount}건`);
       root.append(facts);
+      const decided = outlineDecision(job);
+      if (decided) root.append(decisionLine(decided, false));
       if (job.lastEvent) {
         const last = el('p', 'fp-last', job.lastEvent);
         last.title = job.lastEvent;
@@ -320,6 +351,134 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
       ['fp-secondary', '설정 수정', () => update({ stage: 'summary' })],
       ['fp-primary', '다시 시도', () => start(state.config ?? buildConfig(entry, flow, state.answers))],
     ]));
+  }
+
+  // ---- mid-task question (the chat paused its turn until this is answered)
+  /** "구성안: B. ..." plus, when finished, how far the deck follows it. */
+  function decisionLine(cp, withMatch) {
+    const match = withMatch ? cp.outlineMatch : null;
+    // Inline (completed): short form "B안 · 제목 5/5 반영".
+    const text = withMatch
+      ? `${cp.answer?.custom ? '직접 수정' : `${cp.answer?.optionId}안`}${match?.checked ? ` · 제목 ${match.found}/${match.planned} 반영` : ''}`
+      : `구성안 ${answerText(cp)}`;
+    const node = el(withMatch ? 'span' : 'p', `fp-choice${withMatch ? ' fp-choice-inline' : ''}${match && !match.ok ? ' fp-warn' : ''}`, text);
+    node.title = `Pet에서 고른 구성안: ${answerText(cp)}${match?.missing?.length ? `\n빠진 제목: ${match.missing.join(', ')}` : ''}`;
+    return node;
+  }
+
+  function renderQuestion(entry, flow, cp) {
+    const pending = job.phase === 'question' && cp.state === 'pending';
+    root.append(selectedHeader(entry, flow, pending ? '선택 필요' : '진행 재개', cp.title));
+    const text = el('p', 'fp-question fp-q-text', cp.question);
+    text.title = cp.reason ? `${cp.question}\n이유: ${cp.reason}` : cp.question;
+    root.append(text);
+    if (!pending) {
+      // Answered in the pet; the chat's waiting `ask` picks it up and resumes.
+      const chosen = el('p', 'fp-choice', `선택: ${answerText(cp)}`);
+      chosen.title = chosen.textContent;
+      const line = el('p', 'fp-phase fp-phase-resuming');
+      line.append(el('span', 'fp-phase-text', PHASES.resuming.text), el('span', 'fp-elapsed', elapsed(job)));
+      root.append(chosen, line, el('p', 'fp-session', 'Codex 채팅에 선택을 전달하는 중'));
+      return;
+    }
+    if (pick?.questionId === cp.id) { renderConfirm(cp); return; }
+    if (customOpen === cp.id) { renderCustom(cp); return; }
+    const list = el('div', 'fp-choices');
+    for (const option of cp.options) {
+      const item = button('fp-choice-btn', '', () => {
+        pick = { questionId: cp.id, optionId: option.id, custom: null };
+        answerError = null;
+        moveFocus = true;
+        render();
+      });
+      item.dataset.option = option.id;
+      const head = el('span', 'fp-choice-head');
+      head.append(el('span', 'fp-choice-id', option.id), el('span', 'fp-choice-label', option.label));
+      if (option.slides?.length) head.append(el('span', 'fp-choice-count', `${option.slides.length}장`));
+      item.append(head);
+      if (option.summary) item.append(el('span', 'fp-choice-sum', option.summary));
+      item.title = [option.label, option.summary, ...(option.slides ?? []).map((s, i) => `${i + 1}. ${s}`)].filter(Boolean).join('\n');
+      list.append(item);
+    }
+    if (cp.allowCustom) {
+      const custom = button('fp-choice-btn fp-choice-custom', '직접 수정하기', () => { customOpen = cp.id; moveFocus = true; render(); });
+      custom.dataset.option = 'custom';
+      list.append(custom);
+    }
+    root.append(list);
+  }
+
+  function renderConfirm(cp) {
+    const option = cp.options.find((o) => o.id === pick.optionId) ?? null;
+    const box = el('div', 'fp-confirm');
+    box.append(el('p', 'fp-confirm-title', option ? `${option.id}. ${option.label}` : '직접 수정'));
+    if (option?.slides?.length) {
+      const list = el('ol', 'fp-confirm-slides');
+      for (const slide of option.slides) list.append(el('li', '', slide));
+      box.append(list);
+    } else if (option?.summary) {
+      box.append(el('p', 'fp-confirm-text', option.summary));
+    } else if (pick.custom) {
+      box.append(el('p', 'fp-confirm-text', pick.custom));
+    }
+    root.append(box);
+    if (answerError) root.append(el('p', 'fp-error', answerError));
+    const actions = el('div', 'fp-actions');
+    const note = el('span', 'fp-confirm-note', '이 방향으로 진행할까요?');
+    const back = button('fp-secondary fp-nowrap', '다시 선택', () => { pick = null; answerError = null; render(); });
+    const go = button('fp-primary fp-answer fp-nowrap', answering ? '전달 중…' : '이대로 진행', () => submitAnswer(cp));
+    back.disabled = answering;
+    go.disabled = answering;
+    actions.append(note, back, go);
+    root.append(actions);
+  }
+
+  function renderCustom(cp) {
+    const form = el('form', 'fp-text');
+    const input = el('textarea', 'fp-text-input');
+    input.rows = 3;
+    input.maxLength = 300;
+    input.placeholder = '예: B안으로 하되 마지막에 실습 예시 1장 추가';
+    input.value = customDraft;
+    input.setAttribute('aria-label', '직접 수정할 내용');
+    input.addEventListener('input', () => { customDraft = input.value; });
+    const next = button('fp-primary', '다음', () => form.requestSubmit());
+    next.type = 'submit';
+    form.append(input, next);
+    const submit = () => {
+      const text = input.value.trim();
+      if (!text) { input.focus(); return; }
+      pick = { questionId: cp.id, optionId: null, custom: text };
+      moveFocus = true;
+      render();
+    };
+    form.addEventListener('submit', (event) => { event.preventDefault(); submit(); });
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      submit();
+    });
+    root.append(form, actionsFor([['fp-secondary', '선택지 보기', () => { customOpen = null; moveFocus = true; render(); }]]));
+    if (moveFocus) queueMicrotask(() => input.focus());
+  }
+
+  async function submitAnswer(cp) {
+    if (answering || !pick) return; // repeated clicks send once
+    answering = true;
+    answerError = null;
+    render();
+    try {
+      const status = await onAnswer?.({ taskId: job.id, questionId: cp.id, optionId: pick.optionId, custom: pick.custom });
+      pick = null;
+      customOpen = null;
+      customDraft = '';
+      if (status) job = status;
+    } catch (error) {
+      answerError = String(error);
+    } finally {
+      answering = false;
+      render();
+    }
   }
 
   function actionsFor(items) {
@@ -368,9 +527,14 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
     },
     /** Latest job status from the pet process (null when none). */
     setJob(status) {
+      const key = (j) => { const q = openQuestion(j); return q ? `${j.phase}|${q.id}|${q.state}` : null; };
+      const before = key(job);
       job = status;
       // A running job always takes over the panel (also after hide/show).
-      if (isActive(job) && state.stage !== 'job' && state.featureId) state = { ...state, stage: 'job' };
+      const moved = isActive(job) && state.stage !== 'job' && state.featureId;
+      if (moved) state = { ...state, stage: 'job' };
+      // Keep an unchanged question view as it is (selection, typed text).
+      if (!moved && before && before === key(job)) return;
       render();
     },
     reset,

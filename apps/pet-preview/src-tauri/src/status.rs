@@ -21,10 +21,16 @@ pub struct Status {
 }
 
 pub fn state_dir() -> PathBuf {
+    // Tests only: an isolated state folder, so a test pet never shares the
+    // hand-off files with a pet the user is running. A test build can also
+    // bake in its own folder name (AUTOPET_PREVIEW_STATE_NAME at build time).
+    if let Some(dir) = std::env::var_os("AUTOPET_PREVIEW_STATE_DIR").map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return dir;
+    }
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
-        .join("local.autopets.petpreview")
+        .join(option_env!("AUTOPET_PREVIEW_STATE_NAME").unwrap_or("local.autopets.petpreview"))
 }
 
 fn status_path() -> PathBuf {

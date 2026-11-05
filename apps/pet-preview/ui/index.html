@@ -15,6 +15,8 @@
     <div class="pet-column">
       <!-- The appearance module fills this element; behaviour lives in pet.js. -->
       <div id="pet" class="pet" role="button" tabindex="-1" aria-label="AutoPets 테스트 펫. 클릭하면 입력창, 드래그하면 이동합니다." title="클릭: 입력창 열기·닫기 / 드래그: 옮기기"></div>
+      <!-- Task status on the pet (pet.js): 구성 중… / 선택이 필요해요 / 완료 -->
+      <span id="pet-status" class="pet-status" aria-live="polite" hidden></span>
       <div class="controls">
         <button id="hide" type="button" title="숨기기" aria-label="펫 숨기기">&#8211;</button>
         <button id="close" type="button" title="닫기" aria-label="펫 닫기">&#215;</button>

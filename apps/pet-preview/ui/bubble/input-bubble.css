@@ -139,3 +139,10 @@
 @media (prefers-reduced-motion: reduce) {
   .bubble { animation: none; }
 }
+
+/* While the Codex chat waits for an answer, the question uses the whole
+   bubble (pet.js toggles this class). */
+.bubble.bubble-question .bubble-note,
+.bubble.bubble-question .bubble-form {
+  display: none;
+}

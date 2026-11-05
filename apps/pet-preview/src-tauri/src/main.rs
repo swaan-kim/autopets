@@ -5,12 +5,15 @@
 //!   the requested state, prints one JSON line and exits. Codex runs this.
 //! * Chat hand-off (run by the invoking Codex chat, see `handoff.rs`):
 //!   `wait` blocks until the user presses '제작 시작' in the pet and prints the
-//!   task; `done --task <id>` / `fail --task <id> --reason <text>` report back.
+//!   task; `ask --task <id> --file <question.json>` pauses the chat's turn on a
+//!   decision until the user answers in the pet (see `checkpoint.rs`);
+//!   `done --task <id>` / `fail --task <id> --reason <text>` report back.
 //! * Pet (`--serve`, internal): the always-on-top circular window.
 //!   A single-instance lock forwards repeated calls to the running pet, so
 //!   repeated invocations never create duplicates.
 
 mod bubble;
+mod checkpoint;
 mod features;
 mod handoff;
 mod host;
@@ -33,7 +36,7 @@ pub(crate) fn flag(args: &[String], name: &str) -> Option<String> {
 }
 
 /// Flags that take a value (skipped when looking for the action).
-const VALUE_FLAGS: [&str; 5] = ["--codex", "--thread", "--task", "--reason", "--timeout"];
+const VALUE_FLAGS: [&str; 6] = ["--codex", "--thread", "--task", "--reason", "--timeout", "--file"];
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -58,7 +61,7 @@ fn main() -> ExitCode {
         None | Some("show") => "show",
         Some("hide") => "hide",
         Some("quit") | Some("close") => "quit",
-        Some(chat @ ("wait" | "done" | "fail")) => {
+        Some(chat @ ("wait" | "ask" | "done" | "fail")) => {
             stop_std_handle_inheritance();
             if let Some(account) = codex_sandbox_account() {
                 report(
@@ -71,6 +74,7 @@ fn main() -> ExitCode {
             }
             return match chat {
                 "wait" => handoff::cli_wait(&args),
+                "ask" => handoff::cli_ask(&args),
                 "done" => handoff::cli_report(&args, false),
                 _ => handoff::cli_report(&args, true),
             };
@@ -85,7 +89,7 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some("-h") | Some("--help") => {
-            println!("usage: autopet-preview.exe [show|hide|quit|host] | wait | done --task <id> | fail --task <id> --reason <text>");
+            println!("usage: autopet-preview.exe [show|hide|quit|host] | wait | ask --task <id> --file <question.json> | done --task <id> | fail --task <id> --reason <text>");
             return ExitCode::SUCCESS;
         }
         Some(other) => {
