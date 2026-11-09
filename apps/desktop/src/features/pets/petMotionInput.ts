@@ -1,6 +1,7 @@
 // A small presentation-only channel from a pet window's pointer/window events to
 // its pet's body motion. It never carries task state or reaches the bridge.
 export type PetMotionEvent =
+  | { type: 'press' }
   | { type: 'look'; x: number; y: number }
   | { type: 'away' }
   | { type: 'grab' }

@@ -108,8 +108,10 @@ export function installReviewBridge(config) {
     const body = pet?.querySelector('.companion-body')?.getBoundingClientRect();
     const origin = document.querySelector('.pet-hit')?.getBoundingClientRect();
     const opacity = selector => { const element = pet?.querySelector(selector); return element ? Number(getComputedStyle(element).opacity) : 0; };
-    const motion = pet?.querySelector('.companion-motion');
-    const matrix = motion ? new DOMMatrixReadOnly(getComputedStyle(motion).transform === 'none' ? undefined : getComputedStyle(motion).transform) : null;
+    const layer = selector => { const element = pet?.querySelector(selector); const value = element && getComputedStyle(element).transform; return element ? new DOMMatrixReadOnly(value === 'none' ? undefined : value) : null; };
+    const matrix = layer('.companion-motion');
+    const stance = layer('.companion-stance');
+    const angle = item => item ? Math.atan2(item.b, item.a) * 180 / Math.PI : 0;
     // Where the drawn paws land on screen: the art itself, not just the element box.
     let paw = null;
     if (sprite && origin && config.anchors) {
@@ -130,7 +132,8 @@ export function installReviewBridge(config) {
       bg: sprite ? getComputedStyle(sprite).backgroundPosition : null,
       box: body && origin ? [round(body.x - origin.x), round(body.y - origin.y), round(body.width), round(body.height)] : null,
       blend: round(Math.max(opacity('.companion-previous-pose'), opacity('.companion-cell-blend'))),
-      lean: matrix ? round(Math.atan2(matrix.b, matrix.a) * 180 / Math.PI) : 0,
+      lean: round(angle(matrix) + angle(stance)),
+      swing: round(angle(matrix)),
       lift: matrix ? round(matrix.f) : 0,
       card: Boolean(document.querySelector('.pet-quick-card')),
       state: pet?.dataset.state ?? null,

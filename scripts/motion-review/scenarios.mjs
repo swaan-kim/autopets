@@ -64,7 +64,8 @@ export const scenarios = [
     expect: m => [
       check('펫 창이 따라 움직임', m.stage.windows[0].moved > 150, `${m.stage.windows[0].moved}px 이동`),
       check('놓은 뒤 카드가 열리지 않음', m.pets[0].cardOpens === 0, `열림 ${m.pets[0].cardOpens}회`),
-      check('끌 때 몸이 따라 기울어짐', m.pets[0].leanMax >= 2, `최대 ${m.pets[0].leanMax}°`),
+      check('잡히면 들린 자세로 바뀜', m.pets[0].clips.includes('held'), m.pets[0].clips.join(' → ')),
+      check('끌 때 몸이 매달려 흔들림', m.pets[0].leanMax >= 2, `최대 ${m.pets[0].leanMax}°`),
       check('놓은 뒤 자세가 가라앉음', m.pets[0].leanEnd < 0.5, `마지막 ${m.pets[0].leanEnd}°`),
     ],
   },

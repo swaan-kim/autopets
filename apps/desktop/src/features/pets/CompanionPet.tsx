@@ -19,6 +19,8 @@ const clips: Record<string, Clip> = {
   working: { sheet: 'paws', frames: [...Array.from({ length: 12 }, (_, i) => [[0, 1, 2, 1][i % 4], [210, 145, 130, 180][i % 4]] as Frame), [1, 1450], [0, 320]] },
   waiting: { sheet: 'notes', frames: [[4, 240], [5, 300], [6, 400], [7, 600]] },
   complete: { sheet: 'paws', frames: [[4, 250], [3, 340], [4, 300], [5, 700]] },
+  // Carried: paws up, with an occasional content blink.
+  held: { sheet: 'social', frames: [[10, 1400], [9, 180], [10, 1100]] },
 };
 const stillFor = (state: CompanionState): [Sheet, number] => state === 'working' ? ['paws', 1] : state === 'planning' || state === 'error' ? ['notes', 0] : state === 'waiting' ? ['notes', 7] : ['social', 0];
 // Each cell is moved so the paws stay on one baseline (see the manifest's
@@ -40,8 +42,10 @@ const fallbackMotion: Record<CompanionState, PetMotion> = { idle: 'idle', receiv
 export function CompanionPet({ state = 'idle', paused = false, runKey, interaction = 0, example = false, motionInput }: { state?: CompanionState; paused?: boolean; runKey?: string; interaction?: number; example?: boolean; motionInput?: PetMotionInput }) {
   const { ref, playing, reduced } = usePetVisibility(!paused);
   const motionElement = useRef<HTMLSpanElement>(null);
+  const stanceElement = useRef<HTMLSpanElement>(null);
   const cellBlend = useRef<HTMLSpanElement>(null);
-  const physics = usePetPhysics(motionElement, playing, motionInput);
+  const physics = usePetPhysics(motionElement, stanceElement, playing, motionInput);
+  const held = physics.held;
   const kick = useRef(physics.kick);
   const lastClip = useRef<string | undefined>(undefined);
   kick.current = physics.kick;
@@ -152,7 +156,7 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       paint(clip.sheet, clip.frames[0][0]);
       // A new clip gets a small body settle so the pose change reads as movement;
       // a repeated blink/work loop does not, so a settled pet schedules no frames.
-      if (name !== lastClip.current && name !== 'blink') kick.current(name === 'receive' || name === 'complete' ? 'hop' : 'nudge', name === 'receive' ? 0.7 : name === 'complete' ? 1 : name === 'greet' ? 0.5 : 0.25);
+      if (name !== lastClip.current && name !== 'blink' && name !== 'held') kick.current(name === 'receive' || name === 'complete' ? 'hop' : 'nudge', name === 'receive' ? 0.7 : name === 'complete' ? 1 : name === 'greet' ? 0.5 : 0.25);
       lastClip.current = name;
       const duration = clip.frames.reduce((sum, frame) => sum + frame[1], 0);
       let offset = 0;
@@ -186,6 +190,11 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       if (!cancelled) { Object.assign(element.style, poseStyle(clip.sheet, clip.frames.at(-1)![0])); animation.cancel(); stopCells(); }
     };
     void (async () => {
+      if (held) {
+        // Being carried temporarily replaces any task pose; it resumes on release.
+        while (!cancelled) await play('held');
+        return;
+      }
       if (state === 'idle' && idleInteraction !== reaction.current) {
         reaction.current = idleInteraction;
         await play('greet');
@@ -209,9 +218,9 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       lastRenderedPose.current = { backgroundImage: rendered.backgroundImage, backgroundPosition: rendered.backgroundPosition, backgroundSize: rendered.backgroundSize, transform: rendered.transform };
       animation?.cancel(); stopCells(); blend?.cancel();
     };
-  }, [assets, state, runKey, playing, idleInteraction, celebration]);
+  }, [assets, state, runKey, playing, idleInteraction, celebration, held]);
 
   return <span ref={ref} className={`companion-pet ${!playing ? 'companion-paused' : ''}`} data-state={state} data-playing={playing && assets === 'ready'} data-assets={assets} data-reduced={reduced}>
-    {assets === 'ready' ? <span ref={motionElement} className="companion-motion"><span ref={reactionElement} className="companion-reaction"><span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={cellBlend} className="companion-cell-blend" aria-hidden="true" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span></span></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}
+    {assets === 'ready' ? <span ref={motionElement} className="companion-motion"><span ref={stanceElement} className="companion-stance"><span ref={reactionElement} className="companion-reaction"><span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={cellBlend} className="companion-cell-blend" aria-hidden="true" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span></span></span></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}
   </span>;
 }

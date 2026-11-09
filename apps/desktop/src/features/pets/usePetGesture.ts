@@ -63,6 +63,8 @@ export function usePetGesture({ onDragStart }: { onDragStart?: () => void } = {}
       suppressClick.current = false;
       if (dragging.current) end();
       press.current = event.button === 0 ? { x: event.screenX, y: event.screenY } : null;
+      // The body tenses a little under the finger before it becomes a click or a lift.
+      if (press.current) motion.emit({ type: 'press' });
     },
     onPointerMove(event: PointerEvent<HTMLElement>) {
       // A pointer event with no button after a native drag means the OS loop ended.
