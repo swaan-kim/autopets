@@ -32,7 +32,9 @@ function place(item) {
 
 function sendMoved(item) {
   const size = item.expanded ? expanded : compact;
-  item.frame.contentWindow?.postMessage({ source: 'autopets-review-stage', type: 'moved', x: Math.round(item.right - size.width), y: Math.round(item.bottom - size.height) }, location.origin);
+  // Tauri reports physical pixels.
+  const scale = devicePixelRatio || 1;
+  item.frame.contentWindow?.postMessage({ source: 'autopets-review-stage', type: 'moved', x: Math.round((item.right - size.width) * scale), y: Math.round((item.bottom - size.height) * scale) }, location.origin);
 }
 
 let drag = null;

@@ -6,7 +6,9 @@ const metricRows = [
   ['가장 긴 프레임 (ms)', pet => pet.timing.max],
   ['34ms 넘은 프레임', pet => pet.timing.over34],
   ['겹침 없는 자세 교체 / 초', pet => pet.pose.hardSwapsPerSecond],
-  ['프레임당 최대 위치 변화 (펫 높이 대비)', pet => pet.pose.maxShiftPerFrame],
+  ['발 위치가 튀는 횟수 / 초 (한 프레임에 펫 높이 2% 초과)', pet => pet.pose.pawJumpsPerSecond],
+  ['프레임당 최대 발 이동 (펫 높이 대비)', pet => pet.pose.pawJumpMax],
+  ['드래그 중 최대 기울기 (°)', pet => pet.leanMax],
   ['카드 열림', pet => pet.cardOpens],
   ['완료 동작', pet => pet.completions],
   ['재생된 동작', pet => pet.clips.join(' → ')],
@@ -19,10 +21,10 @@ export function compareHtml(runs, outputFile) {
   const sections = ids.map(id => {
     const items = runs.map(run => ({ run, scenario: run.report.scenarios.find(item => item.id === id) }));
     const title = items.find(item => item.scenario)?.scenario.title ?? id;
-    const videos = items.map(({ run, scenario }) => `<figure><figcaption>${escape(run.report.label)}</figcaption>${scenario?.video
+    const videos = items.map(({ run, scenario }) => `<figure><figcaption>${escape(run.report.label)}</figcaption>${scenario?.notApplicable ? `<p>해당 없음 · ${escape(scenario.notApplicable)}</p>` : scenario?.video
       ? `<video muted playsinline preload="metadata" src="${escape(path.relative(directory, path.join(run.directory, scenario.video)).split(path.sep).join('/'))}"></video>` : '<p>기록 없음</p>'}</figure>`).join('');
     const checks = items.map(({ run, scenario }) => `<td>${(scenario?.expectations ?? []).map(check => `<div class="${check.pass ? 'pass' : 'fail'}">${check.pass ? '통과' : '확인 필요'} · ${escape(check.name)}<small>${escape(check.detail)}</small></div>`).join('') || '—'}</td>`).join('');
-    const rows = metricRows.map(([label, read]) => `<tr><th>${escape(label)}</th>${items.map(({ scenario }) => `<td>${scenario ? escape(read(scenario.pets[0])) : '—'}</td>`).join('')}</tr>`).join('');
+    const rows = metricRows.map(([label, read]) => `<tr><th>${escape(label)}</th>${items.map(({ scenario }) => `<td>${scenario?.pets?.[0] ? escape(read(scenario.pets[0])) : '—'}</td>`).join('')}</tr>`).join('');
     const resource = `<tr><th>렌더러 CPU (초/초)</th>${items.map(({ scenario }) => `<td>${escape(scenario?.resource?.cpuPerSecond ?? '—')}</td>`).join('')}</tr>`;
     return `<section><h2>${escape(id)} · ${escape(title)}</h2><div class="videos">${videos}</div><button type="button" class="play">함께 재생</button>
       <table><thead><tr><th></th>${items.map(({ run }) => `<th>${escape(run.report.label)}</th>`).join('')}</tr></thead><tbody>${rows}${resource}<tr><th>기대 동작</th>${checks}</tr></tbody></table></section>`;

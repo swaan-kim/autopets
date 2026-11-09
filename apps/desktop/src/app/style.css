@@ -218,8 +218,7 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .pet-overlay { width: 180px; height: 230px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 6px; padding: 4px; }
 .pet-overlay.expanded { width: 328px; height: 600px; max-width: 100vw; max-height: 100vh; }
 .floating-pet { position: relative; width: 172px; min-height: 218px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; padding-top: 10px; }
-.pet-hit { border: 0; background: none; padding: 0; width: 160px; height: 151px; position: relative; display: grid; place-items: center; }
-.drag-handle { position: absolute; top: 8px; left: 0; border: 1px solid #e3e3e3; background: #f9f9f9ed; color: #919191; border-radius: 7px; width: 24px; height: 25px; cursor: grab; z-index: 2; font-size: 18px; }
+.pet-hit { border: 0; background: none; padding: 0; width: 160px; height: 151px; position: relative; display: grid; place-items: center; cursor: grab; touch-action: none; }
 .floating-label { max-width: 169px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 4px 10px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fafafafa; color: #555555; font-size: 10px; box-shadow: 0 1px 4px #00000011; }
 .floating-status { max-width: 169px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 4px; background: #f2f2f2f5; color: #7f7f7f; border: 1px solid #e2e2e2; border-radius: 7px; padding: 3px 7px; font-size: 9px; }
 .floating-status.waiting, .floating-status.time { background: #f1f1f1; color: #696969; border-color: #dedede; }
@@ -330,6 +329,9 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .assistance-data { padding: 12px 0; }
 .quality-findings { padding-left: 20px; font-size: 12px; line-height: 1.7; }
 .pet-menu-button { position: absolute; top: 8px; right: 0; width: 29px; height: 25px; z-index: 3; border: 1px solid #e3e3e3; border-radius: 7px; background: #f9f9f9ed; color: #666666; font-size: 20px; line-height: 1; }
+/* The body is the move and card control; the menu shows only when the pet is pointed at or focused. */
+.floating-pet .pet-menu-button { opacity: 0; transition: opacity 120ms ease-out; }
+.floating-pet:hover .pet-menu-button, .floating-pet:focus-within .pet-menu-button, .pet-overlay.expanded .pet-menu-button { opacity: 1; }
 .pet-direct-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 10px 0 15px; }
 .pet-direct-menu .button { font-size: 11px; padding: 10px 5px; }
 @media (max-width: 700px) { .assistance-card { padding: 17px; } .preference-choices { grid-template-columns: 1fr; } .capability-grid { grid-template-columns: 1fr; } .chat-assistance .return-details { grid-template-columns: 1fr; gap: 0; } }

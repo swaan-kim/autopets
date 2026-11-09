@@ -10,7 +10,7 @@ export function installReviewBridge(config) {
   const state = structuredClone(config.snapshot);
   const reads = new Set(['get_snapshot', 'get_assistance', 'workflow_snapshot', 'roles_snapshot', 'artifact_snapshot', 'task_graph_snapshot']);
   const review = {
-    slot, state, calls: [], windowCalls: [], frames: [], marks: [], longFrames: [], sampling: false,
+    slot, state, calls: [], windowCalls: [], moves: [], frames: [], marks: [], longFrames: [], sampling: false,
     mark(name) { review.marks.push({ t: performance.now(), name }); },
   };
   window.__review = review;
@@ -22,7 +22,9 @@ export function installReviewBridge(config) {
   };
   const post = message => window.parent.postMessage({ source: 'autopets-review', slot, ...message }, location.origin);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw Error('clipboard is disabled in motion review'); } } });
-  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+  // Like Tauri, a removed listener stops receiving events (React mounts effects twice in development).
+  const unlisten = (name, id) => listeners.set(name, (listeners.get(name) || []).filter(handler => handler !== id));
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: (name, id) => unlisten(name, id) };
   window.__TAURI_INTERNALS__ = {
     metadata: { currentWindow: { label: `pet-${slot}` }, currentWebview: { label: `pet-${slot}` } },
     transformCallback: callback => { callbacks.set(++callbackId, callback); return callbackId; },
@@ -38,6 +40,7 @@ export function installReviewBridge(config) {
         listeners.set(args.event, [...(listeners.get(args.event) || []), args.handler]);
         return callbackId;
       }
+      if (name === 'plugin:event|unlisten') { unlisten(args.event, args.eventId); return null; }
       if (name.startsWith('plugin:event|')) return null;
       if (reads.has(name)) return null;
       // Window presentation requests are forwarded to the stage, not to an OS window.
@@ -89,8 +92,7 @@ export function installReviewBridge(config) {
   };
   window.addEventListener('message', event => {
     if (event.origin !== location.origin || event.data?.source !== 'autopets-review-stage') return;
-    // Tauri reports physical positions; the stage uses a scale factor of 1 per CSS pixel.
-    if (event.data.type === 'moved') emit('tauri://move', { x: event.data.x, y: event.data.y });
+    if (event.data.type === 'moved') { review.moves.push({ t: performance.now(), x: event.data.x, y: event.data.y }); emit('tauri://move', { x: event.data.x, y: event.data.y }); }
   });
   try {
     new PerformanceObserver(list => {
@@ -102,16 +104,34 @@ export function installReviewBridge(config) {
     if (!review.sampling) return;
     const pet = document.querySelector('.pet-hit .companion-pet');
     const sprite = pet?.querySelector('.companion-sprite:not(.companion-previous-pose)');
-    const previous = pet?.querySelector('.companion-previous-pose');
-    // Relative to the pet button, so window resizing and card layout are not pose changes.
-    const rect = sprite?.getBoundingClientRect();
+    // The body box excludes per-cell paw registration but includes every movement layer.
+    const body = pet?.querySelector('.companion-body')?.getBoundingClientRect();
     const origin = document.querySelector('.pet-hit')?.getBoundingClientRect();
+    const opacity = selector => { const element = pet?.querySelector(selector); return element ? Number(getComputedStyle(element).opacity) : 0; };
+    const motion = pet?.querySelector('.companion-motion');
+    const matrix = motion ? new DOMMatrixReadOnly(getComputedStyle(motion).transform === 'none' ? undefined : getComputedStyle(motion).transform) : null;
+    // Where the drawn paws land on screen: the art itself, not just the element box.
+    let paw = null;
+    if (sprite && origin && config.anchors) {
+      const style = getComputedStyle(sprite);
+      const sheet = Object.values(config.anchors.sheets).find(item => style.backgroundImage.includes(item.url));
+      const rect = sprite.getBoundingClientRect();
+      if (sheet) {
+        const [px, py] = style.backgroundPosition.split(' ').map(value => parseFloat(value) / 100);
+        const cell = Math.round(py * (sheet.rows - 1)) * sheet.columns + Math.round(px * (sheet.columns - 1));
+        const anchor = sheet.paws[cell];
+        if (anchor) paw = [round(rect.x - origin.x + anchor[0] / config.anchors.cell * rect.width), round(rect.y - origin.y + anchor[1] / config.anchors.cell * rect.height)];
+      }
+    }
     if (review.frames.length < 30000) review.frames.push({
+      paw,
       t: round(time),
       clip: sprite?.dataset.clip ?? null,
       bg: sprite ? getComputedStyle(sprite).backgroundPosition : null,
-      box: rect && origin ? [round(rect.x - origin.x), round(rect.y - origin.y), round(rect.width), round(rect.height)] : null,
-      blend: previous ? round(Number(getComputedStyle(previous).opacity)) : 0,
+      box: body && origin ? [round(body.x - origin.x), round(body.y - origin.y), round(body.width), round(body.height)] : null,
+      blend: round(Math.max(opacity('.companion-previous-pose'), opacity('.companion-cell-blend'))),
+      lean: matrix ? round(Math.atan2(matrix.b, matrix.a) * 180 / Math.PI) : 0,
+      lift: matrix ? round(matrix.f) : 0,
       card: Boolean(document.querySelector('.pet-quick-card')),
       state: pet?.dataset.state ?? null,
       playing: pet?.dataset.playing === 'true',

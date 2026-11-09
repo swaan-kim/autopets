@@ -38,8 +38,18 @@ export function poseContinuity(frames) {
       maxResize = Math.max(maxResize, Math.abs(h1 - h0) / h0);
     }
   }
+  // Paw travel per frame relative to the pet height: the visible "jump" of the art.
+  let pawMax = 0, pawJumps = 0;
+  for (let index = 1; index < frames.length; index++) {
+    const before = frames[index - 1], after = frames[index];
+    if (!before.paw || !after.paw || !after.box?.[3]) continue;
+    const travel = Math.hypot(after.paw[0] - before.paw[0], after.paw[1] - before.paw[1]) / after.box[3];
+    pawMax = Math.max(pawMax, travel);
+    if (travel > 0.02) pawJumps++;
+  }
   const seconds = frames.length > 1 ? (frames.at(-1).t - frames[0].t) / 1000 : 0;
   return {
+    pawJumpMax: Math.round(pawMax * 1000) / 1000, pawJumpsPerSecond: seconds ? Math.round(pawJumps / seconds * 100) / 100 : 0,
     swaps, hardSwaps: hard, hardSwapsPerSecond: seconds ? Math.round(hard / seconds * 100) / 100 : 0,
     // Relative to the pet height per frame; large values read as a pop.
     maxShiftPerFrame: Math.round(maxShift * 1000) / 1000, maxResizePerFrame: Math.round(maxResize * 1000) / 1000,
@@ -58,7 +68,12 @@ export function behaviour(frames) {
     if (frame.clip && clips.at(-1) !== frame.clip) clips.push(frame.clip);
   }
   if (frames[0]?.card) cardOpens++;
-  return { cardOpens, completions, greetWhileWorking, clips, playingRatio: frames.length ? playing / frames.length : 0, lastState: frames.at(-1)?.state ?? null };
+  const leans = frames.map(frame => Math.abs(frame.lean ?? 0));
+  return {
+    cardOpens, completions, greetWhileWorking, clips, playingRatio: frames.length ? playing / frames.length : 0, lastState: frames.at(-1)?.state ?? null, cardAtEnd: Boolean(frames.at(-1)?.card),
+    // Whole-body lean in degrees: how visibly the body follows a drag and whether it settles.
+    leanMax: leans.length ? Math.round(Math.max(...leans) * 10) / 10 : 0, leanEnd: Math.round((leans.at(-1) ?? 0) * 10) / 10,
+  };
 }
 
 export function summarize(frames) {

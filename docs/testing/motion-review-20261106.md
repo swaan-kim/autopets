@@ -1,5 +1,7 @@
 # 마우스를 점유하지 않는 모션 검수 화면 · 2026-11-06
 
+> 11-07 후속: 개선 결과와 보정한 지표(그림 발 위치, 리스너 해제)는 [pet-motion-20261107](pet-motion-20261107.md)에 있다. 아래 기준 표는 보정 전 지표다.
+
 담당 swaan-kim · 전체 목표 [#27](https://github.com/swaan-kim/autopets/issues/27) · 인계 [#44](https://github.com/swaan-kim/autopets/issues/44)의 첫 작업. 기준 `main` `de5a974`. **합성 검사**다. 실제 Windows 오버레이·설치 앱·실제 채팅·사용자 편익의 통과가 아니다. 제품 코드와 모션은 바꾸지 않았다.
 
 ## 무엇을 만들었나

@@ -39,7 +39,7 @@ test('behaviour counts card openings, one-shot completions and work-pose overrid
 });
 
 test('scenarios are unique, bounded and use known steps and anchors', () => {
-  const steps = new Set(['wait', 'move', 'curve', 'down', 'up', 'cancel', 'run', 'hidden', 'reduced', 'probe']);
+  const steps = new Set(['wait', 'move', 'curve', 'down', 'up', 'key', 'cancel', 'run', 'hidden', 'reduced', 'probe']);
   const ids = scenarios.map(scenario => scenario.id);
   assert.equal(new Set(ids).size, ids.length);
   for (const scenario of scenarios) {

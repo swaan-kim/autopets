@@ -12,6 +12,7 @@ import { installReviewBridge } from './motion-review/page-bridge.mjs';
 import { fixtures, reviewSnapshot, runTemplate, scenarios } from './motion-review/scenarios.mjs';
 import { summarize } from './motion-review/metrics.mjs';
 import { compareHtml } from './motion-review/compare.mjs';
+import anchors from './motion-review/sprite-anchors.json' with { type: 'json' };
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const options = parse(process.argv.slice(2));
@@ -59,7 +60,7 @@ async function review() {
       modelRequests: 0, scenarios: results,
     };
     await fs.writeFile(path.join(directory, 'report.json'), JSON.stringify(report, null, 2) + '\n');
-    const failed = results.flatMap(item => item.expectations.filter(check => !check.pass).map(check => `${item.id} ${check.name}`));
+    const failed = results.filter(item => !item.notApplicable).flatMap(item => item.expectations.filter(check => !check.pass).map(check => `${item.id} ${check.name}`));
     console.log(JSON.stringify({ output: path.relative(root, directory), expectationsNotMet: failed }));
     if (options.strict && failed.length) process.exitCode = 1;
   } catch (error) {
@@ -79,7 +80,7 @@ async function runScenario({ browser, origin, scenario, directory }) {
   });
   // Only the dedicated review server may answer; every other request is refused.
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
-  await context.addInitScript(installReviewBridge, { snapshot: reviewSnapshot(scenario.runs), runTemplate, ...fixtures });
+  await context.addInitScript(installReviewBridge, { snapshot: reviewSnapshot(scenario.runs), runTemplate, anchors, ...fixtures });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -101,8 +102,8 @@ async function runScenario({ browser, origin, scenario, directory }) {
     const collected = [];
     for (const frame of frames) collected.push(await frame.evaluate(() => {
       window.__review.mark('end'); window.__review.stopSampling();
-      const { frames, marks, calls, windowCalls, longFrames } = window.__review;
-      return { frames, marks, calls, windowCalls, longFrames };
+      const { frames, marks, calls, windowCalls, longFrames, moves } = window.__review;
+      return { frames, marks, calls, windowCalls, longFrames, moves };
     }));
     const stage = await page.evaluate(() => window.__stage.state());
     await page.screenshot({ path: path.join(directory, `${scenario.id}-end.png`) });
@@ -120,9 +121,11 @@ async function runScenario({ browser, origin, scenario, directory }) {
     result.expectations = [
       { name: '작업·연결 명령 호출 없음', pass: result.calls.length === 0, detail: result.calls.join(', ') || '0건' },
       { name: '페이지 오류 없음', pass: errors.length === 0, detail: errors.slice(0, 3).join(' / ') || '0건' },
+      // A drawn paw moving over 2% of the pet height in one frame reads as a jump.
+      ...result.pets.map((pet, slot) => ({ name: `발 위치가 튀지 않음${result.pets.length > 1 ? ` (펫 ${slot + 1})` : ''}`, pass: pet.pose.pawJumpsPerSecond <= 0.2, detail: `초당 ${pet.pose.pawJumpsPerSecond}회 · 최대 ${pet.pose.pawJumpMax}` })),
       ...scenario.expect(result),
     ];
-    await fs.writeFile(path.join(directory, `frames-${scenario.id}.json`), JSON.stringify(collected.map(item => ({ frames: item.frames, marks: item.marks }))) + '\n');
+    await fs.writeFile(path.join(directory, `frames-${scenario.id}.json`), JSON.stringify(collected.map(item => ({ frames: item.frames, marks: item.marks, moves: item.moves }))) + '\n');
     const video = page.video();
     await context.close();
     if (video) {
@@ -134,6 +137,8 @@ async function runScenario({ browser, origin, scenario, directory }) {
     return result;
   } catch (error) {
     await context.close().catch(() => undefined);
+    await fs.rm(videoDirectory, { recursive: true, force: true });
+    if (error?.notApplicable) return { id: scenario.id, title: scenario.title, notApplicable: error.message, pets: [], expectations: [] };
     throw error;
   }
 }
@@ -151,7 +156,10 @@ async function petFrames(page, count) {
 async function anchor(page, frames, target) {
   if (target.at === 'away') return { x: 120, y: viewport.height / 2 };
   const selector = target.at === 'handle' ? '.drag-handle' : '.pet-hit';
-  const box = await frames[target.slot ?? 0].locator(selector).first().boundingBox();
+  const locator = frames[target.slot ?? 0].locator(selector).first();
+  // A control removed by the build under review makes the scenario not applicable.
+  if (target.at === 'handle' && await locator.count() === 0) throw Object.assign(Error('이 빌드에는 이동 손잡이가 없음'), { notApplicable: true });
+  const box = await locator.boundingBox();
   if (!box) throw Error(`anchor not visible: ${target.at}`);
   return { x: box.x + box.width / 2 + (target.dx ?? 0), y: box.y + box.height / 2 + (target.dy ?? 0) };
 }
@@ -187,6 +195,7 @@ async function perform(page, frames, step, pointer, probes) {
     await page.evaluate(({ x, y, pressed }) => window.__stage.pointer(x, y, pressed), pointer);
     return step.do === 'down' ? page.mouse.down() : page.mouse.up();
   }
+  if (step.do === 'key') return frames[0].page().keyboard.press(step.key);
   if (step.do === 'cancel') return frames[0].evaluate(() => {
     for (const target of [document.querySelector('.pet-hit'), document]) target?.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1, pointerType: 'mouse' }));
     window.__review.mark('pointercancel');

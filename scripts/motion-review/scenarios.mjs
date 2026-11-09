@@ -22,7 +22,7 @@ export function reviewSnapshot(runs = [null, null, null]) {
     capabilities: { tokenUsage: 'unavailable', taskReturn: 'manual' }, now: 0,
     petLinks: pets.map((id, slot) => ({
       version: 1, slot, revision: 1, enabled: true, connected: true, profile: 'standard', template: template(id),
-      target: { sourceId: 'codex-windows-local', threadId: `00000000-0000-4000-8000-00000000000${slot}`, cwd: `C:/motion review fixture only/${slot}` },
+      target: { sourceId: 'codex-windows-local', threadId: `00000000-0000-4000-8000-00000000000${slot}`, cwd: `C:/motion review fixture only/검수 작업 ${slot + 1}` },
       run: runs[slot] ? { ...runTemplate, id: `review-run-${slot}`, ...runs[slot] } : null,
     })),
   };
@@ -64,6 +64,8 @@ export const scenarios = [
     expect: m => [
       check('펫 창이 따라 움직임', m.stage.windows[0].moved > 150, `${m.stage.windows[0].moved}px 이동`),
       check('놓은 뒤 카드가 열리지 않음', m.pets[0].cardOpens === 0, `열림 ${m.pets[0].cardOpens}회`),
+      check('끌 때 몸이 따라 기울어짐', m.pets[0].leanMax >= 2, `최대 ${m.pets[0].leanMax}°`),
+      check('놓은 뒤 자세가 가라앉음', m.pets[0].leanEnd < 0.5, `마지막 ${m.pets[0].leanEnd}°`),
     ],
   },
   {
@@ -82,6 +84,12 @@ export const scenarios = [
       { do: 'move', to: { at: 'pet', dx: 2, dy: 1 }, ms: 250 }, { do: 'up' }, { do: 'wait', ms: 1500 },
     ],
     expect: m => [check('드래그로 처리되어 카드가 열리지 않음', m.pets[0].cardOpens === 0, `열림 ${m.pets[0].cardOpens}회`)],
+  },
+  {
+    id: 'S5K', title: '키보드로 작업 카드 열기', pets: 1, steps: [
+      { do: 'move', to: away, ms: 0 }, { do: 'key', key: 'Tab' }, { do: 'key', key: 'Enter' }, { do: 'wait', ms: 900 }, { do: 'key', key: 'Escape' }, { do: 'wait', ms: 600 },
+    ],
+    expect: m => [check('키보드로 열고 닫힘', m.pets[0].cardOpens === 1 && !m.pets[0].cardAtEnd, `열림 ${m.pets[0].cardOpens}회 · 마지막 ${m.pets[0].cardAtEnd ? '열림' : '닫힘'}`)],
   },
   {
     id: 'S6', title: '받기 → 계획 → 작업 → 대기 → 완료', pets: 1, steps: [
