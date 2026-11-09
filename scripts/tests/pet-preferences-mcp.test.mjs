@@ -99,7 +99,7 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
     await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, bytes.subarray(start, start + size));
     files.push(name); offset = start + size;
   }
-  assert.equal(files.length, 5);
+  assert.equal(files.length, 6);
   assert.ok(!files.some(name => /connection\.json|\.sqlite|node_modules|\.local/u.test(name)));
   const manifest = JSON.parse(await fs.readFile(path.join(extracted, 'manifest.json'), 'utf8'));
   assert.equal(manifest.manifest_version, '0.3');
@@ -109,6 +109,12 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
   assert.equal(cli.status, 0, cli.stderr);
   assert.equal(JSON.parse(cli.stdout).result.serverInfo.name, 'autopets-pet-preferences');
   assert.equal(cli.stderr, '');
+  // Hosts launch the manifest entry with their own spelling of the path; it must always answer.
+  assert.equal(manifest.server.entry_point, 'server/mcp/main.mjs');
+  const hostSpelled = `${extracted}${path.sep}.${path.sep}server/mcp/./main.mjs`;
+  const host = spawnSync(process.execPath, [hostSpelled], { input: JSON.stringify({ ...initialize, params: { ...initialize.params, protocolVersion: '2025-11-25' } }) + '\n', encoding: 'utf8', windowsHide: true, timeout: 10000 });
+  assert.equal(host.status, 0, host.stderr);
+  assert.equal(JSON.parse(host.stdout).result.protocolVersion, '2025-11-25');
 });
 
 test('long MCP sessions do not expire by message count and wait for a slow host reader', async () => {

@@ -2,13 +2,13 @@
   "manifest_version": "0.3",
   "name": "autopets-pet-preferences",
   "display_name": "AutoPets · 저장한 펫 구성",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "이 PC의 AutoPets에 저장한 펫의 작업 방식을 읽습니다. 대화 전송이나 실행 설정 변경은 하지 않습니다.",
   "author": { "name": "swaan-kim" },
   "server": {
     "type": "node",
-    "entry_point": "server/mcp/server.mjs",
-    "mcp_config": { "command": "node", "args": ["${__dirname}/server/mcp/server.mjs"] }
+    "entry_point": "server/mcp/main.mjs",
+    "mcp_config": { "command": "node", "args": ["${__dirname}/server/mcp/main.mjs"] }
   },
   "compatibility": { "platforms": ["win32"], "runtimes": { "node": ">=20" } },
   "tools": [
