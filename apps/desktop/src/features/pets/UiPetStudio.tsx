@@ -22,7 +22,8 @@ export const FIGMA_GUIDE = 'https://developers.figma.com/docs/figma-mcp-server/r
 const EXAMPLE_TASK = '가상 학과 행사 소개 웹페이지 한 장. 행사 소개, 일정, 신청 안내와 모바일 화면을 포함해줘.';
 const codexRouting = routing.hosts['codex-windows-local'].profiles;
 const matchesProfile = (value: WorkflowModel, key: keyof typeof codexRouting) => value.model === codexRouting[key].model && value.reasoning === codexRouting[key].effort;
-const supportedRouting = (draft: PetRoleTemplate) => (!draft.planning || matchesProfile(draft.planning, 'plan')) && (!draft.execution || executionProfiles.some(profile => matchesProfile(draft.execution!, profile.id)));
+const planOptions = routing.hosts['codex-windows-local'].planOptions;
+const supportedRouting = (draft: PetRoleTemplate) => (!draft.planning || planOptions.some(option => draft.planning!.model === option.model && draft.planning!.reasoning === option.effort)) && (!draft.execution || executionProfiles.some(profile => matchesProfile(draft.execution!, profile.id)));
 const targetKey = (link: PetLink) => JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]);
 const normalized = (value: unknown): unknown => Array.isArray(value) ? value.map(normalized) : value && typeof value === 'object'
   ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, normalized(item)])) : value;

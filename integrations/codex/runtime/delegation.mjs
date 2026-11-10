@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { isChildHook } from '../hooks/scope.mjs';
-import { ROUTING_PROFILE_KEYS, routingSettings } from '../../../packages/contracts/routing.mjs';
+import { ROUTING_PROFILE_KEYS, routingSettings, planSettings } from '../../../packages/contracts/routing.mjs';
 
 const text = (v, max = 256) => typeof v === 'string' && v.length > 0 && Buffer.byteLength(v) <= max && !/[\p{Cc}]/u.test(v);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -11,9 +11,15 @@ export const PROFILES = Object.freeze(Object.fromEntries(ROUTING_PROFILE_KEYS.ma
   return [key, Object.freeze({ name, model, effort, ...(readOnly ? { readOnly: true } : {}) })];
 })));
 
-export function availableProfile(key, models) {
-  const profile = PROFILES[key];
-  if (!profile || !Array.isArray(models)) throw Error('unsupported-delegation-profile');
+// `template` is the pet's saved template: its planning value (from planOptions) sets the plan profile.
+export function availableProfile(key, models, template = null) {
+  const base = PROFILES[key];
+  if (!base || !Array.isArray(models)) throw Error('unsupported-delegation-profile');
+  let profile = base;
+  if (key === 'plan' && template) {
+    const { model, effort } = planSettings(template);
+    profile = { ...base, model, effort };
+  }
   const matches = models.filter(m => m.model === profile.model);
   if (matches.length !== 1 || !matches[0].supportedReasoningEfforts?.includes(profile.effort)) throw Error('unavailable-delegation-profile');
   return { ...profile };

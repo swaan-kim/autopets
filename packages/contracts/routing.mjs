@@ -23,3 +23,16 @@ export function profileForSettings(stage, model, effort, host = 'codex-windows-l
   return ROUTING_PROFILE_KEYS.find(key => ROUTING.profiles[key].stage === stage
     && hostProfiles[key]?.model === model && hostProfiles[key]?.effort === effort) ?? null;
 }
+
+/**
+ * Plan settings for a saved pet template. A planning value from planOptions is used as saved;
+ * a template without planning keeps the profile default. Anything else is rejected, never substituted.
+ */
+export function planSettings(template, host = 'codex-windows-local') {
+  const base = routingSettings('plan', host);
+  const planning = template?.planning;
+  if (!planning) return base;
+  const option = (ROUTING.hosts[host].planOptions ?? []).find(o => o.model === planning.model && o.effort === planning.reasoning);
+  if (!option) throw Error('pet-template-routing-unsupported');
+  return { ...base, model: option.model, effort: option.effort };
+}

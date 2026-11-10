@@ -176,7 +176,8 @@ fn saved_routing_is_mapped_exactly_or_rejected_without_mutation() {
     let before = store.pet_link_request(Request::Connect { target: a.clone() }).unwrap().unwrap();
     for planning in [false, true] {
         let mut unsupported = template(false);
-        let model = Some(Model { model: "gpt-6-astra".into(), reasoning: "high".into() });
+        // Astra/high is a listed plan option now; an unlisted value must still be rejected.
+        let model = Some(Model { model: if planning { "gpt-6-sol" } else { "gpt-6-astra" }.into(), reasoning: if planning { "xhigh" } else { "high" }.into() });
         if planning { unsupported.planning = model; } else { unsupported.execution = model; }
         let saved = store.save_pet(None, 0, unsupported).unwrap();
         assert_eq!(store.pet_link_request(Request::ApplyPet { target: a.clone(), expected_revision: 1, pet_id: saved.id, pet_revision: 1 }).unwrap_err(), "pet-template-routing-unsupported");

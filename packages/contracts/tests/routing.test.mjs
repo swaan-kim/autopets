@@ -34,3 +34,20 @@ test('Rust and UI read the shared table instead of their own copies', () => {
   assert.doesNotMatch(rust, /Self::Standard => \("gpt-6-sol"/);
   assert.doesNotMatch(ui, /description: '빠른 초안에', model: 'gpt-6-luna'/);
 });
+
+test('plan follows the saved pet: existing Luna/low pets stay, new plan-first pets use Astra/high', async () => {
+  const { planSettings } = await import('../routing.mjs');
+  const { availableProfile } = await import('../../../integrations/codex/runtime/delegation.mjs');
+  const catalog = JSON.parse(read('packages/contracts/data/pet-catalog.json'));
+  const models = [{ model: 'gpt-6-luna', supportedReasoningEfforts: ['low'] }, { model: 'gpt-6-sol', supportedReasoningEfforts: ['low', 'medium'] },
+    { model: 'gpt-6-astra', supportedReasoningEfforts: ['medium', 'high'] }];
+  const legacy = { planning: { model: 'gpt-6-luna', reasoning: 'low' } };
+  assert.equal(planSettings(legacy).model, 'gpt-6-luna');
+  assert.equal(planSettings({}).model, 'gpt-6-luna', 'no planning keeps the old default');
+  for (const entry of catalog.filter(e => e.template.planFirst)) assert.deepEqual(availableProfile('plan', models, entry.template), { ...PROFILES.plan, model: 'gpt-6-astra', effort: 'high' });
+  assert.equal(availableProfile('plan', models, legacy).model, 'gpt-6-luna');
+  assert.equal(availableProfile('plan', models).model, 'gpt-6-luna', 'renderer default unchanged');
+  assert.equal(availableProfile('light', models, catalog[0].template).model, 'gpt-6-luna', 'execution ignores planning');
+  assert.throws(() => availableProfile('plan', models.slice(0, 2), catalog.find(e => e.template.planFirst).template), /unavailable/, 'no silent fallback when Astra is missing');
+  assert.throws(() => planSettings({ planning: { model: 'gpt-6-sol', reasoning: 'xhigh' } }), /routing-unsupported/);
+});

@@ -86,7 +86,7 @@ export async function runPet(args,env=process.env,deps={}) {
   const expectedRevision=current.link.revision;
   if(['settings','prepare'].includes(o.operation)) {
     const profile=o.profile??current.link.profile;
-    const selected=availableProfile(profile,host.models);
+    const selected=availableProfile(profile,host.models,current.link.template);
     if(o.operation==='settings') {
       const saved=verify(await call({operation:'settings',target,expectedRevision,profile}));
       const reread=verify(await call({operation:'read',target}));

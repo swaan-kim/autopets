@@ -39,12 +39,24 @@ impl Profile {
             _ => panic!("bundled routing profile is missing: {}", self.key()),
         }
     }
+    /// Plan settings for a saved template: its planning value when listed in planOptions,
+    /// the plan profile default when it has none. Anything else is rejected, never substituted.
+    pub fn plan_settings(template: &Template) -> Result<(&'static str, &'static str), String> {
+        let Some(planning) = &template.planning else { return Ok(Self::Plan.settings()); };
+        let root: &'static serde_json::Value = &ROUTING;
+        root["hosts"][super::connections::CODEX_LOCAL]["planOptions"].as_array().into_iter().flatten()
+            .filter_map(|option| Some((option["model"].as_str()?, option["effort"].as_str()?)))
+            .find(|(model, effort)| *model == planning.model && *effort == planning.reasoning)
+            .ok_or_else(|| "pet-template-routing-unsupported".into())
+    }
+    /// Settings a prepared run records: plan follows the saved template, others are fixed profiles.
+    pub fn run_settings(&self, template: &Template) -> Result<(&'static str, &'static str), String> {
+        if *self == Self::Plan { Self::plan_settings(template) } else { Ok(self.settings()) }
+    }
     pub fn for_template(template: &Template) -> Result<Self, String> {
         // Explicit child work currently exposes these profiles, not arbitrary host
         // model settings. Reject unsupported saved routing instead of substituting.
-        if template.planning.as_ref().is_some_and(|model| (model.model.as_str(), model.reasoning.as_str()) != Self::Plan.settings()) {
-            return Err("pet-template-routing-unsupported".into());
-        }
+        Self::plan_settings(template)?;
         let Some(execution) = &template.execution else { return Ok(Self::Light); };
         [Self::Light, Self::Standard, Self::Careful].into_iter()
             .find(|profile| profile.settings() == (execution.model.as_str(), execution.reasoning.as_str()))
@@ -142,5 +154,20 @@ mod routing_tests {
         assert_eq!(Profile::Standard.settings(), ("gpt-6-sol", "low"));
         assert_eq!(Profile::Careful.settings(), ("gpt-6-sol", "medium"));
         assert_eq!(Profile::Plan.settings(), ("gpt-6-luna", "low"));
+    }
+    #[test]
+    fn plan_follows_saved_template_and_rejects_unlisted_values() {
+        let mut template: crate::domain::roles::Template = serde_json::from_str(include_str!("../../../../../packages/contracts/data/ui-pet.json")).unwrap();
+        let model = |model: &str, reasoning: &str| Some(crate::domain::workflow::Model { model: model.into(), reasoning: reasoning.into() });
+        template.planning = None;
+        assert_eq!(Profile::Plan.run_settings(&template), Ok(("gpt-6-luna", "low")));
+        template.planning = model("gpt-6-luna", "low");
+        assert_eq!(Profile::Plan.run_settings(&template), Ok(("gpt-6-luna", "low")));
+        template.planning = model("gpt-6-astra", "high");
+        assert_eq!(Profile::Plan.run_settings(&template), Ok(("gpt-6-astra", "high")));
+        assert_eq!(Profile::Light.run_settings(&template), Ok(("gpt-6-luna", "low")));
+        template.planning = model("gpt-6-sol", "xhigh");
+        assert_eq!(Profile::Plan.run_settings(&template), Err(String::from("pet-template-routing-unsupported")));
+        assert!(Profile::for_template(&template).is_err());
     }
 }

@@ -14,7 +14,7 @@
 
 앱에서 복사한 요청에 `petId=<ID>, petRevision=<정수>`가 있으면 `connect --pet <ID> --pet-revision <정수>`로 그 저장 펫 개정을 현재 채팅에 적용한다. 별도 설정 변경은 `apply-pet`에 같은 인수를 사용한다. 사용자 요청의 ID와 개정을 그대로 사용하고 임의로 최신 개정이나 다른 펫을 고르지 않는다. 재조회한 `link.savedPet`이 일치해야 적용 완료다. 오래된 개정이면 앱에서 시작 요청을 다시 복사하도록 안내한다. 연결과 계획을 함께 요청했다면 성공한 뒤 아래 절차로 `prepare --profile plan`을 한 번 수행한다. 연결만 요청했다면 AI 작업을 만들지 않는다. 하루 정리·여행·공부·홍보글처럼 `link.template.planFirst:false`인 펫의 결과 요청은 저장된 기본 프로필로 바로 한 번 수행한다. 웹페이지·발표자료처럼 `planFirst:true`인 펫은 계획부터 수행하고 명시적 제작 요청을 기다린다. 스킬 이름을 UI 제작으로 임의 대체하지 않는다. 발표자료는 HTML 슬라이드이며 PPTX가 아니다.
 
-`pet.mjs status`로 현재 설정을 읽는다. `settings --profile light|standard|careful|plan`은 사용자가 요청한 기본값 변경에만 사용한다. 기본 light=Luna/low, standard=Sol/low, careful=Sol/medium, plan=Luna/low이며 현재 가용 목록에서 확인돼야 한다. `disable`, `enable`, `disconnect`는 해당 채팅에만 적용한다.
+`pet.mjs status`로 현재 설정을 읽는다. `settings --profile light|standard|careful|plan`은 사용자가 요청한 기본값 변경에만 사용한다. 기본 light=Luna/low, standard=Sol/low, careful=Sol/medium이다. plan은 저장한 펫의 계획 설정을 따른다(계획 우선 카탈로그 펫은 Astra/high, 기존·설정 없는 펫은 Luna/low). `prepare`가 반환한 `requestedModel`·`requestedEffort`를 그대로 사용하고, 모두 현재 가용 목록에서 확인돼야 한다. 가용하지 않으면 다른 모델로 바꾸지 않고 멈춘다. `disable`, `enable`, `disconnect`는 해당 채팅에만 적용한다.
 
 ## 요청한 펫 작업 한 번
 
