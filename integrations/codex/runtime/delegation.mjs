@@ -1,15 +1,15 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { isChildHook } from '../hooks/scope.mjs';
+import { ROUTING_PROFILE_KEYS, routingSettings } from '../../../packages/contracts/routing.mjs';
 
 const text = (v, max = 256) => typeof v === 'string' && v.length > 0 && Buffer.byteLength(v) <= max && !/[\p{Cc}]/u.test(v);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export const PROFILES = Object.freeze({
-  light: { name: 'autopets-build-light', model: 'gpt-6-luna', effort: 'low' },
-  standard: { name: 'autopets-build-standard', model: 'gpt-6-sol', effort: 'low' },
-  careful: { name: 'autopets-build-careful', model: 'gpt-6-sol', effort: 'medium' },
-  plan: { name: 'autopets-build-plan', model: 'gpt-6-luna', effort: 'low', readOnly: true },
-});
+// Single source: packages/contracts/data/routing-profiles.json (shared with Rust and UI).
+export const PROFILES = Object.freeze(Object.fromEntries(ROUTING_PROFILE_KEYS.map(key => {
+  const { agentName: name, model, effort, readOnly } = routingSettings(key);
+  return [key, Object.freeze({ name, model, effort, ...(readOnly ? { readOnly: true } : {}) })];
+})));
 
 export function availableProfile(key, models) {
   const profile = PROFILES[key];

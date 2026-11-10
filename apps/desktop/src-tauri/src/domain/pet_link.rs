@@ -22,9 +22,22 @@ impl Target {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Profile { Light, Standard, Careful, Plan }
+// Single source shared with delegation.mjs and the UI: packages/contracts/data/routing-profiles.json.
+static ROUTING: std::sync::LazyLock<serde_json::Value> = std::sync::LazyLock::new(|| {
+    serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/contracts/data/routing-profiles.json")))
+        .expect("bundled routing profiles must be valid")
+});
 impl Profile {
+    fn key(&self) -> &'static str {
+        match self { Self::Light => "light", Self::Standard => "standard", Self::Careful => "careful", Self::Plan => "plan" }
+    }
     pub fn settings(&self) -> (&'static str, &'static str) {
-        match self { Self::Light | Self::Plan => ("gpt-6-luna", "low"), Self::Standard => ("gpt-6-sol", "low"), Self::Careful => ("gpt-6-sol", "medium") }
+        let root: &'static serde_json::Value = &ROUTING;
+        let entry = &root["hosts"][super::connections::CODEX_LOCAL]["profiles"][self.key()];
+        match (entry["model"].as_str(), entry["effort"].as_str()) {
+            (Some(model), Some(effort)) => (model, effort),
+            _ => panic!("bundled routing profile is missing: {}", self.key()),
+        }
     }
     pub fn for_template(template: &Template) -> Result<Self, String> {
         // Explicit child work currently exposes these profiles, not arbitrary host
@@ -117,4 +130,17 @@ pub enum Receipt {
     Failed,
     Runtime { parent_id: String, child_id: String, turn_id: String, model: String, effort: String, completed: bool },
     Resources { child_id: String, turn_id: String, skills: Vec<Skill>, figma_used: bool },
+}
+
+#[cfg(test)]
+mod routing_tests {
+    use super::Profile;
+    #[test]
+    fn shared_routing_table_keeps_current_codex_profiles() {
+        // Moving the table must not change behaviour; step-3 changes are reviewed separately.
+        assert_eq!(Profile::Light.settings(), ("gpt-6-luna", "low"));
+        assert_eq!(Profile::Standard.settings(), ("gpt-6-sol", "low"));
+        assert_eq!(Profile::Careful.settings(), ("gpt-6-sol", "medium"));
+        assert_eq!(Profile::Plan.settings(), ("gpt-6-luna", "low"));
+    }
 }
