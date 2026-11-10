@@ -61,7 +61,11 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
   const consumed = useRef(0);
   const greeted = useRef(false);
   const reaction = useRef(0);
-  const idleInteraction = state === 'idle' ? interaction : 0;
+  // Petting reacts like a touch: a wave when idle, a small wiggle while working.
+  const [strokes, setStrokes] = useState(0);
+  useEffect(() => motionInput?.subscribe(event => { if (event.type === 'pet') setStrokes(value => value + 1); }), [motionInput]);
+  const touches = interaction + strokes;
+  const idleInteraction = state === 'idle' ? touches : 0;
   const canReact = state !== 'idle' && state !== 'error';
 
   useEffect(() => {
@@ -92,11 +96,11 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
     const element = reactionElement.current;
     if (!canReact || !playing || assets !== 'ready' || !element) {
       lastReactionTransform.current = undefined;
-      if (canReact) reaction.current = interaction;
+      if (canReact) reaction.current = touches;
       return;
     }
-    if (interaction === reaction.current) return;
-    reaction.current = interaction;
+    if (touches === reaction.current) return;
+    reaction.current = touches;
     // A touch acknowledges the user without replacing the current task clip.
     const from = lastReactionTransform.current ?? getComputedStyle(element).transform;
     const animation = element.animate([
@@ -109,7 +113,7 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       lastReactionTransform.current = getComputedStyle(element).transform;
       animation.cancel();
     };
-  }, [interaction, canReact, playing, assets]);
+  }, [touches, canReact, playing, assets]);
 
   useEffect(() => {
     const element = sprite.current;
@@ -136,7 +140,10 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
           transform: rendered.transform,
         });
         blend?.cancel();
-        blend = previous.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' });
+        // Different artwork overlaps badly (a double exposure), so a sheet change
+        // fades fast and relies on the body settle; a same-sheet change blends longer.
+        const sheetChanged = currentSheet.current !== sheet;
+        blend = previous.animate([{ opacity: 1 }, { opacity: 0 }], { duration: sheetChanged ? 90 : 140, easing: 'cubic-bezier(0.2, 0, 0.1, 1)', fill: 'forwards' });
       }
       Object.assign(element.style, next);
       currentSheet.current = sheet;

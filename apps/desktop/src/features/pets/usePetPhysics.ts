@@ -64,6 +64,8 @@ export function usePetPhysics(carryLayer: RefObject<HTMLSpanElement | null>, sta
     return source.subscribe(event => {
       const current = input.current;
       if (event.type === 'press') { kick('nudge', 0.5); return; }
+      // Petting: a small happy bounce.
+      if (event.type === 'pet') { kick('hop', 0.35); return; }
       if (event.type === 'look') input.current = { ...current, look: { x: event.x, y: event.y } };
       if (event.type === 'away') input.current = { ...current, look: null };
       if (event.type === 'grab') { input.current = { ...current, held: true, look: null, drag: { x: 0, y: 0 } }; setHeld(true); kick('nudge', -0.6); }

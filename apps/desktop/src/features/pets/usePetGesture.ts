@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, type MouseEvent, type PointerEvent } from '
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isDesktop } from '../../bridge/command';
 import { createPetMotionInput } from './petMotionInput';
+import { feedStroke, restingStroke } from './petStroke';
 
 // Moving further than this while pressed is a drag, not a click.
 export const DRAG_THRESHOLD = 5;
@@ -19,6 +20,7 @@ export function usePetGesture({ onDragStart }: { onDragStart?: () => void } = {}
   const timers = useRef<{ settle?: ReturnType<typeof setTimeout>; end?: ReturnType<typeof setTimeout> }>({});
   const lastMove = useRef<{ x: number; y: number; time: number } | null>(null);
   const velocity = useRef({ x: 0, y: 0 });
+  const stroke = useRef(restingStroke());
   const dragStart = useRef(onDragStart);
   dragStart.current = onDragStart;
 
@@ -82,12 +84,17 @@ export function usePetGesture({ onDragStart }: { onDragStart?: () => void } = {}
       }
       if (!dragging.current && !(event.buttons & 1)) {
         const box = event.currentTarget.getBoundingClientRect();
-        motion.emit({ type: 'look', x: (event.clientX - box.left - box.width / 2) / (box.width / 2), y: (event.clientY - box.top - box.height / 2) / (box.height / 2) });
+        const x = (event.clientX - box.left - box.width / 2) / (box.width / 2);
+        motion.emit({ type: 'look', x, y: (event.clientY - box.top - box.height / 2) / (box.height / 2) });
+        // Rubbing back and forth over the pet (no press) is petting.
+        const fed = feedStroke(stroke.current, x, performance.now());
+        stroke.current = fed.state;
+        if (fed.stroked) motion.emit({ type: 'pet' });
       }
     },
     onPointerUp() { press.current = null; },
     onPointerCancel() { press.current = null; end(); },
-    onPointerLeave() { if (!dragging.current) motion.emit({ type: 'away' }); },
+    onPointerLeave() { stroke.current = { ...restingStroke(), cooldownUntil: stroke.current.cooldownUntil }; if (!dragging.current) motion.emit({ type: 'away' }); },
     onClickCapture(event: MouseEvent<HTMLElement>) {
       // Keyboard activation (detail 0) is never a drag release.
       if (suppressClick.current && event.detail !== 0) { event.preventDefault(); event.stopPropagation(); }

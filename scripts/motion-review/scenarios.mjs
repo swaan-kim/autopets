@@ -51,6 +51,18 @@ export const scenarios = [
     expect: m => [check('머무는 동안 반응', m.pets[0].clips.includes('greet'), m.pets[0].clips.join(' → '))],
   },
   {
+    id: 'S9', title: '포인터로 쓰다듬기 (누르지 않고 좌우로 문지름)', pets: 1, steps: [
+      { do: 'move', to: { at: 'pet', dx: -30 }, ms: 500 }, { do: 'wait', ms: 1800 },
+      { do: 'move', to: { at: 'pet', dx: 30 }, ms: 220 }, { do: 'move', to: { at: 'pet', dx: -30 }, ms: 220 },
+      { do: 'move', to: { at: 'pet', dx: 30 }, ms: 220 }, { do: 'move', to: { at: 'pet', dx: -30 }, ms: 220 },
+      { do: 'move', to: { at: 'pet', dx: 30 }, ms: 220 }, { do: 'wait', ms: 1600 }, { do: 'move', to: away, ms: 600 }, { do: 'wait', ms: 600 },
+    ],
+    expect: m => [
+      check('쓰다듬으면 다시 반김', m.pets[0].clips.lastIndexOf('greet') > m.pets[0].clips.indexOf('blink') && m.pets[0].clips.indexOf('blink') >= 0, m.pets[0].clips.join(' → ')),
+      check('쓰다듬기는 카드를 열지 않음', m.pets[0].cardOpens === 0, `열림 ${m.pets[0].cardOpens}회`),
+    ],
+  },
+  {
     id: 'S3', title: '짧은 탭', pets: 1, steps: [
       { do: 'move', to: { at: 'pet' }, ms: 400 }, { do: 'wait', ms: 500 }, { do: 'down' }, { do: 'wait', ms: 90 }, { do: 'up' }, { do: 'wait', ms: 1500 },
     ],

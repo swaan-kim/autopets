@@ -6,7 +6,8 @@ export type PetMotionEvent =
   | { type: 'away' }
   | { type: 'grab' }
   | { type: 'drag'; x: number; y: number }
-  | { type: 'release' };
+  | { type: 'release' }
+  | { type: 'pet' };
 export interface PetMotionInput { emit(event: PetMotionEvent): void; subscribe(listener: (event: PetMotionEvent) => void): () => void }
 
 export function createPetMotionInput(): PetMotionInput {

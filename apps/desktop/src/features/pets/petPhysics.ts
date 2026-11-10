@@ -11,6 +11,8 @@ export interface PetPhysicsState {
   drag: number;
   /** Unsimulated time, carried to the next frame. */
   carry: number;
+  /** Seconds held so far; drives the gentle dangle so a carried pet never freezes. */
+  hang: number;
 }
 export interface PetPhysicsInput {
   held: boolean;
@@ -21,19 +23,24 @@ export interface PetPhysicsInput {
 }
 export type PetImpulse = 'hop' | 'land' | 'nudge';
 
-export const restingPhysics = (): PetPhysicsState => ({ x: 0, vx: 0, y: 0, vy: 0, r: 0, vr: 0, p: 0, vp: 0, s: 0, vs: 0, drag: 0, carry: 0 });
+export const restingPhysics = (): PetPhysicsState => ({ x: 0, vx: 0, y: 0, vy: 0, r: 0, vr: 0, p: 0, vp: 0, s: 0, vs: 0, drag: 0, carry: 0, hang: 0 });
 export const idleInput = (): PetPhysicsInput => ({ held: false, drag: { x: 0, y: 0 }, look: null });
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 // Stiffness / damping per channel. A carried body swings loosely; a standing one settles quickly.
 const springs = { x: [150, 16], y: [180, 12], r: [90, 7.5], s: [260, 13], carried: [55, 3.8], swing: [80, 6] } as const;
 const step = 1 / 240;
-export const MAX_SWING = 12;
+export const MAX_SWING = 14;
+// A held body dangles: a slow pendulum plus a faster, smaller bob.
+const DANGLE = { swing: 2.4, swingHz: 0.85, bob: 0.9, bobHz: 1.7 } as const;
 
-export function physicsTarget(input: PetPhysicsInput) {
+export function physicsTarget(input: PetPhysicsInput, hang = 0) {
   if (input.held) {
-    // Hanging from the scruff: the body trails behind the drag and stretches.
-    return { x: clamp(-input.drag.x * 0.01, -5, 5), y: -8 + clamp(input.drag.y * 0.004, -3, 3), r: 0, p: clamp(-input.drag.x * 0.012, -8, 8), s: -0.04 };
+    // Hanging from the scruff: the body trails behind the drag, stretches and dangles.
+    const tau = Math.PI * 2;
+    const swing = DANGLE.swing * Math.sin(tau * DANGLE.swingHz * hang);
+    const bob = DANGLE.bob * Math.sin(tau * DANGLE.bobHz * hang);
+    return { x: clamp(-input.drag.x * 0.01, -5, 5), y: -8 + bob + clamp(input.drag.y * 0.004, -3, 3), r: 0, p: clamp(-input.drag.x * 0.018, -10, 10) + swing, s: -0.04 };
   }
   if (input.look) return { x: clamp(input.look.x, -1, 1) * 2.5, y: input.look.y < -0.2 ? -1 : 0, r: clamp(input.look.x, -1, 1) * 3, p: 0, s: 0 };
   return { x: 0, y: 0, r: 0, p: 0, s: 0 };
@@ -49,22 +56,23 @@ export function applyImpulse(state: PetPhysicsState, kind: PetImpulse, strength 
 
 /** Advances in whole fixed sub-steps and carries the remainder, so frame timing never changes the path. */
 export function advancePhysics(state: PetPhysicsState, input: PetPhysicsInput, seconds: number): PetPhysicsState {
-  const target = physicsTarget(input);
   let next = { ...state };
   if (input.held) {
     // Starting, stopping or reversing a drag swings the carried body the other way.
-    next.vp = clamp(next.vp - (input.drag.x - next.drag) * 0.2, -160, 160);
+    next.vp = clamp(next.vp - (input.drag.x - next.drag) * 0.28, -180, 180);
     next.drag = input.drag.x;
-  } else next.drag = 0;
+  } else { next.drag = 0; next.hang = 0; }
   let pending = state.carry + clamp(seconds, 0, 0.1);
   while (pending >= step - 1e-9) {
     pending -= step;
+    if (input.held) next.hang += step;
+    const target = physicsTarget(input, next.hang);
     const [x, vx] = spring(next.x, next.vx, target.x, springs.x, step);
     const [y, vy] = spring(next.y, next.vy, target.y, springs.y, step);
     const [r, vr] = spring(next.r, next.vr, target.r, springs.r, step);
     const [p, vp] = spring(next.p, next.vp, target.p, input.held ? springs.carried : springs.swing, step);
     const [s, vs] = spring(next.s, next.vs, target.s, springs.s, step);
-    next = { x, vx, y, vy, r, vr, p, vp, s, vs, drag: next.drag, carry: 0 };
+    next = { x, vx, y, vy, r, vr, p, vp, s, vs, drag: next.drag, carry: 0, hang: next.hang };
   }
   next.carry = Math.max(0, pending);
   next.y = clamp(next.y, -18, 6);
@@ -81,6 +89,8 @@ function spring(position: number, velocity: number, target: number, [stiffness, 
 }
 
 export function physicsAtRest(state: PetPhysicsState, input: PetPhysicsInput) {
+  // A dangling body is never at rest; frames run only while it is held.
+  if (input.held) return false;
   const target = physicsTarget(input);
   const near = (value: number, goal: number, tolerance: number) => Math.abs(value - goal) < tolerance;
   return near(state.x, target.x, 0.02) && near(state.y, target.y, 0.02) && near(state.r, target.r, 0.02) && near(state.p, target.p, 0.02) && near(state.s, target.s, 0.0005)
