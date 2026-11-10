@@ -21,6 +21,8 @@ const clips: Record<string, Clip> = {
   complete: { sheet: 'paws', frames: [[4, 250], [3, 340], [4, 300], [5, 700]] },
   // Carried: paws up, with an occasional content blink.
   held: { sheet: 'social', frames: [[10, 1400], [9, 180], [10, 1100]] },
+  // Being petted: one contented, eyes-closed pose that blends in and out.
+  petted: { sheet: 'social', frames: [[2, 1500], [0, 500]] },
 };
 const stillFor = (state: CompanionState): [Sheet, number] => state === 'working' ? ['paws', 1] : state === 'planning' || state === 'error' ? ['notes', 0] : state === 'waiting' ? ['notes', 7] : ['social', 0];
 // Each cell is moved so the paws stay on one baseline (see the manifest's
@@ -61,11 +63,13 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
   const consumed = useRef(0);
   const greeted = useRef(false);
   const reaction = useRef(0);
-  // Petting reacts like a touch: a wave when idle, a small wiggle while working.
+  // Petting: a contented pose when idle, a small wiggle while working.
   const [strokes, setStrokes] = useState(0);
   useEffect(() => motionInput?.subscribe(event => { if (event.type === 'pet') setStrokes(value => value + 1); }), [motionInput]);
   const touches = interaction + strokes;
-  const idleInteraction = state === 'idle' ? touches : 0;
+  const idleInteraction = state === 'idle' ? interaction : 0;
+  const petting = state === 'idle' ? strokes : 0;
+  const petted = useRef(0);
   const canReact = state !== 'idle' && state !== 'error';
 
   useEffect(() => {
@@ -206,6 +210,10 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
         reaction.current = idleInteraction;
         await play('greet');
       }
+      if (state === 'idle' && petting !== petted.current) {
+        petted.current = petting;
+        await play('petted');
+      }
       if (cancelled) return;
       if (state === 'complete' && celebration > consumed.current) {
         consumed.current = celebration;
@@ -225,7 +233,7 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       lastRenderedPose.current = { backgroundImage: rendered.backgroundImage, backgroundPosition: rendered.backgroundPosition, backgroundSize: rendered.backgroundSize, transform: rendered.transform };
       animation?.cancel(); stopCells(); blend?.cancel();
     };
-  }, [assets, state, runKey, playing, idleInteraction, celebration, held]);
+  }, [assets, state, runKey, playing, idleInteraction, petting, celebration, held]);
 
   return <span ref={ref} className={`companion-pet ${!playing ? 'companion-paused' : ''}`} data-state={state} data-playing={playing && assets === 'ready'} data-assets={assets} data-reduced={reduced}>
     {assets === 'ready' ? <span ref={motionElement} className="companion-motion"><span ref={stanceElement} className="companion-stance"><span ref={reactionElement} className="companion-reaction"><span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={cellBlend} className="companion-cell-blend" aria-hidden="true" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span></span></span></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}

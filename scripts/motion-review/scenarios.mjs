@@ -58,7 +58,7 @@ export const scenarios = [
       { do: 'move', to: { at: 'pet', dx: 30 }, ms: 220 }, { do: 'wait', ms: 1600 }, { do: 'move', to: away, ms: 600 }, { do: 'wait', ms: 600 },
     ],
     expect: m => [
-      check('쓰다듬으면 다시 반김', m.pets[0].clips.lastIndexOf('greet') > m.pets[0].clips.indexOf('blink') && m.pets[0].clips.indexOf('blink') >= 0, m.pets[0].clips.join(' → ')),
+      check('쓰다듬으면 편안한 자세로 바뀜', m.pets[0].clips.includes('petted'), m.pets[0].clips.join(' → ')),
       check('쓰다듬기는 카드를 열지 않음', m.pets[0].cardOpens === 0, `열림 ${m.pets[0].cardOpens}회`),
     ],
   },
