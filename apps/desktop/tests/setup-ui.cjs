@@ -104,7 +104,16 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   await page.getByRole('alert').filter({ hasText: 'Claude 설치 창을 열지 못했어요' }).waitFor();
   assert.equal(await page.getByText(/Claude 설치 창에서 설치를 눌러 주세요/).count(), 0, 'failed export does not retain the previous success');
   assert.equal(await page.getByRole('button', { name: 'Claude에 설치', exact: true }).isEnabled(), true);
-  checks.push('native connector export is click-only, suppresses duplicate clicks and reports save failure without installing or granting host capability');
+  const claudeCode = page.getByRole('region', { name: 'Claude Code 연결' });
+  await claudeCode.getByRole('button', { name: 'Claude Code에 연결', exact: true }).click();
+  await claudeCode.getByText('연결했어요. 새로 여는 Claude Code 세션부터 펫이 움직여요.', { exact: true }).waitFor();
+  await page.evaluate(() => { window.__uiTest.claudeCodeError = true; });
+  await claudeCode.getByRole('button', { name: 'Claude Code 연결 해제', exact: true }).click();
+  await claudeCode.getByRole('alert').filter({ hasText: 'Claude Code를 찾지 못했어요' }).waitFor();
+  assert.equal(await claudeCode.getByRole('status').count(), 0, 'a failed change never keeps the previous success');
+  await page.evaluate(() => { window.__uiTest.claudeCodeError = false; });
+  assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(call => /claude_code/.test(call.name)).map(call => call.name)), ['connect_claude_code', 'disconnect_claude_code']);
+  checks.push('native connector export and Claude Code connect/disconnect are click-only, suppresses duplicate clicks and reports save failure without installing or granting host capability');
 
   const browserPage = await newPage();
   await browserPage.goto(origin);

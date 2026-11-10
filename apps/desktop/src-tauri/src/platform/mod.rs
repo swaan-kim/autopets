@@ -6,3 +6,4 @@ pub(crate) mod connection_setup;
 pub(crate) mod updater;
 pub(crate) mod task_return;
 pub(crate) mod pet_preferences;
+pub(crate) mod claude_code;

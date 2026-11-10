@@ -42,6 +42,15 @@ fn verified_file(root: &Path, manifest: &serde_json::Value, relative: &str) -> R
     }
     Ok(real)
 }
+// The installer's hash-verified Node runtime, when this is an installed build.
+pub(crate) fn bundled_node(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let resource = app.path().resource_dir().ok()?.join("connector");
+    let bytes = std::fs::read(resource.join("manifest.json")).ok()?;
+    if bytes.len() > 1_000_000 { return None; }
+    let manifest: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    if manifest["appVersion"] != env!("CARGO_PKG_VERSION") { return None; }
+    verified_file(&resource, &manifest, "runtime/node.exe").ok().map(|path| dunce::simplified(&path).to_path_buf())
+}
 pub fn run(app: &tauri::AppHandle, connect: bool) -> Result<Vec<String>, String> {
     let resource = app.path().resource_dir().map_err(|_| "설치 위치를 찾을 수 없습니다.")?.join("connector");
     let executable = std::env::current_exe().map_err(|_| "설치 위치를 찾을 수 없습니다.")?;

@@ -46,5 +46,36 @@ export function PetPreferencesConnector({ compact = false, pet = null }: { compa
     {install}
     {status}
     <p className="small-note">펫 설정 읽기만 연결해요. 대화 공유·스킬 실행·모델 변경은 하지 않아요.</p>
+    {isDesktop && <ClaudeCodeConnector />}
   </details>;
+}
+
+// Claude Code's own plugin CLI installs the local AutoPets plugin, so the pet
+// follows Claude Code work. Only work status is sent, never conversation text.
+function ClaudeCodeConnector() {
+  const [busy, setBusy] = useState<'connect' | 'disconnect' | null>(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const pending = useRef(false);
+  const act = async (action: 'connect' | 'disconnect') => {
+    if (pending.current) return;
+    pending.current = true; setBusy(action); setNotice(''); setError('');
+    try {
+      await command(action === 'connect' ? 'connect_claude_code' : 'disconnect_claude_code');
+      setNotice(action === 'connect' ? '연결했어요. 새로 여는 Claude Code 세션부터 펫이 움직여요.' : '연결을 해제했어요.');
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
+      setError(/[가-힣]/.test(message) ? message : 'Claude Code 연결을 바꾸지 못했어요. 다시 시도해 주세요.');
+    } finally { pending.current = false; setBusy(null); }
+  };
+  return <section className="claude-code-connector" aria-label="Claude Code 연결">
+    <h3>Claude Code에서도 펫이 움직이게</h3>
+    <p>작업 시작·도구 사용·권한 요청·완료 상태만 펫에 전해요. 대화 내용과 파일 내용은 보내지 않아요.</p>
+    <div className="claude-code-actions">
+      <button className="button secondary" disabled={busy !== null} onClick={() => void act('connect')}>{busy === 'connect' ? '연결 중…' : 'Claude Code에 연결'}</button>
+      <button className="text-button" disabled={busy !== null} onClick={() => void act('disconnect')}>{busy === 'disconnect' ? '해제 중…' : 'Claude Code 연결 해제'}</button>
+    </div>
+    {notice && <p className="setup-notice" role="status">{notice}</p>}
+    {error && <p className="error" role="alert">{error}</p>}
+  </section>;
 }
