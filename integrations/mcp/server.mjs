@@ -11,6 +11,7 @@ export const tools = [
   { name: 'autopets_read_pet', title: '선택한 펫의 작업 방식 읽기', description: '목록에서 사용자가 고른 정확한 펫 ID와 개정의 지침을 읽습니다. 현재 요청과 호스트 권한을 우선하고, 스킬 설치나 모델 변경을 확인했다고 주장하지 마세요.', inputSchema: { type: 'object', properties: { petId: { type: 'string', minLength: 1, maxLength: 128 }, expectedRevision: { type: 'integer', minimum: 1 } }, required: ['petId', 'expectedRevision'], additionalProperties: false }, annotations },
 ];
 const messages = {
+  'connection-disabled': 'AutoPets에서 Codex 연결을 다시 준비해 주세요. 기존 채팅을 종료할 필요는 없습니다.',
   'pet-changed': '펫 구성이 바뀌었습니다. 목록을 다시 읽고 현재 개정으로 선택해 주세요.',
   'pet-or-feature-unavailable': '이 펫 또는 읽기 연결 기능을 찾을 수 없습니다. 앱 버전과 저장한 펫을 확인해 주세요.',
   'app-unavailable': '이 PC에서 AutoPets를 실행하고 저장한 펫을 준비해 주세요. 인증값을 복사하거나 보안 설정을 바꿀 필요는 없습니다.',

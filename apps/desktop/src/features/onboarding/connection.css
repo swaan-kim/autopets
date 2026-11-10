@@ -1,4 +1,7 @@
-.connection-guide { max-width: 780px; }
+.connection-guide { max-width: 780px; margin-inline: auto; }
+/* Shared secondary text is a little darker on this settings screen only. */
+.app-shell .connection-guide :is(.setup-heading p, .field-label, .path-code, .text-button:not(.danger-text)) { color: #5c5c5c; }
+.connection-guide .small-note { color: #686868 !important; }
 .setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 28px 0 25px; }
 .setup-heading h1 { font-size: 29px; line-height: 1.3; margin: 8px 0; }
 .setup-heading p { margin: 8px 0; }
@@ -6,11 +9,11 @@
 .connection-manage-card { background: #ffffff; border: 1px solid #e6e6e6; border-radius: 17px; padding: 26px; }
 .setup-step-title { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .setup-step-title h2 { margin: 0; font-size: 18px; letter-spacing: -.5px; }
-.connection-manage-card p, .connection-advanced p { color: #767676; line-height: 1.8; font-size: 12px; margin: 12px 0; }
-.connection-manage-card small { display: block; font-size: 11px; color: #848484; line-height: 1.7; }
-.setup-status { font-size: 11px; color: #6d6d6d; padding: 6px 10px; border-radius: 20px; background: #f2f2f2; white-space: nowrap; }
+.connection-manage-card p, .connection-advanced p { color: #555555; line-height: 1.8; font-size: 12px; margin: 12px 0; }
+.connection-manage-card small { display: block; font-size: 11px; color: #666666; line-height: 1.7; }
+.setup-status { font-size: 11px; color: #555555; padding: 6px 10px; border-radius: 20px; background: #f2f2f2; white-space: nowrap; }
 .setup-progress { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 0; margin: 26px 0; }
-.setup-progress li { display: flex; align-items: center; gap: 9px; font-size: 12px; color: #737373; }
+.setup-progress li { display: flex; align-items: center; gap: 9px; font-size: 12px; color: #555555; }
 .setup-step-number { display: grid; place-items: center; flex-shrink: 0; width: 29px; height: 29px; border: 1px solid #dedede; border-radius: 50%; font-size: 11px; }
 .setup-progress li[data-done="true"] .setup-step-number { color: #fff; background: #466657; border-color: #466657; }
 .setup-progress li small { font-size: 10px; margin-top: 3px; }
@@ -19,10 +22,10 @@
 .connection-manage-card .setup-next-step p { color: #4c5e50; margin: 8px 0; }
 .setup-next-step q { font-weight: 600; }
 .setup-actions { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin: 22px 0; }
-.setup-actions summary { cursor: pointer; color: #808080; font-size: 11px; }
+.setup-actions summary { cursor: pointer; color: #606060; font-size: 11px; }
 .setup-actions details .text-button { display: block; margin-top: 6px; }
 .setup-help { margin: 17px 0 0; }
-.setup-help summary, .connection-advanced > summary { font-size: 12px; color: #6d6d6d; cursor: pointer; }
+.setup-help summary, .connection-advanced > summary { font-size: 12px; color: #555555; cursor: pointer; }
 .setup-help .path-code { white-space: normal; overflow-wrap: anywhere; }
 .setup-guidance .text-button { display: block; margin-top: 8px; }
 .connection-manage-card .setup-notice { border-left: 2px solid #a8a8a8; padding-left: 12px; color: #545454; }
@@ -32,17 +35,17 @@
 .connection-advanced .setup-host-stage { font-size: 10px; margin: 7px 0 15px; }
 .connection-detail-list { display: grid; gap: 10px; font-size: 11px; margin: 20px 0; }
 .connection-detail-list > div { display: flex; gap: 15px; }
-.connection-detail-list dt { color: #8c8c8c; min-width: 100px; }
-.connection-detail-list dd { margin: 0; color: #646464; }
+.connection-detail-list dt { color: #666666; min-width: 100px; }
+.connection-detail-list dd { margin: 0; color: #4a4a4a; }
 .setup-default { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; font-size: 11px; margin-top: 20px; }
-.setup-default strong { margin-left: 9px; color: #606060; }
+.setup-default strong { margin-left: 9px; color: #4a4a4a; }
 .setup-update { margin: 22px 0; padding-top: 15px; border-top: 1px solid var(--line); font-size: 11px; }
-.setup-update summary { cursor: pointer; color: #747474; }
+.setup-update summary { cursor: pointer; color: #555555; }
 .setup-update .button { margin: 12px 8px 0 0; }
 .connection-preset-share { border-top: 1px solid var(--line); padding-top: 19px; margin: 23px 0; }
-.connection-preset-share > summary { font-size: 13px; color: #606d57; cursor: pointer; min-height: 32px; }
+.connection-preset-share > summary { font-size: 13px; color: #4d5946; cursor: pointer; min-height: 32px; }
 .connection-preset-share h2 { font-size: 17px; margin: 16px 0 12px; }
-.connection-preset-share p, .connection-preset-share ol { color: #69765f; line-height: 1.9; font-size: 13px; }
+.connection-preset-share p, .connection-preset-share ol { color: #55614c; line-height: 1.9; font-size: 13px; }
 .connection-preset-share ol { padding-left: 21px; margin: 17px 0; }
 .connection-preset-share .button { display: inline-flex; align-items: center; text-decoration: none; }
 .connection-preset-share .small-note { font-size: 12px; margin-top: 17px; }

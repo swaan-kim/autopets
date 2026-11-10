@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
 import { readConnection, requestJson } from '../codex/skills/autopets/scripts/bridge-client.mjs';
 
 export class PetLibraryError extends Error {
@@ -9,6 +10,16 @@ const text = (value, limit) => typeof value === 'string' && value.length > 0 && 
 
 export function createLibraryClient({ environment = process.env, connect = readConnection, request = requestJson } = {}) {
   return async body => {
+    // Managed Codex tools can remain loaded in a running host after removal.
+    // Check this local switch on each read; no polling or host termination.
+    if (environment.AUTOPETS_MCP_ACCESS_FILE) {
+      try {
+        const file = environment.AUTOPETS_MCP_ACCESS_FILE;
+        if (!path.isAbsolute(file) || (await stat(file)).size > 256) throw Error('invalid-access-file');
+        const access = JSON.parse(await readFile(file, 'utf8'));
+        if (access.version !== 1 || access.enabled !== true) throw Error('disabled');
+      } catch { throw new PetLibraryError('connection-disabled'); }
+    }
     const root = environment.AUTOPETS_DATA_DIR || (environment.LOCALAPPDATA ? path.join(environment.LOCALAPPDATA, 'local.autopets.desktop') : null);
     const location = environment.AUTOPETS_CONNECTION_FILE || (root && path.join(root, 'connection.json'));
     if (!location) throw new PetLibraryError('app-unavailable');
