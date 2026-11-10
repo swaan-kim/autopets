@@ -32,6 +32,8 @@ pub fn run() {
             transport::setup_commands::connect_ai,
             transport::setup_commands::disconnect_ai,
             platform::pet_preferences::export_pet_preferences,
+            platform::pet_preferences::install_pet_preferences_in_claude,
+            platform::pet_preferences::open_pet_in_claude,
             platform::updater::check_app_update,
             platform::updater::install_app_update,
             workflow_commands::workflow_snapshot,

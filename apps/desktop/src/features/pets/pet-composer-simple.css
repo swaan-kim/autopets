@@ -21,6 +21,7 @@
 .composer-hosts .button { display: flex; width: 100%; justify-content: space-between; align-items: center; box-sizing: border-box; text-decoration: none; }
 .composer-hosts a[aria-disabled=true] { pointer-events: none; opacity: .45; }
 .composer-hosts :is(.setup-notice,.error) { margin: 8px 0 0; font-size: 12px; }
+.composer-claude-connector { display: grid; gap: 8px; }
 .composer-target { margin: 0; }
 .pet-composer .ui-pet-select { display: grid; gap: 9px; font-size: 13px; color: #606970; }
 .pet-composer .ui-pet-select select { width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid #dde1e4; border-radius: 12px; background: #fff; color: #252c32; font-size: 14px; }

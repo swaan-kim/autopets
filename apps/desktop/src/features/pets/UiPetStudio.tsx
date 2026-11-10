@@ -360,7 +360,7 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
             : <div className="composer-hosts" aria-label="AI에서 사용하기">
               {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결<span aria-hidden="true">↗</span></button>
                 : <button className="button primary" data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>}
-              <PetPreferencesConnector compact />
+              <PetPreferencesConnector compact pet={saved} />
             </div>}
         </section>}
         {!panel && messages}
