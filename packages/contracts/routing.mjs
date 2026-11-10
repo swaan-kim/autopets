@@ -36,3 +36,31 @@ export function planSettings(template, host = 'codex-windows-local') {
   if (!option) throw Error('pet-template-routing-unsupported');
   return { ...base, model: option.model, effort: option.effort };
 }
+
+const pick = ({ model, effort }) => ({ model, effort });
+
+/** Same plan level on another host, matched by planOptions tier. */
+function planOnHost(template, host) {
+  const codex = planSettings(template);
+  const tier = (ROUTING.hosts['codex-windows-local'].planOptions ?? []).find(o => o.model === codex.model && o.effort === codex.effort)?.tier ?? 'light';
+  const option = (ROUTING.hosts[host].planOptions ?? []).find(o => o.tier === tier);
+  return option ? { model: option.model, effort: option.effort } : null;
+}
+
+/**
+ * Host-neutral routing hint for a saved pet: which stage profile it uses and the matching
+ * model/effort on each known host. A hint only; nothing here applies settings to a host.
+ */
+export function routingHint(template) {
+  const hosts = Object.keys(ROUTING.hosts);
+  let planning = null;
+  if (template?.planFirst) {
+    planning = { profile: 'plan', label: ROUTING.profiles.plan.label,
+      hosts: Object.fromEntries(hosts.map(host => [host, host === 'codex-windows-local' ? pick(planSettings(template)) : planOnHost(template, host)])) };
+  }
+  const exec = template?.execution;
+  const key = exec ? profileForSettings('execution', exec.model, exec.reasoning) : 'light';
+  const execution = key ? { profile: key, label: ROUTING.profiles[key].label,
+    hosts: Object.fromEntries(hosts.map(host => [host, pick(routingSettings(key, host))])) } : null;
+  return { planning, execution, applied: false };
+}
