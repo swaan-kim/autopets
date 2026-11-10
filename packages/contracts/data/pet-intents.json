@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Recommendation cues for existing catalog pets, keyed by pet-catalog.json id. A pet qualifies with one strong cue, or with a topic cue plus a deliverable cue. Pets without an entry here fall back to an exact mention of their catalog name.",
+  "notes": "Recommendation cues for existing catalog pets, keyed by pet-catalog.json id. A pet qualifies with one strong cue, or with a topic cue plus a deliverable cue. Pets without an entry here fall back to an exact mention of their catalog name. Topic cues must start a word; negated cues (말고, 빼고, 없이) and development requests never qualify.",
   "intents": [
     {
       "petId": "daily-plan",
@@ -13,7 +13,7 @@
     {
       "petId": "travel-plan",
       "reason": "여행 일정을 계획하려는 것 같아요.",
-      "strong": ["\\d+\\s*박\\s*\\d+\\s*일", "당일\\s*치기", "여행\\s*(?:일정|코스|계획|루트|동선)", "관광\\s*(?:코스|일정)"],
+      "strong": ["\\d+\\s*박\\s*\\d+\\s*일", "당일\\s*치기", "여행\\s*(?:일정|코스|계획|루트|동선)", "관광\\s*(?:코스|일정)", "\\btrip\\s*(?:plan|itinerary)\\b", "\\bitinerary\\b"],
       "topics": ["여행", "관광", "여행지", "휴가", "나들이", "숙소", "맛집\\s*투어"],
       "deliverables": ["일정", "코스", "동선", "루트", "계획", "짜", "세워"]
     },
@@ -27,21 +27,21 @@
     {
       "petId": "ui-webpage",
       "reason": "웹페이지를 만들려는 것 같아요.",
-      "strong": ["(?:웹\\s*사이트|웹\\s*페이지|홈\\s*페이지|랜딩\\s*페이지)\\s*(?:하나|한\\s*장|를|을)?\\s*(?:만들|제작|개발|구현|디자인)"],
+      "strong": ["(?:웹\\s*사이트|웹\\s*페이지|홈\\s*페이지|랜딩\\s*페이지)\\s*(?:하나|한\\s*장|를|을)?\\s*(?:만들|제작|개발|구현|디자인)", "\\b(?:landing\\s*page|web\\s*page|website|homepage)\\b"],
       "topics": ["웹\\s*사이트", "웹\\s*페이지", "홈\\s*페이지", "랜딩\\s*페이지", "쇼핑몰", "사이트", "포트폴리오\\s*페이지"],
       "deliverables": ["만들", "제작", "개발", "구현", "디자인", "코딩"]
     },
     {
       "petId": "marketing-copy",
       "reason": "홍보 문구를 쓰려는 것 같아요.",
-      "strong": ["(?:홍보|광고|마케팅|판매)\\s*(?:문구|글|카피|게시물|문안|멘트)", "카피\\s*(?:라이팅|를|좀)?\\s*(?:써|작성|만들)", "슬로건"],
+      "strong": ["(?:홍보|광고|마케팅|판매)\\s*(?:문구|글|카피|게시물|문안|멘트)", "카피\\s*(?:라이팅|를|좀)?\\s*(?:써|작성|만들)", "슬로건", "\\b(?:marketing|ad|promo(?:tional)?)\\s*copy\\b", "\\bslogan\\b"],
       "topics": ["홍보", "광고", "마케팅", "카피", "소개\\s*글", "SNS", "인스타", "캠페인"],
       "deliverables": ["문구", "작성", "써", "지어", "뽑아", "만들"]
     },
     {
       "petId": "presentation",
       "reason": "발표자료를 제작하려는 것 같아요.",
-      "strong": ["발표\\s*자료", "프레젠테이션", "슬라이드", "PPT", "피피티", "발표\\s*(?:용|준비)"],
+      "strong": ["발표\\s*자료", "프레젠테이션", "슬라이드", "PPT", "피피티", "발표\\s*(?:용|준비)", "\\bpresentation\\b", "\\bslides?\\b", "\\b(?:slide|pitch)\\s*deck\\b"],
       "topics": ["발표", "덱", "deck", "keynote"],
       "deliverables": ["자료", "만들", "작성", "정리", "구성", "\\d+\\s*장"]
     }

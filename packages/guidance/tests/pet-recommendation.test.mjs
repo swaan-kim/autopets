@@ -71,3 +71,17 @@ test('a new catalog pet without intent data is still recommended by its exact na
   assert.deepEqual(recommendPets('레시피 도우미로 저녁 메뉴 정리해줘', { recommender }).candidates.map(item => item.petId), ['recipe-helper']);
   assert.deepEqual(recommendPets('저녁 메뉴 정리해줘', { recommender }).candidates.map(item => item.petId), []);
 });
+
+test('negated cues, development requests and partial words never recommend a pet', () => {
+  assert.deepEqual(ids('발표 자료 말고 웹페이지로 만들어줘'), ['ui-webpage'], 'the excluded deliverable is not offered');
+  for (const text of ['PPT 말고 문서로 정리해줘', '발표자료는 필요 없고 요약만 해줘', '슬라이드 넘기는 애니메이션 버그 고쳐줘', '이 PPT 파일 파싱하는 코드 작성해줘',
+    'README에 프레젠테이션 링크 추가해줘', 'DB 인덱스 만들어줘', '고객 인사이트 보고서 만들어줘', '광고 차단 기능 만들어줘', '슬로건 기능 테스트 짜줘',
+    '오늘 커밋 정리해줘', '이번 주 스프린트 회고 정리해줘']) assert.deepEqual(ids(text), [], text);
+  assert.equal(recommendPets('슬라이드 넘기는 애니메이션 버그 고쳐줘').reason, 'development');
+});
+
+test('plain English requests reach the same pets', () => {
+  assert.deepEqual(ids('make a presentation about AI'), ['presentation']);
+  assert.deepEqual(ids('create a landing page for my cafe'), ['ui-webpage']);
+  assert.deepEqual(ids('Write marketing copy for a new tea'), ['marketing-copy']);
+});

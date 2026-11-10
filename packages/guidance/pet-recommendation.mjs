@@ -14,15 +14,29 @@ const META = /(?:\$autopets?\b|autopets?\s*스킬|오토펫|펫\s*(?:상태\s*�
 // A request must ask for work; questions or statements about a topic are not tasks.
 const TASK = /(?:해\s*(?:줘|주세요|줄래|주라|봐)|줘|주세요|줄래|부탁|싶어|싶은데|하자|할래|필요해|만들|짜\s*(?:줘|봐|자)|세워|작성|써\s*(?:줘|봐)|정리|도와|알려|추천|계획|준비|설명|구성|please|make|create|write|plan|help)/iu;
 
+// Codex chats are mostly code work: a cue inside a development request ("슬라이드 버그 고쳐줘",
+// "PPT 파싱 코드", "오늘 커밋 정리") is about the code, not a request for that pet. Precision first.
+const DEVELOPMENT = /(?:버그|에러|오류|고쳐|디버그|리팩(?:터|토링)|함수|컴포넌트|모듈|클래스|변수|파싱|파서|테스트|픽스처|커밋|브랜치|스프린트|인덱스|스키마|쿼리|빌드|배포|정규식|README|기능|코드|API|\bDB\b|\.(?:tsx?|jsx?|mjs|cjs|rs|py|json|ya?ml|toml|md|css|html)\b|\b(?:bug|fix|refactor|tests?|function|component|commit|branch|parse|regex|code)\b)/iu;
+// "발표 자료 말고", "PPT는 빼고", "슬라이드 없이": the user is excluding that deliverable.
+// One short word may sit between the cue and the negation ("발표" + " 자료 말고").
+const NEGATED = /^\s*(?:은|는|을|를|이|가|도)?\s*(?:\S{1,4}\s+)?(?:말고|빼고|대신|없이|제외|필요\s*없|안\s*(?:해|만들|돼)|아니)/u;
+// Short topic words must start a word: "덱" is not in "인덱스", "사이트" is not in "인사이트".
+const WORD_START = '(?<![\\p{L}\\p{N}])';
+
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-const compile = list => (Array.isArray(list) ? list : []).filter(item => typeof item === 'string' && item.length > 0 && item.length <= 200)
-  .map(source => new RegExp(source, 'giu'));
+const compile = (list, prefix = '') => (Array.isArray(list) ? list : []).filter(item => typeof item === 'string' && item.length > 0 && item.length <= 200)
+  .map(source => new RegExp(`${prefix}(?:${source})`, 'giu'));
+// First occurrence of each pattern that the user did not negate.
 const firstMatches = (patterns, text) => {
   const found = [];
   for (const pattern of patterns) {
     pattern.lastIndex = 0;
-    const match = pattern.exec(text);
-    if (match && match[0].trim()) found.push({ text: match[0].trim(), index: match.index });
+    for (const match of text.matchAll(pattern)) {
+      if (!match[0].trim()) continue;
+      if (NEGATED.test(text.slice(match.index + match[0].length, match.index + match[0].length + 16))) continue;
+      found.push({ text: match[0].trim(), index: match.index });
+      break;
+    }
   }
   return found;
 };
@@ -38,7 +52,7 @@ export function buildRecommender({ catalog = defaultCatalog, intents = defaultIn
       id: entry.id, name: entry.name,
       reason: typeof intent?.reason === 'string' && intent.reason.length <= 120 ? intent.reason : `${entry.name}에 맞는 요청 같아요.`,
       strong: compile([...(intent?.strong ?? []), nameCue]),
-      topics: compile(intent?.topics), deliverables: compile(intent?.deliverables),
+      topics: compile(intent?.topics, WORD_START), deliverables: compile(intent?.deliverables),
       suppressedBy: Array.isArray(intent?.suppressedBy) ? intent.suppressedBy.filter(id => typeof id === 'string') : [],
     };
   });
@@ -59,6 +73,7 @@ export function recommendPets(prompt, { exclude = [], limit = MAX_RECOMMENDATION
   if (GREETING.test(text)) return { ...base, status: 'skipped', reason: 'greeting' };
   if (META.test(text)) return { ...base, status: 'skipped', reason: 'autopets-command' };
   if (!TASK.test(text)) return { ...base, status: 'none', reason: 'not-a-task' };
+  if (DEVELOPMENT.test(text)) return { ...base, status: 'none', reason: 'development' };
   const excluded = new Set(Array.isArray(exclude) ? exclude : []);
   let matches = recommender.pets.map(pet => {
     const strong = firstMatches(pet.strong, text), topics = firstMatches(pet.topics, text), deliverables = firstMatches(pet.deliverables, text);
