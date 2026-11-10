@@ -236,10 +236,13 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .overlay-panel .detail-status .muted { font-size: 9px; }
 .unread-dot { display: inline-block; width: 5px; height: 5px; background: #959595; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-.assistance-page { max-width: 920px; padding-bottom: 30px; }
+.assistance-page { max-width: 920px; margin-inline: auto; padding-bottom: 30px; }
+/* Shared secondary text is a little darker on this settings screen only. */
+.app-shell .assistance-page :is(.page-heading p, .eyebrow, .field-label, .mode-fieldset legend, .mode-option small, .status-badge, .text-button:not(.danger-text)) { color: #5c5c5c; }
+.assistance-page .small-note { color: #686868 !important; }
 .assistance-page .page-heading { margin-bottom: 28px; }
 .assistance-tabs { display: flex; gap: 6px; border-bottom: 1px solid #e2e2e2; margin-bottom: 20px; }
-.assistance-tabs > button { border: 0; border-bottom: 3px solid transparent; padding: 12px 18px; background: transparent; color: #868686; font-size: 13px; }
+.assistance-tabs > button { border: 0; border-bottom: 3px solid transparent; padding: 12px 18px; background: transparent; color: #656565; font-size: 13px; }
 .assistance-tabs > button[aria-selected="true"] { border-bottom-color: #848484; color: #525252; font-weight: 700; }
 .assistance-page [hidden] { display: none !important; }
 .preference-output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -298,18 +301,18 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .assistance-card .mode-fieldset { margin-top: 22px; }
 .assistance-toggle { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 18px 0; }
 .assistance-toggle strong { display: block; font-size: 14px; }
-.assistance-toggle small { display: block; font-size: 11px; line-height: 1.7; color: #7b7b7b; margin-top: 3px; }
+.assistance-toggle small { display: block; font-size: 11px; line-height: 1.7; color: #5c5c5c; margin-top: 3px; }
 .assistance-toggle input { width: 19px; height: 19px; flex-shrink: 0; accent-color: #7a7a7a; }
 .preference-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; }
 .preference-choices .mode-option { margin: 0; }
 .preference-choices .mode-option strong { font-size: 14px; }
 .preference-choices .mode-option small { font-size: 10px; }
 .assistance-details { margin-top: 20px; border-top: 1px solid #e4e4e4; padding-top: 16px; }
-.assistance-details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #696969; }
+.assistance-details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #4f4f4f; }
 .assistance-details label { display: block; font-size: 12px; margin: 16px 0; color: #5f5f5f; }
 .assistance-details label .text-input { margin-top: 7px; }
 .assistance-details .assistance-toggle { display: flex; }
-.assistance-notice { background: #f1f1f1; border-left: 3px solid #a3a3a3; padding: 13px 16px; border-radius: 7px; color: #626262; font-size: 13px; line-height: 1.6; }
+.assistance-notice { background: #f1f1f1; border-left: 3px solid #a3a3a3; padding: 13px 16px; border-radius: 7px; color: #4a4a4a; font-size: 13px; line-height: 1.6; }
 .assistance-card .action-row { align-items: center; flex-wrap: wrap; }
 .assistance-card .action-row .button { flex: 0 0 auto; padding: 11px 18px; font-size: 12px; }
 .chat-assistance { margin-top: 22px; }
