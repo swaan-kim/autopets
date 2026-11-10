@@ -21,7 +21,10 @@ export function availableProfile(key, models, template = null) {
     profile = { ...base, model, effort };
   }
   const matches = models.filter(m => m.model === profile.model);
-  if (matches.length !== 1 || !matches[0].supportedReasoningEfforts?.includes(profile.effort)) throw Error('unavailable-delegation-profile');
+  if (matches.length !== 1 || !matches[0].supportedReasoningEfforts?.includes(profile.effort)) {
+    // Same code as before; `requested` only lets the caller explain what is missing. No substitution.
+    throw Object.assign(Error('unavailable-delegation-profile'), { requested: { stage: key, model: profile.model, effort: profile.effort } });
+  }
   return { ...profile };
 }
 

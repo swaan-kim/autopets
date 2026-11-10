@@ -51,3 +51,17 @@ test('plan follows the saved pet: existing Luna/low pets stay, new plan-first pe
   assert.throws(() => availableProfile('plan', models.slice(0, 2), catalog.find(e => e.template.planFirst).template), /unavailable/, 'no silent fallback when Astra is missing');
   assert.throws(() => planSettings({ planning: { model: 'gpt-6-sol', reasoning: 'xhigh' } }), /routing-unsupported/);
 });
+
+test('a missing plan model stops with a Korean next step instead of a bare code', async () => {
+  const { availableProfile } = await import('../../../integrations/codex/runtime/delegation.mjs');
+  const { petFailure } = await import('../../../integrations/codex/skills/autopets/scripts/pet.mjs');
+  const catalog = JSON.parse(read('packages/contracts/data/pet-catalog.json'));
+  const noAstra = [{ model: 'gpt-6-luna', supportedReasoningEfforts: ['low'] }, { model: 'gpt-6-sol', supportedReasoningEfforts: ['low', 'medium'] }];
+  let error; try { availableProfile('plan', noAstra, catalog.find(e => e.template.planFirst).template); } catch (caught) { error = caught; }
+  const plan = petFailure(error);
+  assert.equal(plan.code, 'unavailable-delegation-profile'); assert.equal(plan.retrySubmission, false);
+  assert.match(plan.message, /계획 단계에 필요한 Astra · 높음/); assert.match(plan.message, /이번만 가볍게/);
+  try { availableProfile('careful', noAstra.slice(0, 1)); } catch (caught) { error = caught; }
+  assert.match(petFailure(error).message, /작업 방식을 "가볍게"로/);
+  assert.match(petFailure(Error('unavailable-delegation-profile')).message, /펫에 저장된 모델·강도/, 'works without details');
+});

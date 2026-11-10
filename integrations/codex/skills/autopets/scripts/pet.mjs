@@ -135,6 +135,17 @@ export async function runPet(args,env=process.env,deps={}) {
   }
   return verify(await call({operation:'report',target,expectedRevision,requestId,receipt}));
 }
+const EFFORT_LABELS={low:'낮음',medium:'보통',high:'높음',xhigh:'매우 높음'};
+function unavailableProfileMessage(requested) {
+  const valid=requested && typeof requested.model==='string' && /^[a-z0-9.-]+$/u.test(requested.model);
+  const name=valid?requested.model.replace(/^gpt-[\d.]+-/u,'').replace(/^./u,c=>c.toUpperCase()):'';
+  const setting=valid?`${name} · ${EFFORT_LABELS[requested.effort]??requested.effort}`:'펫에 저장된 모델·강도';
+  const stage=requested?.stage==='plan'?'계획 단계에 필요한':'이 작업에 필요한';
+  return `이 Codex 계정에서는 ${stage} ${setting} 설정을 쓸 수 없어 작업을 시작하지 않았어요. 다른 모델로 몰래 바꾸지 않았어요. `
+    +(requested?.stage==='plan'
+      ?'계획 없이 바로 만들려면 같은 채팅에 "이번만 가볍게: (할 일)"처럼 보내거나, AutoPets 앱에서 다른 펫을 골라 주세요.'
+      :'AutoPets 앱의 펫 설정에서 작업 방식을 "가볍게"로 바꾼 뒤 다시 요청해 주세요.');
+}
 export function petFailure(error) {
   const code=/^[a-z-]+$/u.test(error?.message??'')?error.message:'pet-connection-unavailable';
   const messages = {
@@ -144,6 +155,7 @@ export function petFailure(error) {
     'pet-run-active-or-unresolved':'기존 작업을 먼저 확인해 주세요. 새 작업만 막으려면 도움을 꺼주세요.',
   };
   if (messages[code]) return {ok:false,code,retrySubmission:false,message:messages[code]};
+  if (code==='unavailable-delegation-profile') return {ok:false,code,retrySubmission:false,message:unavailableProfileMessage(error.requested)};
   return {ok:false,code,retrySubmission:false,...(code==='slots-full'?{
     message:'펫 3개가 모두 연결돼 있어요. AutoPets에서 사용하지 않는 연결을 하나 해제한 뒤 다시 연결해 주세요. 기존 연결은 자동으로 바꾸지 않아요.',
   }:{})};

@@ -14,7 +14,7 @@
 
 앱에서 복사한 요청에 `petId=<ID>, petRevision=<정수>`가 있으면 `connect --pet <ID> --pet-revision <정수>`로 그 저장 펫 개정을 현재 채팅에 적용한다. 별도 설정 변경은 `apply-pet`에 같은 인수를 사용한다. 사용자 요청의 ID와 개정을 그대로 사용하고 임의로 최신 개정이나 다른 펫을 고르지 않는다. 재조회한 `link.savedPet`이 일치해야 적용 완료다. 오래된 개정이면 앱에서 시작 요청을 다시 복사하도록 안내한다. 연결과 계획을 함께 요청했다면 성공한 뒤 아래 절차로 `prepare --profile plan`을 한 번 수행한다. 연결만 요청했다면 AI 작업을 만들지 않는다. 하루 정리·여행·공부·홍보글처럼 `link.template.planFirst:false`인 펫의 결과 요청은 저장된 기본 프로필로 바로 한 번 수행한다. 웹페이지·발표자료처럼 `planFirst:true`인 펫은 계획부터 수행하고 명시적 제작 요청을 기다린다. 스킬 이름을 UI 제작으로 임의 대체하지 않는다. 발표자료는 HTML 슬라이드이며 PPTX가 아니다.
 
-`pet.mjs status`로 현재 설정을 읽는다. `settings --profile light|standard|careful|plan`은 사용자가 요청한 기본값 변경에만 사용한다. 기본 light=Luna/low, standard=Sol/low, careful=Sol/medium이다. plan은 저장한 펫의 계획 설정을 따른다(계획 우선 카탈로그 펫은 Astra/high, 기존·설정 없는 펫은 Luna/low). `prepare`가 반환한 `requestedModel`·`requestedEffort`를 그대로 사용하고, 모두 현재 가용 목록에서 확인돼야 한다. 가용하지 않으면 다른 모델로 바꾸지 않고 멈춘다. `disable`, `enable`, `disconnect`는 해당 채팅에만 적용한다.
+`pet.mjs status`로 현재 설정을 읽는다. `settings --profile light|standard|careful|plan`은 사용자가 요청한 기본값 변경에만 사용한다. 기본 light=Luna/low, standard=Sol/low, careful=Sol/medium이다. plan은 저장한 펫의 계획 설정을 따른다(계획 우선 카탈로그 펫은 Astra/high, 기존·설정 없는 펫은 Luna/low). `prepare`가 반환한 `requestedModel`·`requestedEffort`를 그대로 사용하고, 모두 현재 가용 목록에서 확인돼야 한다. 가용하지 않으면 다른 모델로 바꾸지 않고 멈추며, 실패 응답의 `message`를 사용자에게 그대로 전한다. `disable`, `enable`, `disconnect`는 해당 채팅에만 적용한다.
 
 ## 요청한 펫 작업 한 번
 
@@ -28,7 +28,7 @@
 
 계획 프로필은 계획을 제시하고 확인을 기다리라는 지침이다. 실제 Plan 모드 강제를 주장하지 않는다. 같은 채팅의 현재 펫 계획 직후 사용자가 “그대로 구현해줘”처럼 명시적으로 실행을 요청하면 펫 작업의 후속 요청으로 처리한다. `status`로 연결·도움·현재 계획을 다시 확인하고 저장된 기본 프로필로 새 작업을 한 번 준비한다. 이전 계획의 원문과 확정 조건만 전달한다. 계획·설정이 바뀌었거나 어떤 계획인지 불명확하면 이전 확인을 재사용하지 않는다. 자식 결과 반환이나 완료는 그 펫 작업의 결과이며 사용자 전체 목표 완료가 아니다.
 
-UI 제작 펫은 현재 기본 Luna/low로 시험한다. Figma 시안 활용은 `link.template.features.figmaDesign`이 켜져 있을 때만 적용한다. 사용자가 지정한 Figma 프레임과 현재 호스트의 공식 Figma 스킬·도구가 필요하다. 연결·인증이 필요하면 안내하고 시안 작업을 멈춘다. Figma를 사용하지 못한 채 사용했다고 표시하거나 Figma 원본을 수정하지 않는다. 스킬 읽기와 Figma 사용은 실행 완료와 별도로 확인되며, 함수명이나 모델의 자기 보고만으로 확인됨이라고 하지 않는다. 현재 중첩 도구 호출의 실제 반환 관계가 기록되지 않는 호스트에서는 Figma 사용 표시가 미확인일 수 있다.
+UI 제작 펫의 계획은 저장한 펫의 계획 설정(새 카탈로그 펫은 Astra/high), 구현은 선택한 작업 방식(기본 Luna/low)을 따른다. Figma 시안 활용은 `link.template.features.figmaDesign`이 켜져 있을 때만 적용한다. 사용자가 지정한 Figma 프레임과 현재 호스트의 공식 Figma 스킬·도구가 필요하다. 연결·인증이 필요하면 안내하고 시안 작업을 멈춘다. Figma를 사용하지 못한 채 사용했다고 표시하거나 Figma 원본을 수정하지 않는다. 스킬 읽기와 Figma 사용은 실행 완료와 별도로 확인되며, 함수명이나 모델의 자기 보고만으로 확인됨이라고 하지 않는다. 현재 중첩 도구 호출의 실제 반환 관계가 기록되지 않는 호스트에서는 Figma 사용 표시가 미확인일 수 있다.
 
 ## 상태 확인과 복구
 

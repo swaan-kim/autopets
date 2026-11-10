@@ -15,8 +15,9 @@ fn template(figma: bool) -> Template {
 fn report(target: &Target, revision: u64, receipt: Receipt) -> Request {
     Request::Report { target: target.clone(), expected_revision: revision, request_id: C.into(), receipt }
 }
-fn runtime() -> Receipt {
-    Receipt::Runtime { parent_id: A.into(), child_id: B.into(), turn_id: C.into(), model: "gpt-6-luna".into(), effort: "low".into(), completed: true }
+fn runtime() -> Receipt { runtime_with("gpt-6-luna", "low") }
+fn runtime_with(model: &str, effort: &str) -> Receipt {
+    Receipt::Runtime { parent_id: A.into(), child_id: B.into(), turn_id: C.into(), model: model.into(), effort: effort.into(), completed: true }
 }
 
 #[test]
@@ -42,13 +43,17 @@ fn saved_ui_pet_applies_to_exact_target_and_snapshots_do_not_follow_edits() {
     let prepared = store.pet_link_request(Request::Prepare { target: a.clone(), expected_revision: 2, request_id: C.into(), profile: Profile::Plan }).unwrap().unwrap();
     assert_eq!(prepared.run.as_ref().unwrap().template.as_ref(), Some(&saved.template));
     assert_eq!(prepared.run.as_ref().unwrap().saved_pet, applied.saved_pet);
+    // The UI pet's own planning setting drives the plan stage (Astra·high), not the Light default.
+    let plan_run = prepared.run.as_ref().unwrap();
+    assert_eq!((plan_run.model.as_str(), plan_run.effort.as_str()), ("gpt-6-astra", "high"));
+    let plan_receipt = runtime_with(&plan_run.model, &plan_run.effort);
     assert_eq!(store.pet_link_request(apply(2, 1)).unwrap_err(), "pet-run-active-or-unresolved");
     let mut edited = saved.template.clone(); edited.name = "명시적으로 바꾼 펫".into(); edited.features.figma_design = false;
     store.save_pet(Some(saved.id.clone()), 1, edited.clone()).unwrap();
     let unchanged = store.pet_link_request(Request::Read { target: a.clone() }).unwrap().unwrap();
     assert_eq!(unchanged.template, saved.template);
     assert_eq!(unchanged.run.unwrap().template, Some(saved.template.clone()));
-    store.pet_link_request(report(&a, 2, runtime())).unwrap();
+    store.pet_link_request(report(&a, 2, plan_receipt)).unwrap();
     let waiting = store.pet_link_request(report(&a, 2, Receipt::Returned)).unwrap().unwrap();
     assert_eq!(waiting.run.unwrap().state, RunState::Waiting);
     let replaced = store.pet_link_request(apply(2, 2)).unwrap().unwrap();
