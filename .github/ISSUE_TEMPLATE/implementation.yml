@@ -1,42 +1,42 @@
 name: 개선 작업
-description: 한 작업·한 담당자·한 브랜치와 PR로 공유합니다. 작은 개선은 먼저 만들어 보고 판단합니다.
+description: 어떤 불편을 줄이고 싶은지 알려 주세요. 한 사람이 한 작업을 맡고, 작은 개선부터 함께 확인해요.
 body:
   - type: textarea
     id: outcome
     attributes:
-      label: 문제와 원하는 결과
-      description: 누구의 어떤 불편을 줄이는지 한두 문장으로 적으세요.
+      label: 왜 필요한가요?
+      description: 누가 어떤 상황에서 불편한지, 바뀌면 무엇이 나아지는지 두세 문장으로 적어 주세요.
     validations:
       required: true
   - type: input
     id: owner
     attributes:
       label: 이번 담당자
-      description: 작업 책임자 한 명의 GitHub 아이디. 검토자는 PR에서 다른 사람으로 정합니다.
+      description: 이번 작업을 맡는 한 사람의 GitHub 아이디를 적어 주세요. 검토자는 PR에서 다른 사람으로 정해요.
       placeholder: "@담당자"
     validations:
       required: true
   - type: textarea
     id: scope
     attributes:
-      label: 수정 범위
-      description: 맡을 화면·파일과 다른 작업에 겹치는 부분을 적으세요. 고정 직책이 아닌 이번 작업의 범위입니다.
+      label: 이번에 바꿀 내용
+      description: 사용자의 이용 순서와 바꿀 화면·파일을 적어 주세요. 이번에 하지 않을 일과 다른 작업에 겹치는 부분도 알려 주세요.
     validations:
       required: true
   - type: textarea
     id: dependencies
     attributes:
-      label: 선행 작업과 관문
-      description: 관련 Issue·PR, 충돌 가능성, 큰 구조 결정이 필요하면 논의 결과를 연결하세요. 없으면 없음.
+      label: 먼저 확인할 작업
+      description: 최신 main과 열린 PR을 확인하고 관련 Issue·PR을 연결해 주세요. 겹치는 작업이나 먼저 논의할 결정이 있으면 진행 순서와 함께 적어요.
   - type: textarea
     id: acceptance
     attributes:
-      label: 검수 기준
-      description: 사용자가 확인할 동작과 전후 비교 조건. 실제 실행·합성 검사·디자인 예시를 구분하세요.
+      label: 어떻게 확인할까요?
+      description: 어떤 순서로 사용해 보고 무엇이 달라지면 되는지 적어 주세요. 실제 앱 사용, 가상 상태의 자동 검사, 디자인 예시를 구분해요.
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
-      label: 근거와 남은 제한
-      description: Agentation 의견은 요소 ID·요청·익명화한 이미지로 요약하세요. 채팅 본문·개인 경로·인증 정보는 첨부하지 마세요.
+      label: 참고 자료와 남은 점
+      description: 비교 화면이나 관련 자료, 아직 모르는 점과 선택의 장단점을 알려 주세요. Agentation 의견은 대상 요소와 요청을 요약하고 개인정보·대화·인증 정보는 빼 주세요.
