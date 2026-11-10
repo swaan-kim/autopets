@@ -169,12 +169,14 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     : target && unresolvedPetRun(target) ? '진행 중인 펫 작업을 먼저 확인해 주세요.' : '';
   const invalidateRequest = () => { setPrompt(''); setNotice(''); setCopied(false); setManualCopy(false); setHandoff(null); };
   const editDraft = (next: PetRoleTemplate) => { setApplied(null); setDraft(next); setDirty(true); invalidateRequest(); };
-  const run = async (operation: () => Promise<void>, isCurrent = () => mounted.current) => {
+  // keepRequest: copying keeps the confirmed request on screen, but a failure still clears it.
+  const run = async (operation: () => Promise<void>, isCurrent = () => mounted.current, keepRequest = false) => {
     if (working.current) return;
-    working.current = true; setBusy(true); setError(''); invalidateRequest();
+    working.current = true; setBusy(true); setError(''); if (!keepRequest) invalidateRequest();
     try { await operation(); }
     catch (cause) {
       if (!isCurrent()) return;
+      if (keepRequest) invalidateRequest();
       const value = String(cause);
       const changed = /revision|stale|conflict/.test(value);
       const savedChanged = /saved[- ]pet.*(?:revision|stale|changed|not-found)/i.test(value);
@@ -213,7 +215,16 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
       setNotice([explicitSetupReady(result) ? 'Codex 연결 준비됨' : '연결 설정을 확인해 주세요.', ...(result.warnings ?? [])].join(' '));
     });
   };
-  const saveAndCopy = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); await copy(uiPetStartPrompt(pet, task, { audience, message, newTask }), pet); });
+  // '확인' saves and verifies the pet as copying used to, then only shows the request below.
+  // It never copies or sends. Any later edit clears it (invalidateRequest), so it must be confirmed again.
+  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask })); });
+  // Copy re-checks the saved pet and copies only the request that is on screen.
+  const copyRequest = () => run(async () => {
+    if (!prompt || !task.trim()) throw Error('request not confirmed');
+    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
+    await copy(value, pet);
+  }, undefined, true);
   const saveToLibrary = () => {
     const scope = { key: draftKey.current, view, navigationRevision };
     const stillHere = () => mounted.current && currentContext.current.open && currentContext.current.active
@@ -385,8 +396,8 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
         {recommendedDraft.current?.key === draftKey.current && <section className="composer-recommended-request" data-agent-id="pet-selection.composer.recommended-request" aria-label="Codex에서 받은 요청">
           <small>Codex 채팅 · {recommendedDraft.current.chat.slice(-8)}에서 보낸 요청</small><p>{task}</p>
           {links.some(link => link.target.threadId === recommendedDraft.current?.chat)
-            ? <small>이 채팅에 펫을 적용한 뒤 같은 채팅에 “{entry.name} 펫으로 방금 요청한 일 진행해줘”라고 보내면 시작해요. 요청을 고쳤다면 ‘직접 요청’에서 시작 요청을 복사해 보내 주세요.</small>
-            : <small>이 채팅은 아직 펫과 연결되지 않았어요. ‘직접 요청’에서 시작 요청을 복사해 같은 채팅에 보내면 {entry.name} 펫이 연결되고 이 요청을 진행해요.</small>}
+            ? <small>이 채팅에 펫을 적용한 뒤 같은 채팅에 “{entry.name} 펫으로 방금 요청한 일 진행해줘”라고 보내면 시작해요. 요청을 고쳤다면 ‘직접 요청’에서 확인한 뒤 시작 요청을 복사해 보내 주세요.</small>
+            : <small>이 채팅은 아직 펫과 연결되지 않았어요. ‘직접 요청’에서 확인한 뒤 시작 요청을 복사해 같은 채팅에 보내면 {entry.name} 펫이 연결되고 이 요청을 진행해요.</small>}
         </section>}
         {links.length > 0 ?<section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
           <label className="ui-pet-select">Codex 채팅<select data-agent-id="pet-selection.composer.target.select" aria-label="UI 펫을 적용할 채팅" value={selectedTarget} disabled={disabled} onChange={event => { setSelectedTarget(event.target.value); setApplied(null); setNotice(''); setError(''); }}>
@@ -428,10 +439,16 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
         <label className="composer-task">{entry.inputLabel}<textarea aria-label="펫에게 맡길 일" rows={4} maxLength={1200} disabled={busy} value={task} placeholder={entry.example} onChange={event => { setTask(event.target.value); invalidateRequest(); }} /></label>
         <button className="text-button composer-example" disabled={busy} onClick={() => { setTask(entry.example); invalidateRequest(); }}>예시로 시작</button>
         {entry.id === 'ui-webpage' && <section className="composer-brief"><label>보는 사람<input aria-label="페이지를 볼 사람" value={audience} maxLength={160} disabled={busy} onChange={event => { setAudience(event.target.value); invalidateRequest(); }} /></label><label>꼭 알릴 내용<input aria-label="꼭 알릴 내용" value={message} maxLength={160} disabled={busy} onChange={event => { setMessage(event.target.value); invalidateRequest(); }} /></label></section>}
-        <div className="composer-action composer-copy-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndCopy()}>{busy ? '준비하는 중…' : copied && !stale ? '시작 요청 다시 복사' : '시작 요청 복사'}<span aria-hidden="true">{copied && !stale ? '✓' : '↗'}</span></button></div>
+        <div className="composer-action composer-confirm-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '확인'}<span aria-hidden="true">↓</span></button></div>
+        {prompt && !stale && <>
+          {/* Opens on every new confirmation (key); the user may still fold it. */}
+          <details key={`${prompt}:${manualCopy}`} className="composer-detail composer-request-check" open><summary>Codex에 보낼 요청 확인</summary>
+            <label className="composer-request-result">시작 요청<textarea ref={promptField} aria-label="Codex에 보낼 시작 요청" readOnly rows={6} value={prompt} onFocus={event => event.currentTarget.select()} /></label>
+          </details>
+          <div className="composer-action composer-copy-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void copyRequest()}>{busy ? '복사하는 중…' : copied ? '시작 요청 다시 복사' : '시작 요청 복사'}<span aria-hidden="true">{copied ? '✓' : '↗'}</span></button></div>
+        </>}
         {destinations.length > 0 && <section className="composer-destinations" data-next={copied && !stale} aria-label="등록된 Codex 채팅">{destinations.map(link => <div key={targetKey(link)}><small>{link.target.cwd.split(/[\\/]/).pop()} · {link.target.threadId.slice(-8)}</small><PetTaskReturn link={link} disconnected={disconnected} /></div>)}</section>}
         {newRecords.length > 0 && <p className="composer-observed" role="status">새 작업 기록을 채팅에서 확인해 주세요.</p>}
-        {prompt && !stale && <label className="composer-request-result">시작 요청<textarea ref={promptField} aria-label="Codex에 보낼 시작 요청" readOnly rows={6} value={prompt} onFocus={event => event.currentTarget.select()} /></label>}
       </section>
     </dialog>
   </section>}</>;

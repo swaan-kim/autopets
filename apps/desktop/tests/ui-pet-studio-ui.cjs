@@ -43,6 +43,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await chooseRole(page, entry.name);
     await openCopy(flow);
     assert.ok((await input.inputValue()).endsWith('한글 추가 조건'));
+    await flow.getByRole('button', { name: '확인', exact: true }).click();
+    assert.ok((await flow.getByLabel('Codex에 보낼 시작 요청', { exact: true }).inputValue()).includes('한글 추가 조건'));
     await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
     await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
     const actual = await page.evaluate(() => ({ pet: window.__uiTest.roles.pets[0], prompt: window.__uiTest.clipboard, links: window.__uiTest.state.petLinks, calls: window.__uiTest.calls }));
@@ -103,20 +105,25 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByRole('radio',{name:'꼼꼼하게',exact:true}).check();
   await flow.getByRole('radio',{name:'표준',exact:true}).check();
   await openCopy(flow);
-  await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).waitFor();
+  await flow.getByRole('button',{name:'확인',exact:true}).waitFor();
   await page.evaluate(()=>{window.__uiTest.savePetError='fixture save unavailable';});
-  await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
+  await flow.getByRole('button',{name:'확인',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor(); assert.equal(await page.evaluate(()=>window.__uiTest.roles.pets.length),1);
+  assert.equal(await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).count(),0,'a failed confirmation offers nothing to copy');
   await page.evaluate(()=>{window.__uiTest.savePetError=null;window.__uiTest.holdSavePet=true;});
-  await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).evaluate(b=>{b.click();b.click();});
+  await flow.getByRole('button',{name:'확인',exact:true}).evaluate(b=>{b.click();b.click();});
   await page.waitForFunction(()=>typeof window.__uiTest.releaseSavePet==='function'); assert.equal(await count('save_pet'),3);
   await page.evaluate(()=>{window.__uiTest.holdSavePet=false;window.__uiTest.releaseSavePet();});
+  await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
   await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.',{exact:true}).waitFor();
+  assert.equal(await count('save_pet'),3,'copying a confirmed request does not save again');
   assert.ok((await page.evaluate(()=>window.__uiTest.clipboard)).includes('petRevision=2'));
   await showMore(flow);
   await flow.getByRole('checkbox',{name:'Figma 시안 활용',exact:true}).check();
   await openCopy(flow);
+  assert.equal(await flow.getByRole('button',{name:'시작 요청 다시 복사',exact:true}).count(),0,'a settings change clears the confirmed request');
   await page.evaluate(()=>{window.__uiTest.clipboardError=true;});
+  await flow.getByRole('button',{name:'확인',exact:true}).click();
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click(); await flow.getByText(/자동 복사가 되지 않았어요/).waitFor();
   const prompt=flow.getByLabel('Codex에 보낼 시작 요청',{exact:true});
   assert.equal(await prompt.isVisible(),true); assert.ok((await prompt.inputValue()).includes('petRevision=3')); assert.ok((await prompt.inputValue()).includes('프레임 링크'));
@@ -141,6 +148,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await flow.getByLabel('저장한 구성',{exact:true}).evaluate(el=>document.activeElement===el),true,'recovery focuses latest saved configuration');
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('ui-pet-0');
   await openCopy(flow);
+  await flow.getByRole('button',{name:'확인',exact:true}).click();
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click(); await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.',{exact:true}).waitFor();
   assert.ok((await page.evaluate(()=>window.__uiTest.clipboard)).includes('petRevision=4'));
   await page.evaluate(uiTemplate=>{
@@ -179,11 +187,14 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('unsupported');
   await openCopy(flow);
   await flow.getByRole('alert').filter({hasText:'사용할 수 없는 작업 설정이에요'}).waitFor();
-  assert.equal(await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).isDisabled(),true);
+  assert.equal(await flow.getByRole('button',{name:'확인',exact:true}).isDisabled(),true);
   await showMore(flow);
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('ui-pet-0');
   await openCopy(flow);
   const prior=await page.evaluate(()=>window.__uiTest.clipboard);
+  // Copy re-verifies the confirmed request; an unreadable host clears it without copying.
+  await flow.getByRole('button',{name:'확인',exact:true}).click();
+  await flow.getByLabel('Codex에 보낼 시작 요청',{exact:true}).waitFor();
   await page.evaluate(()=>{
     const invoke=window.__TAURI_INTERNALS__.invoke;let once=true;
     window.__TAURI_INTERNALS__.invoke=async(name,args)=>{if(name==='roles_snapshot'&&once){once=false;return null;}return invoke(name,args);};
@@ -191,6 +202,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor();
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),prior);
+  assert.equal(await flow.getByLabel('Codex에 보낼 시작 요청',{exact:true}).count(),0);
   await showMore(flow);
   await flow.getByRole('radio',{name:'꼼꼼하게',exact:true}).check();
   await openCopy(flow);
@@ -198,7 +210,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const invoke=window.__TAURI_INTERNALS__.invoke;
     window.__TAURI_INTERNALS__.invoke=async(name,args)=>{const value=await invoke(name,args);if(name==='save_pet')window.__uiTest.roles.pets.find(p=>p.id===value.id).revision++;return value;};
   });
-  await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
+  await flow.getByRole('button',{name:'확인',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'저장한 펫이 다른 곳에서 바뀌었어요'}).waitFor();
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),prior);
   assert.equal(await flow.getByLabel('Codex에 보낼 시작 요청',{exact:true}).count(),0);

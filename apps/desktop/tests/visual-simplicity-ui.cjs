@@ -43,6 +43,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.equal(await composer.locator('.result-preview').count(), 0);
   assert.equal(await composer.locator('.composer-settings').isVisible(), false);
   await capture('composer');
+  await composer.getByRole('button', { name: '확인', exact: true }).click();
   await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   await composer.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
   assert.ok((await page.evaluate(() => window.__uiTest.clipboard)).includes('일정과 신청 안내, 모바일 화면을 포함해줘.'));
