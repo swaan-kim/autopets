@@ -131,3 +131,18 @@ test('long MCP sessions do not expire by message count and wait for a slow host 
   assert.equal(replies.at(-1).id, 601);
   assert.equal(reads, 0, 'health checks never read the app or its connection file');
 });
+
+test('stdio answers hosts whose stdin only emits data events and whose write returns nothing', async () => {
+  const { EventEmitter } = await import('node:events');
+  const input = new EventEmitter();
+  const written = [];
+  const output = { write: text => { written.push(JSON.parse(text)); } };
+  const done = runStdio({ input, output, session: createSession({ library: async () => ({ pets: [], nextOffset: null }) }) });
+  input.emit('data', Buffer.from(`${JSON.stringify({ ...initialize, params: { ...initialize.params, protocolVersion: '2025-11-25' } })}\r\n${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n{"jsonrpc":"2.0","id":2,"method":"tools/li`));
+  input.emit('data', 'st"}\n');
+  input.emit('end');
+  await done;
+  assert.deepEqual(written.map(message => message.id), [1, 2]);
+  assert.equal(written[0].result.protocolVersion, '2025-11-25');
+  assert.equal(written[1].result.tools.length, 2);
+});
