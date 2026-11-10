@@ -15,3 +15,12 @@ export interface PetLink {
     template?: PetRoleTemplate | null; savedPet?: SavedPetReference | null;
     skillEvidence?: PetSkillReference[]; figmaUsed?: boolean };
 }
+/** One existing catalog pet suggested for a request sent in a connected Codex chat. */
+export interface PetRecommendationCandidate { petId: string; reason: string; cues: string[] }
+/** In-memory app state; `request` is the user's own message, kept only for prefill. */
+export interface PetRecommendation {
+  id: string; target: PetLink['target']; turnId: string; source: 'hook' | 'skill';
+  state: 'preparing' | 'shown' | 'accepted' | 'dismissed' | 'running';
+  request: string | null; requestTruncated: boolean; candidates: PetRecommendationCandidate[];
+  acceptedPetId: string | null; createdAt: number; updatedAt: number;
+}

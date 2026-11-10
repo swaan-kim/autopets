@@ -14,6 +14,7 @@ pub fn now_ms() -> u64 {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub pet_links: Vec<super::pet_link::Link>,
+    pub pet_recommendations: Vec<super::recommendation::Recommendation>,
     pub sessions: Vec<Session>,
     pub slots: Vec<Slot>,
     pub approvals: Vec<Approval>,

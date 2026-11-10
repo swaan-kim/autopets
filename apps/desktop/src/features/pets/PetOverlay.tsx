@@ -22,14 +22,16 @@ import { PetQuickCard } from './PetQuickCard';
 import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet';
 import { companionState, companionRunKey } from './companionMotion';
 import { CompanionPet } from './CompanionPet';
+import { PetRecommendationCard, recommendationStatus, visibleRecommendation } from './PetRecommendation';
 
-function UnassignedPetButton({ index, expanded, onToggle }: { index: number; expanded: boolean; onToggle: () => void }) {
+function UnassignedPetButton({ index, expanded, onToggle, recommended = false }: { index: number; expanded: boolean; onToggle: () => void; recommended?: boolean }) {
   const [interaction, setInteraction] = useState(0);
   const react = () => setInteraction(value => value + 1);
-  return <button className="pet-hit" aria-expanded={expanded} aria-label={`${PET_NAMES[index]} · 작업 카드 열기`} onClick={onToggle}
+  return <button className="pet-hit" aria-expanded={expanded} aria-label={`${PET_NAMES[index]} · 작업 카드 열기${recommended ? ' · 펫 추천 있음' : ''}`} onClick={onToggle}
     onPointerDown={event => { if (event.button === 0) react(); }}
     onKeyDown={event => { if (!event.repeat && (event.key === 'Enter' || event.key === ' ')) react(); }}>
     <span className="overlay-idle-pet"><CompanionPet state="idle" interaction={interaction} /></span>
+    {recommended && <span className="pet-recommendation-dot below-menu" aria-hidden="true">추천</span>}
   </button>;
 }
 
@@ -80,11 +82,15 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   if (explicit) {
     const active = explicit.connected && !disconnected && !explicit.run?.trackingClosed && (explicit.enabled || Boolean(explicit.run));
     const state = active ? explicit.run?.state : undefined;
+    // A recommendation for this chat only changes the pet's badge and text; it never takes focus.
+    const recommendation = visibleRecommendation(snapshot, explicit.target.threadId);
+    const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
+    const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
-      {expanded && <div className="quick-card-stack"><div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
+      {expanded && <div className="quick-card-stack">{offered && <PetRecommendationCard item={offered} compact />}<div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
-        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} /></button>
-        <span className="floating-label">{explicit.template.name} · Codex</span><span className="floating-status" title={explicitPetStatus(explicit, disconnected)}>{explicitPetStatus(explicit, disconnected)}</span>
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}</button>
+        <span className="floating-label">{explicit.template.name} · Codex</span><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span>
       </div></div>;
   }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'
@@ -96,8 +102,12 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     : workflowTask && !workflowTask.enabled ? '이번 채팅의 자동 도움은 꺼져 있어요'
     : helpTask && (!assistance.snapshot.preferences.enabled || !helpTask.enabled) ? '이번 채팅의 자동 도움은 꺼져 있어요'
     : session ? currentAction(session) : '함께할 작업을 기다려요';
+  // The chat that started the app with `$autopets` and has no pet yet ("채팅 연결 대기"): its
+  // recommendation is the only one without a link, and it is shown on the first, unassigned pet.
+  const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
+    !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
   return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
-    {expanded && <div className="quick-card-stack"><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
+    {expanded && <div className="quick-card-stack">{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
@@ -125,9 +135,11 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
       {session ? <button className="pet-hit" aria-expanded={expanded} aria-label={`${session.label} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
-        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} />}
+        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} recommended={waitingRecommendation?.state === 'shown'} />}
       {session && <McpProp session={session} disconnected={disconnected} />}
-      <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span><span className={`floating-status ${view.kind}`} title={help}>{help}</span>
+      <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span>
+      {waitingRecommendation ? <span className="floating-status recommend" title={recommendationStatus(waitingRecommendation)}>{recommendationStatus(waitingRecommendation)}</span>
+        : <span className={`floating-status ${view.kind}`} title={help}>{help}</span>}
     </div>
   </div>;
 }

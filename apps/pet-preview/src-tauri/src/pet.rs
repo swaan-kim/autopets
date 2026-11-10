@@ -53,6 +53,7 @@ pub fn serve(action: String, nonce: String, host: crate::host::HostInfo) {
         .manage(crate::bubble::SharedBubble::default())
         .manage(crate::features::Session::default())
         .manage(crate::slides::Jobs::default())
+        .manage(crate::recommend::SharedRecommend::default())
         .invoke_handler(tauri::generate_handler![
             pet_ready,
             pet_focus,
@@ -69,7 +70,10 @@ pub fn serve(action: String, nonce: String, host: crate::host::HostInfo) {
             crate::slides::pet_slides_status,
             crate::slides::pet_slides_open,
             crate::slides::pet_chat_status,
-            crate::slides::pet_checkpoint_answer
+            crate::slides::pet_checkpoint_answer,
+            crate::recommend::pet_recommendation_get,
+            crate::recommend::pet_recommendation_respond,
+            crate::recommend::pet_dog_art
         ])
         .on_window_event(|window, event| {
             if window.label() == LABEL && matches!(event, tauri::WindowEvent::Destroyed) {

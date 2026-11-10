@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot } from '@autopets/contracts/types';
+import type { PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
 import { petCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { command, isDesktop } from '../../bridge/command';
@@ -11,6 +11,7 @@ import { unresolvedPetRun } from './ExplicitPet';
 import { FavoriteButton } from './PetIntroduction';
 import { PetSkillSource } from './PetSkillSource';
 import { PetPreferencesConnector } from '../onboarding/PetPreferencesConnector';
+import { PetRecommendationCard } from './PetRecommendation';
 
 import { usePetFavorites } from './usePetFavorites';
 import './ui-pet-studio.css';
@@ -54,7 +55,7 @@ export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: Ta
   ...(task.trim() === EXAMPLE_TASK ? ['이 예시에는 실제 개인정보 대신 가상 내용을 사용하고, 구현할 때는 새 autopets-demo 폴더를 사용하되 기존 파일이 있으면 먼저 알려줘.'] : []),
 ].join('\n');
 
-export function UiPetStudio({ links, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
+export function UiPetStudio({ links, recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
   const library = useRoles();
   const favorites = usePetFavorites();
   const [open, setOpen] = useState(false);
@@ -234,21 +235,21 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
   function remember() {
     drafts.current[draftKey.current] = { task, audience, message, draft: structuredClone(draft), saved, dirty, prompt, copied, manualCopy, notice, handoff, reuseTarget, newTask };
   }
-  const enter = (key: string, value: ComposerDraft) => {
+  const enter = (key: string, value: ComposerDraft, targetOverride?: string) => {
     setPanel(null);
     draftKey.current = key;
     setDraft(structuredClone(value.draft)); setSaved(value.saved); setDirty(value.dirty); setStaleSaved(false); setError('');
     setTask(value.task); setAudience(value.audience); setMessage(value.message); setPrompt(value.prompt); setCopied(value.copied);
     setManualCopy(value.manualCopy); setNotice(value.notice); setHandoff(value.handoff); setReuseTarget(value.reuseTarget); setNewTask(value.newTask);
     const available = disconnected ? [] : links.filter(link => link.connected && link.enabled && !unresolvedPetRun(link));
-    setSelectedTarget(value.reuseTarget ? JSON.stringify([value.reuseTarget.sourceId, value.reuseTarget.threadId, value.reuseTarget.cwd])
-      : available.length === 1 ? targetKey(available[0]) : '');
+    setSelectedTarget(targetOverride ?? (value.reuseTarget ? JSON.stringify([value.reuseTarget.sourceId, value.reuseTarget.threadId, value.reuseTarget.cwd])
+      : available.length === 1 ? targetKey(available[0]) : ''));
     setApplied(null);
     selectionButton.current = document.activeElement as HTMLElement; setOpen(true);
   };
   const freshDraft = (next: PetCatalogEntry, item: SavedPet | null = null): ComposerDraft => ({ task: next.example, audience: '', message: '',
     draft: structuredClone(item?.template ?? next.template), saved: item, dirty: !item, prompt: '', copied: false, manualCopy: false, notice: '', handoff: null, reuseTarget: null, newTask: false });
-  const selectEntry = (next: PetCatalogEntry, request?: string) => {
+  const selectEntry = (next: PetCatalogEntry, request?: string, targetOverride?: string) => {
     listScroll.current = window.scrollY;
     selectionChat.current = null;
     remember();
@@ -259,12 +260,46 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
         key = `home:${homeDraftKeys.current.size}:${next.id}`;
         homeDraftKeys.current.set(identity, key);
       }
-      enter(key, drafts.current[key] ?? { ...freshDraft(next), task: request });
-    } else {
-      const key = `role:${next.id}`;
-      enter(key, drafts.current[key] ?? freshDraft(next));
+      enter(key, drafts.current[key] ?? { ...freshDraft(next), task: request }, targetOverride);
+      return key;
     }
+    const key = `role:${next.id}`;
+    enter(key, drafts.current[key] ?? freshDraft(next), targetOverride);
+    return key;
   };
+  // Recommendation hand-off: the chat request becomes this pet's draft and its chat is preselected.
+  // Nothing is applied or sent; the user continues with the existing composer buttons.
+  const [browsing, setBrowsing] = useState<PetRecommendation | null>(null);
+  const recommendedDraft = useRef<{ key: string; chat: string } | null>(null);
+  const recommendationTarget = (item: PetRecommendation) => {
+    const key = JSON.stringify([item.target.sourceId, item.target.threadId, item.target.cwd]);
+    return links.some(link => targetKey(link) === key) ? key : undefined;
+  };
+  const openRecommended = (item: PetRecommendation, next: PetCatalogEntry) => {
+    if (!item.request) return;
+    setBrowsing(null);
+    recommendedDraft.current = { key: selectEntry(next, item.request, recommendationTarget(item)), chat: item.target.threadId };
+  };
+  const chooseEntry = (next: PetCatalogEntry, request?: string) => {
+    if (!browsing || request) { selectEntry(next, request); return; }
+    const item = browsing;
+    // A catalog pet is recorded as the user's own choice; the app event then opens its composer.
+    if (isDesktop && petCatalog.some(entry => entry.id === next.id)) {
+      void command('respond_pet_recommendation', { id: item.id, response: { action: 'accept', petId: next.id, other: true } }).catch(() => openRecommended(item, next));
+    } else openRecommended(item, next);
+  };
+  // Runs after the navigation reset above, so the composer opens on the requested pet.
+  useEffect(() => {
+    if (!recommendationOpen) return;
+    const item = recommendations.find(entry => entry.id === recommendationOpen.id);
+    if (!item?.request) return;
+    if (!recommendationOpen.petId) { setBrowsing(item); return; }
+    const next = petCatalog.find(entry => entry.id === recommendationOpen.petId);
+    if (next) openRecommended(item, next);
+  }, [recommendationOpen?.nonce]);
+  useEffect(() => { if (browsing && !recommendations.some(item => item.id === browsing.id)) setBrowsing(null); }, [browsing, recommendations]);
+  // The app only keeps recommendations for linked chats and the chat waiting after `$autopets`.
+  const shownRecommendations = recommendations.filter(item => item.state === 'shown');
   const openSaved = (item: SavedPet) => {
     const next = catalogFor(item.template); if (!next) return;
     selectionChat.current = null;
@@ -332,7 +367,10 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
     {!routingSupported && <p className="error" role="alert">사용할 수 없는 작업 설정이에요. 펫 설정에서 바꿔주세요.</p>}
     {(savedChanged || error || library.error || favorites.error) && <div ref={feedback} className="composer-feedback error" role="alert"><p>{error || library.error || favorites.error || '저장한 펫이 바뀌었어요. 최신 구성을 선택해 주세요.'}</p>{stale && <button className="text-button" onClick={focusSavedConfiguration}>구성 다시 선택</button>}</div>}
   </>;
-  return <><div hidden={open}><PetWorkspace view={view} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={selectEntry} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="pet-composer" data-agent-scope="pet-selection" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
+  return <><div hidden={open}>
+    {browsing && (view === 'catalog' || view === 'saved') && <div className="pet-recommendation-banner" role="status" data-agent-id="pet-selection.recommendation-banner"><p>Codex 요청 “{browsing.request && browsing.request.length > 60 ? `${browsing.request.slice(0, 60)}…` : browsing.request}”에 쓸 펫을 골라 주세요.</p><button className="text-button" onClick={() => setBrowsing(null)}>요청 없이 둘러보기</button></div>}
+    {(view === 'home' || view === 'pets') && shownRecommendations.map(item => <PetRecommendationCard key={item.id} item={item} linked={links.some(link => link.target.threadId === item.target.threadId)} />)}
+    <PetWorkspace view={view} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="pet-composer" data-agent-scope="pet-selection" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
     <header className="composer-top">
       <button data-agent-id="pet-selection.composer.back" className="text-button" disabled={busy} onClick={close}>← 돌아가기</button>
       <button className="composer-settings-button" data-agent-id="pet-selection.composer.settings" disabled={busy} onClick={() => showPanel('settings')} aria-label="펫 설정">⚙</button>
@@ -344,7 +382,13 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
         <FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} />
       </header>
       <div className="composer-main">
-        {links.length > 0 ? <section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
+        {recommendedDraft.current?.key === draftKey.current && <section className="composer-recommended-request" data-agent-id="pet-selection.composer.recommended-request" aria-label="Codex에서 받은 요청">
+          <small>Codex 채팅 · {recommendedDraft.current.chat.slice(-8)}에서 보낸 요청</small><p>{task}</p>
+          {links.some(link => link.target.threadId === recommendedDraft.current?.chat)
+            ? <small>이 채팅에 펫을 적용한 뒤 같은 채팅에 “{entry.name} 펫으로 방금 요청한 일 진행해줘”라고 보내면 시작해요. 요청을 고쳤다면 ‘직접 요청’에서 시작 요청을 복사해 보내 주세요.</small>
+            : <small>이 채팅은 아직 펫과 연결되지 않았어요. ‘직접 요청’에서 시작 요청을 복사해 같은 채팅에 보내면 {entry.name} 펫이 연결되고 이 요청을 진행해요.</small>}
+        </section>}
+        {links.length > 0 ?<section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
           <label className="ui-pet-select">Codex 채팅<select data-agent-id="pet-selection.composer.target.select" aria-label="UI 펫을 적용할 채팅" value={selectedTarget} disabled={disabled} onChange={event => { setSelectedTarget(event.target.value); setApplied(null); setNotice(''); setError(''); }}>
             <option value="">채팅 선택</option>{links.map(link => <option key={targetKey(link)} value={targetKey(link)}>{link.target.cwd.split(/[\\/]/).filter(Boolean).pop()} · {link.target.threadId.slice(-8)}{!link.connected ? ' · 연결 확인 필요' : !link.enabled ? ' · 도움 꺼짐' : unresolvedPetRun(link) ? ' · 작업 확인 필요' : ''}</option>)}
           </select></label>

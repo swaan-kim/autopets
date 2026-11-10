@@ -68,6 +68,7 @@ node apps/pet-preview/scripts/install.mjs
     - 완료 판정이 추가로 보는 것: 전달된 구성안 결정이 있는지, HTML이 그 결정 **이후에** 만들어졌는지, 열린 질문이 없는지. 고른 구성안의 슬라이드 제목이 결과에 몇 개 들어갔는지(`outlineMatch`)도 펫과 `done` 출력에 표시한다. 질문에 답하기 전에 턴이 끝나면 질문을 취소하고 이유를 표시한다.
     - Codex 자체 기능을 쓰지 않은 이유: Codex 0.166의 `request_user_input`은 실험 기능이고 Plan 모드에서만 켜진다(`default_mode_request_user_input` 꺼짐). 그 질문과 승인 요청, MCP elicitation은 모두 그 채팅을 가진 Codex 창이 답하는 것이라 펫이 받을 수 없다.
   - 승인: `show`·`wait`·`ask`·`done`·`fail`은 데스크톱 펫과 통신해야 하므로 Codex의 샌드박스 밖 실행 승인이 필요하다(사용자 설정의 승인 방식을 따른다). 펫은 승인에 관여하지 않는다.
+- 펫 추천(자동): 이 펫을 부른 채팅(`ownerThread`)에서 사용자가 메시지를 보내면, AutoPets의 Codex `UserPromptSubmit` 훅(`integrations/codex/hooks/recommend-hook.mjs`)이 그 메시지를 로컬 규칙으로 분류해 기존 AutoPets 강아지 펫(`pet-catalog.json`) 중 맞는 것을 최대 2개 `autopet-preview.exe recommend`로 펫에 전달한다. 펫은 포커스 없이 말풍선에 강아지 이미지·이름·이유와 [이 펫 사용하기 / 다른 펫 보기 / 닫기]를 띄운다(`src-tauri/src/recommend.rs`, `ui/recommend/`). '이 펫 사용하기'는 그 펫의 기존 설정을 열고 Codex 요청을 주제로 채울 뿐 실행하지 않는다(발표자료 외 펫은 '준비 중' 안내). 다른 채팅·같은 턴·같은 요청·인사·불명확한 요청은 추천하지 않으며, 펫의 채팅이 바뀌면 이전 추천은 지운다. 훅 켜기/끄기: `node integrations/codex/scripts/recommendation-hook.mjs enable|disable` (Codex에서 훅 신뢰는 사용자가 직접 한다).
 - 입력창: 펫을 짧게 클릭하면 옆에 입력창이 열린다(오른쪽에 공간이 없으면 왼쪽). Enter·전송 버튼은 입력 내용을 입력창 안에만 표시하고 AI에는 보내지 않는다(Shift+Enter 줄바꿈). 펫을 다시 클릭하거나 Esc로 닫는다. 4px 넘게 움직이면 드래그이며 입력창도 함께 이동한다. 창은 입력창이 열린 동안만 넓어진다(`src-tauri/src/bubble.rs`, `ui/bubble/`).
 - 직접 실행: `autopet-preview.exe [show|hide|quit]` — 결과를 `{"ok":true,"state":"shown",...}` 한 줄로 출력한다.
 

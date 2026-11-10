@@ -116,6 +116,15 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
   let answerError = null;
 
   const entryFor = (id) => catalog.find((f) => f.id === id) ?? null;
+  // From a recommendation: the user's own Codex request becomes the topic answer,
+  // so it is not typed again. Cleared once a feature is opened.
+  let pendingTopic = null;
+  let notice = null;
+  const topicAnswers = (flow, topic) => {
+    const step = flow?.steps.find((s) => s.key === 'topic' && s.type === 'text');
+    const text = topic?.trim().slice(0, step?.maxLength ?? 300);
+    return step && text ? { topic: { value: text, label: text } } : {};
+  };
 
   function update(next, { focus = true } = {}) {
     state = { ...state, ...next };
@@ -170,11 +179,16 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
 
   // ---- stages ------------------------------------------------------------
   function renderHome() {
+    if (notice) root.append(el('p', 'fp-notice', notice));
     root.append(el('p', 'fp-question', '어떤 작업을 도와드릴까요?'));
     const grid = el('div', 'fp-features');
     for (const entry of catalog) {
       const ready = Boolean(flowFor(entry.id));
-      const item = button('fp-feature', '', () => update({ ...EMPTY_STATE, answers: {}, stage: 'step', featureId: entry.id }));
+      const item = button('fp-feature', '', () => {
+        const answers = topicAnswers(flowFor(entry.id), pendingTopic);
+        pendingTopic = null; notice = null;
+        update({ ...EMPTY_STATE, answers, stage: 'step', featureId: entry.id });
+      });
       item.dataset.feature = entry.id;
       const text = el('span', 'fp-feature-text');
       text.append(el('span', 'fp-feature-name', entry.name));
@@ -538,5 +552,32 @@ export function createFeaturePanel({ catalog, initial, onChange, onStart, onOpen
       render();
     },
     reset,
+    /**
+     * Opens a recommended catalog feature's existing setup with  prefilled.
+     * Never interrupts a running job. Returns 'started' | 'not-ready' | 'busy' | 'unknown'.
+     */
+    startFeature(featureId, { topic = null } = {}) {
+      if (isActive(job)) return 'busy';
+      const entry = entryFor(featureId);
+      if (!entry) return 'unknown';
+      const flow = flowFor(featureId);
+      if (!flow) {
+        pendingTopic = topic;
+        notice = `'${entry.name}' 펫의 설정·실행은 이 테스트 펫에서 아직 준비 중이에요.`;
+        update({ ...EMPTY_STATE, answers: {} });
+        return 'not-ready';
+      }
+      pendingTopic = null; notice = null;
+      update({ ...EMPTY_STATE, stage: 'step', featureId, answers: topicAnswers(flow, topic) });
+      return 'started';
+    },
+    /** The feature list, keeping a recommendation's request for the feature the user picks. */
+    browse({ topic = null } = {}) {
+      if (isActive(job)) return 'busy';
+      pendingTopic = topic;
+      notice = topic ? `요청에 쓸 펫을 골라 주세요: “${topic.length > 40 ? `${topic.slice(0, 40)}…` : topic}”` : null;
+      update({ ...EMPTY_STATE, answers: {} });
+      return 'home';
+    },
   };
 }

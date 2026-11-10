@@ -214,7 +214,7 @@ pub struct Jobs {
     monitor: AtomicBool,
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
@@ -244,6 +244,7 @@ pub fn set_host(app: &AppHandle, host: HostInfo) {
     if host.codex.is_none() && host.thread.is_none() {
         return;
     }
+    let thread_changed = host.thread.is_some();
     if let Ok(mut current) = jobs(app).host.lock() {
         if host.codex.is_some() {
             current.codex = host.codex;
@@ -252,9 +253,15 @@ pub fn set_host(app: &AppHandle, host: HostInfo) {
             current.thread = host.thread;
         }
     }
+    // Publish the pet's chat right away (not only on the first wait), so the AutoPets
+    // recommendation hook knows which chat this pet belongs to.
+    if thread_changed && app.try_state::<Jobs>().is_some() {
+        let link = lock_link(app);
+        publish(app, &link);
+    }
 }
 
-fn owner_thread(app: &AppHandle) -> Option<String> {
+pub(crate) fn owner_thread(app: &AppHandle) -> Option<String> {
     jobs(app).host.lock().ok().and_then(|h| h.thread.clone())
 }
 
@@ -942,7 +949,9 @@ pub fn on_chat(app: &AppHandle, action: &str, argv: &[String], nonce: String) {
     let argv = argv.to_vec();
     // Verification reads files; keep it off the window's event loop.
     thread::spawn(move || {
-        let answer = handle_chat(&app, &action, &argv);
+        // Pet recommendation from the AutoPets hook (see recommend.rs); it names the
+        // chat with --chat and never touches the task hand-off state.
+        let answer = if action == "chat-recommend" { crate::recommend::offer(&app, &argv) } else { handle_chat(&app, &action, &argv) };
         handoff::reply(&nonce, &answer);
     });
 }

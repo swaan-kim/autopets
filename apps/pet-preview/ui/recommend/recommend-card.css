@@ -1,0 +1,46 @@
+/* Recommendation card: takes the bubble (like a mid-task question) while shown. */
+.bubble.bubble-recommend .feature-panel,
+.bubble.bubble-recommend .bubble-note,
+.bubble.bubble-recommend .bubble-form { display: none; }
+
+.rec-card { display: flex; flex-direction: column; gap: 5px; min-height: 0; overflow-y: auto; font-size: 12px; }
+.rec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.rec-title { font-size: 13px; }
+.rec-chat { color: #8a7b68; font-size: 10.5px; white-space: nowrap; }
+.rec-request { margin: 0; padding: 3px 8px; border-left: 3px solid #f0d2aa; color: #5a4a38; overflow-wrap: anywhere; }
+.rec-list { display: flex; flex-direction: column; gap: 5px; }
+.rec-pet { display: flex; align-items: center; gap: 8px; }
+/* Still pose of the existing AutoPets dog: cell 0 of the 4x3 companion sheet. */
+.rec-art { position: relative; flex: 0 0 auto; width: 52px; height: 52px; border-radius: 12px; background-color: #fbf1e3;
+  background-repeat: no-repeat; background-size: 400% 300%; background-position: 0 0; }
+.rec-symbol { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; padding: 0 3px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: 9px; background: #fff; border: 1px solid #ead7bd; font-size: 11px; }
+.rec-text { display: flex; flex-direction: column; min-width: 0; }
+.rec-name { font-size: 14px; }
+.rec-summary { color: #6d5d4a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-reason { margin: 0; line-height: 1.35; }
+.rec-use { padding: 6px 10px; border: 0; border-radius: 10px; background: var(--accent, #d9662f); color: #fff; font-weight: 700; cursor: pointer; }
+.rec-use:disabled, .rec-link:disabled { opacity: 0.6; cursor: default; }
+.rec-actions { display: flex; gap: 12px; }
+.rec-link { padding: 2px 0; border: 0; background: none; color: #6d5d4a; text-decoration: underline; cursor: pointer; font-size: 11.5px; }
+
+/* On the pet while the card waits: a small badge, no focus or window change. */
+.pet[data-attention="recommend"]::after {
+  content: "추천";
+  position: absolute;
+  top: 0;
+  right: -2px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #fff3c4;
+  border: 1px solid #ead7bd;
+  color: #4a3a28;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  pointer-events: none;
+}
+
+/* Note above the feature list after a recommendation (feature-panel.js). */
+.fp-notice { margin: 0 0 4px; padding: 4px 8px; border-radius: 8px; background: #fff6e6; color: #5a4a38; font-size: 11.5px; line-height: 1.35; overflow-wrap: anywhere; }
+.bubble.rec-suppressed .rec-card { display: none; }

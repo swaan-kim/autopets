@@ -127,6 +127,14 @@ pub(crate) fn show_manager(
     }
 }
 
+/// Opens the manager on a recommendation after the user clicked it on a pet.
+pub(crate) fn open_recommendation(app: tauri::AppHandle, id: &str, pet_id: Option<&str>) {
+    show_manager(app.clone(), None, None);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.emit("autopets://open-recommendation", serde_json::json!({"id":id,"petId":pet_id}));
+    }
+}
+
 pub(crate) fn reopen(app: &tauri::AppHandle) {
     // Reopening the manager is not the explicit "show all pets" action.
     show_manager(app.clone(), None, None);

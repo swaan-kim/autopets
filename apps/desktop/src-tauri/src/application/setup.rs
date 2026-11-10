@@ -213,6 +213,17 @@ impl Store {
         self.disconnect_explicit_pets()?;
         self.setup_status()
     }
+    /// The chat that started this app with `$autopets` and is still waiting for a pet
+    /// ("채팅 연결 대기"). Cleared by disconnect; no other chat is ever returned.
+    pub(crate) fn setup_chat(&self) -> Option<crate::domain::pet_link::Target> {
+        let saved = self.read_setup().ok()??;
+        if saved.disconnected || saved.request.connection_mode.as_deref() != Some("explicit-pet") { return None; }
+        let target = crate::domain::pet_link::Target {
+            source_id: saved.request.host_id.unwrap_or_else(|| crate::domain::connections::CODEX_LOCAL.into()),
+            thread_id: saved.request.session_id?, cwd: saved.request.cwd?,
+        };
+        target.validate().ok().map(|_| target)
+    }
     pub(crate) fn observe_setup_event(&mut self, session_id: &str, timestamp: u64) -> Result<bool, String> {
         let Some(mut saved) = self.read_setup()? else { return Ok(false) };
         if saved.disconnected || timestamp < saved.configured_at {

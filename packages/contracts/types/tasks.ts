@@ -39,6 +39,7 @@ export interface Session {
 export interface Slot { index: number; sessionId: string | null }
 export interface Snapshot {
   petLinks?: import('./pet-link').PetLink[];
+  petRecommendations?: import('./pet-link').PetRecommendation[];
   setup?: import('./setup').SetupState | null;
   sessions: Session[];
   slots: Slot[];
