@@ -23,9 +23,10 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await flow.getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true}).click();
  await openCopy(flow);
  await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill('');
- assert.equal(await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).isDisabled(),true);
+ assert.equal(await flow.getByRole('button',{name:'확인',exact:true}).isDisabled(),true);
  const request='도예 작품 포트폴리오를 만들고 싶어요.\n작품 3개와 소개, 연락 방법을 담아줘.';
  await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill(request);
+ await flow.getByRole('button',{name:'확인',exact:true}).click();
  await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
  await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.',{exact:true}).waitFor();
  const copied=await page.evaluate(()=>window.__uiTest.clipboard);

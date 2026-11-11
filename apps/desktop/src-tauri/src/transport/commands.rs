@@ -159,6 +159,36 @@ pub(crate) fn show_manager(
     crate::platform::windows::show_manager(app, section, session_id)
 }
 
+/// Accept or dismiss a pet recommendation. Accepting only opens the existing pet composer
+/// in the app (user click); it never applies a pet or sends anything to the chat.
+#[tauri::command]
+pub(crate) fn respond_pet_recommendation(
+    app: tauri::AppHandle,
+    store: tauri::State<SharedStore>,
+    id: String,
+    response: crate::domain::recommendation::Response,
+) -> Result<(), String> {
+    let accept = matches!(response, crate::domain::recommendation::Response::Accept { .. });
+    let mut opened = None;
+    update(&app, &store, |s| {
+        let setup = s.setup_chat();
+        let item = s.recommendations.respond(&s.pet_links, setup.as_ref(), &id, response, crate::domain::activity::now_ms())?;
+        if accept { opened = item.accepted_pet_id.clone(); }
+        Ok(())
+    })?;
+    if let Some(pet_id) = opened { crate::platform::windows::open_recommendation(app, &id, Some(&pet_id)); }
+    Ok(())
+}
+
+/// "다른 펫 보기": open the app's pet list with this recommendation's request kept.
+#[tauri::command]
+pub(crate) fn browse_pet_recommendation(app: tauri::AppHandle, store: tauri::State<SharedStore>, id: String) -> Result<(), String> {
+    let exists = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?.snapshot().pet_recommendations.iter().any(|item| item.id == id);
+    if !exists { return Err("recommendation-not-found".into()); }
+    crate::platform::windows::open_recommendation(app, &id, None);
+    Ok(())
+}
+
 #[tauri::command]
 pub(crate) fn get_assistance(
     store: tauri::State<SharedStore>,

@@ -62,6 +62,8 @@
 .composer-panel .composer-brief > label { display: grid; gap: 8px; font-size: 12px; }
 .composer-panel .composer-brief input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 42px; padding: 10px; border: 1px solid #e0e5e8; border-radius: 10px; font-size: 13px; }
 .composer-panel .composer-request-result { display: grid; gap: 8px; margin-top: 18px; font-size: 12px; }
+.composer-panel .composer-request-check { margin-top: 18px; }
+.composer-panel .composer-request-check .composer-request-result { margin-top: 0; }
 .composer-panel .composer-request-result textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #e0e5e8; border-radius: 12px; font-size: 13px; line-height: 1.6; }
 .pet-composer .composer-panel :is(.composer-notice,.composer-feedback) { margin: 0 0 16px; }
 .composer-panel .composer-destinations { margin-top: 16px; }

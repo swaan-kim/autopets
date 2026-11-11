@@ -63,9 +63,9 @@ export function createInputBubble({ onSubmit } = {}) {
     element: root,
     messages,
     get isOpen() { return !root.hidden; },
-    open() {
+    open({ focusInput = true } = {}) {
       root.hidden = false;
-      input.focus();
+      if (focusInput) input.focus();
     },
     close() {
       root.hidden = true;

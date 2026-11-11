@@ -186,6 +186,26 @@ fn forward_error(error: &str) -> ExitCode {
     }
 }
 
+/// `recommend`: hands one pet recommendation from the AutoPets hook to the running pet.
+/// Never starts a pet: with none running it reports `not-running` and exits.
+pub fn cli_recommend(args: &[String]) -> ExitCode {
+    let chat = crate::flag(args, "--chat").filter(|t| valid_thread(t));
+    let turn = crate::flag(args, "--turn").filter(|t| !t.trim().is_empty() && t.len() <= 128);
+    let file = crate::flag(args, "--file").filter(|f| Path::new(f).is_absolute());
+    let (Some(chat), Some(turn), Some(file)) = (chat, turn, file) else {
+        return fail_line("invalid-argument", "--chat, --turn, --file(절대 경로)이 필요합니다.");
+    };
+    let extra = ["--chat".to_owned(), chat, "--turn".to_owned(), turn, "--file".to_owned(), file];
+    match forward("chat-recommend", &extra, Duration::from_secs(4)) {
+        Ok(reply) => {
+            let ok = reply.get("ok") == Some(&json!(true));
+            print(&reply);
+            if ok { ExitCode::SUCCESS } else { ExitCode::from(1) }
+        }
+        Err(error) => forward_error(error),
+    }
+}
+
 /// `wait`: blocks until the pet hands this chat a task, then prints it.
 pub fn cli_wait(args: &[String]) -> ExitCode {
     let Some(thread) = chat_thread(args) else {

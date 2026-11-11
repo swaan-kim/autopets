@@ -22,6 +22,13 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   await task.fill('가상 동아리의 소규모 작품 소개 페이지를 계획해줘.\n기존 파일은 바꾸지 마.');
   await flow.getByLabel('페이지를 볼 사람', { exact: true }).fill('처음 방문하는 가상 신입생');
   await flow.getByLabel('꼭 알릴 내용', { exact: true }).fill('가상 작품 세 개와 다음 전시 일정');
+  assert.equal(await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).count(), 0, 'copy waits for confirmation');
+  await flow.getByRole('button', { name: '확인', exact: true }).click();
+  const preview = flow.getByLabel('Codex에 보낼 시작 요청', { exact: true });
+  await preview.waitFor();
+  assert.equal(await flow.locator('details.composer-request-check').evaluate(el => el.open), true, 'confirmation opens the request check');
+  assert.ok((await preview.inputValue()).includes('꼭 알릴 내용: 가상 작품 세 개와 다음 전시 일정'));
+  assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '', 'confirmation never copies');
   await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   const copyNotice = '쓸 Codex 채팅에 붙여넣고 보내세요.';
   await flow.getByText(copyNotice, { exact: true }).waitFor();
@@ -54,6 +61,10 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   await task.fill('수정된 새 요청');
   assert.equal(await flow.getByText(copyNotice, { exact: true }).count(), 0);
   assert.equal(await flow.getByLabel('Codex에 보낼 시작 요청', { exact: true }).count(), 0);
+  assert.equal(await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).count(), 0, 'an edited request must be confirmed again');
+  await flow.getByRole('button', { name: '확인', exact: true }).click();
+  const refreshed = await flow.getByLabel('Codex에 보낼 시작 요청', { exact: true }).inputValue();
+  assert.ok(refreshed.includes('수정된 새 요청') && !refreshed.includes('기존 파일은 바꾸지 마.'), 're-confirmation uses the latest input');
   await page.evaluate(daily => {
     window.__uiTest.roles.pets.push({ id: 'saved-daily', revision: 1, template: daily.template, updatedAt: 1 });
     window.__uiTest.emitEvent('autopets://roles-changed', {});
@@ -105,11 +116,12 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.equal(await composer.getByLabel('페이지를 볼 사람', { exact: true }).inputValue(), '');
   assert.equal(await composer.getByLabel('꼭 알릴 내용', { exact: true }).inputValue(), '');
   assert.equal(await composer.locator('input[aria-label="꼼꼼하게"]').isChecked(), true);
-  assert.equal(await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).isDisabled(), true);
+  assert.equal(await composer.getByRole('button', { name: '확인', exact: true }).isDisabled(), true);
   assert.equal(await next.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 0, 'opening a new task only creates a local draft');
   assert.deepEqual(await next.evaluate(() => window.__uiTest.state.petLinks), prior.links);
   assert.deepEqual(await next.evaluate(() => window.__uiTest.roles.pets[0]), prior.saved);
   await composer.getByLabel('펫에게 맡길 일', { exact: true }).fill('가상 사진 동아리의 다음 행사 페이지를 새 폴더에 계획해줘.');
+  await composer.getByRole('button', { name: '확인', exact: true }).click();
   await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   await composer.getByText(copyNotice, { exact: true }).waitFor();
   const actual = await next.evaluate(() => ({ calls: structuredClone(window.__uiTest.calls), pets: structuredClone(window.__uiTest.roles.pets), links: structuredClone(window.__uiTest.state.petLinks), prompt: window.__uiTest.clipboard }));

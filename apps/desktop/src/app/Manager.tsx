@@ -56,6 +56,20 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
     void listen<{ sessionId?: string }>('autopets://open-assistance', event => { setAssistanceIdentity(null); setAssistanceSession(event.payload.sessionId || null); setAssistanceRequest(value => value + 1); setSettings('assistance'); }).then(dispose => { if (disposed) dispose(); else unlisten = dispose; }).catch(() => { /* Snapshot controls remain usable if the window event listener is unavailable. */ });
     return () => { disposed = true; unlisten?.(); };
   }, []);
+  // A pet recommendation the user opened from a pet card (petId) or "다른 펫 보기" (null).
+  const [recommendationOpen, setRecommendationOpen] = useState<{ id: string; petId: string | null; nonce: number } | null>(null);
+  useEffect(() => {
+    if (!isDesktop) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ id?: string; petId?: string | null }>('autopets://open-recommendation', event => {
+      const id = event.payload.id;
+      if (typeof id !== 'string') return;
+      setRecommendationOpen(previous => ({ id, petId: event.payload.petId ?? null, nonce: (previous?.nonce ?? 0) + 1 }));
+      navigate('catalog');
+    }).then(dispose => { if (disposed) dispose(); else unlisten = dispose; }).catch(() => { /* The pet card still shows the recommendation. */ });
+    return () => { disposed = true; unlisten?.(); };
+  }, []);
   const [picker, setPicker] = useState<number | null>(null);
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -83,7 +97,7 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
       {settings === 'roles' ? <RoleStudio workflow={workflow.snapshot} sessions={snapshot.sessions} refreshWorkflow={workflow.refresh} /> : settings === 'intro' ? <IntroStudio assistance={assistance.snapshot} workflow={workflow.snapshot} sessions={snapshot.sessions} onWorkflow={identity => { setAssistanceIdentity(identity); setAssistanceSession(identity.chatId); setAssistanceRequest(value => value + 1); setSettings('assistance'); }} /> : settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} initialIdentity={assistanceIdentity} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} workflow={workflow} /> : settings === 'connection' ? <ConnectionGuide petLinks={snapshot.petLinks} setup={snapshot.setup} connectionPath={snapshot.connectionPath} defaultLabel={WORKFLOW_PRESETS.find(item => item.id === workflow.snapshot.preferences.preset)?.title} backLabel={connectionReturn?.fromPet ? '펫으로 돌아가기' : connectionReturn ? '돌아가기' : undefined} onBack={returnFromConnection} onPreferences={() => navigate('assistance')} /> : null}
       {settings === 'connection' && legacy}
       <div hidden={!['home', 'pets', 'catalog', 'saved'].includes(settings)}>
-        <UiPetStudio navigationRevision={navigationRevision} active={isPetSection(settings)} view={studioView} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
+        <UiPetStudio navigationRevision={navigationRevision} active={isPetSection(settings)} view={studioView} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
  />
       </div>
   </AppShell>;

@@ -24,6 +24,7 @@ mod workflow;
 mod task_graph;
 mod pet_link;
 mod pet_library;
+mod recommendation;
 mod claude_code;
 use workflow::workflow;
 use crate::legacy::http::{abandon, approvals, returned, wait};
@@ -116,6 +117,7 @@ pub async fn start(
         .route("/v1/claude-code/events", post(claude_code::events))
         .route("/v1/pet-link", post(pet_link::dispatch))
         .route("/v1/pet-library", post(pet_library::read))
+        .route("/v1/recommendations", post(recommendation::dispatch))
         .route("/v1/task-graph", get(task_graph::read).post(task_graph::import))
         .route("/v1/task-context", get(task_context))
         .route("/v1/task-config", post(task_config))

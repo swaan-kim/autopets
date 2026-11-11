@@ -5,6 +5,7 @@
 import { applyTheme, mountAppearance } from './appearance/circle.js';
 import { createInputBubble } from './bubble/input-bubble.js';
 import { createFeaturePanel, isActive, openQuestion } from './features/feature-panel.js';
+import { createRecommendCard } from './recommend/recommend-card.js';
 
 const tauri = window.__TAURI__;
 const invoke = (command, args) => tauri?.core.invoke(command, args).catch((error) => console.error(command, error));
@@ -26,6 +27,11 @@ stage.append(bubble.element);
 // panel state (incl. the structured `config` saved on 완료) is kept by the
 // pet process so it survives hide/show. Nothing is sent to Codex or an AI.
 let panel = null;
+// Pet recommendation for this pet's chat (see recommend/recommend-card.js and
+// src-tauri/src/recommend.rs). Set from the AutoPets hook, never from here.
+let card = null;
+let catalogList = [];
+let autoOpened = false;
 
 function showTheme(theme) {
   applyTheme(pet, theme);
@@ -49,20 +55,47 @@ const PET_TITLE = pet.title;
 function showPetStatus(job) {
   const question = openQuestion(job);
   const decided = (job?.checkpoints ?? []).some((c) => c.stage === 'outline' && c.state === 'delivered');
+  const rec = card?.current;
+  const recName = rec ? catalogList.find((entry) => entry.id === rec.candidates[0]?.petId)?.name : null;
   let text = '';
   if (question && job.phase === 'question') text = '선택이 필요해요';
+  else if (rec && recName && !isActive(job)) text = `추천 · ${recName}`;
   else if (question) text = '계속 진행 중';
   else if (job?.phase === 'running' || job?.phase === 'requesting') text = decided ? '제작 중…' : '구성 중…';
   else if (job?.phase === 'completed') text = '완료';
   else if (job?.phase === 'failed') text = '오류';
-  pet.dataset.attention = question && job.phase === 'question' ? 'question' : '';
-  pet.title = pet.dataset.attention ? `선택이 필요해요: ${question.title} — 클릭해서 답하기` : PET_TITLE;
+  pet.dataset.attention = question && job.phase === 'question' ? 'question' : rec && recName && !isActive(job) ? 'recommend' : '';
+  pet.title = pet.dataset.attention === 'question' ? `선택이 필요해요: ${question.title} — 클릭해서 답하기`
+    : pet.dataset.attention === 'recommend' ? `추천: ${recName} — 클릭해서 보기` : PET_TITLE;
   petStatus.textContent = text;
-  petStatus.dataset.phase = text ? (pet.dataset.attention || job.phase) : '';
+  petStatus.dataset.phase = text ? (pet.dataset.attention || job?.phase || '') : '';
   petStatus.hidden = !text;
   // The question gets the whole bubble; the (not yet connected) test input
   // row comes back once it is answered.
   bubble.element.classList.toggle('bubble-question', Boolean(question));
+  // A running task or a question keeps the bubble; the card waits behind them.
+  const recVisible = Boolean(rec) && !question && !isActive(job);
+  bubble.element.classList.toggle('bubble-recommend', recVisible);
+  bubble.element.classList.toggle('rec-suppressed', Boolean(rec) && !recVisible);
+}
+
+// A new recommendation opens the bubble WITHOUT focus, so typing in Codex or any
+// other app continues. Not while the pet runs a task or asks a question.
+async function showRecommendation(value) {
+  if (!card || !card.set(value)) return;
+  showPetStatus(panel?.job ?? null);
+  const rec = card.current;
+  if (!rec) { if (autoOpened && bubble.isOpen) { autoOpened = false; await closeBubble(); } return; }
+  if (!bubble.isOpen && !busy && !isActive(panel?.job) && !openQuestion(panel?.job ?? null)) {
+    autoOpened = true;
+    await toggleBubble({ focus: false });
+  }
+}
+
+const respond = (rec, action, petId) => tauri?.core.invoke('pet_recommendation_respond', { id: rec.id, action, petId: petId ?? null });
+async function afterRespond() {
+  autoOpened = false;
+  await showRecommendation(await invoke('pet_recommendation_get'));
 }
 
 function trackJob(status) {
@@ -108,6 +141,31 @@ async function initFeatures() {
     },
   });
   bubble.element.prepend(panel.element);
+  catalogList = Array.isArray(catalog) ? catalog : [];
+  card = createRecommendCard({
+    catalog: catalogList,
+    dogArt: await invoke('pet_dog_art'),
+    // Opens the existing setup of that pet with the Codex request as its topic.
+    onAccept: async (rec, petId) => {
+      await respond(rec, 'accept', petId);
+      panel.startFeature(petId, { topic: rec.request });
+      invoke('pet_focus');
+      await afterRespond();
+    },
+    onBrowse: async (rec) => {
+      await respond(rec, 'browse');
+      panel.browse({ topic: rec.request });
+      invoke('pet_focus');
+      await afterRespond();
+    },
+    onDismiss: async (rec) => {
+      const close = autoOpened;
+      await respond(rec, 'dismiss');
+      await afterRespond();
+      if (close && bubble.isOpen) await closeBubble();
+    },
+  });
+  bubble.element.prepend(card.element);
   showTheme(panel.theme);
   if (job) trackJob(job);
   pollLink();
@@ -116,6 +174,7 @@ async function initFeatures() {
 // Which Codex chat is waiting for the pet (shown on the summary screen).
 async function pollLink() {
   panel.setLink(await invoke('pet_chat_status'));
+  await showRecommendation(await invoke('pet_recommendation_get'));
   setTimeout(pollLink, 1500);
 }
 
@@ -126,6 +185,7 @@ window.autopet = {
   get job() { return panel?.job ?? null; },
   get link() { return panel?.link ?? null; },
   get question() { return openQuestion(panel?.job ?? null); },
+  get recommendation() { return card?.current ?? null; },
 };
 
 // --- Bubble open/close ---------------------------------------------------
@@ -153,7 +213,7 @@ function setLayout(layout) {
   }
 }
 
-async function openBubble() {
+async function openBubble({ focus = true } = {}) {
   if (!tauri) { setLayout({ side: 'right', vert: 'down' }); bubble.open(); return; } // plain browser preview
   const layout = await invoke('pet_bubble_side');
   if (!layout) return;
@@ -166,8 +226,8 @@ async function openBubble() {
     setLayout(null);
     return;
   }
-  bubble.open();
-  invoke('pet_focus');
+  bubble.open({ focusInput: focus });
+  if (focus) invoke('pet_focus');
 }
 
 async function closeBubble() {
@@ -176,11 +236,11 @@ async function closeBubble() {
   setLayout(null);
 }
 
-async function toggleBubble() {
+async function toggleBubble({ focus = true } = {}) {
   if (busy) return;
   busy = true;
   try {
-    await (bubble.isOpen ? closeBubble() : openBubble());
+    await (bubble.isOpen ? closeBubble() : openBubble({ focus }));
   } finally {
     busy = false;
   }

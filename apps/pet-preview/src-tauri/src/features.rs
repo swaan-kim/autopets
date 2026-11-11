@@ -63,6 +63,11 @@ fn catalog() -> Vec<Feature> {
         .collect()
 }
 
+/// Catalog pet ids, used to accept only existing pets in recommendations.
+pub fn catalog_ids() -> Vec<String> {
+    catalog().into_iter().map(|f| f.id).collect()
+}
+
 #[derive(Default)]
 pub struct Session(Mutex<Value>);
 

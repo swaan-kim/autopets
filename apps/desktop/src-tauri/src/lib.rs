@@ -16,6 +16,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
+            commands::respond_pet_recommendation,
+            commands::browse_pet_recommendation,
             commands::set_pet_link_enabled,
             commands::disconnect_pet_link,
             commands::set_pet_link_profile,
