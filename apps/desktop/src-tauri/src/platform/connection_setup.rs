@@ -42,6 +42,15 @@ fn verified_file(root: &Path, manifest: &serde_json::Value, relative: &str) -> R
     }
     Ok(real)
 }
+// The installer's hash-verified Node runtime, when this is an installed build.
+pub(crate) fn bundled_node(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let resource = app.path().resource_dir().ok()?.join("connector");
+    let bytes = std::fs::read(resource.join("manifest.json")).ok()?;
+    if bytes.len() > 1_000_000 { return None; }
+    let manifest: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    if manifest["appVersion"] != env!("CARGO_PKG_VERSION") { return None; }
+    verified_file(&resource, &manifest, "runtime/node.exe").ok().map(|path| dunce::simplified(&path).to_path_buf())
+}
 pub fn run(app: &tauri::AppHandle, connect: bool) -> Result<Vec<String>, String> {
     let resource = app.path().resource_dir().map_err(|_| "설치 위치를 찾을 수 없습니다.")?.join("connector");
     let executable = std::env::current_exe().map_err(|_| "설치 위치를 찾을 수 없습니다.")?;
@@ -107,9 +116,20 @@ fn run_from_resource(resource: &Path, executable: &Path, connect: bool) -> Resul
             _ => "연결 준비에 실패했습니다. 설치 상태를 확인하고 다시 시도해 주세요.",
         }.into());
     }
-    Ok(if result["skillConflict"] == true {
+    let mut warnings = if result["skillConflict"] == true {
         vec!["같은 이름의 사용자 스킬을 보존했어요. 연결은 계속 사용할 수 있어요.".into()]
-    } else { vec![] })
+    } else { vec![] };
+    if let Some(message) = preferences_message(&result, connect) { warnings.push(message.into()); }
+    Ok(warnings)
+}
+
+fn preferences_message(result: &serde_json::Value, connect: bool) -> Option<&'static str> {
+    match (connect, result["preferencesMcp"]["status"].as_str()) {
+        (true, Some("prepared" | "already-prepared")) => Some("저장한 펫 읽기 도구도 준비했어요. 새 도구가 보이지 않으면 작업을 마친 뒤 Codex를 재시작해 주세요."),
+        (true, Some("preserved")) => Some("펫 읽기 도구는 확인이 더 필요해요. 기존 호출 스킬로 계속 사용할 수 있어요."),
+        (false, Some("preserved")) => Some("기존 펫 읽기 도구 설정을 보존했어요. Codex의 MCP 설정에서 AutoPets 항목을 확인해 주세요."),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -120,6 +140,17 @@ mod tests {
         assert!(require_manager("main").is_ok());
         assert!(require_manager("pet-0").is_err());
         assert!(require_manager("other").is_err());
+    }
+    #[test]
+    fn tool_preparation_never_claims_current_chat_use_or_forces_a_restart() {
+        let prepared = serde_json::json!({"preferencesMcp":{"status":"prepared","prepared":true}});
+        let message = preferences_message(&prepared, true).unwrap();
+        assert!(message.contains("준비"));
+        assert!(message.contains("작업을 마친 뒤"));
+        assert!(!message.contains("연결됐"));
+        assert!(preferences_message(&serde_json::json!({}), true).is_none());
+        assert!(preferences_message(&prepared, false).is_none());
+        assert!(preferences_message(&serde_json::json!({"preferencesMcp":{"status":"preserved"}}), false).unwrap().contains("보존"));
     }
     #[test]
     fn bundled_runner_integrity_is_checked_before_execution() {

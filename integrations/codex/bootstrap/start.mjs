@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { digest, homeFor, inside, readJson, atomicJson, regular, safeDirectory, lock } from './files.mjs';
 import { configureConnection } from './connection.mjs';
+import { preparePetPreferences, removePetPreferences } from './pet-preferences.mjs';
 import { readConnection, requestJson } from '../skills/autopets/scripts/bridge-client.mjs';
 
 function connectionStates(manifest, configured) {
@@ -72,6 +73,12 @@ export function runPowerShellJson(script, { spawnProcess = spawn, timeoutMs = 15
   });
 }
 export const systemDriver = {
+  discoverCodex: async () => {
+    // Prefer the installed Windows app's own CLI. Never install a CLI, execute a
+    // registry command string, or start/stop an existing Codex process.
+    const script = `$app = Get-AppxPackage -Name OpenAI.Codex -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1; $candidate = if ($app) { Join-Path $app.InstallLocation 'app/resources/codex.exe' }; if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { $candidate | ConvertTo-Json -Compress } else { $cli = Get-Command codex.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1; if ($cli) { $cli.Source | ConvertTo-Json -Compress } }`;
+    return runPowerShellJson(script, { timeoutMs: 4000 });
+  },
   discover: async () => {
     // Query only this product's current-user uninstall entries. Never execute a
     // registry command string or modify registry/PATH/security policy.
@@ -251,16 +258,22 @@ export async function connectInstalled({ resourceDirectory, appExecutable, root 
     installed.connectionStates = connectionStates(installed, true);
     installed.completedSteps.push(...(skill.path ? ['skill'] : []));
     await atomicJson(manifestPath, installed);
+    // Preparing read-only tools is opt-in through the app's Connect button.
+    // An AI request to open the app retains the established explicit-skill path.
+    const preferencesMcp = entryPoint !== 'ai' && !skill.conflict
+      ? await preparePetPreferences({ root, sourceDirectory: realResource, manifest: supplied, env, discoverCodex: driver.discoverCodex })
+      : { status: 'skipped', prepared: false, reason: null };
     const sessionId = env.CODEX_THREAD_ID || null;
     const state = await bridge.begin({ installedVersion: supplied.appVersion, sessionId, cwd: sessionId ? process.cwd() : null, hostId: 'codex-windows-local', entryPoint, connectionMode: 'explicit-pet' });
-    return { ok: true, ...state, skillConflict: skill.conflict, updateAvailable: null, publicOneCallVerified: false };
+    return { ok: true, ...state, skillConflict: skill.conflict, preferencesMcp, updateAvailable: null, publicOneCallVerified: false };
   });
 }
-export async function disconnect({ root = homeFor(), env = process.env } = {}) {
+export async function disconnect({ root = homeFor(), env = process.env, driver = systemDriver } = {}) {
   return lock(root, async () => {
     const file = path.join(root, 'install-manifest.json'), manifest = await readJson(file).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
     if (!manifest) return { ok: true, disconnected: true, recordsDeleted: false };
     if (manifest.owner !== 'autopets') throw Error('installation-conflict');
+    const preferencesMcp = await removePetPreferences({ root, env, discoverCodex: driver.discoverCodex });
     if (manifest.hookIds?.length) manifest.hookIds = await configureConnection(root, manifest, { remove: true, env });
     if (manifest.skillPath && manifest.skillDigest) {
       const content = await fs.readFile(manifest.skillPath).catch(() => null);
@@ -275,7 +288,7 @@ export async function disconnect({ root = homeFor(), env = process.env } = {}) {
       const connectionPath = env.AUTOPETS_CONNECTION_FILE || path.join(env.AUTOPETS_DATA_DIR || path.join(env.LOCALAPPDATA, 'local.autopets.desktop'), 'connection.json');
       await requestJson(await readConnection(connectionPath), '/v1/setup/disconnect', { hostId: 'codex-windows-local' }, 1200, 32768);
     } catch { /* No launch, download, or retry during disconnect/uninstall. */ }
-    return { ok: true, disconnected: true, recordsDeleted: false };
+    return { ok: true, disconnected: true, recordsDeleted: false, preferencesMcp };
   });
 }
 const messages = {

@@ -183,7 +183,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await page.getByRole('button',{name:'펫 고르기',exact:true}).click(); await selectWeb();
   await openCopy(flow);
   await showMore(flow);
-  await page.evaluate(template=>{window.__uiTest.roles.pets.push({id:'unsupported',revision:1,template:{...template,planning:{model:'gpt-6-astra',reasoning:'high'}}});window.__uiTest.emitEvent('autopets://roles-changed',{});},uiTemplate);
+  await page.evaluate(template=>{window.__uiTest.roles.pets.push({id:'unsupported',revision:1,template:{...template,planning:{model:'gpt-6-sol',reasoning:'xhigh'}}});window.__uiTest.emitEvent('autopets://roles-changed',{});},uiTemplate);
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('unsupported');
   await openCopy(flow);
   await flow.getByRole('alert').filter({hasText:'사용할 수 없는 작업 설정이에요'}).waitFor();

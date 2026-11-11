@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot } from '@autopets/contracts/types';
+import type { PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
+import routing from '../../../../../packages/contracts/data/routing-profiles.json';
 import { petCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { command, isDesktop } from '../../bridge/command';
 import { useRoles } from '../../bridge/useRoles';
@@ -20,17 +21,18 @@ import './pet-composer-simple.css';
 
 export const FIGMA_GUIDE = 'https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/#codex';
 const EXAMPLE_TASK = '가상 학과 행사 소개 웹페이지 한 장. 행사 소개, 일정, 신청 안내와 모바일 화면을 포함해줘.';
-const supportedRouting = (draft: PetRoleTemplate) => (!draft.planning || (draft.planning.model === 'gpt-6-luna' && draft.planning.reasoning === 'low')) && (!draft.execution || (draft.execution.model === 'gpt-6-luna' && draft.execution.reasoning === 'low') || (draft.execution.model === 'gpt-6-sol' && ['low', 'medium'].includes(draft.execution.reasoning)));
+const codexRouting = routing.hosts['codex-windows-local'].profiles;
+const matchesProfile = (value: WorkflowModel, key: keyof typeof codexRouting) => value.model === codexRouting[key].model && value.reasoning === codexRouting[key].effort;
+const planOptions = routing.hosts['codex-windows-local'].planOptions;
+const supportedRouting = (draft: PetRoleTemplate) => (!draft.planning || planOptions.some(option => draft.planning!.model === option.model && draft.planning!.reasoning === option.effort)) && (!draft.execution || executionProfiles.some(profile => matchesProfile(draft.execution!, profile.id)));
 const targetKey = (link: PetLink) => JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]);
 const normalized = (value: unknown): unknown => Array.isArray(value) ? value.map(normalized) : value && typeof value === 'object'
   ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, normalized(item)])) : value;
 const sameTemplate = (left: PetRoleTemplate, right: PetRoleTemplate) => JSON.stringify(normalized(left)) === JSON.stringify(normalized(right));
 const explicitSetupReady = (setup?: SetupState | null) => setup?.connectionMode === 'explicit-pet' && setup.connections?.some(connection => connection.hostId === 'codex-windows-local' && connection.configured) === true;
-const executionProfiles = [
-  { id: 'light', label: '가볍게', description: '빠른 초안에', model: 'gpt-6-luna', reasoning: 'low' },
-  { id: 'standard', label: '표준', description: '일반적인 작업에', model: 'gpt-6-sol', reasoning: 'low' },
-  { id: 'careful', label: '꼼꼼하게', description: '더 깊이 검토할 때', model: 'gpt-6-sol', reasoning: 'medium' },
-] as const;
+// Single source shared with delegation.mjs and Rust: packages/contracts/data/routing-profiles.json.
+const executionProfiles = (['light', 'standard', 'careful'] as const).map(id => ({ id, label: routing.profiles[id].label, description: routing.profiles[id].description,
+  model: codexRouting[id].model, reasoning: codexRouting[id].effort as WorkflowReasoning }));
 
 // Preserve order across quick navigation and React effect cleanup/remount.
 let onboardingCommands = Promise.resolve();
@@ -45,6 +47,7 @@ type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
 
+const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
 export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: TaskContext = {}) => [
   `AutoPets 스킬로 현재 채팅에 ${pet.template.name}을 연결해줘. 저장한 펫: petId=${pet.id}, petRevision=${pet.revision}.`,
   `이 펫으로 아래 작업${pet.template.planFirst ? '의 계획만 세워줘' : '을 수행하고 결과를 채팅에 보여줘'}.\n\n${task.trim()}\n`,
@@ -225,6 +228,18 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
     await copy(value, pet);
   }, undefined, true);
+  // A new Codex thread opens with the start request in its composer; the user
+  // still presses send. Requests too long for a link fall back to copying.
+  const saveAndOpenCodex = () => run(async () => {
+    if (!task.trim()) throw Error('empty task');
+    const pet = await save();
+    const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    try { await command('open_pet_in_codex', { petId: pet.id, expectedRevision: pet.revision, prompt: value }); }
+    catch (cause) { if (/prompt-too-long/.test(String(cause))) return copy(value, pet); throw cause; }
+    setPrompt(value); setManualCopy(false); setCopied(false);
+    setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
+    setNotice(CODEX_OPENED);
+  });
   const saveToLibrary = () => {
     const scope = { key: draftKey.current, view, navigationRevision };
     const stillHere = () => mounted.current && currentContext.current.open && currentContext.current.active
@@ -374,7 +389,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   };
   const savedReady = Boolean(saved && !dirty && !stale);
   const messages = <>
-    {notice && (!panel || copied || manualCopy) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
+    {notice && (!panel || copied || manualCopy || notice === CODEX_OPENED) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
     {!routingSupported && <p className="error" role="alert">사용할 수 없는 작업 설정이에요. 펫 설정에서 바꿔주세요.</p>}
     {(savedChanged || error || library.error || favorites.error) && <div ref={feedback} className="composer-feedback error" role="alert"><p>{error || library.error || favorites.error || '저장한 펫이 바뀌었어요. 최신 구성을 선택해 주세요.'}</p>{stale && <button className="text-button" onClick={focusSavedConfiguration}>구성 다시 선택</button>}</div>}
   </>;
@@ -389,7 +404,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     <div className="composer-layout">
       <header className="composer-identity" data-agent-id="pet-selection.composer.identity">
         <TaskPetArt entry={entry} small paused interactive={false} />
-        <div><span className="composer-eyebrow">{savedReady ? '내 펫' : '새 펫'}</span><h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
+        <div><span className="composer-eyebrow">{saved ? '내 펫' : '새 펫'}</span><h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
         <FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} />
       </header>
       <div className="composer-main">
@@ -409,13 +424,13 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
               : confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
               : <button className="button primary" data-agent-id="pet-selection.composer.apply" disabled={disabled || !routingSupported || !target || Boolean(targetBlocker)} onClick={() => void apply()}>{busy ? '적용 확인 중…' : '이 채팅에 펫 적용'}<span aria-hidden="true">↗</span></button>}
           </div>
-          {!savedReady && <button className="text-button composer-save-only" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>펫만 저장</button>}
+          {!savedReady && <button className="text-button composer-save-only" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{saved ? '변경 저장' : '펫만 저장'}</button>}
         </section> : <section className="composer-launch" aria-label="펫 만들고 사용하기">
-          {!savedReady ? <button className="button primary composer-create" data-agent-id="pet-selection.composer.save" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{busy ? '저장 중…' : '펫 만들기'}<span aria-hidden="true">＋</span></button>
+          {!savedReady ? <button className="button primary composer-create" data-agent-id="pet-selection.composer.save" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{busy ? '저장 중…' : saved ? '변경 저장' : '펫 만들기'}<span aria-hidden="true">{saved ? '✓' : '＋'}</span></button>
             : <div className="composer-hosts" aria-label="AI에서 사용하기">
-              {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결<span aria-hidden="true">↗</span></button>
+              {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결 설정<span aria-hidden="true">↗</span></button>
                 : <button className="button primary" data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>}
-              <PetPreferencesConnector compact />
+              <PetPreferencesConnector compact pet={saved} />
             </div>}
         </section>}
         {!panel && messages}
@@ -439,7 +454,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
         <label className="composer-task">{entry.inputLabel}<textarea aria-label="펫에게 맡길 일" rows={4} maxLength={1200} disabled={busy} value={task} placeholder={entry.example} onChange={event => { setTask(event.target.value); invalidateRequest(); }} /></label>
         <button className="text-button composer-example" disabled={busy} onClick={() => { setTask(entry.example); invalidateRequest(); }}>예시로 시작</button>
         {entry.id === 'ui-webpage' && <section className="composer-brief"><label>보는 사람<input aria-label="페이지를 볼 사람" value={audience} maxLength={160} disabled={busy} onChange={event => { setAudience(event.target.value); invalidateRequest(); }} /></label><label>꼭 알릴 내용<input aria-label="꼭 알릴 내용" value={message} maxLength={160} disabled={busy} onChange={event => { setMessage(event.target.value); invalidateRequest(); }} /></label></section>}
-        <div className="composer-action composer-confirm-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '확인'}<span aria-hidden="true">↓</span></button></div>
+        <div className="composer-action composer-confirm-action">{isDesktop && <button className="button primary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndOpenCodex()}>{busy ? '준비하는 중…' : 'Codex 새 대화로 시작'}<span aria-hidden="true">↗</span></button>}<button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '확인'}<span aria-hidden="true">↓</span></button></div>
         {prompt && !stale && <>
           {/* Opens on every new confirmation (key); the user may still fold it. */}
           <details key={`${prompt}:${manualCopy}`} className="composer-detail composer-request-check" open><summary>Codex에 보낼 요청 확인</summary>

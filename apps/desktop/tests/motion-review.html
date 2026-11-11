@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AutoPets · 모션 검수 무대</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: 'Segoe UI', 'Pretendard', sans-serif; color: #213c2c; }
+  body { background: #eef1ec; background-image: linear-gradient(#e3e8df 1px, transparent 1px), linear-gradient(90deg, #e3e8df 1px, transparent 1px); background-size: 40px 40px; }
+  .review-label { position: fixed; left: 16px; top: 12px; z-index: 3; padding: 7px 11px; border-radius: 10px; background: rgb(255 255 255 / .92); font-size: 12px; line-height: 1.45; box-shadow: 0 1px 4px rgb(23 58 44 / .12); }
+  .review-label strong { font-size: 13px; }
+  .review-label .evidence { color: #8a4b2d; font-weight: 600; }
+  .review-caption { position: fixed; left: 16px; bottom: 12px; z-index: 3; padding: 5px 9px; border-radius: 8px; background: rgb(33 60 44 / .82); color: white; font-size: 12px; }
+  .pet-window { position: absolute; border: 0; outline: 1px dashed rgb(33 60 44 / .28); background: transparent; color-scheme: normal; }
+  .virtual-pointer { position: fixed; z-index: 5; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #d4663a; background: rgb(212 102 58 / .25); pointer-events: none; transition: transform 80ms; }
+  .virtual-pointer[data-pressed="true"] { transform: scale(.7); background: rgb(212 102 58 / .7); }
+  .virtual-pointer::after { content: '가상 포인터'; position: absolute; left: 14px; top: 12px; white-space: nowrap; font-size: 10px; color: #8a4b2d; }
+</style></head>
+<body>
+  <div class="review-label" aria-live="polite"><strong>AutoPets 모션 검수</strong> · <span class="evidence">합성 검사 · 가상 포인터 · 가상 작업</span><br><span id="review-scenario">시나리오 준비 중</span> · <span id="review-variant"></span></div>
+  <div class="review-caption" id="review-caption">설치 앱·실제 채팅·사용자 마우스와 연결하지 않아요</div>
+  <div class="virtual-pointer" id="virtual-pointer" hidden></div>
+  <script type="module" src="./motion-review-stage.js"></script>
+</body></html>

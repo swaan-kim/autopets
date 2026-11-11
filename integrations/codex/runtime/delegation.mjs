@@ -1,21 +1,30 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { isChildHook } from '../hooks/scope.mjs';
+import { ROUTING_PROFILE_KEYS, routingSettings, planSettings } from '../../../packages/contracts/routing.mjs';
 
 const text = (v, max = 256) => typeof v === 'string' && v.length > 0 && Buffer.byteLength(v) <= max && !/[\p{Cc}]/u.test(v);
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export const PROFILES = Object.freeze({
-  light: { name: 'autopets-build-light', model: 'gpt-6-luna', effort: 'low' },
-  standard: { name: 'autopets-build-standard', model: 'gpt-6-sol', effort: 'low' },
-  careful: { name: 'autopets-build-careful', model: 'gpt-6-sol', effort: 'medium' },
-  plan: { name: 'autopets-build-plan', model: 'gpt-6-luna', effort: 'low', readOnly: true },
-});
+// Single source: packages/contracts/data/routing-profiles.json (shared with Rust and UI).
+export const PROFILES = Object.freeze(Object.fromEntries(ROUTING_PROFILE_KEYS.map(key => {
+  const { agentName: name, model, effort, readOnly } = routingSettings(key);
+  return [key, Object.freeze({ name, model, effort, ...(readOnly ? { readOnly: true } : {}) })];
+})));
 
-export function availableProfile(key, models) {
-  const profile = PROFILES[key];
-  if (!profile || !Array.isArray(models)) throw Error('unsupported-delegation-profile');
+// `template` is the pet's saved template: its planning value (from planOptions) sets the plan profile.
+export function availableProfile(key, models, template = null) {
+  const base = PROFILES[key];
+  if (!base || !Array.isArray(models)) throw Error('unsupported-delegation-profile');
+  let profile = base;
+  if (key === 'plan' && template) {
+    const { model, effort } = planSettings(template);
+    profile = { ...base, model, effort };
+  }
   const matches = models.filter(m => m.model === profile.model);
-  if (matches.length !== 1 || !matches[0].supportedReasoningEfforts?.includes(profile.effort)) throw Error('unavailable-delegation-profile');
+  if (matches.length !== 1 || !matches[0].supportedReasoningEfforts?.includes(profile.effort)) {
+    // Same code as before; `requested` only lets the caller explain what is missing. No substitution.
+    throw Object.assign(Error('unavailable-delegation-profile'), { requested: { stage: key, model: profile.model, effort: profile.effort } });
+  }
   return { ...profile };
 }
 

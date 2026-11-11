@@ -20,10 +20,31 @@ import { WORKFLOW_PRESETS } from '../features/workflow/presentation';
 import { RoleStudio } from '../features/roles/RoleStudio';
 import { UiPetStudio } from '../features/pets/UiPetStudio';
 
+type PetSection = 'home' | 'pets' | 'catalog' | 'saved';
+const isPetSection = (section: ManagerSection): section is PetSection => ['home', 'pets', 'catalog', 'saved'].includes(section);
+
 export function Manager({ snapshot, error, assistance, workflow }: { snapshot: Snapshot; error: string; assistance: ReturnType<typeof useAssistance>; workflow: ReturnType<typeof useWorkflow> }) {
   const [settings, setSettings] = useState<ManagerSection>('home');
   const [navigationRevision, setNavigationRevision] = useState(0);
-  const navigate = (section: ManagerSection) => { setSettings(section); setNavigationRevision(value => value + 1); };
+  const [connectionReturn, setConnectionReturn] = useState<{ section: PetSection; fromPet: boolean } | null>(null);
+  const navigate = (section: ManagerSection) => {
+    if (section === 'connection' && settings === 'connection') return;
+    if (section === 'connection' && isPetSection(settings)) {
+      setConnectionReturn({ section: settings, fromPet: false });
+      setSettings(section);
+      return;
+    }
+    setConnectionReturn(null); setSettings(section); setNavigationRevision(value => value + 1);
+  };
+  const openPetConnection = () => {
+    if (!isPetSection(settings)) return;
+    setConnectionReturn({ section: settings, fromPet: true });
+    setSettings('connection');
+  };
+  const returnFromConnection = () => { setSettings(connectionReturn?.section ?? 'pets'); setConnectionReturn(null); };
+  // A connection detour keeps the existing composer mounted on its original view.
+  // Explicit navigation still increments the revision and closes that composer.
+  const studioView = isPetSection(settings) ? settings : settings === 'connection' && connectionReturn ? connectionReturn.section : 'pets';
   useEffect(() => { window.scrollTo(0, 0); }, [settings, navigationRevision]);
   const [assistanceSession, setAssistanceSession] = useState<string | null>(null);
   const [assistanceIdentity, setAssistanceIdentity] = useState<ChatIdentity | null>(null);
@@ -73,10 +94,10 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
     {editSession && <Modal title="작업 설정" close={() => { if (!action.busy) setEditId(null); }}>{action.error && <p className="error" role="alert">{action.error}</p>}<ConfigurationForm key={editSession.id} session={editSession} busy={action.busy} submitLabel="설정 저장" onSave={async config => { if (await configure(editSession.id, config)) setEditId(null); }} /></Modal>}
     {detailSession && <Modal title={detailSession.label} close={() => setDetailId(null)} wide><p className="overlay-path">{shortPath(detailSession.cwd)}</p><TaskDetails session={detailSession} now={snapshot.now} disconnected={disconnected} /></Modal>}
   </>}>
-      {settings === 'roles' ? <RoleStudio workflow={workflow.snapshot} sessions={snapshot.sessions} refreshWorkflow={workflow.refresh} /> : settings === 'intro' ? <IntroStudio assistance={assistance.snapshot} workflow={workflow.snapshot} sessions={snapshot.sessions} onWorkflow={identity => { setAssistanceIdentity(identity); setAssistanceSession(identity.chatId); setAssistanceRequest(value => value + 1); setSettings('assistance'); }} /> : settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} initialIdentity={assistanceIdentity} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} workflow={workflow} /> : settings === 'connection' ? <ConnectionGuide petLinks={snapshot.petLinks} setup={snapshot.setup} connectionPath={snapshot.connectionPath} defaultLabel={WORKFLOW_PRESETS.find(item => item.id === workflow.snapshot.preferences.preset)?.title} onBack={() => setSettings('pets')} onPreferences={() => setSettings('assistance')} /> : null}
+      {settings === 'roles' ? <RoleStudio workflow={workflow.snapshot} sessions={snapshot.sessions} refreshWorkflow={workflow.refresh} /> : settings === 'intro' ? <IntroStudio assistance={assistance.snapshot} workflow={workflow.snapshot} sessions={snapshot.sessions} onWorkflow={identity => { setAssistanceIdentity(identity); setAssistanceSession(identity.chatId); setAssistanceRequest(value => value + 1); setSettings('assistance'); }} /> : settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} initialIdentity={assistanceIdentity} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} workflow={workflow} /> : settings === 'connection' ? <ConnectionGuide petLinks={snapshot.petLinks} setup={snapshot.setup} connectionPath={snapshot.connectionPath} defaultLabel={WORKFLOW_PRESETS.find(item => item.id === workflow.snapshot.preferences.preset)?.title} backLabel={connectionReturn?.fromPet ? '펫으로 돌아가기' : connectionReturn ? '돌아가기' : undefined} onBack={returnFromConnection} onPreferences={() => navigate('assistance')} /> : null}
       {settings === 'connection' && legacy}
       <div hidden={!['home', 'pets', 'catalog', 'saved'].includes(settings)}>
-        <UiPetStudio navigationRevision={navigationRevision} active={['home', 'pets', 'catalog', 'saved'].includes(settings)} view={settings === 'home' || settings === 'catalog' || settings === 'saved' ? settings : 'pets'} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={() => setSettings('connection')}
+        <UiPetStudio navigationRevision={navigationRevision} active={isPetSection(settings)} view={studioView} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
  />
       </div>
   </AppShell>;

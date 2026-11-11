@@ -113,7 +113,7 @@ impl Store {
                     if run.id==request_id { if run.profile!=profile { return Err("request-content-changed".into()); } return Ok(Some(link)); }
                     if run.unresolved() { return Err("previous-pet-run-unresolved".into()); }
                 }
-                let (model,effort)=profile.settings();
+                let (model,effort)=profile.run_settings(&link.template)?;
                 reservation = Some(request_id.clone());
                 link.run=Some(Run{id:request_id,settings_revision:link.revision,profile:profile.clone(),model:model.into(),effort:effort.into(),state:RunState::Requested,child_id:None,turn_id:None,observed_model:None,observed_effort:None,evidence:None,started_at:now_ms(),agent_path:None,tracking_closed:false,result_returned:false,runtime_completed:false,template:Some(link.template.clone()),saved_pet:link.saved_pet.clone(),skill_evidence:vec![],figma_used:false});
             },

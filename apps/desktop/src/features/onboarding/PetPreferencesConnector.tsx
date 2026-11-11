@@ -1,35 +1,81 @@
 import { useRef, useState } from 'react';
+import type { SavedPet } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 
-export function PetPreferencesConnector({ compact = false }: { compact?: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [fileName, setFileName] = useState('');
+type Action = 'install' | 'use';
+
+// Claude's own install window and a prefilled new chat replace the manual file
+// and copy-paste steps. Claude still asks the user to confirm the install and to
+// send the message; AutoPets never claims either happened.
+export function PetPreferencesConnector({ compact = false, pet = null }: { compact?: boolean; pet?: SavedPet | null }) {
+  const [busy, setBusy] = useState<Action | null>(null);
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const pending = useRef(false);
-  const save = async () => {
+  const act = async (action: Action) => {
     if (pending.current) return;
-    pending.current = true; setBusy(true); setError(''); setFileName('');
+    pending.current = true; setBusy(action); setError(''); setNotice('');
     try {
-      const name = await command<string>('export_pet_preferences');
-      if (typeof name !== 'string' || !/^AutoPets-pet-preferences-[0-9a-f-]{36}\.mcpb$/.test(name)) throw Error('unconfirmed-export');
-      setFileName(name);
-    } catch { setError('연결 파일을 저장하지 못했어요. 다운로드 폴더에 저장할 수 있는지 확인해 주세요.'); }
-    finally { pending.current = false; setBusy(false); }
+      if (action === 'install') {
+        const name = await command<string>('install_pet_preferences_in_claude');
+        if (typeof name !== 'string' || !/^AutoPets-pet-preferences-[0-9a-f-]{36}\.mcpb$/.test(name)) throw Error('unconfirmed-export');
+        setNotice('Claude 설치 창에서 설치를 눌러 주세요. 이미 설치했다면 닫아도 돼요.');
+      } else if (pet) {
+        await command('open_pet_in_claude', { petId: pet.id, expectedRevision: pet.revision });
+        setNotice('Claude 새 대화에 요청을 넣었어요. 모델을 고르고 보내기만 누르세요.');
+      }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
+      setError(/[가-힣]/.test(message) ? message : action === 'install' ? 'Claude 설치 창을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.' : 'Claude 앱을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.');
+    } finally { pending.current = false; setBusy(null); }
   };
-  if (compact) return <div className="composer-claude-connector">
-    {isDesktop ? <button className="button secondary" disabled={busy} onClick={() => void save()}>{busy ? '저장 중…' : 'Claude 연결 파일'}<span aria-hidden="true">↓</span></button>
-      : <a className="button secondary" href="/assets/connectors/AutoPets-pet-preferences.mcpb" download="AutoPets-pet-preferences.mcpb">Claude 연결 파일<span aria-hidden="true">↓</span></a>}
-    {fileName && <p className="setup-notice" role="status">다운로드/AutoPets에 저장했어요.<br />Claude 설정 → 확장 프로그램 → 고급 설정에서 설치하세요.</p>}
+  const install = isDesktop
+    ? <button className="button secondary" disabled={busy !== null} onClick={() => void act('install')}>{busy === 'install' ? '여는 중…' : 'Claude에 설치'}</button>
+    : <a className="button secondary" href="/assets/connectors/AutoPets-pet-preferences.mcpb" download="AutoPets-pet-preferences.mcpb">Claude 연결 파일<span aria-hidden="true">↓</span></a>;
+  const use = isDesktop && pet
+    ? <button className="button secondary" disabled={busy !== null} onClick={() => void act('use')}>{busy === 'use' ? '여는 중…' : 'Claude에서 쓰기'}<span aria-hidden="true">↗</span></button>
+    : null;
+  const status = <>
+    {notice && <p className="setup-notice" role="status">{notice}</p>}
     {error && <p className="error" role="alert">{error}</p>}
-  </div>;
+  </>;
+  if (compact) return <div className="composer-claude-connector">{use}{install}{status}</div>;
   return <details className="connection-preset-share"><summary>다른 AI에서도 펫 설정 쓰기</summary>
-    <h2>저장한 작업 방식을 그대로 가져가요.</h2>
-    <p>Claude의 로컬 확장에 연결 도구를 추가하면, 사용자가 고른 펫의 지침을 읽는 경로를 준비할 수 있어요.</p>
-    <ol><li>이 앱에서 원하는 펫 구성을 저장해요.</li><li>확장 파일을 받고 Claude의 확장 설정에서 설치해요.</li><li>쓰던 대화에서 “AutoPets에 저장한 펫 찾아줘”라고 말해요.</li></ol>
-    {isDesktop ? <button className="button secondary" disabled={busy} onClick={() => void save()}>{busy ? '파일 저장 중…' : 'Claude용 연결 파일 받기'}</button>
-      : <a className="button secondary" href="/assets/connectors/AutoPets-pet-preferences.mcpb" download="AutoPets-pet-preferences.mcpb">Claude용 연결 파일 받기</a>}
-    {fileName && <p className="setup-notice" role="status">다운로드 폴더의 AutoPets에 저장했어요. Claude의 확장 설정에서 이 파일을 선택해 주세요.<br /><code>{fileName}</code></p>}
-    {error && <p className="error" role="alert">{error}</p>}
-    <p className="small-note">연결 준비판 · 실제 Claude 설치·활용 검증 전이에요. 펫 설정 읽기만 준비하며, 대화 공유·스킬 실행·모델 변경은 확인하지 않았어요. ChatGPT 웹·Work의 클라우드 연결은 별도예요.</p>
+    <h2>저장한 작업 방식을 Claude에서도 써요.</h2>
+    <ol><li><strong>Claude에 설치</strong>를 누르고 Claude 창에서 설치를 확인해요. 한 번만 하면 돼요.</li><li>펫 화면에서 <strong>Claude에서 쓰기</strong>를 누르면 그 펫을 부르는 요청이 담긴 새 대화가 열려요.</li></ol>
+    {install}
+    {status}
+    <p className="small-note">펫 설정 읽기만 연결해요. 대화 공유·스킬 실행·모델 변경은 하지 않아요.</p>
+    {isDesktop && <ClaudeCodeConnector />}
   </details>;
+}
+
+// Claude Code's own plugin CLI installs the local AutoPets plugin, so the pet
+// follows Claude Code work. Only work status is sent, never conversation text.
+function ClaudeCodeConnector() {
+  const [busy, setBusy] = useState<'connect' | 'disconnect' | null>(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const pending = useRef(false);
+  const act = async (action: 'connect' | 'disconnect') => {
+    if (pending.current) return;
+    pending.current = true; setBusy(action); setNotice(''); setError('');
+    try {
+      await command(action === 'connect' ? 'connect_claude_code' : 'disconnect_claude_code');
+      setNotice(action === 'connect' ? '연결했어요. 새로 여는 Claude Code 세션부터 펫이 움직여요.' : '연결을 해제했어요.');
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
+      setError(/[가-힣]/.test(message) ? message : 'Claude Code 연결을 바꾸지 못했어요. 다시 시도해 주세요.');
+    } finally { pending.current = false; setBusy(null); }
+  };
+  return <section className="claude-code-connector" aria-label="Claude Code 연결">
+    <h3>Claude Code에서도 펫이 움직이게</h3>
+    <p>작업 시작·도구 사용·권한 요청·완료 상태만 펫에 전해요. 대화 내용과 파일 내용은 보내지 않아요.</p>
+    <div className="claude-code-actions">
+      <button className="button secondary" disabled={busy !== null} onClick={() => void act('connect')}>{busy === 'connect' ? '연결 중…' : 'Claude Code에 연결'}</button>
+      <button className="text-button" disabled={busy !== null} onClick={() => void act('disconnect')}>{busy === 'disconnect' ? '해제 중…' : 'Claude Code 연결 해제'}</button>
+    </div>
+    {notice && <p className="setup-notice" role="status">{notice}</p>}
+    {error && <p className="error" role="alert">{error}</p>}
+  </section>;
 }

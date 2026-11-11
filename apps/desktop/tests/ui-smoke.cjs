@@ -124,7 +124,19 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
-        if (name === 'export_pet_preferences') {
+        if (name === 'open_pet_in_codex') {
+          if (window.__uiTest.codexPromptTooLong) throw 'prompt-too-long';
+          return null;
+        }
+        if (name === 'connect_claude_code' || name === 'disconnect_claude_code') {
+          if (window.__uiTest.claudeCodeError) throw '이 PC에서 Claude Code를 찾지 못했어요.';
+          return null;
+        }
+        if (name === 'open_pet_in_claude') {
+          if (window.__uiTest.claudeOpenError) throw Error('fixture open denied');
+          return null;
+        }
+        if (name === 'export_pet_preferences' || name === 'install_pet_preferences_in_claude') {
           if (window.__uiTest.holdPreferenceExport) await new Promise(resolve => { window.__uiTest.releasePreferenceExport = resolve; });
           if (window.__uiTest.preferenceExportError) throw Error('fixture export denied');
           return 'AutoPets-pet-preferences-11111111-1111-4111-8111-111111111111.mcpb';
@@ -289,13 +301,20 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
   const checks = [];
   let currentPage;
   const closeFixturePages = async () => { for (const context of browser.contexts()) await context.close(); };
-  const newPage = async (viewport = { width: 1120, height: 880 }) => {
-    const page = await browser.newPage({ viewport, deviceScaleFactor: 1 }); currentPage = page;
+  const newPage = async (viewport = { width: 1120, height: 880 }, recordVideo = false) => {
+    const page = await browser.newPage({ viewport, deviceScaleFactor: 1,
+      ...(recordVideo ? { recordVideo: { dir: path.join(path.dirname(screenshot), 'artifacts'), size: viewport } } : {}) }); currentPage = page;
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_QUICK_USE_ONLY === '1') {
+      const screenshots = await runPetQuickUseChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_PROMPT_IDEAS_ONLY === '1') {
       const screenshots = await runPromptIdeaChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);

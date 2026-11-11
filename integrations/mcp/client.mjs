@@ -1,5 +1,7 @@
 import path from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
 import { readConnection, requestJson } from '../codex/skills/autopets/scripts/bridge-client.mjs';
+import { routingHint } from '../../packages/contracts/routing.mjs';
 
 export class PetLibraryError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -9,6 +11,16 @@ const text = (value, limit) => typeof value === 'string' && value.length > 0 && 
 
 export function createLibraryClient({ environment = process.env, connect = readConnection, request = requestJson } = {}) {
   return async body => {
+    // Managed Codex tools can remain loaded in a running host after removal.
+    // Check this local switch on each read; no polling or host termination.
+    if (environment.AUTOPETS_MCP_ACCESS_FILE) {
+      try {
+        const file = environment.AUTOPETS_MCP_ACCESS_FILE;
+        if (!path.isAbsolute(file) || (await stat(file)).size > 256) throw Error('invalid-access-file');
+        const access = JSON.parse(await readFile(file, 'utf8'));
+        if (access.version !== 1 || access.enabled !== true) throw Error('disabled');
+      } catch { throw new PetLibraryError('connection-disabled'); }
+    }
     const root = environment.AUTOPETS_DATA_DIR || (environment.LOCALAPPDATA ? path.join(environment.LOCALAPPDATA, 'local.autopets.desktop') : null);
     const location = environment.AUTOPETS_CONNECTION_FILE || (root && path.join(root, 'connection.json'));
     if (!location) throw new PetLibraryError('app-unavailable');
@@ -31,10 +43,17 @@ export function createLibraryClient({ environment = process.env, connect = readC
       || !text(pet.template.name, 120) || !text(pet.template.instruction, 1536) || typeof pet.template.planFirst !== 'boolean'
       || !Array.isArray(pet.template.skills) || pet.template.skills.length > 8
       || pet.template.skills.some(skill => !object(skill) || !text(skill.id, 128) || !text(skill.version, 128))) throw new PetLibraryError('invalid-library-response');
-    // Return only the selected reusable preferences. Runtime routing, accounts,
+    // Saved plan/build stages become a host-neutral hint built only from the shared routing table.
+    // Raw saved model strings are never forwarded; a malformed or unlisted combination yields no hint.
+    const modelOk = value => value === undefined || value === null || object(value) && text(value.model, 128) && text(value.reasoning, 16);
+    let routing = null;
+    if (modelOk(pet.template.planning) && modelOk(pet.template.execution)) {
+      try { routing = routingHint(pet.template); } catch { routing = null; }
+    }
+    // Return only the selected reusable preferences. Runtime links, accounts,
     // folder paths, conversation text and authentication never leave this tool.
     return { pet: { id: pet.id, revision: pet.revision, name: pet.template.name, instruction: pet.template.instruction,
       planFirst: pet.template.planFirst, skillReferences: pet.template.skills.map(({ id, version }) => ({ id, version })),
-      skillsLoaded: false, hostSettingsChanged: false } };
+      routing, skillsLoaded: false, hostSettingsChanged: false } };
   };
 }

@@ -30,6 +30,15 @@ async function fixture(t) {
   return { temporary, root, app, fake, report, appExecutable, managed, env, calls, driver, options };
 }
 
+test('opening from an AI never registers preference tools or restarts the host', async t => {
+  const f = await fixture(t);
+  f.driver.discoverCodex = async () => { throw Error('Must not inspect or configure Codex on app open'); };
+  const result = await connectInstalled({ ...f.options, entryPoint: 'ai' });
+  assert.equal(result.preferencesMcp.status, 'skipped');
+  await assert.rejects(fs.stat(path.join(f.env.CODEX_HOME, 'config.toml')), { code: 'ENOENT' });
+  assert.equal(result.chatConnected, false);
+});
+
 test('installer resources work detached from checkout and contain no installer or private files', async t => {
   const f = await fixture(t);
   const manifest = await verifyPackage(f.report.connector, { installedResource: true });

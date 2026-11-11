@@ -9,13 +9,17 @@ export async function packagePetPreferences({ out = path.join(root, 'release/mcp
   const sources = [
     ['manifest.json', 'integrations/mcp/manifest.json'],
     ['README.md', 'integrations/mcp/README.md'],
+    ['server/mcp/main.mjs', 'integrations/mcp/main.mjs'],
     ['server/mcp/server.mjs', 'integrations/mcp/server.mjs'],
     ['server/mcp/client.mjs', 'integrations/mcp/client.mjs'],
     ['server/codex/skills/autopets/scripts/bridge-client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs'],
+    // client.mjs imports ../../packages/contracts/routing.mjs, which reads the routing table next to it.
+    ['packages/contracts/routing.mjs', 'packages/contracts/routing.mjs'],
+    ['packages/contracts/data/routing-profiles.json', 'packages/contracts/data/routing-profiles.json'],
   ];
   const entries = await Promise.all(sources.map(async ([name, file]) => ({ name, data: await fs.readFile(path.join(root, file)) })));
   const manifest = JSON.parse(entries[0].data);
-  if (manifest.server.type !== 'node' || manifest.server.entry_point !== 'server/mcp/server.mjs' || manifest.server.mcp_config.command !== 'node'
+  if (manifest.server.type !== 'node' || manifest.server.entry_point !== 'server/mcp/main.mjs' || manifest.server.mcp_config.command !== 'node'
     || manifest.compatibility.platforms.join() !== 'win32' || entries.some(entry => /connection\.json|\.sqlite|host-config/u.test(entry.name))) throw Error('Unexpected pet preference package');
   const bytes = makeZip(entries);
   const sha256 = createHash('sha256').update(bytes).digest('hex');

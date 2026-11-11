@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "about": "펫 하위 작업 프로필의 단일 기준. 펫은 프로필 키(단계)를 저장하고, 실제 모델·강도는 호스트별 표에서 정한다. delegation.mjs·pet_link.rs·UiPetStudio.tsx가 이 파일을 읽는다. 계획 프로필은 펫 템플릿의 planning이 planOptions 중 하나면 그 값을, 없으면 profiles.plan을 쓴다. 목록 밖 값은 대체하지 않고 거부한다. planOptions의 tier(light/deep)로 호스트 사이의 같은 계획 수준을 대응한다.",
+  "profiles": {
+    "light": {
+      "stage": "execution",
+      "label": "가볍게",
+      "description": "빠른 초안에",
+      "agentName": "autopets-build-light",
+      "readOnly": false
+    },
+    "standard": {
+      "stage": "execution",
+      "label": "표준",
+      "description": "일반적인 작업에",
+      "agentName": "autopets-build-standard",
+      "readOnly": false
+    },
+    "careful": {
+      "stage": "execution",
+      "label": "꼼꼼하게",
+      "description": "더 깊이 검토할 때",
+      "agentName": "autopets-build-careful",
+      "readOnly": false
+    },
+    "plan": {
+      "stage": "planning",
+      "label": "계획",
+      "description": "계획만 세우고 확인을 기다려요",
+      "agentName": "autopets-build-plan",
+      "readOnly": true
+    }
+  },
+  "hosts": {
+    "codex-windows-local": {
+      "status": "child-routing-verified",
+      "profiles": {
+        "light": {
+          "model": "gpt-6-luna",
+          "effort": "low"
+        },
+        "standard": {
+          "model": "gpt-6-sol",
+          "effort": "low"
+        },
+        "careful": {
+          "model": "gpt-6-sol",
+          "effort": "medium"
+        },
+        "plan": {
+          "model": "gpt-6-luna",
+          "effort": "low"
+        }
+      },
+      "planOptions": [
+        {
+          "model": "gpt-6-luna",
+          "effort": "low",
+          "note": "profiles.plan과 같음. 계획 설정이 없거나 기존에 저장된 펫의 기본값",
+          "tier": "light"
+        },
+        {
+          "model": "gpt-6-astra",
+          "effort": "high",
+          "note": "새 계획 우선 펫의 기본값. 2026-11-10 native 위임이 인수를 수락하고 읽기 전용 계획을 반환함(자식 실행 기록 대조는 미확인)",
+          "tier": "deep"
+        }
+      ]
+    },
+    "claude-code": {
+      "status": "planned",
+      "profiles": {
+        "light": {
+          "model": "sonnet",
+          "effort": "low"
+        },
+        "standard": {
+          "model": "sonnet",
+          "effort": "medium"
+        },
+        "careful": {
+          "model": "opus",
+          "effort": "medium"
+        },
+        "plan": {
+          "model": "sonnet",
+          "effort": "low"
+        }
+      },
+      "planOptions": [
+        {
+          "model": "sonnet",
+          "effort": "low",
+          "tier": "light"
+        },
+        {
+          "model": "opus",
+          "effort": "high",
+          "tier": "deep"
+        }
+      ]
+    }
+  }
+}

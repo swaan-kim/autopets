@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { Snapshot } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
@@ -23,14 +22,17 @@ import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet
 import { companionState, companionRunKey } from './companionMotion';
 import { CompanionPet } from './CompanionPet';
 import { PetRecommendationCard, recommendationStatus, visibleRecommendation } from './PetRecommendation';
+import { usePetGesture } from './usePetGesture';
 
-function UnassignedPetButton({ index, expanded, onToggle, recommended = false }: { index: number; expanded: boolean; onToggle: () => void; recommended?: boolean }) {
+const moveHint = '클릭하면 작업 카드, 끌면 이동';
+
+function UnassignedPetButton({ index, expanded, onToggle, gesture, recommended = false }: { index: number; expanded: boolean; onToggle: () => void; gesture: ReturnType<typeof usePetGesture>; recommended?: boolean }) {
   const [interaction, setInteraction] = useState(0);
   const react = () => setInteraction(value => value + 1);
-  return <button className="pet-hit" aria-expanded={expanded} aria-label={`${PET_NAMES[index]} · 작업 카드 열기${recommended ? ' · 펫 추천 있음' : ''}`} onClick={onToggle}
-    onPointerDown={event => { if (event.button === 0) react(); }}
+  return <button className="pet-hit" aria-expanded={expanded} aria-label={`${PET_NAMES[index]} · 작업 카드 열기${recommended ? ' · 펫 추천 있음' : ''}`} title={moveHint} onClick={onToggle} {...gesture.handlers}
+    onPointerDown={event => { gesture.handlers.onPointerDown(event); if (event.button === 0) react(); }}
     onKeyDown={event => { if (!event.repeat && (event.key === 'Enter' || event.key === ' ')) react(); }}>
-    <span className="overlay-idle-pet"><CompanionPet state="idle" interaction={interaction} /></span>
+    <span className="overlay-idle-pet"><CompanionPet state="idle" interaction={interaction} motionInput={gesture.motion} /></span>
     {recommended && <span className="pet-recommendation-dot below-menu" aria-hidden="true">추천</span>}
   </button>;
 }
@@ -44,6 +46,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const returning = useRef(false);
   const action = useAction();
   const roles = useRoles();
+  // Dragging the pet body moves its window; the open card closes first.
+  const gesture = usePetGesture({ onDragStart: () => setExpanded(false) });
   const sessionId = snapshot.slots.find(slot => slot.index === index)?.sessionId;
   const session = snapshot.sessions.find(session => session.id === sessionId);
   const returnTarget = useRef('');
@@ -88,9 +92,9 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
       {expanded && <div className="quick-card-stack">{offered && <PetRecommendationCard item={offered} compact />}<div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
-      <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) void getCurrentWindow().startDragging().catch(() => undefined); }}>⠿</button>
-        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}`} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}</button>
-        <span className="floating-label">{explicit.template.name} · Codex</span><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span>
+      <div className="floating-pet">
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}</button>
+        <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span>
       </div></div>;
   }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'
@@ -132,10 +136,10 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       onQuit={async () => { await action.run('quit_app'); }} onClose={() => setExpanded(false)} />
       {session && attention && <AttentionCard session={session} attention={attention} />}
     </div>}
-    <div className="floating-pet"><button className="drag-handle" aria-label="펫 이동" title="드래그해서 이동" onPointerDown={event => { if (event.button === 0 && isDesktop) { setExpanded(false); void getCurrentWindow().startDragging().catch(() => void 0); } }}>⠿</button>
+    <div className="floating-pet">
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
-      {session ? <button className="pet-hit" aria-expanded={expanded} aria-label={`${session.label} · 작업 카드 열기`} onClick={() => setExpanded(!expanded)}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
-        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} recommended={waitingRecommendation?.state === 'shown'} />}
+      {session ? <button className="pet-hit" aria-expanded={expanded} aria-label={`${session.label} · 작업 카드 열기`} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}</button>
+        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} gesture={gesture} recommended={waitingRecommendation?.state === 'shown'} />}
       {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span>
       {waitingRecommendation ? <span className="floating-status recommend" title={recommendationStatus(waitingRecommendation)}>{recommendationStatus(waitingRecommendation)}</span>

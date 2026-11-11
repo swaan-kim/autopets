@@ -5,11 +5,12 @@ import { SourceLogo, skillSourceFor } from './PetSkillSource';
 import { CompanionPet } from './CompanionPet';
 import { ResultSample } from './ResultSamples';
 import type { CompanionState } from './companionMotion';
+import type { PetMotionInput } from './petMotionInput';
 import './visual-cards.css';
 import './result-preview.css';
 
 // Presentation only: a prop describes the role, never a connected or running tool.
-export function TaskPetArt({ entry, motion = 'idle', paused = true, small = false, state, runKey, interactive = true, example = false }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean }) {
+export function TaskPetArt({ entry, motion = 'idle', paused = true, small = false, state, runKey, interactive = true, example = false, motionInput }: { entry?: PetCatalogEntry; motion?: PetMotion; paused?: boolean; small?: boolean; state?: CompanionState; runKey?: string; interactive?: boolean; example?: boolean; motionInput?: PetMotionInput }) {
   const id = useId().replace(/:/g, '');
   const role = entry?.id ?? 'ui-webpage';
   const root = useRef<HTMLSpanElement>(null);
@@ -30,7 +31,7 @@ export function TaskPetArt({ entry, motion = 'idle', paused = true, small = fals
     return () => { clearTimeout(timer); target?.removeEventListener('pointerenter', enter); target?.removeEventListener('pointerleave', leave); target?.removeEventListener('focusin', enter); target?.removeEventListener('focusout', leave); target?.removeEventListener('pointerdown', touch); };
   }, [companion, interactive]);
   return <span ref={root} className={`task-pet-art ${small ? 'compact' : ''}`} data-role={role} data-companion={companion} data-companion-state={companionView}>
-    {companion ? <CompanionPet state={companionView} paused={paused && !hovered} runKey={runKey} interaction={interaction} example={example} /> : <Pet motion={motion} paused={paused} />}
+    {companion ? <CompanionPet state={companionView} paused={paused && !hovered} runKey={runKey} interaction={interaction} example={example} motionInput={motionInput} /> : <Pet motion={motion} paused={paused} />}
     <svg className="task-pet-prop" viewBox="0 0 96 88" aria-hidden="true">
       <defs><linearGradient id={`${id}-paper`} x2=".8" y2="1"><stop stopColor="#fffef9" /><stop offset="1" stopColor="#e1e7d7" /></linearGradient><linearGradient id={`${id}-body`} x2=".8" y2="1"><stop stopColor="#679482" /><stop offset="1" stopColor="#274f43" /></linearGradient></defs>
       <ellipse cx="49" cy="79" rx="35" ry="5" fill="#173a2c" opacity=".12" />
