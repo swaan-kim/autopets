@@ -16,6 +16,9 @@ export const pluginSources = [
   ['autopets/server/mcp/server.mjs', 'integrations/mcp/server.mjs'],
   ['autopets/server/mcp/client.mjs', 'integrations/mcp/client.mjs'],
   ['autopets/server/codex/skills/autopets/scripts/bridge-client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs'],
+  // client.mjs imports ../../packages/contracts/routing.mjs, which reads the routing table next to it.
+  ['autopets/packages/contracts/routing.mjs', 'packages/contracts/routing.mjs'],
+  ['autopets/packages/contracts/data/routing-profiles.json', 'packages/contracts/data/routing-profiles.json'],
 ];
 
 export async function packageClaudeCodePlugin({ out = path.join(root, 'release/claude-code/autopets-claude-code') } = {}) {

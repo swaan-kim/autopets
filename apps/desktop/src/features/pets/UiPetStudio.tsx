@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot } from '@autopets/contracts/types';
+import type { PetLink, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
+import routing from '../../../../../packages/contracts/data/routing-profiles.json';
 import { petCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { command, isDesktop } from '../../bridge/command';
 import { useRoles } from '../../bridge/useRoles';
@@ -19,17 +20,18 @@ import './pet-composer-simple.css';
 
 export const FIGMA_GUIDE = 'https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/#codex';
 const EXAMPLE_TASK = '가상 학과 행사 소개 웹페이지 한 장. 행사 소개, 일정, 신청 안내와 모바일 화면을 포함해줘.';
-const supportedRouting = (draft: PetRoleTemplate) => (!draft.planning || (draft.planning.model === 'gpt-6-luna' && draft.planning.reasoning === 'low')) && (!draft.execution || (draft.execution.model === 'gpt-6-luna' && draft.execution.reasoning === 'low') || (draft.execution.model === 'gpt-6-sol' && ['low', 'medium'].includes(draft.execution.reasoning)));
+const codexRouting = routing.hosts['codex-windows-local'].profiles;
+const matchesProfile = (value: WorkflowModel, key: keyof typeof codexRouting) => value.model === codexRouting[key].model && value.reasoning === codexRouting[key].effort;
+const planOptions = routing.hosts['codex-windows-local'].planOptions;
+const supportedRouting = (draft: PetRoleTemplate) => (!draft.planning || planOptions.some(option => draft.planning!.model === option.model && draft.planning!.reasoning === option.effort)) && (!draft.execution || executionProfiles.some(profile => matchesProfile(draft.execution!, profile.id)));
 const targetKey = (link: PetLink) => JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]);
 const normalized = (value: unknown): unknown => Array.isArray(value) ? value.map(normalized) : value && typeof value === 'object'
   ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, normalized(item)])) : value;
 const sameTemplate = (left: PetRoleTemplate, right: PetRoleTemplate) => JSON.stringify(normalized(left)) === JSON.stringify(normalized(right));
 const explicitSetupReady = (setup?: SetupState | null) => setup?.connectionMode === 'explicit-pet' && setup.connections?.some(connection => connection.hostId === 'codex-windows-local' && connection.configured) === true;
-const executionProfiles = [
-  { id: 'light', label: '가볍게', description: '빠른 초안에', model: 'gpt-6-luna', reasoning: 'low' },
-  { id: 'standard', label: '표준', description: '일반적인 작업에', model: 'gpt-6-sol', reasoning: 'low' },
-  { id: 'careful', label: '꼼꼼하게', description: '더 깊이 검토할 때', model: 'gpt-6-sol', reasoning: 'medium' },
-] as const;
+// Single source shared with delegation.mjs and Rust: packages/contracts/data/routing-profiles.json.
+const executionProfiles = (['light', 'standard', 'careful'] as const).map(id => ({ id, label: routing.profiles[id].label, description: routing.profiles[id].description,
+  model: codexRouting[id].model, reasoning: codexRouting[id].effort as WorkflowReasoning }));
 
 // Preserve order across quick navigation and React effect cleanup/remount.
 let onboardingCommands = Promise.resolve();

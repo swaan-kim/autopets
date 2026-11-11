@@ -13,6 +13,9 @@ export async function packagePetPreferences({ out = path.join(root, 'release/mcp
     ['server/mcp/server.mjs', 'integrations/mcp/server.mjs'],
     ['server/mcp/client.mjs', 'integrations/mcp/client.mjs'],
     ['server/codex/skills/autopets/scripts/bridge-client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs'],
+    // client.mjs imports ../../packages/contracts/routing.mjs, which reads the routing table next to it.
+    ['packages/contracts/routing.mjs', 'packages/contracts/routing.mjs'],
+    ['packages/contracts/data/routing-profiles.json', 'packages/contracts/data/routing-profiles.json'],
   ];
   const entries = await Promise.all(sources.map(async ([name, file]) => ({ name, data: await fs.readFile(path.join(root, file)) })));
   const manifest = JSON.parse(entries[0].data);

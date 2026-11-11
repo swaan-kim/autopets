@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import { readConnection, requestJson } from '../codex/skills/autopets/scripts/bridge-client.mjs';
+import { routingHint } from '../../packages/contracts/routing.mjs';
 
 export class PetLibraryError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -42,10 +43,17 @@ export function createLibraryClient({ environment = process.env, connect = readC
       || !text(pet.template.name, 120) || !text(pet.template.instruction, 1536) || typeof pet.template.planFirst !== 'boolean'
       || !Array.isArray(pet.template.skills) || pet.template.skills.length > 8
       || pet.template.skills.some(skill => !object(skill) || !text(skill.id, 128) || !text(skill.version, 128))) throw new PetLibraryError('invalid-library-response');
-    // Return only the selected reusable preferences. Runtime routing, accounts,
+    // Saved plan/build stages become a host-neutral hint built only from the shared routing table.
+    // Raw saved model strings are never forwarded; a malformed or unlisted combination yields no hint.
+    const modelOk = value => value === undefined || value === null || object(value) && text(value.model, 128) && text(value.reasoning, 16);
+    let routing = null;
+    if (modelOk(pet.template.planning) && modelOk(pet.template.execution)) {
+      try { routing = routingHint(pet.template); } catch { routing = null; }
+    }
+    // Return only the selected reusable preferences. Runtime links, accounts,
     // folder paths, conversation text and authentication never leave this tool.
     return { pet: { id: pet.id, revision: pet.revision, name: pet.template.name, instruction: pet.template.instruction,
       planFirst: pet.template.planFirst, skillReferences: pet.template.skills.map(({ id, version }) => ({ id, version })),
-      skillsLoaded: false, hostSettingsChanged: false } };
+      routing, skillsLoaded: false, hostSettingsChanged: false } };
   };
 }

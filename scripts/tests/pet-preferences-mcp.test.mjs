@@ -66,6 +66,7 @@ test('authenticated loopback reads redact private fields, stale revisions, and r
   const selected = await library({ operation: 'read', petId: 'pet-a', expectedRevision: 3 });
   assert.equal(selected.pet.skillsLoaded, false); assert.equal(selected.pet.hostSettingsChanged, false);
   assert.equal(JSON.stringify(selected).includes('not returned'), false);
+  assert.equal(selected.pet.routing, null, 'malformed saved routing is omitted, not forwarded');
   await assert.rejects(library({ operation: 'read', petId: 'pet-a', expectedRevision: 2 }), error => error.code === 'pet-changed' && !error.message.includes('diagnostic'));
   mode = 'wrong'; await assert.rejects(library({ operation: 'read', petId: 'pet-a', expectedRevision: 3 }), error => error.code === 'invalid-library-response');
   assert.ok(calls.every(input => !JSON.stringify(input).includes(token)));
@@ -99,7 +100,8 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
     await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, bytes.subarray(start, start + size));
     files.push(name); offset = start + size;
   }
-  assert.equal(files.length, 6);
+  assert.equal(files.length, 8);
+  assert.ok(files.includes('packages/contracts/data/routing-profiles.json'), 'routing hint table ships with the server');
   assert.ok(!files.some(name => /connection\.json|\.sqlite|node_modules|\.local/u.test(name)));
   const manifest = JSON.parse(await fs.readFile(path.join(extracted, 'manifest.json'), 'utf8'));
   assert.equal(manifest.manifest_version, '0.3');
@@ -145,4 +147,15 @@ test('stdio answers hosts whose stdin only emits data events and whose write ret
   assert.deepEqual(written.map(message => message.id), [1, 2]);
   assert.equal(written[0].result.protocolVersion, '2025-11-25');
   assert.equal(written[1].result.tools.length, 2);
+});
+
+test('read pet returns a host-neutral routing hint from the shared table and never claims it was applied', async () => {
+  const uiPet = JSON.parse(await fs.readFile(new URL('../../packages/contracts/data/ui-pet.json', import.meta.url), 'utf8'));
+  const library = createLibraryClient({ environment: { AUTOPETS_CONNECTION_FILE: 'synthetic' }, connect: async () => ({}),
+    request: async () => ({ version: 1, pet: { id: 'pet-ui', revision: 1, template: uiPet } }) });
+  const { pet } = await library({ operation: 'read', petId: 'pet-ui', expectedRevision: 1 });
+  assert.deepEqual(pet.routing.planning.hosts['codex-windows-local'], { model: 'gpt-6-astra', effort: 'high' });
+  assert.deepEqual(pet.routing.planning.hosts['claude-code'], { model: 'opus', effort: 'high' });
+  assert.deepEqual(pet.routing.execution.hosts['claude-code'], { model: 'sonnet', effort: 'low' });
+  assert.equal(pet.routing.applied, false); assert.equal(pet.hostSettingsChanged, false);
 });

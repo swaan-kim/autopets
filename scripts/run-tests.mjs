@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const roots = ['integrations/codex/tests','integrations/claude-code/tests','integrations/chatgpt/tests','packages/contracts/tests','packages/guidance/tests','scripts/tests'];
+const roots = ['integrations/codex/tests','integrations/chatgpt/tests','integrations/claude-code/tests','packages/contracts/tests','packages/guidance/tests','scripts/tests'];
 const files = [];
 for (const directory of roots) {
   try { for (const entry of await readdir(join(root, directory), {withFileTypes:true})) if (entry.isFile() && entry.name.endsWith('.test.mjs')) files.push(join(root, directory, entry.name)); }
