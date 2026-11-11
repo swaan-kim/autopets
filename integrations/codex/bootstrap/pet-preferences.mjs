@@ -11,6 +11,9 @@ const sources = [
   'integrations/mcp/server.mjs',
   'integrations/mcp/client.mjs',
   'integrations/codex/skills/autopets/scripts/bridge-client.mjs',
+  // client.mjs imports the shared routing table; without these the read tool cannot start.
+  'packages/contracts/routing.mjs',
+  'packages/contracts/data/routing-profiles.json',
 ];
 const stable = value => JSON.stringify(value, (_, item) => item && typeof item === 'object' && !Array.isArray(item)
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
