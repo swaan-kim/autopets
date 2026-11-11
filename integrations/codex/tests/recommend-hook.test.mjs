@@ -35,13 +35,20 @@ test('a connected chat receives existing-pet candidates, the request for prefill
   assert.ok(offer.candidates.every(item => item.reason && Array.isArray(item.cues)));
 });
 
-test('no fitting pet, a greeting or the pet already in use clears the turn without sending text', async () => {
-  for (const [prompt, active] of [['안녕하세요', []], ['이 함수 버그 고쳐줘', []], ['부산 2박 3일 여행 일정 짜줘', ['travel-plan']]]) {
-    const bridge = fakeBridge({ ok: true, eligible: true, activePetIds: active });
-    await recommendForTurn(hookIdentity(input(prompt)), bridge.request);
-    assert.deepEqual(bridge.calls.map(call => call.body.operation), ['begin', 'clear'], prompt);
-    assert.equal(bridge.calls[1].body.request, undefined);
+test('a message that fits no pet never reaches the app, so it cannot replace a card the user accepted', async () => {
+  for (const prompt of ['안녕하세요', '이 함수 버그 고쳐줘', '고마워', '발표자료 만들기 펫으로 진행해줘']) {
+    const bridge = fakeBridge({ ok: true, eligible: true, activePetIds: [] });
+    const result = await recommendForTurn(hookIdentity(input(prompt)), bridge.request);
+    assert.equal(result.sent, false, prompt);
+    assert.deepEqual(bridge.calls, [], prompt);
   }
+});
+
+test('the pet already in use clears the turn without sending text', async () => {
+  const bridge = fakeBridge({ ok: true, eligible: true, activePetIds: ['travel-plan'] });
+  await recommendForTurn(hookIdentity(input('부산 2박 3일 여행 일정 짜줘')), bridge.request);
+  assert.deepEqual(bridge.calls.map(call => call.body.operation), ['begin', 'clear']);
+  assert.equal(bridge.calls[1].body.request, undefined);
 });
 
 test('the $autopet pet receives a recommendation only for the chat it belongs to', async () => {

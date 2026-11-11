@@ -4,8 +4,8 @@
 //
 // Observation only. It never blocks, edits or re-sends the submission, never adds model
 // context, never calls a model, and always prints `{}`. The request text leaves this
-// process only when the AutoPets app confirms the chat is connected to a pet AND the
-// local classifier found a fitting pet. The message text is never logged (a source checkout
+// process only when the local classifier found a fitting pet AND the AutoPets app confirms
+// the chat is connected to a pet. The message text is never logged (a source checkout
 // keeps an id-only trace in its git-ignored `.local/`).
 import path, { isAbsolute } from 'node:path';
 import os from 'node:os';
@@ -31,10 +31,14 @@ export function hookIdentity(input) {
 
 /** One recommendation cycle for one submitted turn. `request(path, body)` talks to the app bridge. */
 export async function recommendForTurn(identity, request) {
+  // Classify locally first. Most messages fit no pet; those never reach the app, so they send nothing
+  // and cannot replace a card the user is reading or has just accepted ("… 펫으로 진행해줘").
+  const first = recommendPets(identity.prompt);
+  if (first.status !== 'match') return { sent: false, reason: first.reason };
   const begin = await request('/v1/recommendations', { operation: 'begin', sessionId: identity.sessionId, turnId: identity.turnId, cwd: identity.cwd, source: 'hook' });
   if (begin?.eligible !== true) return { sent: false, reason: typeof begin?.reason === 'string' ? begin.reason : 'not-eligible' };
   const exclude = Array.isArray(begin.activePetIds) ? begin.activePetIds.filter(id => typeof id === 'string') : [];
-  const result = recommendPets(identity.prompt, { exclude });
+  const result = exclude.length ? recommendPets(identity.prompt, { exclude }) : first;
   if (result.status !== 'match') {
     await request('/v1/recommendations', { operation: 'clear', sessionId: identity.sessionId, turnId: identity.turnId });
     return { sent: false, reason: result.reason };
