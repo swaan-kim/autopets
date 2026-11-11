@@ -46,6 +46,7 @@ type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
 
+const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
 export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: TaskContext = {}) => [
   `AutoPets 스킬로 현재 채팅에 ${pet.template.name}을 연결해줘. 저장한 펫: petId=${pet.id}, petRevision=${pet.revision}.`,
   `이 펫으로 아래 작업${pet.template.planFirst ? '의 계획만 세워줘' : '을 수행하고 결과를 채팅에 보여줘'}.\n\n${task.trim()}\n`,
@@ -215,6 +216,18 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
     });
   };
   const saveAndCopy = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); await copy(uiPetStartPrompt(pet, task, { audience, message, newTask }), pet); });
+  // A new Codex thread opens with the start request in its composer; the user
+  // still presses send. Requests too long for a link fall back to copying.
+  const saveAndOpenCodex = () => run(async () => {
+    if (!task.trim()) throw Error('empty task');
+    const pet = await save();
+    const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    try { await command('open_pet_in_codex', { petId: pet.id, expectedRevision: pet.revision, prompt: value }); }
+    catch (cause) { if (/prompt-too-long/.test(String(cause))) return copy(value, pet); throw cause; }
+    setPrompt(value); setManualCopy(false); setCopied(false);
+    setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
+    setNotice(CODEX_OPENED);
+  });
   const saveToLibrary = () => {
     const scope = { key: draftKey.current, view, navigationRevision };
     const stillHere = () => mounted.current && currentContext.current.open && currentContext.current.active
@@ -330,7 +343,7 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
   };
   const savedReady = Boolean(saved && !dirty && !stale);
   const messages = <>
-    {notice && (!panel || copied || manualCopy) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
+    {notice && (!panel || copied || manualCopy || notice === CODEX_OPENED) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
     {!routingSupported && <p className="error" role="alert">사용할 수 없는 작업 설정이에요. 펫 설정에서 바꿔주세요.</p>}
     {(savedChanged || error || library.error || favorites.error) && <div ref={feedback} className="composer-feedback error" role="alert"><p>{error || library.error || favorites.error || '저장한 펫이 바뀌었어요. 최신 구성을 선택해 주세요.'}</p>{stale && <button className="text-button" onClick={focusSavedConfiguration}>구성 다시 선택</button>}</div>}
   </>;
@@ -362,7 +375,7 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
             : <div className="composer-hosts" aria-label="AI에서 사용하기">
               {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결 설정<span aria-hidden="true">↗</span></button>
                 : <button className="button primary" data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>}
-              <PetPreferencesConnector compact />
+              <PetPreferencesConnector compact pet={saved} />
             </div>}
         </section>}
         {!panel && messages}
@@ -386,7 +399,7 @@ export function UiPetStudio({ links, setup, onConnection, active = true, view = 
         <label className="composer-task">{entry.inputLabel}<textarea aria-label="펫에게 맡길 일" rows={4} maxLength={1200} disabled={busy} value={task} placeholder={entry.example} onChange={event => { setTask(event.target.value); invalidateRequest(); }} /></label>
         <button className="text-button composer-example" disabled={busy} onClick={() => { setTask(entry.example); invalidateRequest(); }}>예시로 시작</button>
         {entry.id === 'ui-webpage' && <section className="composer-brief"><label>보는 사람<input aria-label="페이지를 볼 사람" value={audience} maxLength={160} disabled={busy} onChange={event => { setAudience(event.target.value); invalidateRequest(); }} /></label><label>꼭 알릴 내용<input aria-label="꼭 알릴 내용" value={message} maxLength={160} disabled={busy} onChange={event => { setMessage(event.target.value); invalidateRequest(); }} /></label></section>}
-        <div className="composer-action composer-copy-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndCopy()}>{busy ? '준비하는 중…' : copied && !stale ? '시작 요청 다시 복사' : '시작 요청 복사'}<span aria-hidden="true">{copied && !stale ? '✓' : '↗'}</span></button></div>
+        <div className="composer-action composer-copy-action">{isDesktop && <button className="button primary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndOpenCodex()}>{busy ? '준비하는 중…' : 'Codex 새 대화로 시작'}<span aria-hidden="true">↗</span></button>}<button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndCopy()}>{busy ? '준비하는 중…' : copied && !stale ? '시작 요청 다시 복사' : '시작 요청 복사'}<span aria-hidden="true">{copied && !stale ? '✓' : '↗'}</span></button></div>
         {destinations.length > 0 && <section className="composer-destinations" data-next={copied && !stale} aria-label="등록된 Codex 채팅">{destinations.map(link => <div key={targetKey(link)}><small>{link.target.cwd.split(/[\\/]/).pop()} · {link.target.threadId.slice(-8)}</small><PetTaskReturn link={link} disconnected={disconnected} /></div>)}</section>}
         {newRecords.length > 0 && <p className="composer-observed" role="status">새 작업 기록을 채팅에서 확인해 주세요.</p>}
         {prompt && !stale && <label className="composer-request-result">시작 요청<textarea ref={promptField} aria-label="Codex에 보낼 시작 요청" readOnly rows={6} value={prompt} onFocus={event => event.currentTarget.select()} /></label>}

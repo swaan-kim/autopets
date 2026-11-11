@@ -100,7 +100,7 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
     await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, bytes.subarray(start, start + size));
     files.push(name); offset = start + size;
   }
-  assert.equal(files.length, 7);
+  assert.equal(files.length, 8);
   assert.ok(files.includes('packages/contracts/data/routing-profiles.json'), 'routing hint table ships with the server');
   assert.ok(!files.some(name => /connection\.json|\.sqlite|node_modules|\.local/u.test(name)));
   const manifest = JSON.parse(await fs.readFile(path.join(extracted, 'manifest.json'), 'utf8'));
@@ -111,6 +111,12 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
   assert.equal(cli.status, 0, cli.stderr);
   assert.equal(JSON.parse(cli.stdout).result.serverInfo.name, 'autopets-pet-preferences');
   assert.equal(cli.stderr, '');
+  // Hosts launch the manifest entry with their own spelling of the path; it must always answer.
+  assert.equal(manifest.server.entry_point, 'server/mcp/main.mjs');
+  const hostSpelled = `${extracted}${path.sep}.${path.sep}server/mcp/./main.mjs`;
+  const host = spawnSync(process.execPath, [hostSpelled], { input: JSON.stringify({ ...initialize, params: { ...initialize.params, protocolVersion: '2025-11-25' } }) + '\n', encoding: 'utf8', windowsHide: true, timeout: 10000 });
+  assert.equal(host.status, 0, host.stderr);
+  assert.equal(JSON.parse(host.stdout).result.protocolVersion, '2025-11-25');
 });
 
 test('long MCP sessions do not expire by message count and wait for a slow host reader', async () => {
@@ -126,6 +132,21 @@ test('long MCP sessions do not expire by message count and wait for a slow host 
   assert.equal(replies.length, 601);
   assert.equal(replies.at(-1).id, 601);
   assert.equal(reads, 0, 'health checks never read the app or its connection file');
+});
+
+test('stdio answers hosts whose stdin only emits data events and whose write returns nothing', async () => {
+  const { EventEmitter } = await import('node:events');
+  const input = new EventEmitter();
+  const written = [];
+  const output = { write: text => { written.push(JSON.parse(text)); } };
+  const done = runStdio({ input, output, session: createSession({ library: async () => ({ pets: [], nextOffset: null }) }) });
+  input.emit('data', Buffer.from(`${JSON.stringify({ ...initialize, params: { ...initialize.params, protocolVersion: '2025-11-25' } })}\r\n${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n{"jsonrpc":"2.0","id":2,"method":"tools/li`));
+  input.emit('data', 'st"}\n');
+  input.emit('end');
+  await done;
+  assert.deepEqual(written.map(message => message.id), [1, 2]);
+  assert.equal(written[0].result.protocolVersion, '2025-11-25');
+  assert.equal(written[1].result.tools.length, 2);
 });
 
 test('read pet returns a host-neutral routing hint from the shared table and never claims it was applied', async () => {

@@ -231,7 +231,7 @@ impl Store {
                 rec.supervision.add(
                     format!("permission:{}", event.event_id),
                     AttentionKind::Permission,
-                    "Codex에서 권한 요청을 확인해주세요.".into(),
+                    "AI 채팅에서 권한 요청을 확인해주세요.".into(),
                     turn_id,
                     event.tool_call_id.as_deref(),
                     now,

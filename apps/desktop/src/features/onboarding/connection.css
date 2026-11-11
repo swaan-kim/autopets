@@ -52,3 +52,7 @@
 .connection-preset-share code { overflow-wrap: anywhere; font-size: 11px; }
 @media (max-width: 700px) { .setup-heading { flex-wrap: wrap; } .connection-manage-card { padding: 20px; } .setup-step-title { align-items: flex-start; flex-wrap: wrap; gap: 8px; } }
 @media (max-width: 440px) { .setup-progress { grid-template-columns: 1fr; gap: 13px; } .setup-progress li > span:last-child { display: flex; align-items: baseline; gap: 12px; } }
+.claude-code-connector { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
+.claude-code-connector h3 { font-size: 15px; margin: 0 0 8px; }
+.claude-code-connector p { margin: 0 0 12px; }
+.claude-code-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }

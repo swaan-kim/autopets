@@ -1,0 +1,16 @@
+{
+  "name": "autopets-local",
+  "owner": {
+    "name": "AutoPets"
+  },
+  "metadata": {
+    "description": "AutoPets 앱이 내보낸 로컬 플러그인"
+  },
+  "plugins": [
+    {
+      "name": "autopets",
+      "source": "./autopets",
+      "description": "Claude Code 작업에 맞춰 AutoPets 펫이 움직입니다."
+    }
+  ]
+}

@@ -67,19 +67,29 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
     if (width === 375) { const file = path.join(screenshotDir, 'pet-quick-use-narrow.png'); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); }
   }
   await page.evaluate(() => { window.__uiTest.preferenceExportError = true; });
-  const exportButton = composer.getByRole('button', { name: 'Claude 연결 파일', exact: true });
+  const exportButton = composer.getByRole('button', { name: 'Claude에 설치', exact: true });
   const exportStatus = composer.locator('.composer-claude-connector').getByRole('status');
   await exportButton.click();
-  await composer.getByRole('alert').filter({ hasText: '연결 파일을 저장하지 못했어요' }).waitFor();
+  await composer.getByRole('alert').filter({ hasText: 'Claude 설치 창을 열지 못했어요' }).waitFor();
   assert.equal(await exportStatus.count(), 0);
   await page.evaluate(() => { window.__uiTest.preferenceExportError = false; window.__uiTest.holdPreferenceExport = true; });
   await exportButton.evaluate(button => { button.click(); button.click(); });
   await page.waitForFunction(() => typeof window.__uiTest.releasePreferenceExport === 'function');
-  assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'export_pet_preferences').length), 2);
-  await page.evaluate(() => window.__uiTest.releasePreferenceExport());
-  await exportStatus.waitFor();
-  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|install|submit|execute|open_pet_task/.test(call.name))), false);
-  checks.push('quick-use: disconnected create, failed save and repeated click, one stored pet with unchanged chats/clipboard and no AI; flat settings/request modal, Escape focus return, keyboard containment, preserved draft and small layouts; compact connector export failures/duplicates never claim installation');
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'install_pet_preferences_in_claude').length), 2);
+  await page.evaluate(() => { window.__uiTest.releasePreferenceExport(); window.__uiTest.holdPreferenceExport = false; });
+  await exportStatus.filter({ hasText: 'Claude 설치 창에서 설치를 눌러 주세요' }).waitFor();
+  const useButton = composer.getByRole('button', { name: 'Claude에서 쓰기', exact: true });
+  await page.evaluate(() => { window.__uiTest.claudeOpenError = true; });
+  await useButton.click();
+  await composer.getByRole('alert').filter({ hasText: 'Claude 앱을 열지 못했어요' }).waitFor();
+  await page.evaluate(() => { window.__uiTest.claudeOpenError = false; });
+  await useButton.click();
+  await exportStatus.filter({ hasText: '보내기만 누르세요' }).waitFor();
+  const opened = await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_claude').map(call => call.args));
+  assert.equal(opened.length, 2);
+  assert.deepEqual(Object.keys(opened[1]).sort(), ['expectedRevision', 'petId'], 'the UI sends only the pet identity, never a URL or prompt');
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|submit|execute|open_pet_task/.test(call.name))), false);
+  checks.push('quick-use: disconnected create, failed save and repeated click, one stored pet with unchanged chats/clipboard and no AI; flat settings/request modal, Escape focus return, keyboard containment, preserved draft and small layouts; compact Claude install/use buttons report failures, ignore duplicates and send only the saved pet identity');
 
   await page.setViewportSize({ width: 992, height: 688 });
   await openPetSettings(composer);

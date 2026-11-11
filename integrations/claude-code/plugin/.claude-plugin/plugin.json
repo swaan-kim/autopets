@@ -1,0 +1,9 @@
+{
+  "name": "autopets",
+  "displayName": "AutoPets",
+  "version": "0.1.0",
+  "description": "AutoPets 펫이 Claude Code 작업 상태(시작·도구 사용·권한 요청·완료)에 맞춰 움직이고, 저장한 펫 구성을 읽을 수 있게 합니다. 대화 내용·도구 입력·결과는 보내지 않습니다.",
+  "author": { "name": "AutoPets" },
+  "license": "MIT",
+  "keywords": ["autopets", "desktop-pet", "activity"]
+}

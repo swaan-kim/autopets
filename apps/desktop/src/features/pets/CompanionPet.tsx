@@ -3,6 +3,8 @@ import sheets from '../../../public/assets/companion-v1/manifest.json';
 import { Pet, type PetMotion } from './Pet';
 import { claimCompletion, type CompanionState } from './companionMotion';
 import { usePetVisibility } from './usePetVisibility';
+import { usePetPhysics } from './usePetPhysics';
+import type { PetMotionInput } from './petMotionInput';
 import './companion.css';
 
 type Sheet = keyof typeof sheets.sheets;
@@ -17,29 +19,57 @@ const clips: Record<string, Clip> = {
   working: { sheet: 'paws', frames: [...Array.from({ length: 12 }, (_, i) => [[0, 1, 2, 1][i % 4], [210, 145, 130, 180][i % 4]] as Frame), [1, 1450], [0, 320]] },
   waiting: { sheet: 'notes', frames: [[4, 240], [5, 300], [6, 400], [7, 600]] },
   complete: { sheet: 'paws', frames: [[4, 250], [3, 340], [4, 300], [5, 700]] },
+  // Carried: paws up, with an occasional content blink.
+  held: { sheet: 'social', frames: [[10, 1400], [9, 180], [10, 1100]] },
+  // Being petted: one contented, eyes-closed pose that blends in and out.
+  petted: { sheet: 'social', frames: [[2, 1500], [0, 500]] },
 };
 const stillFor = (state: CompanionState): [Sheet, number] => state === 'working' ? ['paws', 1] : state === 'planning' || state === 'error' ? ['notes', 0] : state === 'waiting' ? ['notes', 7] : ['social', 0];
-function poseStyle(sheet: Sheet, frame: number): CSSProperties {
+// Each cell is moved so the paws stay on one baseline (see the manifest's
+// registration method); otherwise switching cells makes the whole pet jump.
+const registration = sheets.registration.cells as Record<Sheet, number[][]>;
+function poseStyle(sheet: Sheet, frame: number) {
   const item = sheets.sheets[sheet];
-  return { backgroundImage: `url(${item.url})`, backgroundSize: `${item.columns * 100}% ${item.rows * 100}%`, backgroundPosition: `${frame % item.columns / (item.columns - 1) * 100}% ${Math.floor(frame / item.columns) / (item.rows - 1) * 100}%` };
+  const [x, y, scale] = registration[sheet][frame];
+  return {
+    backgroundImage: `url(${item.url})`, backgroundSize: `${item.columns * 100}% ${item.rows * 100}%`,
+    backgroundPosition: `${frame % item.columns / (item.columns - 1) * 100}% ${Math.floor(frame / item.columns) / (item.rows - 1) * 100}%`,
+    transform: `translate(${x}%, ${y}%) scale(${scale})`,
+  } satisfies CSSProperties;
 }
+// Cross-blend between cells inside a clip, never longer than the cell's hold.
+const blendFor = (hold: number) => Math.min(140, Math.round(hold * 0.6));
 const fallbackMotion: Record<CompanionState, PetMotion> = { idle: 'idle', receive: 'idle', planning: 'thinking', working: 'writing', waiting: 'dizzy', complete: 'idle', error: 'angry' };
 
-export function CompanionPet({ state = 'idle', paused = false, runKey, interaction = 0, example = false }: { state?: CompanionState; paused?: boolean; runKey?: string; interaction?: number; example?: boolean }) {
+export function CompanionPet({ state = 'idle', paused = false, runKey, interaction = 0, example = false, motionInput }: { state?: CompanionState; paused?: boolean; runKey?: string; interaction?: number; example?: boolean; motionInput?: PetMotionInput }) {
   const { ref, playing, reduced } = usePetVisibility(!paused);
+  const motionElement = useRef<HTMLSpanElement>(null);
+  const stanceElement = useRef<HTMLSpanElement>(null);
+  const cellBlend = useRef<HTMLSpanElement>(null);
+  const physics = usePetPhysics(motionElement, stanceElement, playing, motionInput);
+  const held = physics.held;
+  const kick = useRef(physics.kick);
+  const lastClip = useRef<string | undefined>(undefined);
+  kick.current = physics.kick;
   const sprite = useRef<HTMLSpanElement>(null);
   const reactionElement = useRef<HTMLSpanElement>(null);
   const lastReactionTransform = useRef<string | undefined>(undefined);
   const previousPose = useRef<HTMLSpanElement>(null);
   const currentSheet = useRef<Sheet | undefined>(undefined);
-  const lastRenderedPose = useRef<{ backgroundImage: string; backgroundPosition: string; backgroundSize: string } | null>(null);
+  const lastRenderedPose = useRef<{ backgroundImage: string; backgroundPosition: string; backgroundSize: string; transform: string } | null>(null);
   const [assets, setAssets] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [celebration, setCelebration] = useState(0);
   const previous = useRef<{ state: CompanionState; runKey?: string } | undefined>(undefined);
   const consumed = useRef(0);
   const greeted = useRef(false);
   const reaction = useRef(0);
+  // Petting: a contented pose when idle, a small wiggle while working.
+  const [strokes, setStrokes] = useState(0);
+  useEffect(() => motionInput?.subscribe(event => { if (event.type === 'pet') setStrokes(value => value + 1); }), [motionInput]);
+  const touches = interaction + strokes;
   const idleInteraction = state === 'idle' ? interaction : 0;
+  const petting = state === 'idle' ? strokes : 0;
+  const petted = useRef(0);
   const canReact = state !== 'idle' && state !== 'error';
 
   useEffect(() => {
@@ -70,11 +100,11 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
     const element = reactionElement.current;
     if (!canReact || !playing || assets !== 'ready' || !element) {
       lastReactionTransform.current = undefined;
-      if (canReact) reaction.current = interaction;
+      if (canReact) reaction.current = touches;
       return;
     }
-    if (interaction === reaction.current) return;
-    reaction.current = interaction;
+    if (touches === reaction.current) return;
+    reaction.current = touches;
     // A touch acknowledges the user without replacing the current task clip.
     const from = lastReactionTransform.current ?? getComputedStyle(element).transform;
     const animation = element.animate([
@@ -87,31 +117,37 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       lastReactionTransform.current = getComputedStyle(element).transform;
       animation.cancel();
     };
-  }, [interaction, canReact, playing, assets]);
+  }, [touches, canReact, playing, assets]);
 
   useEffect(() => {
     const element = sprite.current;
+    const between = cellBlend.current;
     if (!element || assets !== 'ready') return;
     const still = stillFor(state);
     let cancelled = false;
     let animation: Animation | undefined;
-    let hop: Animation | undefined;
+    let cells: Animation[] = [];
     let blend: Animation | undefined;
+    const stopCells = () => { cells.forEach(item => item.cancel()); cells = []; };
     const paint = (sheet: Sheet, frame: number) => {
       const previous = previousPose.current;
       const next = poseStyle(sheet, frame);
       // Fade the last rendered pose, including a frame interrupted mid-clip.
       // The task state updates immediately; only its artwork settles in.
-      if (playing && currentSheet.current && previous && (currentSheet.current !== sheet
-        || lastRenderedPose.current && lastRenderedPose.current.backgroundPosition !== next.backgroundPosition)) {
-        const rendered = lastRenderedPose.current ?? getComputedStyle(element);
+      // This also covers one clip ending and the next starting on the same sheet.
+      const rendered = lastRenderedPose.current ?? getComputedStyle(element);
+      if (playing && currentSheet.current && previous && (currentSheet.current !== sheet || rendered.backgroundPosition !== next.backgroundPosition)) {
         Object.assign(previous.style, {
           backgroundImage: rendered.backgroundImage,
           backgroundPosition: rendered.backgroundPosition,
           backgroundSize: rendered.backgroundSize,
+          transform: rendered.transform,
         });
         blend?.cancel();
-        blend = previous.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' });
+        // Different artwork overlaps badly (a double exposure), so a sheet change
+        // fades fast and relies on the body settle; a same-sheet change blends longer.
+        const sheetChanged = currentSheet.current !== sheet;
+        blend = previous.animate([{ opacity: 1 }, { opacity: 0 }], { duration: sheetChanged ? 90 : 140, easing: 'cubic-bezier(0.2, 0, 0.1, 1)', fill: 'forwards' });
       }
       Object.assign(element.style, next);
       currentSheet.current = sheet;
@@ -126,32 +162,57 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
       if (cancelled) return;
       const clip = clips[name];
       animation?.cancel();
+      stopCells();
       element.dataset.clip = name;
       paint(clip.sheet, clip.frames[0][0]);
+      // A new clip gets a small body settle so the pose change reads as movement;
+      // a repeated blink/work loop does not, so a settled pet schedules no frames.
+      if (name !== lastClip.current && name !== 'blink' && name !== 'held') kick.current(name === 'receive' || name === 'complete' ? 'hop' : 'nudge', name === 'receive' ? 0.7 : name === 'complete' ? 1 : name === 'greet' ? 0.5 : 0.25);
+      lastClip.current = name;
       const duration = clip.frames.reduce((sum, frame) => sum + frame[1], 0);
       let offset = 0;
-      const frames: Keyframe[] = clip.frames.map(([frame, ms]) => {
-        const keyframe = { backgroundPosition: poseStyle(clip.sheet, frame).backgroundPosition as string, offset: offset / duration, easing: 'steps(1, end)' };
+      const frames: Keyframe[] = [];
+      const lagged: Keyframe[] = [];
+      const fades: Keyframe[] = [{ opacity: 0, offset: 0 }];
+      clip.frames.forEach(([frame, ms], index) => {
+        const pose = poseStyle(clip.sheet, frame);
+        frames.push({ backgroundPosition: pose.backgroundPosition, transform: pose.transform, offset: offset / duration, easing: 'steps(1, end)' });
+        const before = clip.frames[index - 1]?.[0];
+        if (before !== undefined && before !== frame) {
+          // The outgoing cell sits on top and fades, so a cell never pops in.
+          const out = poseStyle(clip.sheet, before);
+          lagged.push({ backgroundPosition: out.backgroundPosition, transform: out.transform, offset: offset / duration, easing: 'steps(1, end)' });
+          fades.push({ opacity: 0, offset: offset / duration }, { opacity: 1, offset: offset / duration, easing: 'ease-out' }, { opacity: 0, offset: Math.min(1, (offset + blendFor(ms)) / duration) });
+        }
         offset += ms;
-        return keyframe;
       });
-      frames.push({ backgroundPosition: poseStyle(clip.sheet, clip.frames.at(-1)![0]).backgroundPosition as string, offset: 1 });
+      const last = poseStyle(clip.sheet, clip.frames.at(-1)![0]);
+      frames.push({ backgroundPosition: last.backgroundPosition, transform: last.transform, offset: 1 });
       animation = element.animate(frames, { duration, fill: 'forwards' });
-      if (name === 'complete') hop = element.animate([
-        { transform: 'translateY(0) scale(1)' },
-        { transform: 'translateY(1px) scale(1.025, .97)', offset: .16 },
-        { transform: 'translateY(-7px) scale(.985, 1.025)', offset: .42 },
-        { transform: 'translateY(1px) scale(1.025, .975)', offset: .7 },
-        { transform: 'translateY(0) scale(1)' },
-      ], { duration: 960, easing: 'ease-in-out' });
-      if (name === 'receive') hop = element.animate([{ transform: 'translateX(-12px)' }, { transform: 'translateX(0)' }], { duration, easing: 'ease-out' });
+      if (between && lagged.length) {
+        between.style.backgroundImage = last.backgroundImage;
+        between.style.backgroundSize = last.backgroundSize;
+        lagged.unshift({ ...lagged[0], offset: 0 });
+        lagged.push({ ...lagged.at(-1)!, offset: 1 });
+        fades.push({ opacity: 0, offset: 1 });
+        cells = [between.animate(lagged, { duration }), between.animate(fades, { duration })];
+      }
       try { await animation.finished; } catch { /* Visibility/state change cancels playback. */ }
-      if (!cancelled) { Object.assign(element.style, poseStyle(clip.sheet, clip.frames.at(-1)![0])); animation.cancel(); }
+      if (!cancelled) { Object.assign(element.style, poseStyle(clip.sheet, clip.frames.at(-1)![0])); animation.cancel(); stopCells(); }
     };
     void (async () => {
+      if (held) {
+        // Being carried temporarily replaces any task pose; it resumes on release.
+        while (!cancelled) await play('held');
+        return;
+      }
       if (state === 'idle' && idleInteraction !== reaction.current) {
         reaction.current = idleInteraction;
         await play('greet');
+      }
+      if (state === 'idle' && petting !== petted.current) {
+        petted.current = petting;
+        await play('petted');
       }
       if (cancelled) return;
       if (state === 'complete' && celebration > consumed.current) {
@@ -169,12 +230,12 @@ export function CompanionPet({ state = 'idle', paused = false, runKey, interacti
     return () => {
       cancelled = true;
       const rendered = getComputedStyle(element);
-      lastRenderedPose.current = { backgroundImage: rendered.backgroundImage, backgroundPosition: rendered.backgroundPosition, backgroundSize: rendered.backgroundSize };
-      animation?.cancel(); hop?.cancel(); blend?.cancel();
+      lastRenderedPose.current = { backgroundImage: rendered.backgroundImage, backgroundPosition: rendered.backgroundPosition, backgroundSize: rendered.backgroundSize, transform: rendered.transform };
+      animation?.cancel(); stopCells(); blend?.cancel();
     };
-  }, [assets, state, runKey, playing, idleInteraction, celebration]);
+  }, [assets, state, runKey, playing, idleInteraction, petting, celebration, held]);
 
   return <span ref={ref} className={`companion-pet ${!playing ? 'companion-paused' : ''}`} data-state={state} data-playing={playing && assets === 'ready'} data-assets={assets} data-reduced={reduced}>
-    {assets === 'ready' ? <span ref={reactionElement} className="companion-reaction"><span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}
+    {assets === 'ready' ? <span ref={motionElement} className="companion-motion"><span ref={stanceElement} className="companion-stance"><span ref={reactionElement} className="companion-reaction"><span className="companion-body"><span ref={sprite} className="companion-sprite" role="img" aria-label="함께 일하는 펫" /><span ref={cellBlend} className="companion-cell-blend" aria-hidden="true" /><span ref={previousPose} className="companion-sprite companion-previous-pose" aria-hidden="true" /></span></span></span></span> : <Pet paused={paused || !playing} motion={fallbackMotion[state]} />}
   </span>;
 }

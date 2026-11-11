@@ -124,7 +124,19 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
-        if (name === 'export_pet_preferences') {
+        if (name === 'open_pet_in_codex') {
+          if (window.__uiTest.codexPromptTooLong) throw 'prompt-too-long';
+          return null;
+        }
+        if (name === 'connect_claude_code' || name === 'disconnect_claude_code') {
+          if (window.__uiTest.claudeCodeError) throw '이 PC에서 Claude Code를 찾지 못했어요.';
+          return null;
+        }
+        if (name === 'open_pet_in_claude') {
+          if (window.__uiTest.claudeOpenError) throw Error('fixture open denied');
+          return null;
+        }
+        if (name === 'export_pet_preferences' || name === 'install_pet_preferences_in_claude') {
           if (window.__uiTest.holdPreferenceExport) await new Promise(resolve => { window.__uiTest.releasePreferenceExport = resolve; });
           if (window.__uiTest.preferenceExportError) throw Error('fixture export denied');
           return 'AutoPets-pet-preferences-11111111-1111-4111-8111-111111111111.mcpb';
