@@ -51,6 +51,10 @@ type ComposerDraft = { task: string; audience: string; message: string; draft: P
 
 const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
 const CLAUDE_CODE_OPENED = 'Claude Code 새 세션에 요청을 넣었어요. 보내기만 누르세요.';
+// The older ways to use a pet (make it, prepare Codex, apply to an open chat, copy a request) stay
+// available but folded under "다른 방법". The choice to keep them open is remembered on this PC.
+const OTHER_WAYS = 'autopets.other-ways-open.v1';
+const savedOtherWays = (): boolean | null => { try { const value = localStorage.getItem(OTHER_WAYS); return value === '1' ? true : value === '0' ? false : null; } catch { return null; } };
 const recipes = new Map(recipeData.recipes.map(recipe => [recipe.id, recipe]));
 // Short on purpose: it has to fit a Codex link. The questions and working rules are in the AutoPets
 // skill (references/explicit-pet.md) and recipes.json, and the AI asks them in the chat.
@@ -61,6 +65,11 @@ export const uiPetStartPrompt = (pet: SavedPet, task = '', context: TaskContext 
   return petStartRequest({ name: (id && recipes.get(id)?.name) || pet.template.name, petId: pet.id, petRevision: pet.revision, recipe: id && recipes.has(id) ? id : null, task,
     audience: web ? context.audience : '', message: web ? context.message : '', newTask: context.newTask === true, figma: pet.template.features?.figmaDesign === true, via: context.via });
 };
+
+function OtherWays({ fold, open, onToggle, children }: { fold: boolean; open: boolean; onToggle: (open: boolean) => void; children: ReactNode }) {
+  if (!fold) return <>{children}</>;
+  return <details className="composer-other" data-agent-id="pet-selection.composer.other-ways" open={open} onToggle={event => onToggle(event.currentTarget.open)}><summary>다른 방법</summary>{children}</details>;
+}
 
 export function UiPetStudio({ links, jobs = [], recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; jobs?: PetJob[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
   const library = useRoles();
@@ -97,6 +106,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const [newTask, setNewTask] = useState(false);
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState('');
+  const [otherWays, setOtherWays] = useState<boolean | null>(savedOtherWays);
   const [error, setError] = useState('');
   const [overlayError, setOverlayError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -430,6 +440,9 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   // A request that came from a chat continues in that chat, so the new-chat start is not offered there.
   const quickVisible = recommendedDraft.current?.key !== draftKey.current;
   const otherButton = quickVisible ? 'button secondary' : 'button primary';
+  // A chat that called the pet is waiting to have it applied, so the older ways start open there.
+  const otherOpen = otherWays ?? links.length > 0;
+  const toggleOtherWays = (next: boolean) => { if (next === otherOpen) return; setOtherWays(next); try { localStorage.setItem(OTHER_WAYS, next ? '1' : '0'); } catch { /* only this visit is affected */ } };
   const messages = <>
     {notice && (!panel || copied || manualCopy || notice === CODEX_OPENED || notice === CLAUDE_CODE_OPENED) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
     {!routingSupported && <p className="error" role="alert">사용할 수 없는 작업 설정이에요. 펫 설정에서 바꿔주세요.</p>}
@@ -462,7 +475,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
           <div className="composer-ai-choice" role="radiogroup" aria-label="여는 AI" data-agent-id="pet-selection.composer.ai">{(Object.keys(AI_NAMES) as PrimaryAi[]).map(id => <button key={id} role="radio" aria-checked={primaryAi === id} disabled={busy} onClick={() => { setPrimaryAi(id); invalidateRequest(); }}>{AI_NAMES[id]}</button>)}</div>
           <p className="composer-start-note">비워 두어도 돼요. {AI_NAMES[primaryAi]}{primaryAi === 'codex' ? ' 새 대화가' : ' 새 세션이'} 열리면 보내기만 누르세요. 필요한 것은 채팅에서 물어봐요.{recipe && <><br />결과: {recipe.format}</>}{primaryAi === 'claude-code' && <><br />처음이면 아래 ‘Claude에 설치’를 한 번 해 주세요. 결과는 문서의 AutoPets 폴더에 만들어져요.</>}</p>
         </section>}
-        {quickVisible && <p className="composer-other-ways">다른 방법</p>}
+        <OtherWays fold={quickVisible} open={otherOpen} onToggle={toggleOtherWays}>
         {links.length > 0 ?<section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
           <label className="ui-pet-select">Codex 채팅<select data-agent-id="pet-selection.composer.target.select" aria-label="UI 펫을 적용할 채팅" value={selectedTarget} disabled={disabled} onChange={event => { setSelectedTarget(event.target.value); setApplied(null); setNotice(''); setError(''); }}>
             <option value="">채팅 선택</option>{links.map(link => <option key={targetKey(link)} value={targetKey(link)}>{link.target.cwd.split(/[\\/]/).filter(Boolean).pop()} · {link.target.threadId.slice(-8)}{!link.connected ? ' · 연결 확인 필요' : !link.enabled ? ' · 도움 꺼짐' : unresolvedPetRun(link) ? ' · 작업 확인 필요' : ''}</option>)}
@@ -482,10 +495,11 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
               <PetPreferencesConnector compact pet={saved} />
             </div>}
         </section>}
+        <footer className="composer-tools"><button className="text-button" disabled={busy} onClick={() => showPanel('request')}>직접 요청</button><button className="text-button" disabled={busy} onClick={onConnection}>AI 연결</button></footer>
+        </OtherWays>
         {!panel && messages}
         {!isDesktop && <p className="workspace-note">설치 앱에서 사용할 수 있어요.</p>}
         {overlayError && <p role="status">{overlayError}</p>}
-        <footer className="composer-tools"><button className="text-button" disabled={busy} onClick={() => showPanel('request')}>직접 요청</button><button className="text-button" disabled={busy} onClick={onConnection}>AI 연결</button></footer>
       </div>
     </div>
     <dialog ref={panelDialog} className="composer-more composer-panel" aria-label={panel === 'request' ? '직접 요청' : '펫 설정'} onClose={() => setPanel(null)} onCancel={event => { if (busy) event.preventDefault(); }}>

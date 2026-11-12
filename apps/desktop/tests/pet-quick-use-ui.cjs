@@ -18,7 +18,8 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await create.isEnabled(), true, 'creating a pet does not require a connected host or chat');
   assert.equal(await dialog.isVisible(), false);
   assert.equal(await composer.locator('.composer-copy-fallback').isVisible(), false);
-  assert.equal(await composer.locator('details').filter({ visible: true }).count(), 0);
+  // The one fold on this screen is "다른 방법" (#72); no other disclosure is shown.
+  assert.equal(await composer.locator('details:not(.composer-other)').filter({ visible: true }).count(), 0);
   const before = await page.evaluate(() => ({ links: structuredClone(window.__uiTest.state.petLinks), clipboard: window.__uiTest.clipboard }));
   await page.evaluate(() => { window.__uiTest.savePetError = 'fixture save denied'; });
   await create.click();

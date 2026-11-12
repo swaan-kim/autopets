@@ -85,7 +85,11 @@
 .composer-quick-task textarea::placeholder { color: #9aa1a7; }
 .pet-composer .composer-start-action { margin-top: 12px; }
 .composer-start-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: #747c83; }
-.composer-other-ways { margin: 26px 0 10px; padding-top: 16px; border-top: 1px solid #edf0f2; font-size: 12px; color: #8a9197; }
+/* Older ways stay one click away instead of sitting under the start button. */
+.composer-other { margin: 26px 0 0; padding-top: 14px; border-top: 1px solid #edf0f2; }
+.composer-other > summary { width: fit-content; padding: 4px 0; font-size: 12px; color: #8a9197; cursor: pointer; list-style-position: inside; }
+.composer-other > summary:hover, .composer-other[open] > summary { color: #4d555c; }
+.composer-other[open] > summary { margin-bottom: 10px; }
 .composer-launch > .button.secondary, .composer-direct-action .button.secondary { width: 100%; display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-radius: 14px; }
 /* Which AI the start button opens. Chosen once and remembered. */
 .composer-ai-choice { display: flex; gap: 6px; margin-top: 10px; }

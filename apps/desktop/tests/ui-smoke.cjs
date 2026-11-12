@@ -306,6 +306,11 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       ...(recordVideo ? { recordVideo: { dir: path.join(path.dirname(screenshot), 'artifacts'), size: viewport } } : {}) }); currentPage = page;
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
+    // Most checks exercise the older ways (make a pet, prepare Codex, apply to a chat), which the pet
+    // screen now folds under "다른 방법". They start unfolded here; a check of the default opts out.
+    await page.addInitScript(() => {
+      try { if (!sessionStorage.getItem('ui-test.default-other-ways') && localStorage.getItem('autopets.other-ways-open.v1') === null) localStorage.setItem('autopets.other-ways-open.v1', '1'); } catch { /* storage may be blocked */ }
+    });
     return page;
   };
   try {
