@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, type MouseEvent, type PointerEvent } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { isDesktop } from '../../bridge/command';
+import { listen } from '@tauri-apps/api/event';
+import { command, isDesktop } from '../../bridge/command';
 import { createPetMotionInput } from './petMotionInput';
 import { feedStroke, restingStroke } from './petStroke';
 
@@ -57,7 +58,12 @@ export function usePetGesture({ onDragStart }: { onDragStart?: () => void } = {}
       timers.current.settle = setTimeout(() => { velocity.current = { x: 0, y: 0 }; motion.emit({ type: 'drag', x: 0, y: 0 }); }, SETTLE_AFTER_MOVE);
       armEnd();
     }).then(unlisten => { if (disposed) unlisten(); else remove = unlisten; }).catch(() => undefined);
-    return () => { disposed = true; remove?.(); end(); };
+    // The real button release, when the native side saw it.
+    let removeRelease: (() => void) | undefined;
+    const label = getCurrentWindow().label;
+    void listen<{ label: string }>('autopets://pet-drag-end', ({ payload }) => { if (payload.label === label) end(); })
+      .then(unlisten => { if (disposed) unlisten(); else removeRelease = unlisten; }).catch(() => undefined);
+    return () => { disposed = true; remove?.(); removeRelease?.(); end(); };
   }, [motion, armEnd, end]);
 
   const handlers = {
@@ -79,7 +85,12 @@ export function usePetGesture({ onDragStart }: { onDragStart?: () => void } = {}
         dragStart.current?.();
         motion.emit({ type: 'grab' });
         armEnd();
-        if (isDesktop) void getCurrentWindow().startDragging().catch(() => end());
+        if (isDesktop) {
+          // The native side waits for the button release and reports an edge drop (edge docking).
+          const body = event.currentTarget.getBoundingClientRect();
+          void command('watch_pet_drag', { bodyLeft: body.left, bodyRight: body.right }).catch(() => undefined);
+          void getCurrentWindow().startDragging().catch(() => end());
+        }
         return;
       }
       if (!dragging.current && !(event.buttons & 1)) {

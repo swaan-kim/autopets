@@ -12,10 +12,22 @@ use std::{
 };
 use tauri::{Emitter, Manager, PhysicalPosition};
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Position {
     pub(crate) x: i32,
     pub(crate) y: i32,
+    /// Set while the pet is tucked into a screen edge; `x`/`y` are then where it comes back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) edge: Option<super::pet_dock::Edge>,
+}
+
+pub(crate) fn save_positions(desktop: &Desktop, positions: &HashMap<String, Position>) {
+    if let Ok(json) = serde_json::to_vec(positions) {
+        let temp = desktop.data_dir.join("positions.tmp");
+        if std::fs::write(&temp, json).is_ok() {
+            let _ = std::fs::rename(temp, desktop.data_dir.join("positions.json"));
+        }
+    }
 }
 pub(crate) struct Desktop {
     pub(crate) visible: AtomicBool,
@@ -228,6 +240,10 @@ pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> 
     if !["pet-0", "pet-1", "pet-2"].contains(&window.label()) {
         return Err("펫 창에서만 사용할 수 있습니다.".into());
     }
+    // A pet tucked into a screen edge keeps its handle size until it is restored.
+    if super::pet_dock::docked_edge(window.app_handle(), window.label()).is_some() {
+        return Ok(());
+    }
     if expanded {
         let slot = window
             .label()
@@ -262,6 +278,7 @@ pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> 
     let anchored = Position {
         x: prior.x + old_size.width as i32 - new_size.width as i32,
         y: prior.y + old_size.height as i32 - new_size.height as i32,
+        edge: None,
     };
     // Keep the pet on its original monitor: expansion near the left edge can
     // place the proposed top-left point inside an adjacent monitor.
@@ -366,6 +383,7 @@ pub(crate) fn clamp_to_work_area(
         y: position
             .y
             .clamp(top, (top + work_height as i32 - height).max(top)),
+        edge: None,
     }
 }
 

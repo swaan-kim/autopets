@@ -26,7 +26,7 @@ fn pet_card_fits_work_area_at_common_dpi_and_negative_monitor_positions() {
     assert_eq!(fit_pet_size(true, 1.5, 1920, 1040), (328.0, 600.0));
     assert_eq!(fit_pet_size(true, 2.0, 1920, 1040), (328.0, 520.0));
     let position = clamp_to_work_area(
-        Position { x: -2200, y: 900 },
+        Position { x: -2200, y: 900, edge: None },
         656,
         1040,
         -1920,
@@ -36,11 +36,11 @@ fn pet_card_fits_work_area_at_common_dpi_and_negative_monitor_positions() {
     );
     assert_eq!(position.x, -1920);
     assert_eq!(position.y, 40);
-    let position = clamp_to_work_area(Position { x: 1800, y: 1000 }, 328, 600, 80, 0, 1840, 1080);
+    let position = clamp_to_work_area(Position { x: 1800, y: 1000, edge: None }, 328, 600, 80, 0, 1840, 1080);
     assert_eq!(position.x, 1592);
     assert_eq!(position.y, 480);
     let expanded_from_left_edge =
-        clamp_to_work_area(Position { x: -143, y: 100 }, 328, 600, 0, 0, 1920, 1040);
+        clamp_to_work_area(Position { x: -143, y: 100, edge: None }, 328, 600, 0, 0, 1920, 1040);
     assert_eq!(expanded_from_left_edge.x, 0);
 }
 #[test]
@@ -98,7 +98,7 @@ fn onboarding_begin_end_and_manager_reopen_preserve_user_visibility_and_position
         onboarding_active: AtomicBool::new(true),
         onboarding_initialized: AtomicBool::new(false),
         hidden_slots: Mutex::new([false, true, false]),
-        positions: Mutex::new(HashMap::from([("pet-0".into(), Position { x: -120, y: 240 })])),
+        positions: Mutex::new(HashMap::from([("pet-0".into(), Position { x: -120, y: 240, edge: None })])),
         data_dir: PathBuf::new(),
         bridge: Mutex::new(None),
     };
