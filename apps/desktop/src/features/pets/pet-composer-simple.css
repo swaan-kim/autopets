@@ -78,3 +78,12 @@
   .pet-composer .composer-more.composer-panel { padding: 18px; }
   .composer-panel .composer-brief { grid-template-columns: minmax(0,1fr); }
 }
+/* "현재 채팅에서 계속하기": target chat and send state under the confirm row. */
+.pet-composer .composer-chat-continue { display: grid; gap: 6px; margin: 10px 0 0; }
+.pet-composer .composer-chat-target { margin: 0; font-size: 12px; line-height: 1.6; color: #515a62; }
+.pet-composer .composer-chat-target small { color: #7a838a; font-size: 12px; white-space: nowrap; }
+.pet-composer .composer-chat-status { margin: 0; padding: 10px 12px; border-radius: 10px; background: #f4f5f6; color: #515a62; font-size: 12px; line-height: 1.6; }
+.pet-composer .composer-chat-status[data-state="queued"] { background: #eef6f0; color: #2f6b43; }
+.pet-composer .composer-chat-status[data-state="failed"] { background: #fbefee; color: #8a3b33; }
+.pet-composer .composer-chat-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff7e8; color: #6b4e16; font-size: 12px; line-height: 1.6; }
+.pet-composer .composer-chat-confirm p { flex-basis: 100%; margin: 0; }

@@ -37,6 +37,8 @@ pub fn run() {
             platform::pet_preferences::install_pet_preferences_in_claude,
             platform::pet_preferences::open_pet_in_claude,
             platform::pet_preferences::open_pet_in_codex,
+            platform::codex_chat::continue_pet_in_codex_chat,
+            platform::codex_chat::codex_chat_delivery_status,
             platform::claude_code::connect_claude_code,
             platform::claude_code::disconnect_claude_code,
             platform::updater::check_app_update,
