@@ -17,6 +17,8 @@ export const petPreferenceSources = [
   'packages/contracts/recipes.mjs',
   'packages/contracts/data/recipes.json',
   'packages/contracts/data/pet-catalog.json',
+  'packages/contracts/skill-guides.mjs',
+  'packages/contracts/data/skill-guides.json',
 ];
 const sources = petPreferenceSources;
 const stable = value => JSON.stringify(value, (_, item) => item && typeof item === 'object' && !Array.isArray(item)

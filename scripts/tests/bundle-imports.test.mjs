@@ -40,6 +40,7 @@ test('the reference scanner sees imports, dynamic imports and data URLs', () => 
     'integrations/mcp/client.mjs -> integrations/codex/skills/autopets/scripts/bridge-client.mjs',
     'integrations/mcp/client.mjs -> packages/contracts/recipes.mjs',
     'integrations/mcp/client.mjs -> packages/contracts/routing.mjs',
+    'integrations/mcp/client.mjs -> packages/contracts/skill-guides.mjs',
   ], 'a list without its imports is reported');
 });
 

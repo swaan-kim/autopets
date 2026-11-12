@@ -27,6 +27,8 @@ const FILES: &[(&str, &str)] = &[
     ("autopets/packages/contracts/recipes.mjs", include_str!("../../../../../packages/contracts/recipes.mjs")),
     ("autopets/packages/contracts/data/recipes.json", include_str!("../../../../../packages/contracts/data/recipes.json")),
     ("autopets/packages/contracts/data/pet-catalog.json", include_str!("../../../../../packages/contracts/data/pet-catalog.json")),
+    ("autopets/packages/contracts/skill-guides.mjs", include_str!("../../../../../packages/contracts/skill-guides.mjs")),
+    ("autopets/packages/contracts/data/skill-guides.json", include_str!("../../../../../packages/contracts/data/skill-guides.json")),
 ];
 
 static RUNNING: AtomicBool = AtomicBool::new(false);

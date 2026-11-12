@@ -20,6 +20,9 @@ export const petPreferenceBundleSources = [
   ['packages/contracts/recipes.mjs', 'packages/contracts/recipes.mjs'],
   ['packages/contracts/data/recipes.json', 'packages/contracts/data/recipes.json'],
   ['packages/contracts/data/pet-catalog.json', 'packages/contracts/data/pet-catalog.json'],
+  // client.mjs hands the pinned skill texts to the AI; third-party texts keep their license in the same file.
+  ['packages/contracts/skill-guides.mjs', 'packages/contracts/skill-guides.mjs'],
+  ['packages/contracts/data/skill-guides.json', 'packages/contracts/data/skill-guides.json'],
 ];
 
 export async function packagePetPreferences({ out = path.join(root, 'release/mcp/AutoPets-pet-preferences.mcpb') } = {}) {

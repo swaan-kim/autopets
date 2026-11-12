@@ -22,6 +22,8 @@ export const pluginSources = [
   ['autopets/packages/contracts/recipes.mjs', 'packages/contracts/recipes.mjs'],
   ['autopets/packages/contracts/data/recipes.json', 'packages/contracts/data/recipes.json'],
   ['autopets/packages/contracts/data/pet-catalog.json', 'packages/contracts/data/pet-catalog.json'],
+  ['autopets/packages/contracts/skill-guides.mjs', 'packages/contracts/skill-guides.mjs'],
+  ['autopets/packages/contracts/data/skill-guides.json', 'packages/contracts/data/skill-guides.json'],
 ];
 
 export async function packageClaudeCodePlugin({ out = path.join(root, 'release/claude-code/autopets-claude-code') } = {}) {
