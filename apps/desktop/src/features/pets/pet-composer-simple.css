@@ -15,7 +15,7 @@
 .pet-composer .composer-main { padding: 0; }
 .pet-composer .composer-action { margin-top: 16px; }
 .pet-composer .button { min-height: 52px; border-radius: 13px; font-size: 15px; }
-.pet-composer :is(.composer-create,.composer-codex-link,.composer-direct-action .button.primary) { background: #242a30; border-color: #242a30; color: #fff; }
+.pet-composer :is(.composer-create.primary,.composer-codex-link.primary,.composer-direct-action .button.primary,.composer-start) { background: #242a30; border-color: #242a30; color: #fff; }
 .composer-launch > .button { width: 100%; display: flex; justify-content: space-between; align-items: center; }
 .composer-hosts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .composer-hosts .button { display: flex; width: 100%; justify-content: space-between; align-items: center; box-sizing: border-box; text-decoration: none; }
@@ -78,3 +78,12 @@
   .pet-composer .composer-more.composer-panel { padding: 18px; }
   .composer-panel .composer-brief { grid-template-columns: minmax(0,1fr); }
 }
+/* One-click start: the single primary action on the pet screen. Older paths sit below as secondary. */
+.composer-quick-start { display: grid; gap: 0; }
+.composer-quick-task { display: grid; gap: 8px; font-size: 13px; font-weight: 600; color: #3d444a; }
+.composer-quick-task textarea { min-height: 64px; margin: 0; padding: 12px 14px; border: 1px solid #dfe3e6; border-radius: 12px; background: #fff; font: inherit; font-size: 15px; font-weight: 400; line-height: 1.6; resize: vertical; width: 100%; box-sizing: border-box; }
+.composer-quick-task textarea::placeholder { color: #9aa1a7; }
+.pet-composer .composer-start-action { margin-top: 12px; }
+.composer-start-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: #747c83; }
+.composer-other-ways { margin: 26px 0 10px; padding-top: 16px; border-top: 1px solid #edf0f2; font-size: 12px; color: #8a9197; }
+.composer-launch > .button.secondary, .composer-direct-action .button.secondary { width: 100%; display: flex; justify-content: space-between; align-items: center; min-height: 44px; border-radius: 14px; }

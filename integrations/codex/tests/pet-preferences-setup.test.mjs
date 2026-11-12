@@ -55,7 +55,8 @@ async function fixture(t, before = baseline) {
   const executable = path.join(directory, 'cli.exe');
   await fs.writeFile(executable, 'synthetic CLI, never executed');
   const files = [];
-  for (const name of ['runtime/node.exe', 'runtime/LICENSE', 'LICENSE', 'integrations/mcp/server.mjs', 'integrations/mcp/client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs', 'packages/contracts/routing.mjs', 'packages/contracts/data/routing-profiles.json']) {
+  for (const name of ['runtime/node.exe', 'runtime/LICENSE', 'LICENSE', 'integrations/mcp/server.mjs', 'integrations/mcp/client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs', 'packages/contracts/routing.mjs', 'packages/contracts/data/routing-profiles.json',
+    'packages/contracts/recipes.mjs', 'packages/contracts/data/recipes.json', 'packages/contracts/data/pet-catalog.json']) {
     const bytes = name.startsWith('runtime/') ? Buffer.from('synthetic runtime, never executed') : await fs.readFile(path.join(repository, name));
     const destination = path.join(sourceDirectory, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
@@ -101,7 +102,7 @@ test('one-time preparation is repeatable, cached, detached and restores original
   ].map(value => JSON.stringify(value)).join('\n') + '\n';
   const cached = spawnSync(process.execPath, [server], { input, cwd: f.directory, encoding: 'utf8', windowsHide: true, timeout: 5000 });
   assert.equal(cached.status, 0, cached.stderr);
-  assert.equal(JSON.parse(cached.stdout.trim().split('\n').at(-1)).result.tools.length, 2);
+  assert.equal(JSON.parse(cached.stdout.trim().split('\n').at(-1)).result.tools.length, 3);
   assert.equal((await removePetPreferences(f.options)).status, 'removed');
   assert.equal(await fs.readFile(f.config, 'utf8'), baseline);
   assert.equal((await removePetPreferences(f.options)).status, 'not-managed');

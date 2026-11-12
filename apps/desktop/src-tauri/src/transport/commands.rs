@@ -189,6 +189,15 @@ pub(crate) fn browse_pet_recommendation(app: tauri::AppHandle, store: tauri::Sta
     Ok(())
 }
 
+/// "결과 열기": show the folder of a job the AI reported as finished. The reported path is only
+/// used to find that folder; it is never opened as a file or run.
+#[tauri::command]
+pub(crate) fn open_pet_job_result(store: tauri::State<SharedStore>, id: String) -> Result<(), String> {
+    let folder = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?.pet_jobs.result_folder(&id);
+    let folder = folder.ok_or("pet-job-result-unavailable")?;
+    crate::platform::pet_preferences::open_folder(&folder).map_err(|_| "결과 폴더를 열지 못했어요.".to_string())
+}
+
 #[tauri::command]
 pub(crate) fn get_assistance(
     store: tauri::State<SharedStore>,

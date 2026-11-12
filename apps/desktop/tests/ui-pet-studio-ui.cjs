@@ -36,7 +36,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     if (entry.id === 'presentation') assert.ok((await source.locator(':scope > strong').innerText()).startsWith('frontend-slides'));
     const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
     await openCopy(flow);
-    assert.equal(await input.inputValue(), entry.example);
+    assert.equal(await input.inputValue(), '', 'the example is only a placeholder, never a job the user did not write');
+    assert.equal(await input.getAttribute('placeholder'), entry.example);
     assert.equal(await flow.locator('input[aria-label="Figma 시안 활용"]').count(), entry.id === 'ui-webpage' ? 1 : 0);
     await input.fill(`${entry.example}\n한글 추가 조건`);
     await leaveComposer(flow); await dismissRoleDetail(page);
@@ -49,11 +50,100 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
     const actual = await page.evaluate(() => ({ pet: window.__uiTest.roles.pets[0], prompt: window.__uiTest.clipboard, links: window.__uiTest.state.petLinks, calls: window.__uiTest.calls }));
     assert.deepEqual(actual.pet.template, entry.template); assert.ok(actual.prompt.includes('한글 추가 조건'));
-    assert.equal(actual.prompt.includes('계획만 세워줘'), entry.template.planFirst); assert.equal(actual.links.length, 0);
+    assert.ok(actual.prompt.startsWith(`AutoPets 스킬로 "${entry.name}" 시작해줘. petId=${actual.pet.id}, petRevision=${actual.pet.revision}, recipe=${entry.id}.`));
+    assert.equal(/계획만|파일을 바꾸지/.test(actual.prompt), false, 'working rules live in the skill, not in the request'); assert.equal(actual.links.length, 0);
     assert.equal(actual.calls.filter(call => call.name === 'connect_ai').length, 0, 'prepared host skips setup');
     await page.close();
   }
-  checks.push('six roles preserve multiline drafts and pinned methods; plan-first only for page/slides; prepared setup is skipped; copy never connects or executes');
+  checks.push('six roles preserve multiline drafts and pinned methods; the short start request names the pet and its recipe; prepared setup is skipped; copy never connects or executes');
+  {
+    // One-click start from the detail page: nothing typed, one Codex link, no clipboard.
+    const quick = await newPage({ width: 992, height: 688 }); await mockBridge(quick, base); await quick.goto(origin); await openCatalog(quick);
+    await quick.getByRole('button', { name: '발표자료 만들기 펫 선택', exact: true }).click();
+    const start = quick.locator('.workspace-role-detail').getByRole('button', { name: '발표자료 만들기 Codex에서 시작', exact: true });
+    assert.equal(await start.getAttribute('data-agent-id'), 'pet-selection.detail.start');
+    await start.click();
+    const composer = quick.locator('.pet-composer');
+    await composer.getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    let state = await quick.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, clipboard: window.__uiTest.clipboard }));
+    let opened = state.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args);
+    assert.equal(opened.length, 1); assert.equal(state.pets.length, 1); assert.equal(state.clipboard, '');
+    assert.equal(opened[0].prompt, `AutoPets 스킬로 "발표자료 만들기" 시작해줘. petId=${state.pets[0].id}, petRevision=1, recipe=presentation.`, 'an empty job sends only the call; the chat asks the rest');
+    assert.equal(state.calls.some(call => /connect_ai|apply_pet_link_template|submit|send|execute_pet|prepare_pet/.test(call.name)), false, 'a prepared host is not set up again and nothing is sent');
+    // The same screen: type one line and start again. The saved pet is reused, not duplicated.
+    const job = composer.getByLabel('맡길 일 한 줄', { exact: true });
+    assert.equal(await job.getAttribute('placeholder'), `예: ${catalog.find(entry => entry.id === 'presentation').example}`);
+    assert.ok((await composer.locator('.composer-start-note').innerText()).includes('PowerPoint 파일 아님'), 'the result format is stated before starting');
+    await job.fill('동아리 신입 모집 발표');
+    await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();
+    await composer.getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    state = await quick.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets }));
+    opened = state.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args);
+    assert.equal(opened.length, 2); assert.equal(state.pets.length, 1);
+    assert.ok(opened[1].prompt.endsWith(['recipe=presentation.', '할 일: 동아리 신입 모집 발표'].join(String.fromCharCode(10))));
+    assert.equal(await composer.locator('.button.primary:visible').count(), 1, 'one primary action on the pet screen');
+    // A job too long for a link is copied instead of being cut.
+    await job.fill('가'.repeat(290));
+    await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();
+    await composer.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
+    state = await quick.evaluate(() => ({ calls: window.__uiTest.calls, clipboard: window.__uiTest.clipboard }));
+    assert.equal(state.calls.filter(call => call.name === 'open_pet_in_codex').length, 2); assert.ok(state.clipboard.includes('가'.repeat(290)));
+    await quick.close();
+    // First use: the same click prepares Codex once, then opens the chat.
+    const fresh = await newPage({ width: 992, height: 688 }); const unprepared = structuredClone(base); unprepared.setup.connections[0].configured = false;
+    await mockBridge(fresh, unprepared); await fresh.goto(origin); await openCatalog(fresh);
+    await fresh.getByRole('button', { name: '공부 도우미 펫 선택', exact: true }).click();
+    await fresh.locator('.workspace-role-detail').getByRole('button', { name: '공부 도우미 Codex에 준비하고 시작', exact: true }).click();
+    await fresh.locator('.pet-composer').getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    const names = (await fresh.evaluate(() => window.__uiTest.calls.map(call => call.name))).filter(name => /connect_ai|save_pet|open_pet_in_codex/.test(name));
+    assert.deepEqual(names, ['connect_ai', 'save_pet', 'open_pet_in_codex'], 'prepare once, save once, open once');
+    await fresh.locator('.pet-composer').getByRole('button', { name: 'Codex에서 시작', exact: true }).waitFor();
+    await fresh.close();
+    // Starting the same pet again later reuses the saved one; the library does not fill with duplicates.
+    const again = await newPage({ width: 992, height: 688 }); await mockBridge(again, base);
+    await again.addInitScript(pets => { window.__uiTest.roles.pets = pets; }, [{ id: 'kept-slides', revision: 3, updatedAt: 1, template: structuredClone(catalog.find(entry => entry.id === 'presentation').template) }]);
+    await again.goto(origin); await openCatalog(again);
+    await again.getByRole('button', { name: '발표자료 만들기 펫 선택', exact: true }).click();
+    await again.locator('.workspace-role-detail').getByRole('button', { name: '발표자료 만들기 Codex에서 시작', exact: true }).click();
+    await again.locator('.pet-composer').getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    const reused = await again.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets }));
+    assert.equal(reused.calls.filter(call => call.name === 'save_pet').length, 0, 'an identical saved pet is reused');
+    assert.equal(reused.pets.length, 1);
+    assert.ok(reused.calls.find(call => call.name === 'open_pet_in_codex').args.prompt.includes('petId=kept-slides, petRevision=3, recipe=presentation.'));
+    await again.close();
+    // The floating pet starts a job too: one line, matched to a pet on this PC, opens one Codex link.
+    const floating = await newPage({ width: 328, height: 600 });
+    await mockBridge(floating, { ...structuredClone(base), slots: [0, 1, 2].map(index => ({ index, sessionId: null })) }); await floating.goto(`${origin}/?pet=0`);
+    await floating.locator('.pet-hit').click();
+    const startCard = floating.getByRole('region', { name: '새 일 맡기기' });
+    await startCard.waitFor();
+    const line = startCard.getByLabel('맡길 일 한 줄', { exact: true });
+    assert.equal(await startCard.getByRole('button', { name: '시작', exact: true }).isDisabled(), true, 'nothing to start until something is typed or picked');
+    await line.fill('동아리 소개 발표자료 만들어줘');
+    await line.press('Enter');
+    await startCard.getByText('Codex 새 대화에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    let floated = await floating.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, clipboard: window.__uiTest.clipboard }));
+    let links = floated.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args);
+    assert.equal(links.length, 1); assert.equal(floated.pets.length, 1); assert.equal(floated.clipboard, '');
+    assert.equal(links[0].prompt, [`AutoPets 스킬로 "발표자료 만들기" 시작해줘. petId=${floated.pets[0].id}, petRevision=1, recipe=presentation.`, '할 일: 동아리 소개 발표자료 만들어줘'].join(String.fromCharCode(10)));
+    assert.equal(await line.inputValue(), '', 'the line is cleared once the chat is open');
+    // Unclear words are not guessed: the user picks.
+    await line.fill('이것 좀 도와줘');
+    await startCard.getByRole('button', { name: '시작', exact: true }).click();
+    await startCard.getByText('어떤 방법으로 할까요?', { exact: true }).waitFor();
+    assert.equal(await floating.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex').length), 1);
+    await startCard.getByRole('group', { name: '이 중에서 고르기' }).getByRole('button', { name: '공부 도우미', exact: true }).click();
+    await startCard.getByText('Codex 새 대화에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    floated = await floating.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets }));
+    links = floated.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args);
+    assert.equal(links.length, 2); assert.ok(links[1].prompt.includes('recipe=study-helper.') && links[1].prompt.endsWith('할 일: 이것 좀 도와줘'));
+    assert.equal(floated.calls.some(call => /connect_ai|submit|send|execute_pet|prepare_pet|apply_pet_link_template/.test(call.name)), false, 'a prepared host is not set up again and nothing is sent');
+    const cardFit = await floating.evaluate(() => { const card = document.querySelector('.pet-start-card').getBoundingClientRect(); return card.left >= 0 && card.right <= innerWidth && document.documentElement.scrollWidth <= innerWidth; });
+    assert.equal(cardFit, true, 'the start card fits the pet window');
+    await floating.close();
+    checks.push('floating pet start: one typed line is matched to a pet locally and opens one Codex link with the short recipe request; unclear words ask the user to pick; the saved pet is reused and nothing is sent or copied');
+    checks.push('one-click start: detail or pet screen opens one Codex link with the short recipe request, reuses the saved pet, never touches the clipboard or sends, prepares Codex only on first use, reuses an identical saved pet instead of duplicating it, and copies a job too long for a link');
+  }
   const page = await newPage({ width: 992, height: 688 });
   const initial = structuredClone(base); initial.setup.connections[0].configured = false;
   await mockBridge(page, initial); await page.goto(origin); await openCatalog(page);
