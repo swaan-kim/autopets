@@ -68,10 +68,15 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const attention = session ? dueAttention(session, snapshot.now) : null;
   // Jobs an AI reported through MCP appear on the first pet. The app knows which AI, not which chat.
   const jobs = index === 0 && !disconnected ? snapshot.petJobs ?? [] : [];
-  const reported = jobs.map(job => ({ job, notice: jobBubble(job) })).find(item => item.notice && !noticeSeen(item.notice.key));
+  // Only the newest job speaks. In a real run an older finished job kept saying "다 됐어요!" while a
+  // newer one was still waiting for the user, and it came back again after the newer result was opened.
+  const newestNotice = jobs[0] ? jobBubble(jobs[0]) : null;
+  const reported = jobs[0] && newestNotice && !noticeSeen(newestNotice.key) ? { job: jobs[0], notice: newestNotice } : undefined;
   const openReported = async () => { if (!reported || !await openJobResult(reported.job)) setExpanded(true); };
   const working = activeJob(jobs, snapshot.now);
   const latest = jobs[0] && snapshot.now - jobs[0].updatedAt < JOB_ACTIVE_MS ? jobs[0] : undefined;
+  // Once an AI has reported a job, the pet describes that job instead of the older link wording.
+  const jobLabel = !latest ? '' : working ? `${HOST_NAMES[working.host]}에서 작업 중` : latest.state === 'asking' ? `${HOST_NAMES[latest.host]}에서 답을 기다려요` : '새 일을 맡길 수 있어요';
   const jobState: CompanionState = !latest ? 'idle' : latest.state === 'working' ? 'working' : latest.state === 'asking' ? 'waiting' : latest.state === 'failed' ? 'error' : 'complete';
   useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {
@@ -129,7 +134,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
     !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
   return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
-    {expanded && <div className="quick-card-stack">{!session && index === 0 && <PetStartCard setup={snapshot.setup} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
+    {expanded && <div className="quick-card-stack">{!session && index === 0 && <PetStartCard setup={snapshot.setup} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || (jobLabel ? PET_NAMES[index] : '작업 연결 전')} help={!session && jobLabel ? jobLabel : help} showStep={Boolean(session) || !jobLabel}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
@@ -165,7 +170,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
             if (reported) { await openReported(); return; }
             if (!session || !canAttemptReturn(session)) { setExpanded(true); return; }
             try { await returnToTask(session); } catch { setExpanded(true); }
-          }}><span className={`floating-status ${view.kind}`} title={help}>{!session && working ? `${HOST_NAMES[working.host]}에서 작업 중` : help}</span></PetBubble>}
+          }}><span className={`floating-status ${view.kind}`} title={help}>{!session && jobLabel ? jobLabel : help}</span></PetBubble>}
     </div>
   </div>;
 }

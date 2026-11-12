@@ -2,7 +2,7 @@ import path from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import { readConnection, requestJson } from '../codex/skills/autopets/scripts/bridge-client.mjs';
 import { routingHint } from '../../packages/contracts/routing.mjs';
-import { baseRecipeStart, recipeStart } from '../../packages/contracts/recipes.mjs';
+import { baseRecipeStart, recipeStart, START_RULES } from '../../packages/contracts/recipes.mjs';
 import { skillGuides } from '../../packages/contracts/skill-guides.mjs';
 
 export class PetLibraryError extends Error {
@@ -71,7 +71,8 @@ export function createLibraryClient({ environment = process.env, connect = readC
       let named;
       try { named = recipeStart(wanted, pet.template); }
       catch (error) { throw new PetLibraryError(error?.message === 'recipe-pet-mismatch' ? 'recipe-pet-mismatch' : 'unknown-recipe'); }
-      start = { recipe: named.id, format: named.format, output: named.output, askFirst: named.intakeMessage, defaults: named.defaults };
+      start = { recipe: named.id, format: named.format, output: named.output, askFirst: named.intakeMessage,
+        askFirstWithTask: named.intakeMessageWithTask, rules: START_RULES, defaults: named.defaults };
     } else {
       try { start = baseRecipeStart(pet.template); } catch { start = null; }
     }

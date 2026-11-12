@@ -179,6 +179,9 @@ test('read pet hands over the pinned skill text and follows the recipe named by 
   assert.ok(pet.skillGuides.length >= 1 && pet.skillGuides.every(guide => guide.text.includes(`name: ${guide.id}`)));
   assert.equal(pet.skillsLoaded, false, 'handing over a text is not evidence that a host skill was loaded');
   assert.equal(pet.start.recipe, 'ui-webpage');
+  assert.match(pet.start.askFirstWithTask, /1\. 어떤 웹페이지를 만들까요\?/u); assert.equal(pet.start.rules.length, 3);
+  assert.deepEqual(Object.keys(pet.start).sort(), Object.keys((await library({ operation: 'read', petId: 'pet-ui', expectedRevision: 1 })).pet.start).sort(), 'the same start shape with or without a named recipe');
+  sent.length = 1;
   assert.deepEqual(sent, [['/v1/pet-library', { operation: 'read', petId: 'pet-ui', expectedRevision: 1 }]], 'the app request keeps its old shape');
   // A recipe of another pet or an unknown one is refused, never swapped for this pet's own.
   await assert.rejects(library({ operation: 'read', petId: 'pet-ui', expectedRevision: 1, recipe: 'daily-plan' }), error => error.code === 'recipe-pet-mismatch');

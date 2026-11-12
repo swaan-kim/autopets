@@ -193,6 +193,25 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   await report(job('failed'));
   await jobNotice.waitFor();
   assert.equal(await jobNotice.getAttribute('data-tone'), 'error');
+  // Only the newest job speaks: an older finished job that was never opened stays quiet while a newer
+  // one works or waits, and does not come back after the newer result is opened.
+  const older = { ...job('done'), id: '88888888-4888-4888-8888-888888888888', title: '예전 일', host: 'codex', updatedAt: Date.now() - 60_000 };
+  const reportAll = async jobs => jobPet.evaluate(jobs => { window.__uiTest.state.now = Date.now(); window.__uiTest.state.petJobs = jobs; window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); }, jobs);
+  await reportAll([job('working'), older]);
+  await jobPet.locator('.floating-status').filter({ hasText: 'Claude Code에서 작업 중' }).waitFor();
+  assert.equal(await jobNotice.count(), 0, 'the older "done" does not speak over the job in progress');
+  await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
+  const card = jobPet.locator('.pet-quick-card');
+  await card.waitFor();
+  assert.ok((await card.innerText()).includes('Claude Code에서 작업 중'));
+  assert.equal(/작업 연결 전|채팅 연결 대기|전달된 단계 없음/u.test(await card.innerText()), false, 'the old link wording is not shown next to a reported job');
+  await jobPet.keyboard.press('Escape');
+  await reportAll([job('asking', { updatedAt: Date.now() + 1 }), older]);
+  await jobNotice.waitFor();
+  assert.equal(await jobNotice.getAttribute('data-tone'), 'ask');
+  await jobNotice.getByRole('button', { name: '알림 닫기' }).click();
+  await jobPet.locator('.floating-status').filter({ hasText: 'Claude Code에서 답을 기다려요' }).waitFor();
+  assert.equal(await jobNotice.count(), 0, 'closing the newest notice does not bring the older one back');
   await jobPet.close();
   const jobManager = await newPage({ width: 992, height: 688 });
   await mockBridge(jobManager, { ...reportedState, petJobs: [job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides' })] });

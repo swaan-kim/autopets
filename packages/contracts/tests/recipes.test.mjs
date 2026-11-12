@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { RECIPES, RECIPE_ID, validateRecipes, intakeMessage, saveFolder, recipeStart } from '../recipes.mjs';
+import { RECIPES, RECIPE_ID, validateRecipes, intakeMessage, saveFolder, recipeStart, baseRecipeStart, START_RULES } from '../recipes.mjs';
 import { petStartRequest, codexLinkLength, fitsCodexLink, MAX_LAUNCH_URI } from '../../guidance/start-request.mjs';
 
 const read = name => JSON.parse(fs.readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8'));
@@ -30,6 +30,27 @@ test('the chat questions are one message with numbered choices, a marked default
   });
   assert.equal(message.match(/\(기본\)/gu).length, recipe.intake.length, 'exactly one default per question');
   for (const item of RECIPES) assert.ok(intakeMessage(item).length <= 700, `${item.id} stays a short message`);
+});
+
+test('a request without a job asks for the job in the same message, so there is no second round', () => {
+  for (const recipe of RECIPES) {
+    const message = intakeMessage(recipe, { askSubject: true });
+    assert.ok(message.includes(`1. ${recipe.subject}`), recipe.id);
+    recipe.intake.forEach((item, index) => assert.ok(message.includes(`${index + 2}. ${item.question}`), recipe.id));
+    assert.ok(message.startsWith(`시작하기 전에 ${recipe.intake.length + 1}가지만`), recipe.id);
+    assert.equal(message.match(/\(기본\)/gu).length, recipe.intake.length, 'the job itself has no default');
+    assert.ok(message.length <= 760, `${recipe.id} stays a short message`);
+    assert.equal(intakeMessage(recipe).includes(recipe.subject), false, 'a request that names the job is not asked again');
+  }
+  const template = { id: 'presentation', skills: [{ id: 'autopets-presentation', version: '1.0.0' }] };
+  const start = baseRecipeStart(template);
+  assert.match(start.askFirstWithTask, /1\. 무엇에 대한 발표인가요\?/u);
+  assert.equal(start.rules, START_RULES);
+  assert.equal(recipeStart('presentation', template).intakeMessageWithTask, start.askFirstWithTask);
+  // The rules name the three breaks seen in a real run: which message, no second approval, when to report.
+  assert.equal(START_RULES.length, 3);
+  assert.match(START_RULES[0], /askFirstWithTask/u); assert.match(START_RULES[1], /계획을 다시 승인받지 말고/u); assert.match(START_RULES[2], /asking/u);
+  assert.throws(() => validateRecipes({ version: 1, recipes: [{ ...RECIPES[0], subject: '' }] }, [{ id: RECIPES[0].petId }]), /invalid-recipes/u);
 });
 
 test('starting a recipe returns only that pet\'s questions; unknown or foreign recipes are rejected, not swapped', () => {
