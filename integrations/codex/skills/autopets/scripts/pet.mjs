@@ -12,12 +12,13 @@ import { availableProfile } from '../../../runtime/delegation.mjs';
 import { auditDelegatedTurn, resolveDelegatedRecord, inspectDelegationCompatibility } from '../../../runtime/delegation-audit.mjs';
 import { openInstalledPetApp } from '../../../bootstrap/start.mjs';
 import { resolvePetSkills, petSkillInstruction } from '../../../runtime/pet-skills.mjs';
+import { recipeStart, RECIPE_ID, RECIPES } from '../../../../../packages/contracts/recipes.mjs';
 
 const uuid = v => typeof v === 'string' && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/iu.test(v);
 export function parsePetArgs(args) {
   const result = { operation: args[0] };
   if (!['connect','apply-pet','status','settings','prepare','spawned','returned','failed','observe','recover','close-tracking','disable','enable','disconnect'].includes(result.operation)) throw Error('invalid-operation');
-  const flags = { '--codex':'executable','--connection':'connection','--profile':'profile','--request':'requestId','--child':'childId','--turn':'turnId','--record':'record','--agent-path':'agentPath','--pet':'petId','--pet-revision':'petRevision' };
+  const flags = { '--codex':'executable','--connection':'connection','--profile':'profile','--request':'requestId','--child':'childId','--turn':'turnId','--record':'record','--agent-path':'agentPath','--pet':'petId','--pet-revision':'petRevision','--recipe':'recipe' };
   for(let i=1;i<args.length;i+=2) {
     const key=flags[args[i]];
     if (!key || result[key] !== undefined || !args[i+1]) throw Error('invalid-arguments');
@@ -30,6 +31,8 @@ export function parsePetArgs(args) {
       || !/^[1-9]\d{0,8}$/u.test(result.petRevision??'')) throw Error('invalid-saved-pet');
     result.petRevision=Number(result.petRevision);
   }
+  // A recipe only starts together with the exact saved pet it belongs to.
+  if(result.recipe!==undefined && (!['connect','apply-pet'].includes(result.operation) || result.petId===undefined || !RECIPE_ID.test(result.recipe))) throw Error('invalid-recipe');
   return result;
 }
 export async function inspectPetHost({executable,cwd,threadId,includeModels=true,runtime=withReadOnlyRuntime}) {
@@ -51,6 +54,8 @@ export async function inspectPetHost({executable,cwd,threadId,includeModels=true
 export async function runPet(args,env=process.env,deps={}) {
   const o=parsePetArgs(args), cwd=await (deps.realpath??realpath)(deps.cwd??process.cwd());
   if(!uuid(env.CODEX_THREAD_ID)) throw Error('current-task-unavailable');
+  // An unknown recipe stops before the app or the chat's pet is touched.
+  if(o.recipe && !RECIPES.some(recipe=>recipe.id===o.recipe)) throw Error('unknown-recipe');
   const executable=o.executable??env.AUTOPETS_CODEX_EXECUTABLE;
   if(!executable || !path.isAbsolute(executable)) throw Error('codex-runtime-required');
   const host=await (deps.inspect??inspectPetHost)({executable,cwd,threadId:env.CODEX_THREAD_ID,includeModels:['settings','prepare'].includes(o.operation)});
@@ -72,16 +77,18 @@ export async function runPet(args,env=process.env,deps={}) {
     if(reread.link?.revision!==saved.link?.revision || reread.link?.savedPet?.id!==o.petId || reread.link?.savedPet?.revision!==o.petRevision) throw Error('saved-pet-unconfirmed');
     return reread;
   };
+  // The questions for the chosen recipe travel with the applied pet, so the chat needs no second lookup.
+  const withRecipe=result=>o.recipe?{...result,recipe:recipeStart(o.recipe,result.link?.template,{home:env.USERPROFILE??os.homedir(),now:deps.now?.()})}:result;
   if(o.operation==='connect') {
     const saved=verify(await call({operation:'connect',target}));
     const reread=verify(await call({operation:'read',target}));
     if(!reread.link || reread.link.revision!==saved.link?.revision) throw Error('connection-unconfirmed');
-    return {...(o.petId?await applyPet(reread):reread),operation:'connect'};
+    return withRecipe({...(o.petId?await applyPet(reread):reread),operation:'connect'});
   }
   let current=verify(await call({operation:'read',target}));
   if(o.operation==='status') return current;
   if(!current.link) throw Error('pet-not-connected');
-  if(o.operation==='apply-pet') return applyPet(current);
+  if(o.operation==='apply-pet') return withRecipe(await applyPet(current));
   if(o.operation==='recover' && !current.link.connected) current=verify(await call({operation:'connect',target}));
   const expectedRevision=current.link.revision;
   if(['settings','prepare'].includes(o.operation)) {
@@ -153,6 +160,9 @@ export function petFailure(error) {
     'unsupported-runtime-record':'현재 채팅의 실행 기록을 확인할 수 없어 새 펫 작업을 시작하지 않았어요. 기존 작업은 다시 실행하지 말고 상태를 확인해 주세요.',
     'pet-revision-changed':'설정이 바뀌었어요. 현재 채팅의 펫 상태를 다시 확인해 주세요.',
     'pet-run-active-or-unresolved':'기존 작업을 먼저 확인해 주세요. 새 작업만 막으려면 도움을 꺼주세요.',
+    'unknown-recipe':'이 시작 요청의 작업 방법을 찾을 수 없어요. AutoPets 앱에서 다시 시작해 주세요.',
+    'invalid-recipe':'이 시작 요청의 작업 방법을 읽을 수 없어요. AutoPets 앱에서 다시 시작해 주세요.',
+    'recipe-pet-mismatch':'시작 요청의 작업 방법과 펫이 서로 맞지 않아요. AutoPets 앱에서 다시 시작해 주세요.',
   };
   if (messages[code]) return {ok:false,code,retrySubmission:false,message:messages[code]};
   if (code==='unavailable-delegation-profile') return {ok:false,code,retrySubmission:false,message:unavailableProfileMessage(error.requested)};

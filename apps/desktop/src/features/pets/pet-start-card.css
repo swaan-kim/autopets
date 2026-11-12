@@ -1,0 +1,10 @@
+/* "새 일 맡기기" at the top of the floating pet's card. */
+.pet-start-card { width: 320px; max-width: 100%; margin-bottom: 6px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 14px; background: #fcfcfcfa; box-shadow: 0 4px 14px #36363620; }
+.pet-start-card form { display: flex; gap: 6px; }
+.pet-start-card input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #d9dee2; border-radius: 9px; background: #fff; font: inherit; font-size: 13px; }
+.pet-start-card form button { height: 34px; padding: 0 12px; border: 0; border-radius: 9px; background: #242a30; color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.pet-start-card form button:disabled { background: #c9ced3; cursor: default; }
+.pet-start-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pet-start-quick button { height: 28px; padding: 0 10px; border: 1px solid #dfe3e6; border-radius: 999px; background: #fff; color: #3d444a; font: inherit; font-size: 12px; cursor: pointer; }
+.pet-start-quick button:disabled { opacity: .5; cursor: default; }
+.pet-start-card p { margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: #5f676e; }
