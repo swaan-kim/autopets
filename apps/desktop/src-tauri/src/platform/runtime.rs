@@ -25,6 +25,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or_default();
     app.manage(store.clone());
+    app.manage(super::pet_dock::PetDocks::default());
     app.manage(Desktop {
         visible: AtomicBool::new(true),
         // Hold overlays until the manager reports whether its first-use guide
@@ -59,16 +60,20 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 Position {
                     x: m.position().x + m.size().width as i32 - 200 - (index as i32 * 185),
                     y: m.position().y + m.size().height as i32 - 295,
+                    edge: None,
                 }
             } else {
                 Position {
                     x: 200 + index as i32 * 190,
                     y: 400,
+                    edge: None,
                 }
             }
         });
-        let pos = clamp_position(&window, initial);
+        let pos = clamp_position(&window, initial.clone());
         window.set_position(PhysicalPosition::new(pos.x, pos.y))?;
+        // A pet left tucked into a screen edge comes back as its handle.
+        super::pet_dock::restore_docked(&window, &Position { edge: initial.edge, ..pos });
     }
     super::tray::install(app)?;
     let handle = app.handle().clone();
@@ -108,7 +113,19 @@ pub(crate) fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent
         tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(_) if window.label() == "main" => {
             refresh_pet_visibility(window.app_handle());
         }
+        tauri::WindowEvent::ScaleFactorChanged { .. } if window.label().starts_with("pet-") => {
+            if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
+                super::pet_dock::reanchor(&webview);
+            }
+        }
         tauri::WindowEvent::Moved(position) if window.label().starts_with("pet-") => {
+            // A docked handle is not the pet's position; keep it on its screen edge instead.
+            if super::pet_dock::docked_edge(window.app_handle(), window.label()).is_some() {
+                if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
+                    super::pet_dock::reanchor(&webview);
+                }
+                return;
+            }
             if let Some(desktop) = window.app_handle().try_state::<Desktop>() {
                 if let Ok(mut positions) = desktop.positions.lock() {
                     let scale = window.scale_factor().unwrap_or(1.0);
@@ -117,13 +134,8 @@ pub(crate) fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent
                         - (180.0 * scale) as i32;
                     let y = position.y + size.map(|s| s.height as i32).unwrap_or(230)
                         - (230.0 * scale) as i32;
-                    positions.insert(window.label().to_owned(), Position { x, y });
-                    if let Ok(json) = serde_json::to_vec(&*positions) {
-                        let temp = desktop.data_dir.join("positions.tmp");
-                        if std::fs::write(&temp, json).is_ok() {
-                            let _ = std::fs::rename(temp, desktop.data_dir.join("positions.json"));
-                        }
-                    }
+                    positions.insert(window.label().to_owned(), Position { x, y, edge: None });
+                    save_positions(&desktop, &positions);
                 };
             }
         }

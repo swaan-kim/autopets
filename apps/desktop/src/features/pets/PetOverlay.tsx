@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import type { Snapshot } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
@@ -23,6 +23,8 @@ import { companionState, companionRunKey } from './companionMotion';
 import { CompanionPet } from './CompanionPet';
 import { PetRecommendationCard, recommendationStatus, visibleRecommendation } from './PetRecommendation';
 import { usePetGesture } from './usePetGesture';
+import { usePetDock, type DockBadge } from './usePetDock';
+import { PetDockHandle } from './PetDockHandle';
 
 const moveHint = '클릭하면 작업 카드, 끌면 이동';
 
@@ -48,6 +50,10 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const roles = useRoles();
   // Dragging the pet body moves its window; the open card closes first.
   const gesture = usePetGesture({ onDragStart: () => setExpanded(false) });
+  // Dropped at the left or right screen edge, the pet tucks into a small handle there.
+  const dock = usePetDock(index);
+  const dockHandle = (name: string, badge: DockBadge, peek: ReactElement) => dock.edge &&
+    <PetDockHandle edge={dock.edge} name={name} badge={badge} restoring={dock.phase === 'restoring'} error={dock.error} onRestore={dock.restore}>{peek}</PetDockHandle>;
   const sessionId = snapshot.slots.find(slot => slot.index === index)?.sessionId;
   const session = snapshot.sessions.find(session => session.id === sessionId);
   const returnTarget = useRef('');
@@ -90,7 +96,11 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     const recommendation = visibleRecommendation(snapshot, explicit.target.threadId);
     const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
     const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
-    return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
+    if (dock.handle) {
+      const badge: DockBadge = offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : null;
+      return dockHandle(explicit.template.name, badge, <TaskPetArt entry={catalogFor(explicit.template)} state={companionState(explicit, disconnected)} interactive={false} />);
+    }
+    return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${dock.overlayClass}`}>
       {expanded && <div className="quick-card-stack">{offered && <PetRecommendationCard item={offered} compact />}<div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet">
         <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}</button>
@@ -110,7 +120,14 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   // recommendation is the only one without a link, and it is shown on the first, unassigned pet.
   const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
     !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
-  return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
+  if (dock.handle) {
+    const badge: DockBadge = waitingRecommendation?.state === 'shown' || (attention && attention.kind !== 'milestone') || session?.state === 'waiting' ? 'ask'
+      : attention?.kind === 'milestone' || (session?.state === 'done' && session.unread) ? 'done' : null;
+    return dockHandle(session?.label ?? PET_NAMES[index], badge, session
+      ? <PetAppearance template={appearance}><Pet index={index} paused /></PetAppearance>
+      : <CompanionPet state="idle" paused />);
+  }
+  return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${dock.overlayClass}`}>
     {expanded && <div className="quick-card-stack">{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
