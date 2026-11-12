@@ -26,6 +26,7 @@ import { usePetGesture } from './usePetGesture';
 import { PetBubble, jobBubble, linkBubble, noticeSeen, sessionBubble } from './PetBubble';
 import { HOST_NAMES, JOB_ACTIVE_MS, PetJobList, activeJob, openJobResult } from './PetJobs';
 import type { CompanionState } from './companionMotion';
+import { PetStartCard } from './PetStartCard';
 import { canReturnToPetTask } from './PetTaskReturn';
 
 const moveHint = '클릭하면 작업 카드, 끌면 이동';
@@ -128,7 +129,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
     !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
   return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
-    {expanded && <div className="quick-card-stack">{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
+    {expanded && <div className="quick-card-stack">{!session && index === 0 && <PetStartCard setup={snapshot.setup} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || '작업 연결 전'} help={help}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
