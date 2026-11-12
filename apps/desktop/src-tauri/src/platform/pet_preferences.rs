@@ -80,6 +80,62 @@ pub(crate) fn open_pet_in_claude_code(
     shell_open(&uri).map_err(|_| "Claude 앱을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.".into())
 }
 
+// Skill hub: open one listed capability. The screen sends only an entry id and a target; the
+// address or the short prompt comes from the bundled list, so no arbitrary link can be opened.
+// A prompt is placed in the AI unsent. `source` opens the entry's official page.
+#[tauri::command]
+pub(crate) fn start_hub_entry(app: tauri::AppHandle, id: String, target: String) -> Result<(), String> {
+    let folder = if target == "claude-code" {
+        let folder = app.path().document_dir().map_err(|_| "문서 폴더를 찾을 수 없습니다.")?.join("AutoPets");
+        std::fs::create_dir_all(&folder).map_err(|_| "문서 폴더에 AutoPets 폴더를 만들지 못했어요.")?;
+        Some(folder.to_string_lossy().into_owned())
+    } else {
+        None
+    };
+    let link = hub_link(&id, &target, folder.as_deref())?;
+    shell_open(&link).map_err(|_| "열지 못했어요. 해당 앱이 설치돼 있는지 확인해 주세요.".to_string())
+}
+
+fn hub() -> &'static serde_json::Value {
+    static HUB: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
+    HUB.get_or_init(|| serde_json::from_str(include_str!("../../../../../packages/contracts/data/skill-hub.json")).unwrap_or_default())
+}
+
+fn https_address(value: &str) -> bool {
+    value.starts_with("https://") && !value.chars().any(|c| c.is_control() || c.is_whitespace())
+}
+
+pub(crate) fn hub_link(id: &str, target: &str, work_folder: Option<&str>) -> Result<String, String> {
+    let entry = hub()["entries"].as_array()
+        .and_then(|entries| entries.iter().find(|entry| entry["id"].as_str() == Some(id)))
+        .ok_or("hub-entry-not-found")?;
+    if target == "source" {
+        let source = entry["source"].as_str().filter(|value| https_address(value)).ok_or("invalid-hub-link")?;
+        return Ok(source.to_string());
+    }
+    let start = entry["starts"].as_array()
+        .and_then(|starts| starts.iter().find(|start| start["target"].as_str() == Some(target)))
+        .ok_or("hub-start-not-found")?;
+    if target == "web" {
+        let url = start["url"].as_str().filter(|value| https_address(value)).ok_or("invalid-hub-link")?;
+        return Ok(url.to_string());
+    }
+    let prompt = start["prompt"].as_str()
+        .filter(|value| !value.trim().is_empty() && !value.chars().any(|c| c.is_control()))
+        .ok_or("invalid-hub-link")?;
+    let link = match target {
+        "codex" => format!("codex://threads/new?prompt={}", percent_encode(prompt)),
+        "claude" => format!("claude://claude.ai/new?q={}", percent_encode(prompt)),
+        "claude-code" => {
+            let folder = work_folder.filter(|value| Path::new(value).is_absolute()).ok_or("invalid-work-folder")?;
+            format!("claude://code/new?q={}&folder={}", percent_encode(prompt), percent_encode(folder))
+        }
+        _ => return Err("hub-start-not-found".into()),
+    };
+    if link.len() > MAX_LAUNCH_URI { return Err("prompt-too-long".into()); }
+    Ok(link)
+}
+
 // Windows protocol launches are only reliable below the classic URL limit.
 const MAX_LAUNCH_URI: usize = 2000;
 
@@ -222,6 +278,35 @@ mod tests {
         assert_eq!(claude_code_uri(id, 3, &prompt, "C:\\work").unwrap_err(), "invalid-start-request");
         assert_eq!(claude_code_uri(id, 2, &format!("{prompt}{}", "가".repeat(300)), "C:\\work").unwrap_err(), "prompt-too-long");
         assert_eq!(claude_code_uri(id, 2, &prompt, "relative").unwrap_err(), "invalid-work-folder");
+    }
+
+    #[test]
+    fn every_hub_start_builds_a_link_from_the_bundled_list_only() {
+        let entries = hub()["entries"].as_array().unwrap();
+        assert!(entries.len() >= 15);
+        let folder = "C:\\Users\\사용자\\Documents\\AutoPets";
+        for entry in entries {
+            let id = entry["id"].as_str().unwrap();
+            assert!(hub_link(id, "source", None).unwrap().starts_with("https://"), "{id} source");
+            for start in entry["starts"].as_array().unwrap() {
+                let target = start["target"].as_str().unwrap();
+                let link = hub_link(id, target, Some(folder)).unwrap();
+                let expected = match target {
+                    "web" => "https://",
+                    "codex" => "codex://threads/new?prompt=",
+                    "claude" => "claude://claude.ai/new?q=",
+                    _ => "claude://code/new?q=",
+                };
+                assert!(link.starts_with(expected), "{id} {target}");
+                assert!(!link.contains(' ') && !link.contains('\n'), "{id} {target}");
+            }
+        }
+        assert_eq!(hub_link("not-listed", "source", None).unwrap_err(), "hub-entry-not-found");
+        assert_eq!(hub_link("chatgpt-study-mode", "codex", None).unwrap_err(), "hub-start-not-found");
+        assert_eq!(hub_link("chatgpt-study-mode", "https://example.com", None).unwrap_err(), "hub-start-not-found");
+        assert_eq!(hub_link("plugin-playground", "claude-code", None).unwrap_err(), "invalid-work-folder");
+        assert_eq!(hub_link("plugin-playground", "claude-code", Some("relative")).unwrap_err(), "invalid-work-folder");
+        assert_eq!(hub_link("chatgpt-study-mode", "web", None).unwrap(), "https://chatgpt.com/studymode");
     }
 
     #[test]
