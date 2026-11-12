@@ -90,6 +90,13 @@ fn percent_encode(text: &str) -> String {
     out
 }
 
+/// Shows an existing folder in Explorer. Anything that is not a folder is refused, so a path
+/// reported by an AI can never be launched as a program or document.
+pub(crate) fn open_folder(folder: &std::path::Path) -> Result<(), ()> {
+    if !folder.is_dir() { return Err(()); }
+    shell_open(&folder.to_string_lossy())
+}
+
 #[cfg(windows)]
 fn shell_open(target: &str) -> Result<(), ()> {
     use std::ffi::c_void;

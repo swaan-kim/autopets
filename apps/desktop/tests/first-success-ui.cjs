@@ -132,7 +132,7 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.deepEqual(saves[0].args.template, { ...structuredClone(template), execution: { model: 'gpt-6-sol', reasoning: 'medium' } });
   assert.deepEqual(actual.pets[0], prior.saved);
   assert.deepEqual(actual.links, prior.links, 'preparing/copying another task never changes A or B');
-  assert.ok(actual.prompt.includes('이전 작업의 내용이나 계획 승인을 이 요청에 재사용하지 마.'));
+  assert.ok(actual.prompt.includes('새 작업이야. 이전 작업의 계획이나 승인을 재사용하지 마.'));
   assert.equal(/PREVIOUS_TASK_CONTENT|PREVIOUS_APPROVAL/.test(actual.prompt), false);
   assert.equal(actual.calls.some(call => /connect_ai|apply_pet_link_template|submit|send|execute_pet|prepare_pet/.test(call.name)), false);
   assert.equal(await composer.locator('.composer-applied').count(), 0, 'copy is not a confirmed configuration change');

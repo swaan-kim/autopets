@@ -7,14 +7,18 @@ import { randomUUID } from 'node:crypto';
 import { atomicJson, digest, inside, lock, readJson, regular, safeDirectory } from './files.mjs';
 
 const NAME = 'autopets_preferences';
-const sources = [
+export const petPreferenceSources = [
   'integrations/mcp/server.mjs',
   'integrations/mcp/client.mjs',
   'integrations/codex/skills/autopets/scripts/bridge-client.mjs',
   // client.mjs imports the shared routing table; without these the read tool cannot start.
   'packages/contracts/routing.mjs',
   'packages/contracts/data/routing-profiles.json',
+  'packages/contracts/recipes.mjs',
+  'packages/contracts/data/recipes.json',
+  'packages/contracts/data/pet-catalog.json',
 ];
+const sources = petPreferenceSources;
 const stable = value => JSON.stringify(value, (_, item) => item && typeof item === 'object' && !Array.isArray(item)
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
 const fingerprint = entry => digest(stable(entry));
