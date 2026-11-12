@@ -25,8 +25,8 @@ test('MCP initialization is lazy and only the selected pet preference can be rea
   assert.deepEqual(requests, []);
   await session(initialized);
   const list = await session({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-  assert.equal(list.result.tools.length, 2);
-  assert.ok(list.result.tools.every(tool => tool.annotations.readOnlyHint && !tool.annotations.destructiveHint));
+  assert.equal(list.result.tools.length, 3);
+  assert.ok(list.result.tools.every(tool => (tool.annotations.readOnlyHint || tool.name === 'autopets_report') && !tool.annotations.destructiveHint));
   await session(call(3, 'autopets_list_pets'));
   await session(call(4, 'autopets_read_pet', { petId: 'chosen-a', expectedRevision: 3 }));
   assert.deepEqual(requests, [{ operation: 'list', offset: 0 }, { operation: 'read', petId: 'chosen-a', expectedRevision: 3 }]);
@@ -100,7 +100,11 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
     await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, bytes.subarray(start, start + size));
     files.push(name); offset = start + size;
   }
-  assert.equal(files.length, 8);
+  assert.equal(files.length, 13);
+  // The app refuses to export a connection file over 128 KiB (pet_preferences.rs), so growth here must fail first.
+  assert.ok(bytes.length <= 128 * 1024, 'connection file is ' + bytes.length + ' bytes');
+  assert.ok(files.includes('packages/contracts/data/skill-guides.json'), 'the pinned skill texts ship with the server');
+  assert.ok(files.includes('packages/contracts/data/recipes.json'), 'the first-reply questions ship with the server');
   assert.ok(files.includes('packages/contracts/data/routing-profiles.json'), 'routing hint table ships with the server');
   assert.ok(!files.some(name => /connection\.json|\.sqlite|node_modules|\.local/u.test(name)));
   const manifest = JSON.parse(await fs.readFile(path.join(extracted, 'manifest.json'), 'utf8'));
@@ -146,7 +150,7 @@ test('stdio answers hosts whose stdin only emits data events and whose write ret
   await done;
   assert.deepEqual(written.map(message => message.id), [1, 2]);
   assert.equal(written[0].result.protocolVersion, '2025-11-25');
-  assert.equal(written[1].result.tools.length, 2);
+  assert.equal(written[1].result.tools.length, 3);
 });
 
 test('read pet returns a host-neutral routing hint from the shared table and never claims it was applied', async () => {
@@ -158,4 +162,41 @@ test('read pet returns a host-neutral routing hint from the shared table and nev
   assert.deepEqual(pet.routing.planning.hosts['claude-code'], { model: 'opus', effort: 'high' });
   assert.deepEqual(pet.routing.execution.hosts['claude-code'], { model: 'sonnet', effort: 'low' });
   assert.equal(pet.routing.applied, false); assert.equal(pet.hostSettingsChanged, false);
+  // The same first-reply questions as the Codex skill, with defaults and no local folder.
+  assert.equal(pet.start.recipe, 'ui-webpage'); assert.equal(pet.start.output, 'files');
+  assert.match(pet.start.askFirst, /"기본으로"/u); assert.equal(pet.start.defaults.screen, '둘 다');
+  assert.equal(/Documents|saveFolder|[A-Z]:/u.test(JSON.stringify(pet.start)), false, 'no folder path leaves the tool');
+});
+
+test('read pet hands over the pinned skill text and follows the recipe named by the start request', async () => {
+  const uiPet = JSON.parse(await fs.readFile(new URL('../../packages/contracts/data/ui-pet.json', import.meta.url), 'utf8'));
+  const sent = [];
+  const library = createLibraryClient({ environment: { AUTOPETS_CONNECTION_FILE: 'synthetic' }, connect: async () => ({}),
+    request: async (_, route, body) => { sent.push([route, body]); return { version: 1, pet: { id: 'pet-ui', revision: 1, template: uiPet } }; } });
+  const { pet } = await library({ operation: 'read', petId: 'pet-ui', expectedRevision: 1, recipe: 'ui-webpage' });
+  // The method itself reaches the AI: the same pinned text the Codex skill script would read.
+  assert.deepEqual(pet.skillGuides.map(({ id, version }) => ({ id, version })), pet.skillReferences);
+  assert.ok(pet.skillGuides.length >= 1 && pet.skillGuides.every(guide => guide.text.includes(`name: ${guide.id}`)));
+  assert.equal(pet.skillsLoaded, false, 'handing over a text is not evidence that a host skill was loaded');
+  assert.equal(pet.start.recipe, 'ui-webpage');
+  assert.deepEqual(sent, [['/v1/pet-library', { operation: 'read', petId: 'pet-ui', expectedRevision: 1 }]], 'the app request keeps its old shape');
+  // A recipe of another pet or an unknown one is refused, never swapped for this pet's own.
+  await assert.rejects(library({ operation: 'read', petId: 'pet-ui', expectedRevision: 1, recipe: 'daily-plan' }), error => error.code === 'recipe-pet-mismatch');
+  await assert.rejects(library({ operation: 'read', petId: 'pet-ui', expectedRevision: 1, recipe: 'no-such-recipe' }), error => error.code === 'unknown-recipe');
+  // A pet saved with a skill version that is not bundled gets no text for it.
+  const old = createLibraryClient({ environment: { AUTOPETS_CONNECTION_FILE: 'synthetic' }, connect: async () => ({}),
+    request: async () => ({ version: 1, pet: { id: 'pet-old', revision: 1, template: { ...uiPet, skills: [{ id: uiPet.skills[0].id, version: '0.0.1' }] } } }) });
+  assert.deepEqual((await old({ operation: 'read', petId: 'pet-old', expectedRevision: 1 })).pet.skillGuides, []);
+
+  const calls = [];
+  const session = createSession({ library: async body => { calls.push(body); if (body.recipe === 'daily-plan') throw Object.assign(Error('x'), { code: 'recipe-pet-mismatch' }); return { pet: {} }; } });
+  await session(initialize); await session({ jsonrpc: '2.0', method: 'notifications/initialized' });
+  const call = (id, args) => session({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'autopets_read_pet', arguments: args } });
+  assert.equal((await call(2, { petId: 'pet-ui', expectedRevision: 1, recipe: 'ui-webpage' })).result.isError, undefined);
+  assert.deepEqual(calls[0], { operation: 'read', petId: 'pet-ui', expectedRevision: 1, recipe: 'ui-webpage' });
+  assert.equal((await call(3, { petId: 'pet-ui', expectedRevision: 1 })).result.isError, undefined);
+  assert.equal('recipe' in calls[1], false);
+  for (const recipe of ['', 'UI', '../x', 7, 'a'.repeat(65)]) assert.equal((await call(4, { petId: 'pet-ui', expectedRevision: 1, recipe })).error.code, -32602);
+  const refused = await call(5, { petId: 'pet-ui', expectedRevision: 1, recipe: 'daily-plan' });
+  assert.equal(refused.result.isError, true); assert.match(refused.result.content[0].text, /이 펫의 것이 아닙니다/u);
 });

@@ -13,6 +13,8 @@ pub struct Store {
     pub(crate) pet_links: HashMap<String, crate::domain::pet_link::Link>,
     /// In-memory only; never written to SQLite.
     pub(crate) recommendations: crate::domain::recommendation::Recommendations,
+    /// Jobs reported by an AI through MCP. In-memory only; never written to SQLite.
+    pub(crate) pet_jobs: crate::domain::pet_job::Jobs,
     pub(crate) db: Connection,
     pub assistance: crate::application::assistance::AssistanceStore,
     pub workflow: crate::application::workflow::WorkflowStore,
@@ -59,6 +61,7 @@ impl Store {
         approvals.truncate(pending_count + 200);
         Snapshot {
             pet_recommendations: self.recommendations.snapshot(&self.pet_links, self.setup_chat().as_ref(), now),
+            pet_jobs: self.pet_jobs.snapshot(now),
             pet_links: { let mut links: Vec<_> = self.pet_links.values().cloned().collect(); links.sort_by_key(|l| l.slot); links },
             sessions,
             slots: self

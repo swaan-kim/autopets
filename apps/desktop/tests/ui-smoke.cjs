@@ -690,7 +690,9 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       session.lastTool = 'mcp__notion__update_page';
       session.attention = { id: 'tool-error-actual-id', kind: 'tool-error', summary: 'Notion 도구가 오류 응답을 반환했어요.', createdAt: Date.now(), snoozedUntil: null };
     });
-    await pet.locator('.floating-status.tool-error').waitFor();
+    // A tool error is now a pet notice in the place of the small status.
+    await pet.locator('.pet-bubble[data-tone="error"]').waitFor();
+    assert.equal(await pet.locator('.floating-status').count(), 0);
     await pet.getByText('전체 작업이 실패한 것은 아니며,', { exact: false }).waitFor();
     assert.equal(await pet.locator('.sprite-angry').count(), 1);
     await pet.getByRole('button', { name: '알림 확인', exact: true }).click();
