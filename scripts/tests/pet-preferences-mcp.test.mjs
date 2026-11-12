@@ -101,6 +101,8 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
     files.push(name); offset = start + size;
   }
   assert.equal(files.length, 13);
+  // The app refuses to export a connection file over 128 KiB (pet_preferences.rs), so growth here must fail first.
+  assert.ok(bytes.length <= 128 * 1024, 'connection file is ' + bytes.length + ' bytes');
   assert.ok(files.includes('packages/contracts/data/skill-guides.json'), 'the pinned skill texts ship with the server');
   assert.ok(files.includes('packages/contracts/data/recipes.json'), 'the first-reply questions ship with the server');
   assert.ok(files.includes('packages/contracts/data/routing-profiles.json'), 'routing hint table ships with the server');
