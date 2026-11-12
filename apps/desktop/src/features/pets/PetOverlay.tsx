@@ -23,6 +23,8 @@ import { companionState, companionRunKey } from './companionMotion';
 import { CompanionPet } from './CompanionPet';
 import { PetRecommendationCard, recommendationStatus, visibleRecommendation } from './PetRecommendation';
 import { usePetGesture } from './usePetGesture';
+import { PetBubble, linkBubble, sessionBubble } from './PetBubble';
+import { canReturnToPetTask } from './PetTaskReturn';
 
 const moveHint = '클릭하면 작업 카드, 끌면 이동';
 
@@ -90,11 +92,17 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     const recommendation = visibleRecommendation(snapshot, explicit.target.threadId);
     const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
     const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
+    // One click on the notice goes to the chat; if that cannot be done, the card opens instead.
+    const openChat = async () => {
+      if (!canReturnToPetTask(explicit)) { setExpanded(true); return; }
+      try { const result = await command<{ status: string }>('open_pet_task', { target: explicit.target, expectedRevision: explicit.revision }); if (result?.status !== 'dispatched') setExpanded(true); }
+      catch { setExpanded(true); }
+    };
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}`}>
       {expanded && <div className="quick-card-stack">{offered && <PetRecommendationCard item={offered} compact />}<div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet">
         <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}</button>
-        <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span>
+        <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span><PetBubble notice={offered ? null : linkBubble(explicit, disconnected)} onOpen={openChat}><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span></PetBubble>
       </div></div>;
   }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'
@@ -143,7 +151,10 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span>
       {waitingRecommendation ? <span className="floating-status recommend" title={recommendationStatus(waitingRecommendation)}>{recommendationStatus(waitingRecommendation)}</span>
-        : <span className={`floating-status ${view.kind}`} title={help}>{help}</span>}
+        : <PetBubble notice={session ? sessionBubble(session, attention, disconnected) : null} onOpen={async () => {
+            if (!session || !canAttemptReturn(session)) { setExpanded(true); return; }
+            try { await returnToTask(session); } catch { setExpanded(true); }
+          }}><span className={`floating-status ${view.kind}`} title={help}>{help}</span></PetBubble>}
     </div>
   </div>;
 }
