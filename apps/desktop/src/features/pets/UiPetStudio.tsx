@@ -192,7 +192,12 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   };
   const save = async (isCurrent = () => mounted.current) => {
     let result = saved;
-    if (!result || dirty) {
+    if (!result) {
+      // Starting again from the catalog reuses an identical saved pet instead of adding a duplicate each time.
+      const existing = (await command<PetRoleSnapshot>('roles_snapshot'))?.pets?.find(pet => sameTemplate(pet.template, draft));
+      if (existing) { result = existing; if (isCurrent()) { setSaved(existing); setDraft(structuredClone(existing.template)); setDirty(false); } }
+    }
+    if (!result || (saved && dirty)) {
       result = await command<SavedPet>('save_pet', { id: saved?.id ?? null, expectedRevision: saved?.revision ?? 0, template: draft });
       if (isCurrent()) { setSaved(result); setDraft(structuredClone(result.template)); setDirty(false); }
     }

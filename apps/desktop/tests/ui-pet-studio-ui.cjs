@@ -99,7 +99,19 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.deepEqual(names, ['connect_ai', 'save_pet', 'open_pet_in_codex'], 'prepare once, save once, open once');
     await fresh.locator('.pet-composer').getByRole('button', { name: 'Codex에서 시작', exact: true }).waitFor();
     await fresh.close();
-    checks.push('one-click start: detail or pet screen opens one Codex link with the short recipe request, reuses the saved pet, never touches the clipboard or sends, prepares Codex only on first use, and copies a job too long for a link');
+    // Starting the same pet again later reuses the saved one; the library does not fill with duplicates.
+    const again = await newPage({ width: 992, height: 688 }); await mockBridge(again, base);
+    await again.addInitScript(pets => { window.__uiTest.roles.pets = pets; }, [{ id: 'kept-slides', revision: 3, updatedAt: 1, template: structuredClone(catalog.find(entry => entry.id === 'presentation').template) }]);
+    await again.goto(origin); await openCatalog(again);
+    await again.getByRole('button', { name: '발표자료 만들기 펫 선택', exact: true }).click();
+    await again.locator('.workspace-role-detail').getByRole('button', { name: '발표자료 만들기 Codex에서 시작', exact: true }).click();
+    await again.locator('.pet-composer').getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    const reused = await again.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets }));
+    assert.equal(reused.calls.filter(call => call.name === 'save_pet').length, 0, 'an identical saved pet is reused');
+    assert.equal(reused.pets.length, 1);
+    assert.ok(reused.calls.find(call => call.name === 'open_pet_in_codex').args.prompt.includes('petId=kept-slides, petRevision=3, recipe=presentation.'));
+    await again.close();
+    checks.push('one-click start: detail or pet screen opens one Codex link with the short recipe request, reuses the saved pet, never touches the clipboard or sends, prepares Codex only on first use, reuses an identical saved pet instead of duplicating it, and copies a job too long for a link');
   }
   const page = await newPage({ width: 992, height: 688 });
   const initial = structuredClone(base); initial.setup.connections[0].configured = false;
