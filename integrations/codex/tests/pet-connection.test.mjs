@@ -58,6 +58,29 @@ test('saved pet identity and revision are applied only to the verified current t
   assert.throws(()=>parsePetArgs(['prepare','--pet','x','--pet-revision','3']),/invalid-saved-pet/);
 });
 
+test('a recipe start returns the chat questions with the applied pet and never swaps or guesses a recipe',async()=>{
+  const catalog=JSON.parse(await fs.readFile(new URL('../../../packages/contracts/data/pet-catalog.json',import.meta.url),'utf8'));
+  const slides=catalog.find(entry=>entry.id==='presentation').template, home=path.resolve('fixture-home');
+  const f=fixture(); f.deps.now=()=>new Date(2026,10,12);
+  await f.run('connect'); f.edit(link=>{ link.template=structuredClone(slides); });
+  const env={CODEX_THREAD_ID:parent,USERPROFILE:home};
+  const result=await f.run('connect',['--pet','slides-fixture','--pet-revision','2','--recipe','presentation'],env);
+  assert.deepEqual(result.link.savedPet,{id:'slides-fixture',revision:2});
+  assert.equal(result.recipe.id,'presentation'); assert.equal(result.recipe.output,'files');
+  assert.match(result.recipe.intakeMessage,/"기본으로"/u); assert.match(result.recipe.intakeMessage,/1\. 어디에 쓰는 발표인가요\?/u);
+  assert.equal(result.recipe.saveFolder.preferred,path.join(home,'Documents','AutoPets','1112-presentation'));
+  assert.ok(!f.calls.some(c=>c.input.operation==='prepare'),'asking questions never starts AI work');
+  assert.equal((await f.run('connect',['--pet','slides-fixture','--pet-revision','2'],env)).recipe,undefined,'a request without a recipe keeps the old result');
+  const before=f.calls.length;
+  await assert.rejects(f.run('connect',['--pet','slides-fixture','--pet-revision','2','--recipe','nope'],env),/unknown-recipe/);
+  assert.equal(f.calls.length,before,'an unknown recipe stops before the app is called');
+  await assert.rejects(f.run('connect',['--pet','slides-fixture','--pet-revision','2','--recipe','ui-webpage'],env),/recipe-pet-mismatch/);
+  assert.throws(()=>parsePetArgs(['connect','--recipe','presentation']),/invalid-recipe/);
+  assert.throws(()=>parsePetArgs(['prepare','--recipe','presentation']),/invalid-recipe/);
+  assert.throws(()=>parsePetArgs(['connect','--pet','x','--pet-revision','1','--recipe','../etc']),/invalid-recipe/);
+  const {petFailure}=await import('../skills/autopets/scripts/pet.mjs');
+  for(const code of ['unknown-recipe','recipe-pet-mismatch','invalid-recipe']) assert.match(petFailure(Error(code)).message,/AutoPets 앱에서 다시 시작/u);
+});
 test('selected UI skill and optional companion are packaged, pinned and passed separately',async()=>{
   const f=fixture(); await f.run('connect');
   f.edit(link=>{link.template.skills=[{id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f'}]; link.template.features={figmaDesign:true};});

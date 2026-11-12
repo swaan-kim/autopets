@@ -61,6 +61,7 @@ impl Store {
         let mut store = Self {
             pet_links: HashMap::new(),
             recommendations: Default::default(),
+            pet_jobs: Default::default(),
             assistance: crate::application::assistance::AssistanceStore::new(&data_dir)?,
             workflow: crate::application::workflow::WorkflowStore::new(&data_dir)?,
             artifacts: crate::application::artifacts::ArtifactStore::new(&data_dir)?,

@@ -1,0 +1,17 @@
+/* Jobs reported by an AI: a plain list in "내 작업" and a short one in the pet card. */
+.pet-jobs { margin: 0 0 24px; padding: 18px 20px; border: 1px solid #e6eaed; border-radius: 16px; background: #fff; }
+.pet-jobs h2 { margin: 0 0 12px; font-size: 14px; font-weight: 650; color: #3d444a; }
+.pet-jobs ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.pet-jobs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 12px; padding-left: 12px; border-left: 3px solid #c9d1d8; }
+.pet-jobs li[data-state='asking'] { border-left-color: #e0b93b; }
+.pet-jobs li[data-state='working'] { border-left-color: #6f9fd8; }
+.pet-jobs li[data-state='done'] { border-left-color: #62b37f; }
+.pet-jobs li[data-state='failed'] { border-left-color: #d87474; }
+.pet-jobs strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 600; color: #2a2f34; }
+.pet-jobs span { grid-column: 1; font-size: 12px; color: #747c83; }
+.pet-jobs .text-button { grid-column: 2; grid-row: 1 / 3; font-size: 12px; }
+.pet-jobs small { grid-column: 1 / 3; font-size: 11px; color: #9a3b3b; }
+.pet-jobs.compact { margin: 0; padding: 12px 14px; border-radius: 14px; box-shadow: 0 2px 10px #0000001a; }
+.pet-jobs.compact h2 { font-size: 12px; margin-bottom: 8px; }
+.pet-jobs.compact strong { font-size: 12px; }
+.pet-jobs.compact span { font-size: 11px; }

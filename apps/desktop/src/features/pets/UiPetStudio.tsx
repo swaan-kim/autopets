@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
+import type { PetJob, PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
 import routing from '../../../../../packages/contracts/data/routing-profiles.json';
+import recipeData from '../../../../../packages/contracts/data/recipes.json';
+import { petStartRequest, fitsCodexLink } from '../../../../../packages/guidance/start-request.mjs';
 import { petCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { command, isDesktop } from '../../bridge/command';
 import { useRoles } from '../../bridge/useRoles';
@@ -18,9 +20,9 @@ import { usePetFavorites } from './usePetFavorites';
 import './ui-pet-studio.css';
 import './first-success.css';
 import './pet-composer-simple.css';
+import { AI_NAMES, usePrimaryAi, type PrimaryAi } from './primaryAi';
 
 export const FIGMA_GUIDE = 'https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/#codex';
-const EXAMPLE_TASK = '가상 학과 행사 소개 웹페이지 한 장. 행사 소개, 일정, 신청 안내와 모바일 화면을 포함해줘.';
 const codexRouting = routing.hosts['codex-windows-local'].profiles;
 const matchesProfile = (value: WorkflowModel, key: keyof typeof codexRouting) => value.model === codexRouting[key].model && value.reasoning === codexRouting[key].effort;
 const planOptions = routing.hosts['codex-windows-local'].planOptions;
@@ -42,25 +44,28 @@ function setOnboardingActive(active: boolean) {
   return request;
 }
 
-type TaskContext = { audience?: string; message?: string; newTask?: boolean };
+type TaskContext = { audience?: string; message?: string; newTask?: boolean; via?: 'skill' | 'tool' };
 type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
 
 const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
-export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: TaskContext = {}) => [
-  `AutoPets 스킬로 현재 채팅에 ${pet.template.name}을 연결해줘. 저장한 펫: petId=${pet.id}, petRevision=${pet.revision}.`,
-  `이 펫으로 아래 작업${pet.template.planFirst ? '의 계획만 세워줘' : '을 수행하고 결과를 채팅에 보여줘'}.\n\n${task.trim()}\n`,
-  ...(catalogFor(pet.template)?.id === 'ui-webpage' ? [context.audience?.trim() && `이 페이지를 볼 사람: ${context.audience.trim()}`, context.message?.trim() && `꼭 알릴 내용: ${context.message.trim()}`].filter(Boolean) : []),
-  ...(context.newTask ? ['새로운 작업이야. 이전 작업의 내용이나 계획 승인을 이 요청에 재사용하지 마.'] : []),
-  pet.template.features?.figmaDesign ? 'Figma 시안 활용 특성을 선택했어. 사용할 프레임 링크를 나에게 먼저 확인하고, 실제 시안을 읽은 뒤 계획해줘. 연결이나 접근이 안 되면 필요한 조치를 알려줘.' : '별도 서비스 연결 없이 가능한 범위부터 도와주고, 외부 서비스가 필요하면 먼저 알려줘.',
-  pet.template.planFirst ? '지금은 파일을 바꾸지 말고 계획을 보여준 뒤 내 구현 요청을 기다려줘. 구현 위치와 기존 파일을 먼저 확인하고 기존 내용을 덮어쓰지 마.' : '파일을 수정하거나 외부 서비스에 등록하지 말고, 제공한 내용을 바탕으로 결과를 보여줘. 확인할 수 없는 사실은 미확인으로 구분해줘.',
-  ...(task.trim() === EXAMPLE_TASK ? ['이 예시에는 실제 개인정보 대신 가상 내용을 사용하고, 구현할 때는 새 autopets-demo 폴더를 사용하되 기존 파일이 있으면 먼저 알려줘.'] : []),
-].join('\n');
+const CLAUDE_CODE_OPENED = 'Claude Code 새 세션에 요청을 넣었어요. 보내기만 누르세요.';
+const recipes = new Map(recipeData.recipes.map(recipe => [recipe.id, recipe]));
+// Short on purpose: it has to fit a Codex link. The questions and working rules are in the AutoPets
+// skill (references/explicit-pet.md) and recipes.json, and the AI asks them in the chat.
+export const uiPetStartPrompt = (pet: SavedPet, task = '', context: TaskContext = {}) => {
+  const id = catalogFor(pet.template)?.id;
+  const web = id === 'ui-webpage';
+  // The chat shows the name the user picked on screen, not the stored template name.
+  return petStartRequest({ name: (id && recipes.get(id)?.name) || pet.template.name, petId: pet.id, petRevision: pet.revision, recipe: id && recipes.has(id) ? id : null, task,
+    audience: web ? context.audience : '', message: web ? context.message : '', newTask: context.newTask === true, figma: pet.template.features?.figmaDesign === true, via: context.via });
+};
 
-export function UiPetStudio({ links, recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
+export function UiPetStudio({ links, jobs = [], recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; jobs?: PetJob[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
   const library = useRoles();
   const favorites = usePetFavorites();
+  const [primaryAi, setPrimaryAi] = usePrimaryAi();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<'settings' | 'request' | null>(null);
   const panelDialog = useRef<HTMLDialogElement>(null);
@@ -84,7 +89,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   const [applied, setApplied] = useState<PetLink | null>(null);
   const [localSetup, setLocalSetup] = useState<SetupState | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [task, setTask] = useState(EXAMPLE_TASK);
+  const [task, setTask] = useState('');
   const [audience, setAudience] = useState('');
   const [message, setMessage] = useState('');
   const [handoff, setHandoff] = useState<Handoff | null>(null);
@@ -190,7 +195,12 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   };
   const save = async (isCurrent = () => mounted.current) => {
     let result = saved;
-    if (!result || dirty) {
+    if (!result) {
+      // Starting again from the catalog reuses an identical saved pet instead of adding a duplicate each time.
+      const existing = (await command<PetRoleSnapshot>('roles_snapshot'))?.pets?.find(pet => sameTemplate(pet.template, draft));
+      if (existing) { result = existing; if (isCurrent()) { setSaved(existing); setDraft(structuredClone(existing.template)); setDirty(false); } }
+    }
+    if (!result || (saved && dirty)) {
       result = await command<SavedPet>('save_pet', { id: saved?.id ?? null, expectedRevision: saved?.revision ?? 0, template: draft });
       if (isCurrent()) { setSaved(result); setDraft(structuredClone(result.template)); setDirty(false); }
     }
@@ -229,16 +239,38 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     await copy(value, pet);
   }, undefined, true);
   // A new Codex thread opens with the start request in its composer; the user
-  // still presses send. Requests too long for a link fall back to copying.
-  const saveAndOpenCodex = () => run(async () => {
-    if (!task.trim()) throw Error('empty task');
+  // still presses send. A request too long for a link falls back to copying.
+  const openInCodex = async () => {
     const pet = await save();
     const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    if (!fitsCodexLink(value)) return copy(value, pet);
     try { await command('open_pet_in_codex', { petId: pet.id, expectedRevision: pet.revision, prompt: value }); }
     catch (cause) { if (/prompt-too-long/.test(String(cause))) return copy(value, pet); throw cause; }
     setPrompt(value); setManualCopy(false); setCopied(false);
     setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
     setNotice(CODEX_OPENED);
+  };
+  const saveAndOpenCodex = () => run(async () => { if (!task.trim()) throw Error('empty task'); await openInCodex(); });
+  // The same request for Claude Code: a new session in the Claude desktop app, in Documents/AutoPets.
+  // Claude reads the pet with the AutoPets tools installed there, so nothing is prepared in Codex.
+  const openInClaudeCode = async () => {
+    const pet = await save();
+    const value = uiPetStartPrompt(pet, task, { audience, message, newTask, via: 'tool' });
+    try { await command('open_pet_in_claude_code', { petId: pet.id, expectedRevision: pet.revision, prompt: value }); }
+    catch (cause) { if (/prompt-too-long/.test(String(cause))) return copy(value, pet); throw cause; }
+    setPrompt(value); setManualCopy(false); setCopied(false); setHandoff(null);
+    setNotice(CLAUDE_CODE_OPENED);
+  };
+  // The main action: one click prepares Codex on first use, saves this pet and opens the chat.
+  // The job line may be empty; the AI then asks what to make together with the recipe's questions.
+  const quickStart = () => run(async () => {
+    if (primaryAi === 'claude-code') { await openInClaudeCode(); return; }
+    if (!prepared) {
+      const result = await command<SetupState>('connect_ai', { hostId: 'codex-windows-local' });
+      setLocalSetup(result);
+      if (!explicitSetupReady(result)) { setNotice(['Codex 연결을 준비하지 못했어요. 아래 ‘AI 연결’에서 확인해 주세요.', ...(result.warnings ?? [])].join(' ')); return; }
+    }
+    await openInCodex();
   });
   const saveToLibrary = () => {
     const scope = { key: draftKey.current, view, navigationRevision };
@@ -254,7 +286,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     const key = sameRole && !draftKey.current.startsWith('saved:') ? draftKey.current : item ? `saved:${item.id}` : `role:${nextEntry.id}`;
     const previous = drafts.current[key] ?? (sameRole ? drafts.current[draftKey.current] : undefined);
     // Selecting a current configuration refreshes settings, but never moves one role's brief into another.
-    enter(key, { ...freshDraft(nextEntry, item ?? null), task: previous?.task ?? nextEntry.example,
+    enter(key, { ...freshDraft(nextEntry, item ?? null), task: previous?.task ?? '',
       audience: previous?.audience ?? '', message: previous?.message ?? '',
       reuseTarget: sameRole ? reuseTarget : null, newTask: sameRole ? newTask : false });
   };
@@ -273,7 +305,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     setApplied(null);
     selectionButton.current = document.activeElement as HTMLElement; setOpen(true);
   };
-  const freshDraft = (next: PetCatalogEntry, item: SavedPet | null = null): ComposerDraft => ({ task: next.example, audience: '', message: '',
+  const freshDraft = (next: PetCatalogEntry, item: SavedPet | null = null): ComposerDraft => ({ task: '', audience: '', message: '',
     draft: structuredClone(item?.template ?? next.template), saved: item, dirty: !item, prompt: '', copied: false, manualCopy: false, notice: '', handoff: null, reuseTarget: null, newTask: false });
   const selectEntry = (next: PetCatalogEntry, request?: string, targetOverride?: string) => {
     listScroll.current = window.scrollY;
@@ -324,6 +356,11 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     if (next) openRecommended(item, next);
   }, [recommendationOpen?.nonce]);
   useEffect(() => { if (browsing && !recommendations.some(item => item.id === browsing.id)) setBrowsing(null); }, [browsing, recommendations]);
+  // From a pet's detail page: open its composer and start right away, with no job typed.
+  // The chat then asks what to make together with the recipe's questions.
+  const [startRequest, setStartRequest] = useState(0);
+  const startEntry = (next: PetCatalogEntry) => { const direct = isDesktop && !browsing; chooseEntry(next); if (direct) setStartRequest(value => value + 1); };
+  useEffect(() => { if (startRequest && open && !disabled && routingSupported) void quickStart(); }, [startRequest]);
   // The app only keeps recommendations for linked chats and the chat waiting after `$autopets`.
   const shownRecommendations = recommendations.filter(item => item.state === 'shown');
   const openSaved = (item: SavedPet) => {
@@ -388,15 +425,20 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     requestAnimationFrame(() => savedSelector.current?.focus({ preventScroll: true }));
   };
   const savedReady = Boolean(saved && !dirty && !stale);
+  const startLabel = primaryAi === 'claude-code' ? 'Claude Code에서 시작' : prepared ? 'Codex에서 시작' : 'Codex에 준비하고 시작';
+  const recipe = recipes.get(entry.id);
+  // A request that came from a chat continues in that chat, so the new-chat start is not offered there.
+  const quickVisible = recommendedDraft.current?.key !== draftKey.current;
+  const otherButton = quickVisible ? 'button secondary' : 'button primary';
   const messages = <>
-    {notice && (!panel || copied || manualCopy || notice === CODEX_OPENED) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
+    {notice && (!panel || copied || manualCopy || notice === CODEX_OPENED || notice === CLAUDE_CODE_OPENED) && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
     {!routingSupported && <p className="error" role="alert">사용할 수 없는 작업 설정이에요. 펫 설정에서 바꿔주세요.</p>}
     {(savedChanged || error || library.error || favorites.error) && <div ref={feedback} className="composer-feedback error" role="alert"><p>{error || library.error || favorites.error || '저장한 펫이 바뀌었어요. 최신 구성을 선택해 주세요.'}</p>{stale && <button className="text-button" onClick={focusSavedConfiguration}>구성 다시 선택</button>}</div>}
   </>;
   return <><div hidden={open}>
     {browsing && (view === 'catalog' || view === 'saved') && <div className="pet-recommendation-banner" role="status" data-agent-id="pet-selection.recommendation-banner"><p>Codex 요청 “{browsing.request && browsing.request.length > 60 ? `${browsing.request.slice(0, 60)}…` : browsing.request}”에 쓸 펫을 골라 주세요.</p><button className="text-button" onClick={() => setBrowsing(null)}>요청 없이 둘러보기</button></div>}
     {(view === 'home' || view === 'pets') && shownRecommendations.map(item => <PetRecommendationCard key={item.id} item={item} linked={links.some(link => link.target.threadId === item.target.threadId)} />)}
-    <PetWorkspace view={view} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="pet-composer" data-agent-scope="pet-selection" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
+    <PetWorkspace view={view} jobs={jobs} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onStart={startEntry} startLabel={startLabel} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="pet-composer" data-agent-scope="pet-selection" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
     <header className="composer-top">
       <button data-agent-id="pet-selection.composer.back" className="text-button" disabled={busy} onClick={close}>← 돌아가기</button>
       <button className="composer-settings-button" data-agent-id="pet-selection.composer.settings" disabled={busy} onClick={() => showPanel('settings')} aria-label="펫 설정">⚙</button>
@@ -414,22 +456,29 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
             ? <small>이 채팅에 펫을 적용한 뒤 같은 채팅에 “{entry.name} 펫으로 방금 요청한 일 진행해줘”라고 보내면 시작해요. 요청을 고쳤다면 ‘직접 요청’에서 확인한 뒤 시작 요청을 복사해 보내 주세요.</small>
             : <small>이 채팅은 아직 펫과 연결되지 않았어요. ‘직접 요청’에서 확인한 뒤 시작 요청을 복사해 같은 채팅에 보내면 {entry.name} 펫이 연결되고 이 요청을 진행해요.</small>}
         </section>}
+        {quickVisible && <section className="composer-quick-start" data-agent-id="pet-selection.composer.quick-start" aria-label="바로 시작">
+          <label className="composer-quick-task">무엇을 맡길까요?<textarea aria-label="맡길 일 한 줄" rows={2} maxLength={300} disabled={busy} value={task} placeholder={`예: ${entry.example}`} onChange={event => { setTask(event.target.value); invalidateRequest(); }} /></label>
+          <div className="composer-action composer-start-action"><button className="button primary composer-start" data-agent-id="pet-selection.composer.start" disabled={disabled || !routingSupported} onClick={() => void quickStart()}>{busy ? '준비하는 중…' : startLabel}<span aria-hidden="true">↗</span></button></div>
+          <div className="composer-ai-choice" role="radiogroup" aria-label="여는 AI" data-agent-id="pet-selection.composer.ai">{(Object.keys(AI_NAMES) as PrimaryAi[]).map(id => <button key={id} role="radio" aria-checked={primaryAi === id} disabled={busy} onClick={() => { setPrimaryAi(id); invalidateRequest(); }}>{AI_NAMES[id]}</button>)}</div>
+          <p className="composer-start-note">비워 두어도 돼요. {AI_NAMES[primaryAi]}{primaryAi === 'codex' ? ' 새 대화가' : ' 새 세션이'} 열리면 보내기만 누르세요. 필요한 것은 채팅에서 물어봐요.{recipe && <><br />결과: {recipe.format}</>}{primaryAi === 'claude-code' && <><br />처음이면 아래 ‘Claude에 설치’를 한 번 해 주세요. 결과는 문서의 AutoPets 폴더에 만들어져요.</>}</p>
+        </section>}
+        {quickVisible && <p className="composer-other-ways">다른 방법</p>}
         {links.length > 0 ?<section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
           <label className="ui-pet-select">Codex 채팅<select data-agent-id="pet-selection.composer.target.select" aria-label="UI 펫을 적용할 채팅" value={selectedTarget} disabled={disabled} onChange={event => { setSelectedTarget(event.target.value); setApplied(null); setNotice(''); setError(''); }}>
             <option value="">채팅 선택</option>{links.map(link => <option key={targetKey(link)} value={targetKey(link)}>{link.target.cwd.split(/[\\/]/).filter(Boolean).pop()} · {link.target.threadId.slice(-8)}{!link.connected ? ' · 연결 확인 필요' : !link.enabled ? ' · 도움 꺼짐' : unresolvedPetRun(link) ? ' · 작업 확인 필요' : ''}</option>)}
           </select></label>
           {targetBlocker && <p className="composer-target-blocker" role="status">{targetBlocker}</p>}
           <div className="composer-action composer-direct-action" data-agent-id="pet-selection.composer.action" data-next={!prepared ? 'prepare' : confirmedTarget ? 'chat' : 'apply'}>
-            {!prepared ? <button className="button primary" data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>
+            {!prepared ? <button className={otherButton} data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>
               : confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
-              : <button className="button primary" data-agent-id="pet-selection.composer.apply" disabled={disabled || !routingSupported || !target || Boolean(targetBlocker)} onClick={() => void apply()}>{busy ? '적용 확인 중…' : '이 채팅에 펫 적용'}<span aria-hidden="true">↗</span></button>}
+              : <button className={otherButton} data-agent-id="pet-selection.composer.apply" disabled={disabled || !routingSupported || !target || Boolean(targetBlocker)} onClick={() => void apply()}>{busy ? '적용 확인 중…' : '이 채팅에 펫 적용'}<span aria-hidden="true">↗</span></button>}
           </div>
           {!savedReady && <button className="text-button composer-save-only" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{saved ? '변경 저장' : '펫만 저장'}</button>}
         </section> : <section className="composer-launch" aria-label="펫 만들고 사용하기">
-          {!savedReady ? <button className="button primary composer-create" data-agent-id="pet-selection.composer.save" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{busy ? '저장 중…' : saved ? '변경 저장' : '펫 만들기'}<span aria-hidden="true">{saved ? '✓' : '＋'}</span></button>
+          {!savedReady ? <button className={`${otherButton} composer-create`} data-agent-id="pet-selection.composer.save" disabled={disabled || !routingSupported} onClick={() => void saveToLibrary()}>{busy ? '저장 중…' : saved ? '변경 저장' : '펫 만들기'}<span aria-hidden="true">{saved ? '✓' : '＋'}</span></button>
             : <div className="composer-hosts" aria-label="AI에서 사용하기">
-              {prepared && saved ? <button className="button primary composer-codex-link" disabled={disabled} onClick={onConnection}>Codex 연결 설정<span aria-hidden="true">↗</span></button>
-                : <button className="button primary" data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>}
+              {prepared && saved ? <button className={`${otherButton} composer-codex-link`} disabled={disabled} onClick={onConnection}>Codex 연결 설정<span aria-hidden="true">↗</span></button>
+                : <button className={otherButton} data-agent-id="pet-selection.composer.prepare" disabled={disabled} onClick={prepare}>{busy ? '연결 중…' : 'Codex에 펫 준비'}<span aria-hidden="true">↗</span></button>}
               <PetPreferencesConnector compact pet={saved} />
             </div>}
         </section>}

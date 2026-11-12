@@ -15,6 +15,11 @@ export interface PetLink {
     template?: PetRoleTemplate | null; savedPet?: SavedPetReference | null;
     skillEvidence?: PetSkillReference[]; figmaUsed?: boolean };
 }
+/** A job an AI reported through the AutoPets MCP tool (`autopets_report`). In-memory app state; no chat text. */
+export interface PetJob {
+  id: string; state: 'asking' | 'working' | 'done' | 'failed'; host: 'codex' | 'claude' | 'claude-code' | 'other';
+  title: string; petId: string | null; resultPath: string | null; createdAt: number; updatedAt: number;
+}
 /** One existing catalog pet suggested for a request sent in a connected Codex chat. */
 export interface PetRecommendationCandidate { petId: string; reason: string; cues: string[] }
 /** In-memory app state; `request` is the user's own message, kept only for prefill. */
