@@ -55,7 +55,8 @@ async function fixture(t, before = baseline) {
   const executable = path.join(directory, 'cli.exe');
   await fs.writeFile(executable, 'synthetic CLI, never executed');
   const files = [];
-  for (const name of ['runtime/node.exe', 'runtime/LICENSE', 'LICENSE', 'integrations/mcp/server.mjs', 'integrations/mcp/client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs', 'packages/contracts/routing.mjs', 'packages/contracts/data/routing-profiles.json']) {
+  for (const name of ['runtime/node.exe', 'runtime/LICENSE', 'LICENSE', 'integrations/mcp/server.mjs', 'integrations/mcp/client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs', 'packages/contracts/routing.mjs', 'packages/contracts/data/routing-profiles.json',
+    'packages/contracts/recipes.mjs', 'packages/contracts/data/recipes.json', 'packages/contracts/data/pet-catalog.json']) {
     const bytes = name.startsWith('runtime/') ? Buffer.from('synthetic runtime, never executed') : await fs.readFile(path.join(repository, name));
     const destination = path.join(sourceDirectory, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });

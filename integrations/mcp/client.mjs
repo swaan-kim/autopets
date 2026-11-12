@@ -2,6 +2,7 @@ import path from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import { readConnection, requestJson } from '../codex/skills/autopets/scripts/bridge-client.mjs';
 import { routingHint } from '../../packages/contracts/routing.mjs';
+import { baseRecipeStart } from '../../packages/contracts/recipes.mjs';
 
 export class PetLibraryError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -50,10 +51,14 @@ export function createLibraryClient({ environment = process.env, connect = readC
     if (modelOk(pet.template.planning) && modelOk(pet.template.execution)) {
       try { routing = routingHint(pet.template); } catch { routing = null; }
     }
+    // The same one-time questions the Codex skill asks, so the first reply in this AI is also
+    // "a few choices, or just say 기본으로". Built from bundled data only; null when the pet has none.
+    let start = null;
+    try { start = baseRecipeStart(pet.template); } catch { start = null; }
     // Return only the selected reusable preferences. Runtime links, accounts,
     // folder paths, conversation text and authentication never leave this tool.
     return { pet: { id: pet.id, revision: pet.revision, name: pet.template.name, instruction: pet.template.instruction,
       planFirst: pet.template.planFirst, skillReferences: pet.template.skills.map(({ id, version }) => ({ id, version })),
-      routing, skillsLoaded: false, hostSettingsChanged: false } };
+      routing, start, skillsLoaded: false, hostSettingsChanged: false } };
   };
 }

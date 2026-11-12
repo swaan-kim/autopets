@@ -24,6 +24,9 @@ const FILES: &[(&str, &str)] = &[
     ("autopets/server/codex/skills/autopets/scripts/bridge-client.mjs", include_str!("../../../../../integrations/codex/skills/autopets/scripts/bridge-client.mjs")),
     ("autopets/packages/contracts/routing.mjs", include_str!("../../../../../packages/contracts/routing.mjs")),
     ("autopets/packages/contracts/data/routing-profiles.json", include_str!("../../../../../packages/contracts/data/routing-profiles.json")),
+    ("autopets/packages/contracts/recipes.mjs", include_str!("../../../../../packages/contracts/recipes.mjs")),
+    ("autopets/packages/contracts/data/recipes.json", include_str!("../../../../../packages/contracts/data/recipes.json")),
+    ("autopets/packages/contracts/data/pet-catalog.json", include_str!("../../../../../packages/contracts/data/pet-catalog.json")),
 ];
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
