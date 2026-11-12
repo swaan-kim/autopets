@@ -8,7 +8,7 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 const annotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 export const tools = [
   { name: 'autopets_list_pets', title: '저장한 AutoPets 펫 찾기', description: '사용자가 AutoPets에 저장한 펫 구성을 다른 AI에서도 쓰고 싶을 때 이름과 개정 목록을 읽습니다. 대화나 작업을 실행하지 않습니다.', inputSchema: { type: 'object', properties: { offset: { type: 'integer', minimum: 0, maximum: 100000 } }, additionalProperties: false }, annotations },
-  { name: 'autopets_read_pet', title: '선택한 펫의 작업 방식 읽기', description: '목록에서 사용자가 고른 정확한 펫 ID와 개정의 지침을 읽습니다. 현재 요청과 호스트 권한을 우선하고, 스킬 설치나 모델 변경을 확인했다고 주장하지 마세요.', inputSchema: { type: 'object', properties: { petId: { type: 'string', minLength: 1, maxLength: 128 }, expectedRevision: { type: 'integer', minimum: 1 } }, required: ['petId', 'expectedRevision'], additionalProperties: false }, annotations },
+  { name: 'autopets_read_pet', title: '선택한 펫의 작업 방식 읽기', description: '목록에서 사용자가 고른 정확한 펫 ID와 개정의 지침을 읽습니다. 응답에 start가 있으면 작업 전에 start.askFirst를 고치지 않고 한 번 보내고, 사용자가 \"기본으로\"라고 하거나 일부만 답하면 start.defaults를 써서 되묻지 않고 끝까지 진행하세요. 현재 요청과 호스트 권한을 우선하고, 스킬 설치나 모델 변경을 확인했다고 주장하지 마세요.', inputSchema: { type: 'object', properties: { petId: { type: 'string', minLength: 1, maxLength: 128 }, expectedRevision: { type: 'integer', minimum: 1 } }, required: ['petId', 'expectedRevision'], additionalProperties: false }, annotations },
 ];
 const messages = {
   'connection-disabled': 'AutoPets에서 Codex 연결을 다시 준비해 주세요. 기존 채팅을 종료할 필요는 없습니다.',

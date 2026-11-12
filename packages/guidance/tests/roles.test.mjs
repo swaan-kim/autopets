@@ -58,3 +58,14 @@ test('role and workflow share one 3KB budget without truncating instructions or 
   assert.throws(() => roleGuidance({ ...role, revision: 0 }, identity), /binding/);
   assert.equal(roleGuidance({ ...role, enabled: false }, identity), '');
 });
+
+test('every catalog pet passes the same role and skill check as the app', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const catalog = JSON.parse(await readFile(new URL('../../contracts/data/pet-catalog.json', import.meta.url), 'utf8'));
+  const rust = await readFile(new URL('../../../apps/desktop/src-tauri/src/domain/roles.rs', import.meta.url), 'utf8');
+  for (const entry of catalog) {
+    assert.match(rolePrompt(entry.template), new RegExp(`역할 스킬 참조: ${entry.template.skills[0].id}@`), entry.id);
+    if (entry.template.skills[0].id.startsWith('autopets-')) assert.ok(rust.includes(`"${entry.template.skills[0].id}"`), `${entry.id} matches the Rust table`);
+  }
+  assert.throws(() => rolePrompt({ ...catalog[0].template, skills: [{ id: 'autopets-presentation', version: '1.0.0' }] }), /Invalid role template/, 'a role cannot borrow the skill of another role');
+});

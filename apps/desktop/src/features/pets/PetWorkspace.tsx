@@ -18,10 +18,10 @@ const groupFor = (link: PetLink, disconnected: boolean) => {
 const groups = [['attention', '확인이 필요해요'], ['working', '함께하고 있어요'], ['complete', '최근 결과'], ['ready', '준비된 펫']] as const;
 const categoryNames = { all: '전체', daily: '일상', work: '업무' } as const;
 
-export function PetWorkspace({ view, navigationRevision = 0, active, category, onCategory, links, disconnected, legacy, pets, favorites, onFavorite, onSelect, onSaved, onNewTask, onBrowse, error }: {
+export function PetWorkspace({ view, navigationRevision = 0, active, category, onCategory, links, disconnected, legacy, pets, favorites, onFavorite, onSelect, onStart, startLabel = 'Codex에서 시작', onSaved, onNewTask, onBrowse, error }: {
   view: PetWorkspaceView; active: boolean; category: 'all' | 'daily' | 'work'; onCategory: (value: 'all' | 'daily' | 'work') => void;
   links: PetLink[]; disconnected: boolean; legacy?: ReactNode; pets: SavedPet[]; favorites: string[];
-  onFavorite: (id: string) => void; onSelect: (entry: PetCatalogEntry, request?: string) => void; onSaved: (pet: SavedPet) => void; onNewTask: (link: PetLink) => void; onBrowse: () => void; error: string;
+  onFavorite: (id: string) => void; onSelect: (entry: PetCatalogEntry, request?: string) => void; onStart?: (entry: PetCatalogEntry) => void; startLabel?: string; onSaved: (pet: SavedPet) => void; onNewTask: (link: PetLink) => void; onBrowse: () => void; error: string;
   navigationRevision?: number;
 }) {
   const [selected, setSelected] = useState<PetCatalogEntry | null>(null);
@@ -52,7 +52,10 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
         <div className="workspace-detail-identity"><TaskPetArt entry={selected} small paused={!active} /><h2 ref={detailHeading} tabIndex={-1}>{selected.name}</h2><FavoriteButton selected={favorites.includes(`template:${selected.id}`)} label={`${selected.name} 즐겨찾기`} onClick={() => onFavorite(`template:${selected.id}`)} /></div>
         <p className="workspace-detail-summary">{selected.summary}</p>
         <PetSkillSource entry={selected} compact />
-        <button className="button workspace-use-pet" data-agent-id="pet-selection.detail.use" aria-label={`${selected.name} 이 펫으로`} onClick={() => onSelect(selected)}>이 펫으로 <span aria-hidden="true">→</span></button>
+        <div className="workspace-detail-actions">
+          {onStart && <button className="button primary workspace-start-pet" data-agent-id="pet-selection.detail.start" aria-label={`${selected.name} ${startLabel}`} onClick={() => onStart(selected)}>{startLabel} <span aria-hidden="true">↗</span></button>}
+          <button className="button workspace-use-pet" data-agent-id="pet-selection.detail.use" aria-label={`${selected.name} 이 펫으로`} onClick={() => onSelect(selected)}>{onStart ? '할 일 적고 시작' : '이 펫으로'} <span aria-hidden="true">→</span></button>
+        </div>
         <details className="workspace-detail-more"><summary>일하는 방식 자세히</summary><p>{selected.after}</p><p>{selected.limit}</p><PetSkillSource entry={selected} /></details>
       </div>
     </div>

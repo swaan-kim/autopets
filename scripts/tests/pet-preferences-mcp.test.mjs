@@ -100,7 +100,8 @@ test('detached MCPB has every runtime file, no credentials, and starts without t
     await fs.mkdir(path.dirname(target), { recursive: true }); await fs.writeFile(target, bytes.subarray(start, start + size));
     files.push(name); offset = start + size;
   }
-  assert.equal(files.length, 8);
+  assert.equal(files.length, 11);
+  assert.ok(files.includes('packages/contracts/data/recipes.json'), 'the first-reply questions ship with the server');
   assert.ok(files.includes('packages/contracts/data/routing-profiles.json'), 'routing hint table ships with the server');
   assert.ok(!files.some(name => /connection\.json|\.sqlite|node_modules|\.local/u.test(name)));
   const manifest = JSON.parse(await fs.readFile(path.join(extracted, 'manifest.json'), 'utf8'));
@@ -158,4 +159,8 @@ test('read pet returns a host-neutral routing hint from the shared table and nev
   assert.deepEqual(pet.routing.planning.hosts['claude-code'], { model: 'opus', effort: 'high' });
   assert.deepEqual(pet.routing.execution.hosts['claude-code'], { model: 'sonnet', effort: 'low' });
   assert.equal(pet.routing.applied, false); assert.equal(pet.hostSettingsChanged, false);
+  // The same first-reply questions as the Codex skill, with defaults and no local folder.
+  assert.equal(pet.start.recipe, 'ui-webpage'); assert.equal(pet.start.output, 'files');
+  assert.match(pet.start.askFirst, /"기본으로"/u); assert.equal(pet.start.defaults.screen, '둘 다');
+  assert.equal(/Documents|saveFolder|[A-Z]:/u.test(JSON.stringify(pet.start)), false, 'no folder path leaves the tool');
 });
