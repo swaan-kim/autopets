@@ -121,7 +121,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await startCard.getByRole('button', { name: '시작', exact: true }).isDisabled(), true, 'nothing to start until something is typed or picked');
     await line.fill('동아리 소개 발표자료 만들어줘');
     await line.press('Enter');
-    await startCard.getByText('Codex 새 대화에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    await startCard.getByText('Codex에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
     let floated = await floating.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, clipboard: window.__uiTest.clipboard }));
     let links = floated.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args);
     assert.equal(links.length, 1); assert.equal(floated.pets.length, 1); assert.equal(floated.clipboard, '');
@@ -133,7 +133,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await startCard.getByText('어떤 방법으로 할까요?', { exact: true }).waitFor();
     assert.equal(await floating.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex').length), 1);
     await startCard.getByRole('group', { name: '이 중에서 고르기' }).getByRole('button', { name: '공부 도우미', exact: true }).click();
-    await startCard.getByText('Codex 새 대화에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    await startCard.getByText('Codex에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
     floated = await floating.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets }));
     links = floated.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args);
     assert.equal(links.length, 2); assert.ok(links[1].prompt.includes('recipe=study-helper.') && links[1].prompt.endsWith('할 일: 이것 좀 도와줘'));
@@ -141,6 +141,41 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const cardFit = await floating.evaluate(() => { const card = document.querySelector('.pet-start-card').getBoundingClientRect(); return card.left >= 0 && card.right <= innerWidth && document.documentElement.scrollWidth <= innerWidth; });
     assert.equal(cardFit, true, 'the start card fits the pet window');
     await floating.close();
+    // The same start for Claude Code: choose it once, and every start button opens Claude Code instead.
+    const claude = await newPage({ width: 992, height: 688 }); await mockBridge(claude, { ...structuredClone(base), slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+    await claude.goto(origin); await openCatalog(claude);
+    await claude.getByRole('button', { name: '발표자료 만들기 펫 선택', exact: true }).click();
+    await claude.locator('.workspace-role-detail').getByRole('button', { name: '발표자료 만들기 이 펫으로', exact: true }).click();
+    const claudeComposer = claude.locator('.pet-composer');
+    const choice = claudeComposer.getByRole('radiogroup', { name: '여는 AI' });
+    assert.equal(await choice.getByRole('radio', { name: 'Codex', exact: true }).getAttribute('aria-checked'), 'true', 'Codex stays the default');
+    await choice.getByRole('radio', { name: 'Claude Code', exact: true }).click();
+    assert.ok((await claudeComposer.locator('.composer-start-note').innerText()).includes('문서의 AutoPets 폴더'));
+    await claudeComposer.getByLabel('맡길 일 한 줄', { exact: true }).fill('동아리 신입 모집 발표');
+    await claudeComposer.getByRole('button', { name: 'Claude Code에서 시작', exact: true }).click();
+    await claudeComposer.getByText('Claude Code 새 세션에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    let viaClaude = await claude.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, clipboard: window.__uiTest.clipboard }));
+    const claudeLinks = viaClaude.calls.filter(call => call.name === 'open_pet_in_claude_code').map(call => call.args);
+    assert.equal(claudeLinks.length, 1); assert.equal(viaClaude.clipboard, '');
+    assert.deepEqual(Object.keys(claudeLinks[0]).sort(), ['expectedRevision', 'petId', 'prompt'], 'the app adds the work folder itself; the screen sends no path');
+    assert.equal(claudeLinks[0].prompt, [`AutoPets 도구(autopets_read_pet)로 "발표자료 만들기" 펫을 불러와 시작해줘. petId=${viaClaude.pets[0].id}, petRevision=1, recipe=presentation.`, '할 일: 동아리 신입 모집 발표'].join(String.fromCharCode(10)));
+    assert.equal(viaClaude.calls.some(call => /open_pet_in_codex|connect_ai|submit|send/.test(call.name)), false, 'Claude Code needs no Codex setup and nothing is sent');
+    // The choice is remembered and used by the detail page and the floating pet too.
+    await claude.reload(); await openCatalog(claude);
+    await claude.getByRole('button', { name: '공부 도우미 펫 선택', exact: true }).click();
+    await claude.locator('.workspace-role-detail').getByRole('button', { name: '공부 도우미 Claude Code에서 시작', exact: true }).waitFor();
+    assert.equal(await claude.evaluate(() => localStorage.getItem('autopets.primary-ai.v1')), 'claude-code', 'the choice is stored as a UI preference only');
+    const claudePet = await newPage({ width: 328, height: 600 }); await mockBridge(claudePet, { ...structuredClone(base), slots: [0, 1, 2].map(index => ({ index, sessionId: null })) });
+    await claudePet.addInitScript(() => { localStorage.setItem('autopets.primary-ai.v1', 'claude-code'); });
+    await claudePet.goto(`${origin}/?pet=0`);
+    await claudePet.locator('.pet-hit').click();
+    const claudeCard = claudePet.getByRole('region', { name: '새 일 맡기기' });
+    await claudeCard.getByRole('button', { name: '홍보글 쓰기', exact: true }).click();
+    await claudeCard.getByText('Claude Code에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    const petCalls = await claudePet.evaluate(() => window.__uiTest.calls.filter(call => /open_pet_in/.test(call.name)).map(call => [call.name, call.args.prompt]));
+    assert.equal(petCalls.length, 1); assert.equal(petCalls[0][0], 'open_pet_in_claude_code'); assert.ok(petCalls[0][1].includes('recipe=marketing-copy.'));
+    await claudePet.close(); await claude.close();
+    checks.push('same start for Claude Code: the AI is chosen once and remembered across the pet screen, the detail page and the floating pet; the request names the AutoPets read tool, needs no Codex setup, and the screen sends no folder path');
     checks.push('floating pet start: one typed line is matched to a pet locally and opens one Codex link with the short recipe request; unclear words ask the user to pick; the saved pet is reused and nothing is sent or copied');
     checks.push('one-click start: detail or pet screen opens one Codex link with the short recipe request, reuses the saved pet, never touches the clipboard or sends, prepares Codex only on first use, reuses an identical saved pet instead of duplicating it, and copies a job too long for a link');
   }

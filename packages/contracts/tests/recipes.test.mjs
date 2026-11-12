@@ -74,4 +74,8 @@ test('the start request names the pet and recipe and always fits a Codex link wi
   assert.deepEqual(full.split('\n').slice(1), ['할 일: 소개 페이지', '이 페이지를 볼 사람: 신입생', '꼭 알릴 내용: 일정',
     '새 작업이야. 이전 작업의 계획이나 승인을 재사용하지 마.', 'Figma 시안을 쓸 거야. 프레임 링크부터 나에게 확인해줘.']);
   assert.equal(codexLinkLength('a b가'), 'codex://threads/new?prompt='.length + 1 + 3 + 1 + 9);
+  // Claude reaches AutoPets through its tools, so only the first words differ; the rest is the same request.
+  const viaTool = petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 1, recipe: 'presentation', task: job, via: 'tool' });
+  assert.ok(viaTool.startsWith(`AutoPets 도구(autopets_read_pet)로 "발표자료 만들기" 펫을 불러와 시작해줘. petId=${id}, petRevision=1, recipe=presentation.`));
+  assert.deepEqual(viaTool.split('\n').slice(1), petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 1, recipe: 'presentation', task: job }).split('\n').slice(1));
 });
