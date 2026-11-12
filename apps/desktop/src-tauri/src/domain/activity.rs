@@ -15,6 +15,7 @@ pub fn now_ms() -> u64 {
 pub struct Snapshot {
     pub pet_links: Vec<super::pet_link::Link>,
     pub pet_recommendations: Vec<super::recommendation::Recommendation>,
+    pub pet_jobs: Vec<super::pet_job::Job>,
     pub sessions: Vec<Session>,
     pub slots: Vec<Slot>,
     pub approvals: Vec<Approval>,

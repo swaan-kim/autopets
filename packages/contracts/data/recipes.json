@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "notes": "A recipe is a ready-to-start job on top of one catalog pet (petId = pet-catalog.json id). The app's start link carries only `recipe=<id>`; the AutoPets skill reads the questions here and asks them in the AI chat. `output: files` recipes save into a new folder; `chat` recipes answer in the chat only. `default` is the index of the option used when the user answers \"기본으로\". `subject` asks for the job itself and is added as the first question only when the request came without one.",
+  "recipes": [
+    {
+      "id": "daily-plan", "petId": "daily-plan", "name": "하루 정리", "subject": "오늘 해야 할 일을 알려 주세요.", "resultKind": "plan", "format": "채팅에 정리한 시간표와 체크리스트", "output": "chat",
+      "intake": [
+        { "key": "time", "question": "오늘 쓸 수 있는 시간은 어느 정도인가요?", "options": ["2시간 이하", "반나절", "하루 종일"], "default": 1 },
+        { "key": "priority", "question": "무엇부터 하고 싶으세요?", "options": ["마감이 급한 것부터", "중요한 것부터", "금방 끝나는 것부터"], "default": 0 },
+        { "key": "shape", "question": "어떤 모양으로 받을까요?", "options": ["시간표", "체크리스트", "둘 다"], "default": 2 }
+      ]
+    },
+    {
+      "id": "travel-plan", "petId": "travel-plan", "name": "여행 일정", "subject": "어디로, 며칠 가시나요?", "resultKind": "plan", "format": "채팅에 정리한 날짜별 동선과 준비물", "output": "chat",
+      "intake": [
+        { "key": "move", "question": "어떻게 이동하나요?", "options": ["대중교통", "자가용", "걸어서 다닐 만큼만"], "default": 0 },
+        { "key": "pace", "question": "하루를 어떻게 보내고 싶으세요?", "options": ["여유롭게 두세 곳", "알차게 여러 곳"], "default": 0 },
+        { "key": "interest", "question": "무엇을 가장 하고 싶으세요?", "options": ["자연·풍경", "맛집·카페", "전시·문화"], "default": 0 }
+      ]
+    },
+    {
+      "id": "study-helper", "petId": "study-helper", "name": "공부 도우미", "subject": "무엇을 공부할까요? 주제나 자료를 알려 주세요.", "resultKind": "study", "format": "채팅에 쓴 쉬운 설명·요약·확인 문제", "output": "chat",
+      "intake": [
+        { "key": "level", "question": "지금 어느 정도 알고 계세요?", "options": ["처음 배워요", "한 번 배웠고 복습해요", "시험 직전이에요"], "default": 0 },
+        { "key": "style", "question": "어떤 설명이 편하세요?", "options": ["일상 비유로 쉽게", "핵심만 짧게", "단계별로 차근차근"], "default": 0 },
+        { "key": "quiz", "question": "확인 문제는 몇 개 낼까요?", "options": ["3개", "5개", "문제 없이"], "default": 0 }
+      ]
+    },
+    {
+      "id": "ui-webpage", "petId": "ui-webpage", "name": "웹페이지 만들기", "subject": "어떤 웹페이지를 만들까요?", "resultKind": "web", "format": "브라우저에서 여는 웹페이지 파일(HTML)", "output": "files",
+      "intake": [
+        { "key": "purpose", "question": "무엇을 위한 페이지인가요?", "options": ["소개·홍보", "신청·모집", "작품·포트폴리오"], "default": 0 },
+        { "key": "screen", "question": "주로 어디서 볼까요?", "options": ["휴대폰", "컴퓨터", "둘 다"], "default": 2 },
+        { "key": "tone", "question": "어떤 분위기가 좋으세요?", "options": ["깔끔하고 여백 있게", "따뜻하고 친근하게", "강렬하고 대담하게"], "default": 0 },
+        { "key": "sections", "question": "꼭 들어갈 내용은 무엇인가요?", "options": ["소개 · 일정 · 신청 방법", "소개 · 사진 · 연락처", "직접 알려줄게요"], "default": 0 }
+      ]
+    },
+    {
+      "id": "marketing-copy", "petId": "marketing-copy", "name": "홍보글 쓰기", "subject": "무엇을 알리는 글인가요?", "resultKind": "copy", "format": "채팅에 쓴 제목 3개·소개문·버튼 문구", "output": "chat",
+      "intake": [
+        { "key": "channel", "question": "어디에 올릴 글인가요?", "options": ["인스타그램·SNS", "공지·메일", "소개 페이지"], "default": 0 },
+        { "key": "reader", "question": "누가 읽나요?", "options": ["처음 보는 사람", "이미 아는 사람", "학생·또래"], "default": 0 },
+        { "key": "voice", "question": "어떤 말투가 좋으세요?", "options": ["친근하게", "정중하게", "짧고 힘 있게"], "default": 0 },
+        { "key": "action", "question": "읽고 나서 무엇을 하길 바라세요?", "options": ["신청·구매", "방문·참여", "문의"], "default": 0 }
+      ]
+    },
+    {
+      "id": "presentation", "petId": "presentation", "name": "발표자료 만들기", "subject": "무엇에 대한 발표인가요?", "resultKind": "slides", "format": "브라우저에서 여는 슬라이드 파일(HTML, PowerPoint 파일 아님)", "output": "files",
+      "intake": [
+        { "key": "purpose", "question": "어디에 쓰는 발표인가요?", "options": ["수업·과제 발표", "회사·팀 보고", "행사·모임 소개"], "default": 0 },
+        { "key": "audience", "question": "누가 듣나요?", "options": ["내용을 처음 듣는 사람", "같은 분야 사람", "결정을 내릴 사람"], "default": 0 },
+        { "key": "tone", "question": "어떤 분위기가 좋으세요?", "options": ["차분하고 깔끔하게", "밝고 친근하게", "강렬하게"], "default": 0 },
+        { "key": "length", "question": "몇 장 정도로 만들까요?", "options": ["5장", "8장", "10장 이상"], "default": 0 }
+      ]
+    }
+  ]
+}

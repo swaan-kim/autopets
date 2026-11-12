@@ -112,8 +112,8 @@ test('installed preference MCP runs outside the checkout and remains integrity c
   const responses = result.stdout.trim().split('\n').map(line => JSON.parse(line));
   assert.equal(responses.find(response => response.id === 1).result.serverInfo.name, 'autopets-pet-preferences');
   const tools = responses.find(response => response.id === 2).result.tools;
-  assert.deepEqual(tools.map(tool => tool.name), ['autopets_list_pets', 'autopets_read_pet']);
-  assert.ok(tools.every(tool => tool.annotations.readOnlyHint && !tool.annotations.destructiveHint));
+  assert.deepEqual(tools.map(tool => tool.name), ['autopets_list_pets', 'autopets_read_pet', 'autopets_report']);
+  assert.ok(tools.every(tool => (tool.annotations.readOnlyHint || tool.name === 'autopets_report') && !tool.annotations.destructiveHint), 'only the report tool writes, and nothing is destructive');
   const unavailable = responses.find(response => response.id === 3).result;
   assert.equal(unavailable.isError, true);
   assert.match(unavailable.content[0].text, /AutoPets를 실행/u);

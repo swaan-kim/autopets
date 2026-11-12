@@ -2,6 +2,8 @@ import path from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import { readConnection, requestJson } from '../codex/skills/autopets/scripts/bridge-client.mjs';
 import { routingHint } from '../../packages/contracts/routing.mjs';
+import { baseRecipeStart, recipeStart, START_RULES } from '../../packages/contracts/recipes.mjs';
+import { skillGuides } from '../../packages/contracts/skill-guides.mjs';
 
 export class PetLibraryError extends Error {
   constructor(code) { super(code); this.code = code; }
@@ -24,8 +26,19 @@ export function createLibraryClient({ environment = process.env, connect = readC
     const root = environment.AUTOPETS_DATA_DIR || (environment.LOCALAPPDATA ? path.join(environment.LOCALAPPDATA, 'local.autopets.desktop') : null);
     const location = environment.AUTOPETS_CONNECTION_FILE || (root && path.join(root, 'connection.json'));
     if (!location) throw new PetLibraryError('app-unavailable');
+    if (body.operation === 'report') {
+      // One small local POST; the app keeps the state in memory and never receives chat text.
+      const { operation: _, ...report } = body;
+      let recorded;
+      try { recorded = await request(await connect(location), '/v1/pet-jobs', report, 1800, 4096); }
+      catch (error) { throw new PetLibraryError(error?.status === 404 ? 'report-unavailable' : error?.status === 400 || error?.status === 409 ? 'report-rejected' : 'app-unavailable'); }
+      if (!object(recorded) || recorded.ok !== true || recorded.jobId !== report.jobId) throw new PetLibraryError('invalid-library-response');
+      return { recorded: true, jobId: report.jobId, state: report.state };
+    }
+    // `recipe` is answered here from bundled data; the app's library request keeps its old shape.
+    const { recipe: wanted, ...query } = body;
     let result;
-    try { result = await request(await connect(location), '/v1/pet-library', body, 1800, 32768); }
+    try { result = await request(await connect(location), '/v1/pet-library', query, 1800, 32768); }
     catch (error) {
       throw new PetLibraryError(error?.status === 409 ? 'pet-changed' : error?.status === 404 ? 'pet-or-feature-unavailable' : 'app-unavailable');
     }
@@ -50,10 +63,28 @@ export function createLibraryClient({ environment = process.env, connect = readC
     if (modelOk(pet.template.planning) && modelOk(pet.template.execution)) {
       try { routing = routingHint(pet.template); } catch { routing = null; }
     }
+    // The same one-time questions the Codex skill asks, so the first reply in this AI is also
+    // "a few choices, or just say 기본으로". Built from bundled data only; null when the pet has none.
+    // A recipe named by the app's start request must belong to this pet; it is refused, never swapped.
+    let start = null;
+    if (wanted !== undefined) {
+      let named;
+      try { named = recipeStart(wanted, pet.template); }
+      catch (error) { throw new PetLibraryError(error?.message === 'recipe-pet-mismatch' ? 'recipe-pet-mismatch' : 'unknown-recipe'); }
+      start = { recipe: named.id, format: named.format, output: named.output, askFirst: named.intakeMessage,
+        askFirstWithTask: named.intakeMessageWithTask, rules: START_RULES, defaults: named.defaults };
+    } else {
+      try { start = baseRecipeStart(pet.template); } catch { start = null; }
+    }
+    // The pinned text of each skill the pet points to, so the method reaches any AI without a
+    // host-specific skill loader. Delivering the text is not evidence that the model followed it,
+    // and skillsLoaded stays false: no host skill was installed or loaded by this read.
+    let guides = [];
+    try { guides = skillGuides(pet.template.skills); } catch { guides = []; }
     // Return only the selected reusable preferences. Runtime links, accounts,
     // folder paths, conversation text and authentication never leave this tool.
     return { pet: { id: pet.id, revision: pet.revision, name: pet.template.name, instruction: pet.template.instruction,
       planFirst: pet.template.planFirst, skillReferences: pet.template.skills.map(({ id, version }) => ({ id, version })),
-      routing, skillsLoaded: false, hostSettingsChanged: false } };
+      skillGuides: guides, routing, start, skillsLoaded: false, hostSettingsChanged: false } };
   };
 }
