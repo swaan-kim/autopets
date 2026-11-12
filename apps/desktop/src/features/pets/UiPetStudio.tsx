@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
+import type { PetJob, PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
 import routing from '../../../../../packages/contracts/data/routing-profiles.json';
 import recipeData from '../../../../../packages/contracts/data/recipes.json';
@@ -60,7 +60,7 @@ export const uiPetStartPrompt = (pet: SavedPet, task = '', context: TaskContext 
     audience: web ? context.audience : '', message: web ? context.message : '', newTask: context.newTask === true, figma: pet.template.features?.figmaDesign === true });
 };
 
-export function UiPetStudio({ links, recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
+export function UiPetStudio({ links, jobs = [], recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; jobs?: PetJob[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
   const library = useRoles();
   const favorites = usePetFavorites();
   const [open, setOpen] = useState(false);
@@ -423,7 +423,7 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   return <><div hidden={open}>
     {browsing && (view === 'catalog' || view === 'saved') && <div className="pet-recommendation-banner" role="status" data-agent-id="pet-selection.recommendation-banner"><p>Codex 요청 “{browsing.request && browsing.request.length > 60 ? `${browsing.request.slice(0, 60)}…` : browsing.request}”에 쓸 펫을 골라 주세요.</p><button className="text-button" onClick={() => setBrowsing(null)}>요청 없이 둘러보기</button></div>}
     {(view === 'home' || view === 'pets') && shownRecommendations.map(item => <PetRecommendationCard key={item.id} item={item} linked={links.some(link => link.target.threadId === item.target.threadId)} />)}
-    <PetWorkspace view={view} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onStart={startEntry} startLabel={prepared ? 'Codex에서 시작' : 'Codex에 준비하고 시작'} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="pet-composer" data-agent-scope="pet-selection" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
+    <PetWorkspace view={view} jobs={jobs} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onStart={startEntry} startLabel={prepared ? 'Codex에서 시작' : 'Codex에 준비하고 시작'} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="pet-composer" data-agent-scope="pet-selection" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
     <header className="composer-top">
       <button data-agent-id="pet-selection.composer.back" className="text-button" disabled={busy} onClick={close}>← 돌아가기</button>
       <button className="composer-settings-button" data-agent-id="pet-selection.composer.settings" disabled={busy} onClick={() => showPanel('settings')} aria-label="펫 설정">⚙</button>

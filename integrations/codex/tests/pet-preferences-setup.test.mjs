@@ -102,7 +102,7 @@ test('one-time preparation is repeatable, cached, detached and restores original
   ].map(value => JSON.stringify(value)).join('\n') + '\n';
   const cached = spawnSync(process.execPath, [server], { input, cwd: f.directory, encoding: 'utf8', windowsHide: true, timeout: 5000 });
   assert.equal(cached.status, 0, cached.stderr);
-  assert.equal(JSON.parse(cached.stdout.trim().split('\n').at(-1)).result.tools.length, 2);
+  assert.equal(JSON.parse(cached.stdout.trim().split('\n').at(-1)).result.tools.length, 3);
   assert.equal((await removePetPreferences(f.options)).status, 'removed');
   assert.equal(await fs.readFile(f.config, 'utf8'), baseline);
   assert.equal((await removePetPreferences(f.options)).status, 'not-managed');

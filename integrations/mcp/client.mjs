@@ -25,6 +25,15 @@ export function createLibraryClient({ environment = process.env, connect = readC
     const root = environment.AUTOPETS_DATA_DIR || (environment.LOCALAPPDATA ? path.join(environment.LOCALAPPDATA, 'local.autopets.desktop') : null);
     const location = environment.AUTOPETS_CONNECTION_FILE || (root && path.join(root, 'connection.json'));
     if (!location) throw new PetLibraryError('app-unavailable');
+    if (body.operation === 'report') {
+      // One small local POST; the app keeps the state in memory and never receives chat text.
+      const { operation: _, ...report } = body;
+      let recorded;
+      try { recorded = await request(await connect(location), '/v1/pet-jobs', report, 1800, 4096); }
+      catch (error) { throw new PetLibraryError(error?.status === 404 ? 'report-unavailable' : error?.status === 400 || error?.status === 409 ? 'report-rejected' : 'app-unavailable'); }
+      if (!object(recorded) || recorded.ok !== true || recorded.jobId !== report.jobId) throw new PetLibraryError('invalid-library-response');
+      return { recorded: true, jobId: report.jobId, state: report.state };
+    }
     let result;
     try { result = await request(await connect(location), '/v1/pet-library', body, 1800, 32768); }
     catch (error) {

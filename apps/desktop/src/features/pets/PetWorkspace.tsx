@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink, SavedPet } from '@autopets/contracts/types';
+import type { PetJob, PetLink, SavedPet } from '@autopets/contracts/types';
+import { PetJobList } from './PetJobs';
 import { petCatalog, allPetCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { TaskPetArt, ResultPreview } from './TaskPetArt';
 import { FavoriteButton } from './PetIntroduction';
@@ -18,11 +19,11 @@ const groupFor = (link: PetLink, disconnected: boolean) => {
 const groups = [['attention', '확인이 필요해요'], ['working', '함께하고 있어요'], ['complete', '최근 결과'], ['ready', '준비된 펫']] as const;
 const categoryNames = { all: '전체', daily: '일상', work: '업무' } as const;
 
-export function PetWorkspace({ view, navigationRevision = 0, active, category, onCategory, links, disconnected, legacy, pets, favorites, onFavorite, onSelect, onStart, startLabel = 'Codex에서 시작', onSaved, onNewTask, onBrowse, error }: {
+export function PetWorkspace({ view, navigationRevision = 0, active, category, onCategory, links, disconnected, legacy, pets, favorites, onFavorite, onSelect, onStart, startLabel = 'Codex에서 시작', onSaved, onNewTask, onBrowse, error, jobs = [] }: {
   view: PetWorkspaceView; active: boolean; category: 'all' | 'daily' | 'work'; onCategory: (value: 'all' | 'daily' | 'work') => void;
   links: PetLink[]; disconnected: boolean; legacy?: ReactNode; pets: SavedPet[]; favorites: string[];
   onFavorite: (id: string) => void; onSelect: (entry: PetCatalogEntry, request?: string) => void; onStart?: (entry: PetCatalogEntry) => void; startLabel?: string; onSaved: (pet: SavedPet) => void; onNewTask: (link: PetLink) => void; onBrowse: () => void; error: string;
-  navigationRevision?: number;
+  navigationRevision?: number; jobs?: PetJob[];
 }) {
   const [selected, setSelected] = useState<PetCatalogEntry | null>(null);
   const [shelfTab, setShelfTab] = useState<'all' | 'saved'>(view === 'saved' ? 'saved' : 'all');
@@ -67,10 +68,11 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
     </PetHome>}
     {view === 'pets' && <>
       <header className="workspace-heading"><h1>내 작업</h1><button className="button secondary" onClick={onBrowse}>새 일 맡기기 +</button></header>
+      <PetJobList jobs={jobs} />
       {links.length > 0 ? <section className="workspace-activity workspace-activity-grid" aria-label="연결된 작업">{groups.flatMap(([group, label]) => {
         const items = links.filter(link => groupFor(link, disconnected) === group);
         return items.length ? [<h2 id={`activity-${group}`} key={group}>{label}<span>{items.length}</span></h2>, ...items.map(link => liveCard(link))] : [];
-      })}</section> : <div className="workspace-empty"><p>아직 맡긴 일이 없어요.</p><button className="text-button" onClick={onBrowse}>펫 고르기 →</button></div>}{legacy}
+      })}</section> : jobs.length > 0 ? null : <div className="workspace-empty"><p>아직 맡긴 일이 없어요.</p><button className="text-button" onClick={onBrowse}>펫 고르기 →</button></div>}{legacy}
     </>}
     {catalogVisible && <>
       {selected ? detail : <>

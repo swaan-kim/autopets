@@ -7,7 +7,7 @@
 .pet-bubble button { position: relative; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .pet-bubble-open { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 6px 2px 6px 9px; white-space: nowrap; }
 .pet-bubble-open strong { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-.pet-bubble-open span { opacity: .8; }
+.pet-bubble-open span { opacity: .8; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pet-bubble-close { padding: 0 7px 0 4px; opacity: .55; font-size: 13px; }
 .pet-bubble-close:hover, .pet-bubble-close:focus-visible { opacity: 1; }
 .pet-bubble button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; border-radius: 8px; }

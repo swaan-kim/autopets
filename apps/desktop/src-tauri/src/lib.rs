@@ -18,6 +18,7 @@ pub fn run() {
             commands::get_snapshot,
             commands::respond_pet_recommendation,
             commands::browse_pet_recommendation,
+            commands::open_pet_job_result,
             commands::set_pet_link_enabled,
             commands::disconnect_pet_link,
             commands::set_pet_link_profile,

@@ -25,8 +25,8 @@ test('MCP initialization is lazy and only the selected pet preference can be rea
   assert.deepEqual(requests, []);
   await session(initialized);
   const list = await session({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-  assert.equal(list.result.tools.length, 2);
-  assert.ok(list.result.tools.every(tool => tool.annotations.readOnlyHint && !tool.annotations.destructiveHint));
+  assert.equal(list.result.tools.length, 3);
+  assert.ok(list.result.tools.every(tool => (tool.annotations.readOnlyHint || tool.name === 'autopets_report') && !tool.annotations.destructiveHint));
   await session(call(3, 'autopets_list_pets'));
   await session(call(4, 'autopets_read_pet', { petId: 'chosen-a', expectedRevision: 3 }));
   assert.deepEqual(requests, [{ operation: 'list', offset: 0 }, { operation: 'read', petId: 'chosen-a', expectedRevision: 3 }]);
@@ -147,7 +147,7 @@ test('stdio answers hosts whose stdin only emits data events and whose write ret
   await done;
   assert.deepEqual(written.map(message => message.id), [1, 2]);
   assert.equal(written[0].result.protocolVersion, '2025-11-25');
-  assert.equal(written[1].result.tools.length, 2);
+  assert.equal(written[1].result.tools.length, 3);
 });
 
 test('read pet returns a host-neutral routing hint from the shared table and never claims it was applied', async () => {

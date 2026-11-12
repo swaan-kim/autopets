@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import type { PetLink, Session } from '@autopets/contracts/types';
+import type { PetJob, PetLink, Session } from '@autopets/contracts/types';
+import { HOST_NAMES } from './PetJobs';
 import './pet-bubble.css';
 
 // What the floating pet says when the chat needs the user: a question or a plan to confirm,
@@ -28,9 +29,21 @@ export function sessionBubble(session: Session, attention: Session['attention'],
   return null;
 }
 
+/** Notice for a job an AI reported through MCP. The app knows which AI, not which chat, so it names the AI. */
+export function jobBubble(job: PetJob): PetBubbleNotice | null {
+  const key = JSON.stringify(['job', job.id, job.state, job.updatedAt]);
+  const where = HOST_NAMES[job.host];
+  if (job.state === 'asking') return { key, tone: 'ask', text: '질문이 있어요', action: where };
+  if (job.state === 'done') return { key, tone: 'done', text: '다 됐어요!', action: job.resultPath ? '결과 열기' : where };
+  if (job.state === 'failed') return { key, tone: 'error', text: '문제가 생겼어요', action: where };
+  return null;
+}
+
 const STORE = 'autopets.pet-bubbles-seen.v1';
 const seen = (): string[] => { try { const value = JSON.parse(localStorage.getItem(STORE) ?? '[]'); return Array.isArray(value) ? value.filter(item => typeof item === 'string') : []; } catch { return []; } };
 const remember = (key: string) => { try { localStorage.setItem(STORE, JSON.stringify([...seen().filter(item => item !== key), key].slice(-64))); } catch { /* a full or blocked store only means the notice may show again */ } };
+
+export const noticeSeen = (key: string) => seen().includes(key);
 
 /**
  * The same notice is shown until the user opens or closes it once; a new state has a new key.
