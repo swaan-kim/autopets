@@ -306,6 +306,11 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       ...(recordVideo ? { recordVideo: { dir: path.join(path.dirname(screenshot), 'artifacts'), size: viewport } } : {}) }); currentPage = page;
     page.setDefaultTimeout(15000);
     page.on('pageerror', error => errors.push(error.message));
+    // Most checks exercise the older ways (make a pet, prepare Codex, apply to a chat), which the pet
+    // screen now folds under "다른 방법". They start unfolded here; a check of the default opts out.
+    await page.addInitScript(() => {
+      try { if (!sessionStorage.getItem('ui-test.default-other-ways') && localStorage.getItem('autopets.other-ways-open.v1') === null) localStorage.setItem('autopets.other-ways-open.v1', '1'); } catch { /* storage may be blocked */ }
+    });
     return page;
   };
   try {
@@ -690,7 +695,9 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       session.lastTool = 'mcp__notion__update_page';
       session.attention = { id: 'tool-error-actual-id', kind: 'tool-error', summary: 'Notion 도구가 오류 응답을 반환했어요.', createdAt: Date.now(), snoozedUntil: null };
     });
-    await pet.locator('.floating-status.tool-error').waitFor();
+    // A tool error is now a pet notice in the place of the small status.
+    await pet.locator('.pet-bubble[data-tone="error"]').waitFor();
+    assert.equal(await pet.locator('.floating-status').count(), 0);
     await pet.getByText('전체 작업이 실패한 것은 아니며,', { exact: false }).waitFor();
     assert.equal(await pet.locator('.sprite-angry').count(), 1);
     await pet.getByRole('button', { name: '알림 확인', exact: true }).click();
