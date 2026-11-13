@@ -10,8 +10,8 @@ use transport::workflow_commands;
 
 pub fn run() {
     let application = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            platform::windows::reopen(app)
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _| {
+            platform::windows::second_launch(app, &argv)
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -25,6 +25,9 @@ pub fn run() {
             commands::close_pet_tracking,
             commands::open_local_task,
             commands::open_pet_task,
+            commands::open_codex_attention,
+            commands::dismiss_codex_attention,
+            commands::mark_codex_attention_displayed,
             commands::set_onboarding_active,
             transport::task_graph_commands::task_graph_snapshot,
             transport::role_commands::roles_snapshot,

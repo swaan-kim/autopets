@@ -7,7 +7,8 @@ export type DockEdge = 'left' | 'right';
 // Dragging itself is tracked by usePetGesture. Docking only changes the window; the pet's
 // task, chat link, recommendations and questions keep running underneath.
 export type DockPhase = 'shown' | 'hiding' | 'hidden' | 'restoring' | 'entering';
-export type DockBadge = 'ask' | 'done' | null;
+// `codex-*`: a Codex chat needs the user / its requested work finished (orange / green).
+export type DockBadge = 'ask' | 'done' | 'codex-ask' | 'codex-done' | null;
 
 const HIDE_MS = 240;
 const ENTER_MS = 280;
@@ -67,6 +68,17 @@ export function usePetDock(index: number) {
       .then(() => { setError(''); setDock({ phase: 'entering', edge }); })
       .catch(cause => { setError(String(cause)); setDock({ phase: 'hidden', edge }); });
   }, []);
+
+  // Codex called AutoPets in a chat (`$autopets`, `/오토펫`): a tucked-in pet comes back out,
+  // like a click on its handle. A pet already out is left alone.
+  useEffect(() => {
+    if (!isDesktop) return;
+    let disposed = false;
+    let remove: (() => void) | undefined;
+    void listen('autopets://pet-summoned', () => restore())
+      .then(unlisten => { if (disposed) unlisten(); else remove = unlisten; }).catch(() => undefined);
+    return () => { disposed = true; remove?.(); };
+  }, [restore]);
 
   const handle = dock.phase === 'hidden' || dock.phase === 'restoring';
   const overlayClass = dock.phase === 'hiding' ? ` dock-leave dock-${dock.edge}` : dock.phase === 'entering' ? ` dock-enter dock-${dock.edge}` : '';

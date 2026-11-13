@@ -116,3 +116,12 @@ fn onboarding_begin_end_and_manager_reopen_preserve_user_visibility_and_position
         assert_eq!(serde_json::to_value(&*desktop.positions.lock().unwrap()).unwrap(), before);
     }
 }
+
+#[test]
+fn the_codex_notice_bubble_is_a_small_window_between_the_pet_and_its_card() {
+    assert_eq!(pet_layout(false, false), (180.0, 230.0));
+    assert_eq!(pet_layout(false, true), (252.0, 404.0));
+    // The open card always wins over the bubble.
+    assert_eq!(pet_layout(true, true), (328.0, 600.0));
+    assert_eq!(fit_pet_layout(false, true, 2.0, 1920, 600), (252.0, 300.0));
+}

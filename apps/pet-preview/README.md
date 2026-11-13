@@ -1,6 +1,6 @@
 # 오토펫 테스트 펫 (실험)
 
-Codex 채팅에서 `/오토펫`(또는 `/autopet`, `$autopet`)을 입력하면 Windows 화면 오른쪽 아래에 원형 테스트 펫이 뜨는 실험 기능이다. 펫에서 고른 발표자료 작업은 펫을 부른 그 채팅에서 실행된다. 자유 대화는 아직 없다.
+Codex 채팅에서 `/autopet`(또는 `$autopet`)을 입력하면 Windows 화면 오른쪽 아래에 원형 테스트 펫이 뜨는 실험 기능이다. 펫에서 고른 발표자료 작업은 펫을 부른 그 채팅에서 실행된다. 자유 대화는 아직 없다.
 
 기존 AutoPets 앱(`apps/desktop`, `local.autopets.desktop`), `autopets` 스킬, 훅, 저장 데이터와는 완전히 분리된 별도 Tauri 2 실행 파일이다.
 
@@ -8,7 +8,7 @@ Codex 채팅에서 `/오토펫`(또는 `/autopet`, `$autopet`)을 입력하면 W
 | --- | --- | --- |
 | 앱 식별자 | `local.autopets.desktop` | `local.autopets.petpreview` |
 | 데이터 위치 | AutoPets AppData · SQLite | `%LOCALAPPDATA%\local.autopets.petpreview\` (상태·연결 파일, WebView2 캐시). 발표자료는 채팅 작업 폴더 |
-| Codex 스킬 | `autopets` | `autopet` (표시명 “오토펫 · autopet”) |
+| Codex 스킬 | `autopets` | `autopet` (표시명 “원형 테스트 펫 · autopet”. `/오토펫`은 강아지 앱 `autopets`용) |
 | 펫 모습 | 강아지 이미지·모션 | 그라데이션 원 (이미지 에셋 없음) |
 
 ## 구조
@@ -44,7 +44,7 @@ node apps/pet-preview/scripts/install.mjs
 
 ## 사용
 
-- Codex 입력창에 `/오토펫` 또는 `/autopet` → Skills 그룹의 **오토펫 · autopet** 선택 → 전송. CLI에서는 `$autopet`.
+- Codex 입력창에 `/autopet` → Skills 그룹의 **원형 테스트 펫 · autopet** 선택 → 전송. CLI에서는 `$autopet`. (`/오토펫`은 AutoPets 강아지 앱을 연다.)
 - 처음 실행 시 Codex가 샌드박스 밖 실행 승인을 요청하면 허용한다 (데스크톱 창을 띄우기 위해 필요).
 - 펫: 드래그로 이동, 마우스를 올리면 `–`(숨기기)·`×`(닫기), Esc는 숨기기. 숨긴 펫은 다시 호출하면 같은 자리에 나타난다.
 - 기능 선택(프로토타입): 입력창 위쪽에 AutoPets 기능 목록이 나온다. 목록은 `packages/contracts/data/pet-catalog.json`을 빌드 때 그대로 포함한 것(복사본 없음)이다. 이번에는 '발표자료 만들기'(`presentation`)만 설정 흐름이 있고 나머지는 '준비 중'이다. 선택하면 펫이 보라색으로 바뀌고 4단계(목적·분량·디자인·우선순위)를 하나씩 묻는다. 요약에서 '완료'를 누르면 구조화된 설정(`featureId`, `template`, `skills`, `settings`)이 펫 프로세스 메모리에 저장된다. 숨겼다 다시 불러도 유지되며 디스크·DB에는 저장하지 않는다. '설정 취소'·'초기화'는 기본 색으로 되돌린다. AI 실행은 없다. 구조: `ui/features/`(흐름 정의·패널), `src-tauri/src/features.rs`(목록·현재 상태). 새 기능 흐름은 `ui/features/<기능>-flow.js`를 만들고 `flows.js`에 등록하면 된다.

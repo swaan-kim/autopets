@@ -152,6 +152,31 @@ pub(crate) fn reopen(app: &tauri::AppHandle) {
     show_manager(app.clone(), None, None);
 }
 
+/// A second launch with `--show-pets [--chat <thread id>]`: Codex called AutoPets
+/// (`$autopets`, `/오토펫`). The dog pets come out now, before the chat is connected,
+/// and the manager is neither opened nor focused. Pets the user hid are shown again for
+/// this explicit call; a pet tucked into a screen edge restores itself (its window
+/// listens for `autopets://pet-summoned`). Visible pets are left as they are.
+pub(crate) fn second_launch(app: &tauri::AppHandle, argv: &[String]) {
+    if !argv.iter().any(|arg| arg == "--show-pets") { return reopen(app); }
+    let chat = argv.iter().position(|arg| arg == "--chat").and_then(|i| argv.get(i + 1))
+        .filter(|id| uuid::Uuid::parse_str(id).is_ok()).cloned();
+    summon_pets(app, chat);
+}
+
+pub(crate) fn summon_pets(app: &tauri::AppHandle, chat: Option<String>) {
+    if let Some(desktop) = app.try_state::<Desktop>() {
+        desktop.visible.store(true, Ordering::Relaxed);
+        if let Ok(mut hidden) = desktop.hidden_slots.lock() { *hidden = [false; 3]; }
+        // Right after a cold start the manager page may not have reported its first-use guide yet;
+        // an explicit call from Codex does not wait for that report. A guide that is open and
+        // focused still keeps the pets out of its way (`onboarding_suppressed`).
+        desktop.onboarding_initialized.store(true, Ordering::Relaxed);
+    }
+    refresh_pet_visibility(app);
+    let _ = app.emit("autopets://pet-summoned", serde_json::json!({"chatId": chat, "at": crate::domain::activity::now_ms()}));
+}
+
 pub(crate) fn set_pets_visible(
     app: tauri::AppHandle,
     store: tauri::State<SharedStore>,
@@ -236,7 +261,9 @@ pub(crate) fn open_pet(
     Ok(())
 }
 
-pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> Result<(), String> {
+/// `expanded`: the pet card is open. `notice`: only the small Codex notice bubble above the pet
+/// is open (a slightly taller window; never focused, never moved to the screen centre).
+pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool, notice: bool) -> Result<(), String> {
     if !["pet-0", "pet-1", "pet-2"].contains(&window.label()) {
         return Err("펫 창에서만 사용할 수 있습니다.".into());
     }
@@ -259,17 +286,15 @@ pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> 
     let current_monitor = window.current_monitor().ok().flatten();
     let (width, height) = if let Some(monitor) = current_monitor.as_ref() {
         let area = monitor.work_area();
-        fit_pet_size(
+        fit_pet_layout(
             expanded,
+            notice,
             window.scale_factor().unwrap_or(monitor.scale_factor()),
             area.size.width,
             area.size.height,
         )
     } else {
-        (
-            if expanded { 328.0 } else { 180.0 },
-            if expanded { 600.0 } else { 230.0 },
-        )
+        pet_layout(expanded, notice)
     };
     window
         .set_size(tauri::LogicalSize::new(width, height))
@@ -348,8 +373,26 @@ pub(crate) fn clamp_position(window: &tauri::WebviewWindow, position: Position) 
     }
 }
 
+/// Logical size of a pet window: the card, the notice bubble, or the pet alone.
+pub(crate) fn pet_layout(expanded: bool, notice: bool) -> (f64, f64) {
+    if expanded { (328.0, 600.0) } else if notice { (PET_NOTICE_W, PET_NOTICE_H) } else { (180.0, 230.0) }
+}
+pub(crate) const PET_NOTICE_W: f64 = 252.0;
+pub(crate) const PET_NOTICE_H: f64 = 404.0;
+
+#[cfg(test)]
 pub(crate) fn fit_pet_size(
     expanded: bool,
+    scale: f64,
+    work_width: u32,
+    work_height: u32,
+) -> (f64, f64) {
+    fit_pet_layout(expanded, false, scale, work_width, work_height)
+}
+
+pub(crate) fn fit_pet_layout(
+    expanded: bool,
+    notice: bool,
     scale: f64,
     work_width: u32,
     work_height: u32,
@@ -359,8 +402,7 @@ pub(crate) fn fit_pet_size(
     } else {
         1.0
     };
-    let desired_width: f64 = if expanded { 328.0 } else { 180.0 };
-    let desired_height: f64 = if expanded { 600.0 } else { 230.0 };
+    let (desired_width, desired_height) = pet_layout(expanded, notice);
     (
         desired_width.min((f64::from(work_width) / scale).floor().max(1.0)),
         desired_height.min((f64::from(work_height) / scale).floor().max(1.0)),
