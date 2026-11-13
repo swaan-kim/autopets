@@ -31,6 +31,47 @@ pub(crate) fn open_pet_task(
     crate::platform::task_return::dispatch(&target.thread_id, &uri)
 }
 
+/// "Codex에서 확인하기" on a Codex attention notice: asks Windows to show that exact chat
+/// (`codex://threads/<id>`, the link Codex Desktop itself uses). The receipt never claims that
+/// Codex opened it (`targetVerified: false`). The notice only becomes read; it is resolved when
+/// Codex reports the answer, the approval or a new message.
+#[tauri::command]
+pub(crate) fn open_codex_attention(
+    app: tauri::AppHandle,
+    store: tauri::State<SharedStore>,
+    id: String,
+) -> Result<crate::platform::task_return::DispatchReceipt, String> {
+    let target = {
+        let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
+        let setup = state.setup_chat();
+        let item = state.attention.find(&id).ok_or("attention-not-found")?;
+        // Still the same connected chat (it may have been disconnected meanwhile).
+        crate::domain::attention::eligible(&state.pet_links, setup.as_ref(), &item.target.thread_id).map_err(str::to_owned)?
+    };
+    let uri = crate::platform::task_return::task_uri(&target.thread_id, &target.cwd)?;
+    let receipt = crate::platform::task_return::dispatch(&target.thread_id, &uri)?;
+    update(&app, &store, |s| {
+        let setup = s.setup_chat();
+        s.attention.mark_read(&s.pet_links, setup.as_ref(), &id, crate::domain::activity::now_ms()).map(|_| ())
+    })?;
+    Ok(receipt)
+}
+
+/// Development diagnostics: the pet drew this notice (bubble, mark, handle or card).
+#[tauri::command]
+pub(crate) fn mark_codex_attention_displayed(store: tauri::State<SharedStore>, id: String, surface: String) -> Result<(), String> {
+    store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?.attention.mark_displayed(&id, &surface, crate::domain::activity::now_ms())
+}
+
+/// The user closed the bubble: read, but still waiting in Codex.
+#[tauri::command]
+pub(crate) fn dismiss_codex_attention(app: tauri::AppHandle, store: tauri::State<SharedStore>, id: String) -> Result<(), String> {
+    update(&app, &store, |s| {
+        let setup = s.setup_chat();
+        s.attention.mark_read(&s.pet_links, setup.as_ref(), &id, crate::domain::activity::now_ms()).map(|_| ())
+    })
+}
+
 #[tauri::command]
 pub(crate) fn set_onboarding_active(window: tauri::WebviewWindow, active: bool) -> Result<(), String> {
     crate::platform::windows::set_onboarding_active(&window, active)
@@ -314,8 +355,8 @@ pub(crate) fn open_pet(
     crate::platform::windows::open_pet(app, store, desktop, slot)
 }
 #[tauri::command]
-pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> Result<(), String> {
-    crate::platform::windows::set_pet_expanded(window, expanded)
+pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool, notice: Option<bool>) -> Result<(), String> {
+    crate::platform::windows::set_pet_expanded(window, expanded, notice.unwrap_or(false))
 }
 #[tauri::command]
 pub(crate) fn quit_app(app: tauri::AppHandle) {

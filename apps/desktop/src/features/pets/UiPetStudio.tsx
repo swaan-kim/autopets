@@ -48,6 +48,29 @@ type ComposerDraft = { task: string; audience: string; message: string; draft: P
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
 
 const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
+// "현재 채팅에서 계속하기": 'queued' only means Codex's queue for that exact chat accepted
+// the request; 'started' only that the chat's own history shows it as a user turn.
+type ChatSend = { state: 'sending' | 'queued' | 'failed'; prompt: string; threadId: string; sentAt?: number; started?: boolean; waitedOut?: boolean; chatOpened?: boolean; reason?: string; retryNewChat?: boolean };
+type ChatDelivery = { status: 'queued'; threadId: string; queuedId: string; sentAt: number; chatOpened: boolean };
+const shortChat = (chat: { threadId: string; cwd: string }) => `${chat.cwd.split(/[\\/]/).filter(Boolean).pop()} · ${chat.threadId.slice(-8)}`;
+const chatFailure = (cause: string): { reason: string; retryNewChat: boolean } => {
+  const code = /[a-z]+(?:-[a-z]+)+/.exec(cause)?.[0] ?? '';
+  const reasons: Record<string, [string, boolean]> = {
+    'setup-chat-changed': ['Pet을 호출한 채팅이 바뀌었어요. 아래 대상 채팅을 확인하고 다시 눌러 주세요.', false],
+    'setup-chat-unavailable': ['연결된 Codex 채팅이 없어요. 계속할 Codex 채팅에서 $autopets를 다시 호출해 주세요.', true],
+    'codex-chat-not-found': ['이 채팅을 Codex에서 찾지 못했어요. 채팅이 삭제됐거나 이 PC의 채팅이 아닐 수 있어요.', true],
+    'codex-cli-unavailable': ['Codex 앱의 명령 도구를 찾지 못했어요. Codex 앱이 설치돼 있는지 확인해 주세요.', true],
+    'codex-queue-unsupported': ['설치된 Codex가 기존 채팅 전달을 지원하지 않아요. Codex를 업데이트해 주세요.', true],
+    'codex-queue-timeout': ['Codex 응답 시간이 지났어요. 요청이 이미 들어갔을 수 있으니 채팅을 먼저 확인한 뒤 다시 보내 주세요.', false],
+    'codex-queue-unconfirmed': ['Codex가 요청을 받았는지 확인하지 못했어요. 채팅을 먼저 확인한 뒤 다시 보내 주세요.', false],
+    'already-delivered': ['이 요청은 이미 이 채팅에 보냈어요. Codex 채팅에서 진행을 확인해 주세요.', false],
+    'delivery-in-progress': ['다른 요청을 보내는 중이에요. 잠시 후 다시 눌러 주세요.', false],
+    'saved-pet-revision-changed': ['저장한 펫이 바뀌었어요. 확인을 다시 눌러 주세요.', false],
+    'request-too-long': ['요청이 너무 길어요. 시작 요청을 복사해 채팅에 직접 보내 주세요.', false],
+  };
+  const [reason, retryNewChat] = reasons[code] ?? ['Codex 채팅에 전달하지 못했어요.', true];
+  return { reason, retryNewChat };
+};
 export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: TaskContext = {}) => [
   `AutoPets 스킬로 현재 채팅에 ${pet.template.name}을 연결해줘. 저장한 펫: petId=${pet.id}, petRevision=${pet.revision}.`,
   `이 펫으로 아래 작업${pet.template.planFirst ? '의 계획만 세워줘' : '을 수행하고 결과를 채팅에 보여줘'}.\n\n${task.trim()}\n`,
@@ -95,6 +118,8 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   const [error, setError] = useState('');
   const [overlayError, setOverlayError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [chatSend, setChatSend] = useState<ChatSend | null>(null);
+  const [confirmChat, setConfirmChat] = useState(false);
   const working = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const promptField = useRef<HTMLTextAreaElement>(null);
@@ -167,7 +192,29 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
   useEffect(() => {
     if (applied && (disconnected || !target || !target.connected || !target.enabled || target.revision > applied.revision)) setApplied(null);
   }, [applied, target, disconnected]);
-  const targetBlocker = disconnected ? '앱 연결을 확인해 주세요.' : target && !target.connected ? 'Codex에서 “펫 상태 확인”이라고 말해 주세요.'
+  // The chat that ran `$autopets`. Requests go only there; another chat is never guessed.
+  const setupChat = currentSetup?.setupChat ?? null;
+  const chatState = chatSend && chatSend.prompt === prompt && chatSend.threadId === setupChat?.threadId ? chatSend : null;
+  const otherChatSelected = Boolean(target && setupChat && target.target.threadId !== setupChat.threadId);
+  useEffect(() => { setConfirmChat(false); }, [prompt, setupChat?.threadId, selectedTarget]);
+  // After the queue accepts it, watch the chat's history until it starts there (max 3 minutes).
+  useEffect(() => {
+    if (!isDesktop || chatSend?.state !== 'queued' || chatSend.started || chatSend.waitedOut || !chatSend.sentAt) return;
+    const sent = chatSend;
+    let stopped = false;
+    const check = async () => {
+      if (stopped) return;
+      const status = await command<string>('codex_chat_delivery_status', { threadId: sent.threadId, prompt: sent.prompt, sentAt: sent.sentAt }).catch(() => 'unknown');
+      if (!stopped && status === 'started') setChatSend(current => current === sent ? { ...sent, started: true } : current);
+    };
+    const timer = window.setInterval(() => {
+      if (Date.now() - sent.sentAt! <= 180000) { void check(); return; }
+      window.clearInterval(timer); setChatSend(current => current === sent ? { ...sent, waitedOut: true } : current);
+    }, 3000);
+    void check();
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [chatSend]);
+  const targetBlocker = disconnected ?'앱 연결을 확인해 주세요.' : target && !target.connected ? 'Codex에서 “펫 상태 확인”이라고 말해 주세요.'
     : target && !target.enabled ? '펫 도움이 꺼져 있어요. 내 작업에서 켜 주세요.'
     : target && unresolvedPetRun(target) ? '진행 중인 펫 작업을 먼저 확인해 주세요.' : '';
   const invalidateRequest = () => { setPrompt(''); setNotice(''); setCopied(false); setManualCopy(false); setHandoff(null); };
@@ -240,6 +287,25 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
     setNotice(CODEX_OPENED);
   });
+  // Sends the confirmed request to the chat that ran `$autopets`, never to a new chat.
+  // A failure keeps the confirmed request on screen so it can still be copied.
+  const continueInChat = (confirmed = false) => run(async () => {
+    const chat = setupChat;
+    if (!prompt || !task.trim() || !chat) throw Error('request not confirmed');
+    if (otherChatSelected && !confirmed) { setConfirmChat(true); return; }
+    setConfirmChat(false);
+    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
+    setChatSend({ state: 'sending', prompt: value, threadId: chat.threadId });
+    try {
+      const result = await command<ChatDelivery>('continue_pet_in_codex_chat', { petId: pet.id, expectedRevision: pet.revision, prompt: value, threadId: chat.threadId, cwd: chat.cwd });
+      if (result?.status !== 'queued' || result.threadId !== chat.threadId) throw Error('codex-queue-unconfirmed');
+      setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
+      setChatSend({ state: 'queued', prompt: value, threadId: chat.threadId, sentAt: result.sentAt, chatOpened: result.chatOpened, started: false });
+    } catch (cause) {
+      setChatSend({ state: 'failed', prompt: value, threadId: chat.threadId, ...chatFailure(String(cause)) });
+    }
+  }, undefined, true);
   const saveToLibrary = () => {
     const scope = { key: draftKey.current, view, navigationRevision };
     const stillHere = () => mounted.current && currentContext.current.open && currentContext.current.active
@@ -454,7 +520,19 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
         <label className="composer-task">{entry.inputLabel}<textarea aria-label="펫에게 맡길 일" rows={4} maxLength={1200} disabled={busy} value={task} placeholder={entry.example} onChange={event => { setTask(event.target.value); invalidateRequest(); }} /></label>
         <button className="text-button composer-example" disabled={busy} onClick={() => { setTask(entry.example); invalidateRequest(); }}>예시로 시작</button>
         {entry.id === 'ui-webpage' && <section className="composer-brief"><label>보는 사람<input aria-label="페이지를 볼 사람" value={audience} maxLength={160} disabled={busy} onChange={event => { setAudience(event.target.value); invalidateRequest(); }} /></label><label>꼭 알릴 내용<input aria-label="꼭 알릴 내용" value={message} maxLength={160} disabled={busy} onChange={event => { setMessage(event.target.value); invalidateRequest(); }} /></label></section>}
-        <div className="composer-action composer-confirm-action">{isDesktop && <button className="button primary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndOpenCodex()}>{busy ? '준비하는 중…' : 'Codex 새 대화로 시작'}<span aria-hidden="true">↗</span></button>}<button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '확인'}<span aria-hidden="true">↓</span></button></div>
+        <div className="composer-action composer-confirm-action">{isDesktop && (setupChat
+          ? <button className="button primary" data-agent-id="pet-selection.composer.continue-chat" disabled={disabled || disconnected || !routingSupported || !prepared || !task.trim() || !prompt || chatState?.state === 'sending' || chatState?.state === 'queued'} onClick={() => void continueInChat()}>{chatState?.state === 'sending' ? '전달하는 중…' : chatState?.state === 'queued' ? '전달됨' : '현재 채팅에서 계속하기'}<span aria-hidden="true">{chatState?.state === 'queued' ? '✓' : '→'}</span></button>
+          : <button className="button primary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndOpenCodex()}>{busy ? '준비하는 중…' : 'Codex 새 대화로 시작'}<span aria-hidden="true">↗</span></button>)}<button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '확인'}<span aria-hidden="true">↓</span></button></div>
+        {isDesktop && setupChat && <section className="composer-chat-continue" data-agent-id="pet-selection.composer.continue-chat.status" aria-label="현재 채팅에서 계속하기">
+          <p className="composer-chat-target">이 Pet을 호출한 Codex 채팅에 요청을 전달합니다. <small title={`${setupChat.cwd}\n${setupChat.threadId}`}>{shortChat(setupChat)}</small></p>
+          {confirmChat && target && <div className="composer-chat-confirm" role="alert"><p>선택한 채팅(…{target.target.threadId.slice(-8)})이 아니라 Pet을 호출한 채팅(…{setupChat.threadId.slice(-8)})에 보내요. 이 채팅으로 보낼까요?</p>
+            <button className="button secondary" disabled={busy} onClick={() => void continueInChat(true)}>이 채팅으로 보내기</button><button className="text-button" disabled={busy} onClick={() => setConfirmChat(false)}>취소</button></div>}
+          <p className="composer-chat-status" role="status" data-state={chatState?.state ?? 'ready'}>{!chatState ? (disconnected ? '전송 준비 안 됨 · 앱 연결을 확인해 주세요.' : prompt ? '전송 준비 · 확인한 요청을 이 채팅에 보낼 수 있어요.' : '전송 준비 · 확인을 누르면 보낼 요청을 먼저 보여 드려요.')
+            : chatState.state === 'sending' ? '전달 중 · Codex에 요청을 넘기고 있어요.'
+            : chatState.state === 'queued' ? `전달 성공 · Codex가 이 채팅의 대기열에 요청을 받았어요. 실행 완료는 아니에요. ${chatState.started ? '채팅에서 요청이 시작됐어요. 진행과 결과는 Codex 채팅에서 확인해 주세요.' : chatState.waitedOut ? '아직 채팅에서 시작되지 않았어요. Codex에서 이 채팅을 열어 확인해 주세요.' : 'Codex가 작업 중이면 끝난 뒤 이어서 시작해요.'}${chatState.chatOpened ? '' : ' Codex에서 이 채팅을 열어 주세요.'}`
+            : `전달 실패 · ${chatState.reason} 요청은 그대로 있어요.`}</p>
+          {chatState?.state === 'failed' && chatState.retryNewChat && <button className="text-button" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void saveAndOpenCodex()}>대신 Codex 새 대화로 시작</button>}
+        </section>}
         {prompt && !stale && <>
           {/* Opens on every new confirmation (key); the user may still fold it. */}
           <details key={`${prompt}:${manualCopy}`} className="composer-detail composer-request-check" open><summary>Codex에 보낼 요청 확인</summary>

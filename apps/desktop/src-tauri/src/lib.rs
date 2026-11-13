@@ -10,8 +10,8 @@ use transport::workflow_commands;
 
 pub fn run() {
     let application = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            platform::windows::reopen(app)
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _| {
+            platform::windows::second_launch(app, &argv)
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -25,6 +25,9 @@ pub fn run() {
             commands::close_pet_tracking,
             commands::open_local_task,
             commands::open_pet_task,
+            commands::open_codex_attention,
+            commands::dismiss_codex_attention,
+            commands::mark_codex_attention_displayed,
             commands::set_onboarding_active,
             transport::task_graph_commands::task_graph_snapshot,
             transport::role_commands::roles_snapshot,
@@ -37,6 +40,13 @@ pub fn run() {
             platform::pet_preferences::install_pet_preferences_in_claude,
             platform::pet_preferences::open_pet_in_claude,
             platform::pet_preferences::open_pet_in_codex,
+            platform::codex_chat::continue_pet_in_codex_chat,
+            platform::codex_chat::codex_chat_delivery_status,
+            platform::pet_dock::watch_pet_drag,
+            platform::pet_dock::dock_pet,
+            platform::pet_dock::undock_pet,
+            platform::pet_dock::get_pet_dock,
+            platform::pet_dock::reanchor_pet,
             platform::claude_code::connect_claude_code,
             platform::claude_code::disconnect_claude_code,
             platform::updater::check_app_update,

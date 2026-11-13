@@ -7,3 +7,5 @@ pub(crate) mod updater;
 pub(crate) mod task_return;
 pub(crate) mod pet_preferences;
 pub(crate) mod claude_code;
+pub(crate) mod codex_chat;
+pub(crate) mod pet_dock;

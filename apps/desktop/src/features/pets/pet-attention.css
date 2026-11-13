@@ -1,0 +1,41 @@
+/* Codex attention: a small bubble above the dog pet and a mark on it. The pet art is unchanged.
+   Orange = Codex needs the user, green = the requested work finished. */
+.pet-overlay.codex-notice { width: 252px; height: 404px; }
+.pet-codex-bubble { position: relative; width: 240px; box-sizing: border-box; display: grid; gap: 5px; padding: 10px 12px 10px; margin: 0 4px 2px 0;
+  background: #ffffff; border: 1px solid #e3e3e3; border-radius: 14px; box-shadow: 0 4px 14px #3636362a; color: #333333; font-size: 12px;
+  animation: pet-codex-pop 180ms ease-out both; }
+/* The tail points down at the pet. */
+.pet-codex-bubble:not(.card)::after { content: ''; position: absolute; right: 70px; bottom: -7px; width: 12px; height: 12px; background: #ffffff;
+  border-right: 1px solid #e3e3e3; border-bottom: 1px solid #e3e3e3; transform: rotate(45deg); }
+.pet-codex-bubble.ask { border-top: 3px solid #f59e3b; }
+.pet-codex-bubble.done { border-top: 3px solid #34a86a; }
+.pet-codex-bubble.card { width: auto; margin: 0 0 8px; animation: none; }
+.pet-codex-bubble header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: #7a7a7a; font-size: 10px; }
+.pet-codex-bubble header span { font-weight: 600; }
+.pet-codex-bubble header small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 150px; font-size: 10px; }
+.pet-codex-headline { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #262626; }
+.pet-codex-headline .pet-codex-mark { position: static; width: 18px; height: 18px; font-size: 11px; border-width: 0; box-shadow: none; flex: 0 0 auto; }
+.pet-codex-summary { margin: 0; line-height: 1.4; color: #444444; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pet-codex-note, .pet-codex-more { margin: 0; color: #6b6b6b; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+.pet-codex-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.pet-codex-actions .button { padding: 5px 10px; font-size: 12px; min-height: 0; }
+.pet-codex-actions .text-button { font-size: 12px; }
+/* The mark on the pet itself (top left: the right corner holds the recommendation dot and ⋯ menu). */
+.pet-codex-mark { position: absolute; left: 6px; top: 8px; width: 24px; height: 24px; display: grid; place-items: center; font-size: 14px; font-weight: 800; line-height: 1;
+  color: #ffffff; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px #00000026; pointer-events: none; }
+.pet-codex-mark.ask { background: #f59e3b; }
+.pet-codex-mark.done { background: #34a86a; }
+.pet-codex-mark.read { opacity: .72; }
+.pet-codex-mark.ask:not(.read) { animation: pet-codex-pulse 1.6s ease-in-out 3; }
+.floating-status.codex-ask { background: #fff1e0; color: #7a4100; border-color: #f6c88f; font-weight: 600; }
+.floating-status.codex-done { background: #e6f6ec; color: #1f5e3a; border-color: #a9dcbc; font-weight: 600; }
+/* The docked handle keeps the notice (see pet-dock.css). */
+.pet-dock-badge.codex-ask { color: #ffffff; background: #f59e3b; }
+.pet-dock-badge.codex-done { color: #ffffff; background: #34a86a; }
+@keyframes pet-codex-pop { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes pet-codex-pulse { 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .pet-codex-bubble, .pet-codex-mark.ask:not(.read) { animation: none; } }
+/* Codex just called AutoPets: the pet is out, the chat connection follows. */
+.floating-status.summon.connecting { background: #eef4ff; color: #2c4a7a; border-color: #c9d8f2; font-weight: 600; }
+.floating-status.summon.connected { background: #e6f6ec; color: #1f5e3a; border-color: #a9dcbc; font-weight: 600; }
+.floating-status.summon.failed { background: #f2f2f2; color: #6b6b6b; border-color: #dedede; }

@@ -17,6 +17,8 @@ export interface SetupState {
   hosts?: ConnectionHost[];
   connections?: ConnectionProgress[];
   warnings?: string[];
+  /** The exact Codex chat that ran `$autopets`; null when there is none or it was disconnected. */
+  setupChat?: { sourceId: string; threadId: string; cwd: string } | null;
 }
 export interface InstallManifest {
   version: 1;
