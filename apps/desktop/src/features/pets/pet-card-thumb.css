@@ -1,0 +1,47 @@
+/* Pet-selection card thumbnails: designed examples, sized in cqw so they scale with the thumbnail width. */
+.pet-card-thumb { display: block; width: 100%; aspect-ratio: 8 / 5; overflow: hidden; border: 1px solid #e9ecee; border-radius: 12px; background: #f5f6f7; container-type: inline-size; }
+.pet-card-thumb .pct-body { display: block; width: 100%; height: 100%; }
+.pet-card-thumb .pct-body > * { width: 100%; height: 100%; }
+
+/* Shared type */
+.pet-card-thumb .pct-eyebrow { display: block; color: #969e8d; font-size: 2.7cqw; font-weight: 600; letter-spacing: .16em; line-height: 1.3; }
+.pet-card-thumb .pct-big { display: block; margin-top: 1.2cqw; color: #3e4b3a; font-size: 6.6cqw; font-weight: 700; letter-spacing: -.04em; line-height: 1.2; }
+.pet-card-thumb .pct-sub { display: block; margin-top: 1.2cqw; color: #8f9685; font-size: 3.3cqw; line-height: 1.4; }
+
+/* Paper frame */
+.pet-card-thumb .pct-paper { display: block; padding: 3.5cqw; background: #eeeee5; }
+.pet-card-thumb .pct-sheet { display: flex; flex-direction: column; height: 100%; padding: 4.2cqw 4.8cqw; border-radius: 2.4cqw; background: #fffef8; }
+.pet-card-thumb .pct-sheet > :last-child { margin-top: auto; }
+
+/* daily-plan: time bar */
+.pet-card-thumb .pct-timeline { display: flex; gap: .9cqw; height: 11.4cqw; }
+.pet-card-thumb .pct-block { display: flex; flex-direction: column; justify-content: center; flex-basis: 0; min-width: 0; padding: 0 2cqw; overflow: hidden; border-radius: 1.5cqw; background: #dfe8d6; color: #4b6245; font-size: 3cqw; line-height: 1.25; white-space: nowrap; }
+.pet-card-thumb .pct-block strong { font-size: inherit; font-weight: 700; line-height: inherit; }
+.pet-card-thumb .pct-slack { padding: 0; background: repeating-linear-gradient(135deg, #eef2e6 0 3px, #fffef8 3px 6px); box-shadow: inset 0 0 0 1px #d5dcc8; }
+.pet-card-thumb .pct-walk { background: #fffef8; box-shadow: inset 0 0 0 1.5px #a9bb9c; }
+
+/* travel-plan: photo over route */
+.pet-card-thumb .pct-travel { display: flex; flex-direction: column; }
+.pet-card-thumb .pct-travel-photo { display: flex; align-items: flex-end; flex: 1.25 1 0; padding: 3.5cqw 4.8cqw; background: linear-gradient(180deg, transparent 40%, #182e29b8), url('/assets/prompt-gallery-v1/coast.webp') center / cover; }
+.pet-card-thumb .pct-travel-title { color: #fff; font-size: 6.2cqw; font-weight: 700; letter-spacing: -.04em; line-height: 1.2; }
+.pet-card-thumb .pct-travel-route { display: flex; flex-direction: column; justify-content: center; flex: 1 1 0; padding: 2.6cqw 4.8cqw; background: #fffef8; color: #5d6658; font-size: 3.3cqw; line-height: 1.5; white-space: nowrap; }
+.pet-card-thumb .pct-travel-route b { color: #3e4b3a; font-weight: 700; }
+
+/* study-helper: chips */
+.pet-card-thumb .pct-chips { display: flex; gap: 1.8cqw; }
+.pet-card-thumb .pct-chips > span { padding: 1.5cqw 2.7cqw; border-radius: 999px; background: #eaf0e4; color: #4b6245; font-size: 3cqw; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+
+/* marketing-copy: headline and pill */
+.pet-card-thumb .pct-copy { display: flex; flex-direction: column; padding: 5.4cqw 6cqw; background: #f4eee3; }
+.pet-card-thumb .pct-copy .pct-big { font-size: 6.2cqw; color: #344e3d; }
+.pet-card-thumb .pct-pill { align-self: flex-start; margin-top: auto; padding: 2.4cqw 4.8cqw; border-radius: 999px; background: #344e3d; color: #fffdf4; font-size: 3.3cqw; font-weight: 600; line-height: 1.3; }
+
+/* ui-webpage: captured design page */
+.pet-card-thumb .pct-image { display: block; object-fit: cover; object-position: left top; }
+
+/* presentation: cover slide */
+.pet-card-thumb .pct-slide { display: flex; flex-direction: column; padding: 6cqw 6.6cqw 5cqw; background: #1f3a2f; }
+.pet-card-thumb .pct-slide .pct-eyebrow { color: #b5c5b8; }
+.pet-card-thumb .pct-slide .pct-big { margin-top: 3cqw; color: #f8f7e6; }
+.pet-card-thumb .pct-slide .pct-sub { color: #c2d0c2; }
+.pet-card-thumb .pct-slide-foot { display: flex; justify-content: space-between; margin-top: auto; padding-top: 2.4cqw; border-top: 1px solid #ffffff2e; color: #b5c5b8; font-size: 2.7cqw; letter-spacing: .08em; }
