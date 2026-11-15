@@ -28,15 +28,8 @@
 .workspace-library .pet-category-tabs { margin: 0; padding: 4px; border: 0; border-radius: 100px; background: #efefef; display: flex; gap: 2px; }
 .workspace-library .pet-category-tabs button { min-height: 40px; min-width: 68px; border-radius: 100px; border: 0; padding: 8px 15px; background: transparent; color: #7c7c7c; font-size: 13px; }
 .workspace-library .pet-category-tabs button[aria-pressed=true] { color: #4c4c4c; background: #ffffff; box-shadow: 0 2px 6px #37373710; }
-.workspace-role-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .workspace-role-card { position: relative; border: 1px solid var(--line); border-radius: 22px; background: #fff; transition: background .18s, box-shadow .18s; overflow: hidden; }
 .workspace-role-card:hover { box-shadow: 0 7px 22px #3f3f3f10; }
-.workspace-role-select { display: flex; flex-direction: column; align-items: flex-start; width: 100%; height: 100%; padding: 18px 22px 0; border: 0; background: none; text-align: left; color: #363636; }
-.workspace-role-select > .task-pet-art { --pet-size: 132px; align-self: center; margin: 0 0 8px; }
-.workspace-role-select h3 { font-size: 17px; letter-spacing: -.5px; margin: 0 0 8px; }
-.workspace-role-select > p { font-size: 13px; line-height: 1.65; color: var(--muted); margin: 0 0 16px; min-height: 40px; word-break: keep-all; }
-.workspace-role-action { border-top: 1px solid #44444410; width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 650; margin-top: auto; }
-.workspace-role-action > span { font-size: 19px; font-weight: 400; }
 .pet-source-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
 .pet-source-line > span:last-child { color: var(--muted); }
 .pet-skill-source { text-align: left; border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; overflow-wrap: anywhere; }
@@ -54,9 +47,6 @@
 .result-preview-transition { text-align: center; padding: 5px; color: var(--muted); }
 .result-preview-after > span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 7px; }
 .result-preview-note { color: var(--muted); font-size: 10px; line-height: 1.7; margin: 10px 0 0; }
-.workspace-role-card > .pet-favorite-button { position: absolute; z-index: 1; right: 8px; top: 8px; width: 44px; height: 44px; overflow: hidden; padding: 0; font-size: 0; gap: 0; border: 0; border-radius: 50%; background: transparent; }
-.workspace-role-card > .pet-favorite-button span { font-size: 22px; color: #888888; }
-.workspace-role-card > .pet-favorite-button[aria-pressed=true] span { color: #f5b400; }
 .result-preview { width: 100%; margin: 0; font-size: 12px; color: #5b5b5b; text-align: left; }
 .result-preview figcaption { display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin: 0 0 9px; font-size: 11px; color: #777777; }
 .result-preview figcaption small { font-size: 10px; font-weight: 400; color: #7e7e7e; }
@@ -138,13 +128,10 @@
 .composer-detail a { color: #575757; }
 .composer-detail > .composer-figma { flex-direction: row; align-items: center; justify-content: space-between; min-height: 44px; }
 .composer-detail input[type=checkbox] { width: 22px; height: 22px; accent-color: #4f4f4f; }
-@media (min-width: 1200px) { .workspace-welcome { min-height: 220px; } .workspace-role-select > .task-pet-art { --pet-size: 132px; align-self: center; margin: 0 0 8px; } }
+@media (min-width: 1200px) { .workspace-welcome { min-height: 220px; } }
 @media (max-width: 850px) {
   .workspace-welcome { min-height: 172px; padding-inline: 0; }
   .workspace-welcome > .task-pet-art { --pet-size: 150px; }
-  .workspace-role-grid { gap: 10px; }
-  .workspace-role-select { padding-inline: 12px; }
-  .workspace-role-select h3 { font-size: 15px; }
   .composer-layout { grid-template-columns: 200px minmax(0,1fr); gap: 22px; }
   .composer-preview { padding-inline: 16px; }
   .composer-pet-stage .task-pet-art { --pet-size: 144px; }
@@ -153,14 +140,6 @@
   .app-shell .main-content { padding-inline: 18px; }
   .workspace-welcome h1 { font-size: 27px; }
   .workspace-welcome > .task-pet-art { --pet-size: 125px; }
-  .workspace-role-grid { grid-template-columns: 1fr; }
-  .workspace-role-select { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 0 15px; padding: 18px 18px 0; }
-  .workspace-role-select > .task-pet-art { --pet-size: 88px; grid-row: span 2; margin: 0; }
-  .workspace-role-select > p { min-height: 0; margin-bottom: 8px; }
-  .workspace-role-select .result-preview { grid-column: 2; margin: 0; }
-  .workspace-role-select .result-preview-paper { display: none; }
-  .workspace-role-action { grid-column: 1 / -1; margin-top: 8px; }
-  .workspace-role-card > .pet-favorite-button { top: auto; bottom: 2px; right: 28px; }
   .workspace-activity-grid { grid-template-columns: 1fr; }
   .composer-layout { grid-template-columns: 1fr; gap: 20px; }
   .composer-preview { display: grid; grid-template-columns: 88px minmax(0,1fr); gap: 5px 14px; text-align: left; padding: 14px; }
@@ -188,7 +167,6 @@
   .workspace-welcome { min-height: 160px; padding-block: 4px; }
   .workspace-welcome > .task-pet-art { --pet-size: 146px; }
   .workspace-welcome h1 { font-size: 31px; }
-  .workspace-role-select > .task-pet-art { --pet-size: 132px; align-self: center; margin: 0 0 8px; }
   .workspace-library-heading { margin-top: 16px; }
 }
 
