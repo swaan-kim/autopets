@@ -21,6 +21,7 @@ const FILES: &[(&str, &str)] = &[
     ("autopets/server/mcp/main.mjs", include_str!("../../../../../integrations/mcp/main.mjs")),
     ("autopets/server/mcp/server.mjs", include_str!("../../../../../integrations/mcp/server.mjs")),
     ("autopets/server/mcp/client.mjs", include_str!("../../../../../integrations/mcp/client.mjs")),
+    ("autopets/server/mcp/review.mjs", include_str!("../../../../../integrations/mcp/review.mjs")),
     ("autopets/server/codex/skills/autopets/scripts/bridge-client.mjs", include_str!("../../../../../integrations/codex/skills/autopets/scripts/bridge-client.mjs")),
     ("autopets/packages/contracts/routing.mjs", include_str!("../../../../../packages/contracts/routing.mjs")),
     ("autopets/packages/contracts/data/routing-profiles.json", include_str!("../../../../../packages/contracts/data/routing-profiles.json")),

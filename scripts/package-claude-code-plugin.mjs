@@ -15,6 +15,7 @@ export const pluginSources = [
   ['autopets/server/mcp/main.mjs', 'integrations/mcp/main.mjs'],
   ['autopets/server/mcp/server.mjs', 'integrations/mcp/server.mjs'],
   ['autopets/server/mcp/client.mjs', 'integrations/mcp/client.mjs'],
+  ['autopets/server/mcp/review.mjs', 'integrations/mcp/review.mjs'],
   ['autopets/server/codex/skills/autopets/scripts/bridge-client.mjs', 'integrations/codex/skills/autopets/scripts/bridge-client.mjs'],
   // client.mjs imports ../../packages/contracts/routing.mjs, which reads the routing table next to it.
   ['autopets/packages/contracts/routing.mjs', 'packages/contracts/routing.mjs'],

@@ -30,7 +30,12 @@ export function createLibraryClient({ environment = process.env, connect = readC
       // One small local POST; the app keeps the state in memory and never receives chat text.
       const { operation: _, ...report } = body;
       let recorded;
-      try { recorded = await request(await connect(location), '/v1/pet-jobs', report, 1800, 4096); }
+      const send = async payload => request(await connect(location), '/v1/pet-jobs', payload, 1800, 4096);
+      try {
+        try { recorded = await send(report); }
+        // An app from before #77 rejects the review counts; the report itself still has to arrive.
+        catch (error) { if (error?.status !== 400 || !report.review) throw error; const { review: __, ...plain } = report; recorded = await send(plain); }
+      }
       catch (error) { throw new PetLibraryError(error?.status === 404 ? 'report-unavailable' : error?.status === 400 || error?.status === 409 ? 'report-rejected' : 'app-unavailable'); }
       if (!object(recorded) || recorded.ok !== true || recorded.jobId !== report.jobId) throw new PetLibraryError('invalid-library-response');
       return { recorded: true, jobId: report.jobId, state: report.state };

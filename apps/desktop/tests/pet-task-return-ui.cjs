@@ -193,6 +193,24 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   await report(job('failed'));
   await jobNotice.waitFor();
   assert.equal(await jobNotice.getAttribute('data-tone'), 'error');
+  // The pet looked at the result file itself: the notice and the list say how many places still need the user.
+  await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 4, notes: 3, external: 0 }, updatedAt: Date.now() + 5 }));
+  await jobNotice.waitFor();
+  assert.ok((await jobNotice.innerText()).includes('볼 곳 7') && (await jobNotice.innerText()).includes('결과 열기'));
+  const reviewFit = await jobPet.evaluate(() => { const pet = document.querySelector('.floating-pet').getBoundingClientRect(), bubble = document.querySelector('.pet-bubble').getBoundingClientRect(); return bubble.left >= pet.left - 1 && bubble.right <= pet.right + 1; });
+  assert.equal(reviewFit, true, 'the longer notice still fits the compact pet');
+  await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
+  const reviewed = jobPet.getByRole('region', { name: 'AI가 알려준 일' }).locator('.pet-job-review');
+  await reviewed.waitFor();
+  assert.equal(await reviewed.innerText(), '펫이 확인 · 5장 · 빈칸 4곳 · 남은 안내 문구 3곳');
+  assert.equal(await reviewed.getAttribute('data-attention'), 'true');
+  await jobPet.keyboard.press('Escape');
+  await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 0, notes: 0, external: 0 }, updatedAt: Date.now() + 9 }));
+  await jobNotice.waitFor();
+  assert.equal((await jobNotice.innerText()).includes('볼 곳'), false, 'a clean result is just done');
+  await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
+  await jobPet.locator('.pet-job-review').filter({ hasText: '펫이 확인 · 5장 · 빈칸 없음' }).waitFor();
+  await jobPet.keyboard.press('Escape');
   // Only the newest job speaks: an older finished job that was never opened stays quiet while a newer
   // one works or waits, and does not come back after the newer result is opened.
   const older = { ...job('done'), id: '88888888-4888-4888-8888-888888888888', title: '예전 일', host: 'codex', updatedAt: Date.now() - 60_000 };

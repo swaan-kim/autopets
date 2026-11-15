@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { PetJob, PetLink, Session } from '@autopets/contracts/types';
-import { HOST_NAMES } from './PetJobs';
+import { HOST_NAMES, reviewAttention } from './PetJobs';
 import './pet-bubble.css';
 
 // What the floating pet says when the chat needs the user: a question or a plan to confirm,
@@ -34,7 +34,9 @@ export function jobBubble(job: PetJob): PetBubbleNotice | null {
   const key = JSON.stringify(['job', job.id, job.state, job.updatedAt]);
   const where = HOST_NAMES[job.host];
   if (job.state === 'asking') return { key, tone: 'ask', text: '질문이 있어요', action: where };
-  if (job.state === 'done') return { key, tone: 'done', text: '다 됐어요!', action: job.resultPath ? '결과 열기' : where };
+  // The pet looked at the result itself: say how many places still need the user before it is used.
+  const look = reviewAttention(job);
+  if (job.state === 'done') return { key, tone: 'done', text: look ? `다 됐어요! 볼 곳 ${look}` : '다 됐어요!', action: job.resultPath ? '결과 열기' : where };
   if (job.state === 'failed') return { key, tone: 'error', text: '문제가 생겼어요', action: where };
   return null;
 }

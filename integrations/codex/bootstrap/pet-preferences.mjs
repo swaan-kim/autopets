@@ -10,6 +10,7 @@ const NAME = 'autopets_preferences';
 export const petPreferenceSources = [
   'integrations/mcp/server.mjs',
   'integrations/mcp/client.mjs',
+  'integrations/mcp/review.mjs',
   'integrations/codex/skills/autopets/scripts/bridge-client.mjs',
   // client.mjs imports the shared routing table; without these the read tool cannot start.
   'packages/contracts/routing.mjs',

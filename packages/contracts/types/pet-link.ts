@@ -19,6 +19,8 @@ export interface PetLink {
 export interface PetJob {
   id: string; state: 'asking' | 'working' | 'done' | 'failed'; host: 'codex' | 'claude' | 'claude-code' | 'other';
   title: string; petId: string | null; resultPath: string | null; createdAt: number; updatedAt: number;
+  /** Counts from the pet's own look at the finished result file. No text from the file is kept. */
+  review?: { slides: number; blanks: number; notes: number; external: number } | null;
 }
 /** One existing catalog pet suggested for a request sent in a connected Codex chat. */
 export interface PetRecommendationCandidate { petId: string; reason: string; cues: string[] }
