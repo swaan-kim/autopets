@@ -11,13 +11,28 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   for (const entry of catalog) {
     const page = await newPage({ width: 992, height: 688 }); await mockBridge(page, base); await page.goto(origin); await openCatalog(page);
     await page.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
-    await page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true }).click();
+    const card = page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true });
+    const artwork = node => node.querySelector('[data-sample-kind]')?.textContent ?? node.querySelector('.result-thumbnail img')?.getAttribute('src');
+    const cardArtwork = await card.evaluate(artwork);
+    assert.equal(await card.locator('button, details').count(), 0, 'a card preview has no nested controls');
+    await card.click();
     const detail = page.locator('.workspace-role-detail');
     assert.equal(await detail.getAttribute('data-agent-scope'), 'pet-selection');
     assert.equal(await detail.getByRole('button', { name: `${entry.name} 이 펫으로`, exact: true }).getAttribute('data-agent-id'), 'pet-selection.detail.use');
     const preview = detail.locator('.result-preview');
     assert.equal(await preview.getAttribute('data-evidence'), 'design-example');
     assert.equal(await preview.locator('figcaption small').innerText(), '디자인 예시');
+    assert.equal(await preview.evaluate(artwork), cardArtwork, 'the card and detail show the same example');
+    const enlarge = preview.getByRole('button', { name: '크게 보기 ↗', exact: true });
+    await enlarge.click();
+    const enlarged = page.getByRole('dialog');
+    await enlarged.waitFor();
+    assert.equal(await enlarged.evaluate(artwork), cardArtwork, 'enlarging preserves the selected example');
+    assert.equal(await enlarged.getByRole('button', { name: '닫기 ×', exact: true }).evaluate(node => node === document.activeElement), true);
+    await page.keyboard.press('Escape');
+    await enlarged.waitFor({ state: 'detached' });
+    assert.equal(await enlarge.evaluate(node => node === document.activeElement), true, 'Escape returns focus to the preview trigger');
+    assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'viewing examples never launches a real task');
     await detail.getByRole('button', { name: `${entry.name} 이 펫으로`, exact: true }).click();
     const flow = page.locator('.pet-composer');
     assert.equal(await flow.getAttribute('data-agent-scope'), 'pet-selection');
@@ -55,7 +70,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(actual.calls.filter(call => call.name === 'connect_ai').length, 0, 'prepared host skips setup');
     await page.close();
   }
-  checks.push('six roles preserve multiline drafts and pinned methods; the short start request names the pet and its recipe; prepared setup is skipped; copy never connects or executes');
+  checks.push('six roles share the same authored artwork across card, detail and enlargement; Escape restores focus; drafts and pinned methods are preserved and previews never launch a task');
   {
     // One-click start from the detail page: nothing typed, one Codex link, no clipboard.
     const quick = await newPage({ width: 992, height: 688 }); await mockBridge(quick, base); await quick.goto(origin); await openCatalog(quick);
@@ -177,29 +192,33 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await claudePet.close(); await claude.close();
     // Skill hub: existing capabilities are explained and opened by entry id only.
     const hubPage = await newPage({ width: 992, height: 688 }); await mockBridge(hubPage, base); await hubPage.goto(origin); await openCatalog(hubPage);
-    const hub = hubPage.getByRole('region', { name: '이미 있는 기능과 스킬' });
+    const hub = hubPage.getByRole('region', { name: '함께 쓰는 도구' });
     await hub.waitFor();
     const order = await hubPage.evaluate(() => ['.workspace-library', '.skill-hub', '.prompt-idea-library'].map(selector => document.querySelector(selector)?.getBoundingClientRect().top ?? -1));
     assert.ok(order[0] >= 0 && order[0] < order[1], 'my pet jobs come first, then the hub');
     assert.ok(order[2] < 0 || order[1] < order[2], 'the image and video examples no longer sit on top');
-    const hubData = require('../../../packages/contracts/data/skill-hub.json');
-    assert.equal(await hub.locator('.skill-hub-list > li').count(), hubData.entries.length);
-    await hub.getByRole('group', { name: '종류' }).getByRole('button', { name: '기본 기능', exact: true }).click();
-    assert.equal(await hub.locator('.skill-hub-list > li').count(), hubData.entries.filter(entry => entry.kind === 'feature').length);
+    assert.equal(await hub.locator('.skill-hub-list > li').count(), 8);
+    assert.equal(await hub.locator('[data-hub-entry^="plugin-"]').count(), 0, 'developer setup is not mixed into the useful tools');
+    await hub.getByRole('group', { name: '도구 용도' }).getByRole('button', { name: '조사·학습', exact: true }).click();
+    assert.equal(await hub.locator('.skill-hub-list > li').count(), 2);
     const study = hub.locator('li[data-hub-entry="chatgpt-study-mode"]');
-    await study.getByRole('button', { name: /ChatGPT 스터디 모드/ }).click();
-    const detail = await study.locator('.skill-hub-detail').innerText();
-    assert.ok(detail.includes('언제 쓰나요') && detail.includes('필요한 것') && detail.includes('ChatGPT 계정 (모든 요금제)'));
-    await study.getByRole('button', { name: 'ChatGPT에서 열기', exact: true }).click();
-    await study.getByText('브라우저에서 열었어요.', { exact: true }).waitFor();
-    await study.getByRole('button', { name: 'OpenAI 공식 설명 ↗', exact: true }).click();
-    await hub.getByRole('group', { name: '종류' }).getByRole('button', { name: '공식 스킬', exact: true }).click();
+    assert.equal(await study.locator('.skill-hub-detail').evaluate(node => node.open), false);
+    await study.getByRole('button', { name: '개념 공부 열기', exact: true }).click();
+    await study.getByText('브라우저 열기를 요청했어요.', { exact: true }).waitFor();
+    await study.getByText('이용 조건', { exact: true }).click();
+    assert.ok((await study.locator('.skill-hub-detail > div').innerText()).includes('ChatGPT 계정 (모든 요금제)'));
+    await study.getByRole('button', { name: 'OpenAI 공식 안내 ↗', exact: true }).click();
+    await hub.locator('[data-hub-entry="chatgpt-deep-research"]').getByRole('button', { name: '자료 조사 사용법 보기', exact: true }).click();
+    await hub.getByRole('group', { name: '도구 용도' }).getByRole('button', { name: '문서·표', exact: true }).click();
+    assert.equal(await hub.locator('.skill-hub-list > li').count(), 4);
     const slides = hub.locator('li[data-hub-entry="anthropic-pptx"]');
-    await slides.getByRole('button', { name: /PowerPoint 파일 만들기/ }).click();
-    await slides.getByRole('button', { name: 'Claude에서 시작', exact: true }).click();
-    await slides.getByText('요청을 넣어 열었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+    await slides.getByRole('button', { name: '발표자료 열기', exact: true }).evaluate(button => { button.click(); button.click(); });
+    await slides.getByText('AI에서 보내기를 눌러주세요.', { exact: true }).waitFor();
+    await hub.getByRole('group', { name: '도구 용도' }).getByRole('button', { name: '내 자료', exact: true }).click();
+    assert.equal(await hub.locator('.skill-hub-list > li').count(), 2);
+    await hub.getByRole('button', { name: '메일·일정·파일 연결 설정', exact: true }).click();
     const hubCalls = await hubPage.evaluate(() => ({ starts: window.__uiTest.calls.filter(call => call.name === 'start_hub_entry').map(call => call.args), clipboard: window.__uiTest.clipboard, others: window.__uiTest.calls.some(call => /open_pet_in|save_pet|connect_ai|submit|send/.test(call.name)) }));
-    assert.deepEqual(hubCalls.starts, [{ id: 'chatgpt-study-mode', target: 'web' }, { id: 'chatgpt-study-mode', target: 'source' }, { id: 'anthropic-pptx', target: 'claude' }], 'the screen sends an entry id and a target, never an address or a prompt');
+    assert.deepEqual(hubCalls.starts, [{ id: 'chatgpt-study-mode', target: 'web' }, { id: 'chatgpt-study-mode', target: 'source' }, { id: 'chatgpt-deep-research', target: 'source' }, { id: 'anthropic-pptx', target: 'claude' }, { id: 'connector-google-workspace', target: 'web' }], 'one action per click, entry id and target only; guides and connector settings have distinct labels');
     assert.equal(hubCalls.clipboard, ''); assert.equal(hubCalls.others, false, 'nothing is copied, saved, connected or sent');
     assert.ok(await hubPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await hubPage.close();
@@ -226,7 +245,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.ok(await foldPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await foldPage.close();
     checks.push('pet screen: the older ways (make, prepare, apply, copy, connect) are folded under one line by default, open in place, and the choice is remembered on this PC');
-    checks.push('skill hub: listed features, official skills, plugins and connectors are filtered by kind and explained with when-to-use and requirements; a start sends only the entry id and target, and nothing is copied or sent');
+    checks.push('eight useful tools are grouped by purpose; terms are disclosed on request; launch, guide and connection settings are distinct; duplicate clicks send one id/target command and never copy, install or submit');
     checks.push('same start for Claude Code: the AI is chosen once and remembered across the pet screen, the detail page and the floating pet; the request names the AutoPets read tool, needs no Codex setup, and the screen sends no folder path');
     checks.push('floating pet start: one typed line is matched to a pet locally and opens one Codex link with the short recipe request; unclear words ask the user to pick; the saved pet is reused and nothing is sent or copied');
     checks.push('one-click start: detail or pet screen opens one Codex link with the short recipe request, reuses the saved pet, never touches the clipboard or sends, prepares Codex only on first use, reuses an identical saved pet instead of duplicating it, and copies a job too long for a link');
