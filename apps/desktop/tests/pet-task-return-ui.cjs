@@ -195,8 +195,8 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   assert.equal(await jobNotice.getAttribute('data-tone'), 'error');
   // The pet looked at the result file itself: the notice and the list say how many places still need the user.
   await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 4, notes: 3, external: 0 }, updatedAt: Date.now() + 5 }));
-  await jobNotice.waitFor();
-  assert.ok((await jobNotice.innerText()).includes('볼 곳 7') && (await jobNotice.innerText()).includes('결과 열기'));
+  await jobPet.locator('.pet-bubble').filter({ hasText: '볼 곳 7' }).waitFor();
+  assert.ok((await jobNotice.innerText()).includes('결과 열기'));
   const reviewFit = await jobPet.evaluate(() => { const pet = document.querySelector('.floating-pet').getBoundingClientRect(), bubble = document.querySelector('.pet-bubble').getBoundingClientRect(); return bubble.left >= pet.left - 1 && bubble.right <= pet.right + 1; });
   assert.equal(reviewFit, true, 'the longer notice still fits the compact pet');
   await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
@@ -206,8 +206,8 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   assert.equal(await reviewed.getAttribute('data-attention'), 'true');
   await jobPet.keyboard.press('Escape');
   await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 0, notes: 0, external: 0 }, updatedAt: Date.now() + 9 }));
-  await jobNotice.waitFor();
-  assert.equal((await jobNotice.innerText()).includes('볼 곳'), false, 'a clean result is just done');
+  // The notice for the new report replaces the previous one; wait for that text, not just for a notice.
+  await jobPet.locator('.pet-bubble').filter({ hasNotText: '볼 곳' }).filter({ hasText: '다 됐어요!' }).waitFor();
   await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
   await jobPet.locator('.pet-job-review').filter({ hasText: '펫이 확인 · 5장 · 빈칸 없음' }).waitFor();
   await jobPet.keyboard.press('Escape');
