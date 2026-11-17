@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { openCatalog } = require('./entry-navigation.cjs');
+const { openCatalog, openChange, closePetPanel } = require('./entry-navigation.cjs');
 const { runPromptVideoChecks } = require('./prompt-video-ui.cjs');
 
 exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
@@ -38,12 +38,14 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
   assert.equal(await trigger.evaluate(element => element === document.activeElement), true);
   await trigger.click(); await dialog.getByRole('button', { name: /이 방식으로 펫 준비/ }).click();
-  const composer = page.locator('.pet-composer');
+  const composer = page.locator('.pet-start');
   await composer.getByRole('heading', { name: '이미지 프롬프트 만들기', exact: true }).waitFor();
+  assert.equal(await composer.locator('.pet-start-change').count(), 0, 'using an idea never opens a copy gate');
+  await openChange(composer);
   assert.equal(await composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).inputValue(), JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]), 'the only eligible conversation is preselected without retargeting to disconnected B');
-  assert.equal(await composer.locator('.composer-copy-fallback').isVisible(), false, 'using an idea never opens a copy gate');
+  await closePetPanel(composer);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'browsing and choosing an idea do not connect, save, or execute');
-  await composer.getByRole('button', { name: /이 채팅에 펫 적용/ }).click();
+  await composer.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
   await composer.locator('.composer-applied').waitFor();
   const result = await page.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, links: window.__uiTest.state.petLinks, clipboard: window.__uiTest.clipboard }));
   assert.equal(result.pets.length, 1);

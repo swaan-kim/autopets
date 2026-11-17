@@ -40,6 +40,7 @@ pub fn run() {
             platform::pet_preferences::install_pet_preferences_in_claude,
             platform::pet_preferences::open_pet_in_claude,
             platform::pet_preferences::open_pet_in_codex,
+            platform::pet_preferences::open_pet_in_codex_chat,
             platform::codex_chat::continue_pet_in_codex_chat,
             platform::codex_chat::codex_chat_delivery_status,
             platform::pet_dock::watch_pet_drag,

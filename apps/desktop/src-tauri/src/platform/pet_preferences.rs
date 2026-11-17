@@ -58,6 +58,35 @@ pub(crate) fn open_pet_in_codex(
     shell_open(&uri).map_err(|_| "Codex 앱을 열지 못했어요. Codex 앱이 설치돼 있는지 확인해 주세요.".into())
 }
 
+// Opens the chat that ran `$autopets` with the start request typed into its composer
+// (Codex Desktop's `codex://threads/<id>?prompt=` fills and focuses it). Nothing is sent:
+// the user presses send. The chat must still be the current setup chat, so a request
+// is never typed into another chat; long requests fall back to copying in the UI.
+#[tauri::command]
+pub(crate) fn open_pet_in_codex_chat(
+    window: tauri::WebviewWindow,
+    store: tauri::State<crate::application::store::SharedStore>,
+    pet_id: String,
+    expected_revision: u64,
+    prompt: String,
+    thread_id: String,
+    cwd: String,
+) -> Result<(), String> {
+    crate::platform::connection_setup::require_manager(window.label())?;
+    {
+        let current = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
+        crate::platform::codex_chat::check_target(&current, &pet_id, expected_revision, &prompt, &thread_id, &cwd)?;
+    }
+    let uri = codex_chat_uri(&thread_id, &cwd, &prompt)?;
+    shell_open(&uri).map_err(|_| "Codex 앱을 열지 못했어요. Codex 앱이 설치돼 있는지 확인해 주세요.".into())
+}
+
+pub(crate) fn codex_chat_uri(thread_id: &str, cwd: &str, prompt: &str) -> Result<String, String> {
+    let uri = format!("{}?prompt={}", crate::platform::task_return::task_uri(thread_id, cwd)?, percent_encode(prompt));
+    if uri.len() > MAX_LAUNCH_URI { return Err("prompt-too-long".into()); }
+    Ok(uri)
+}
+
 // Windows protocol launches are only reliable below the classic URL limit.
 const MAX_LAUNCH_URI: usize = 2000;
 
@@ -164,6 +193,19 @@ mod tests {
         assert_eq!(codex_new_thread_uri(id, 3, &prompt).unwrap_err(), "invalid-start-request");
         assert_eq!(codex_new_thread_uri(id, 2, &format!("{prompt}\u{7}")).unwrap_err(), "invalid-start-request");
         assert_eq!(codex_new_thread_uri(id, 2, &format!("{prompt}{}", "가".repeat(300))).unwrap_err(), "prompt-too-long");
+    }
+
+    #[test]
+    fn calling_chat_link_types_the_request_into_that_exact_chat() {
+        let chat = "11111111-2222-4333-8444-555555555555";
+        let prompt = "AutoPets 스킬로 펫을 연결해줘. 저장한 펫: petId=p, petRevision=1.\n할 일 & 메모";
+        let uri = codex_chat_uri(chat, "C:/work", prompt).unwrap();
+        assert!(uri.starts_with(&format!("codex://threads/{chat}?prompt=")));
+        assert!(!uri[uri.find('?').unwrap() + 8..].contains(['&', ' ', '\n', '?', '#']));
+        assert!(codex_chat_uri("new", "C:/work", prompt).is_err(), "never a new chat");
+        assert!(codex_chat_uri("ABCDEF12-2222-4333-8444-555555555555", "C:/work", prompt).is_err(), "only the exact local UUID");
+        assert!(codex_chat_uri(chat, "relative", prompt).is_err());
+        assert_eq!(codex_chat_uri(chat, "C:/work", &"가".repeat(700)).unwrap_err(), "prompt-too-long");
     }
 
     #[test]

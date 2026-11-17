@@ -376,7 +376,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await empty.getByRole('heading', { name: '펫 고르기', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await chooseRole(empty, '웹페이지 만들기');
-    assert.equal(await empty.getByRole('button', { name: '펫 만들기', exact: true }).isEnabled(), false);
+    assert.equal(await empty.getByRole('button', { name: 'Codex에서 시작', exact: true }).isEnabled(), false, 'a browser preview cannot start work');
     await empty.locator('.app-settings > summary').click(); await empty.getByRole('button', { name: '연결 설정', exact: true }).click();
     await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
     assert.equal(await empty.locator('input[type=checkbox]:visible').count(), 0);

@@ -1,4 +1,4 @@
-const { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy, openPetSettings, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
+const { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy, openPetSettings, openChange, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const uiTemplate = require('../../../packages/contracts/data/ui-pet.json');
@@ -12,19 +12,18 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const page = await newPage({ width: 992, height: 688 }); await mockBridge(page, base); await page.goto(origin); await openCatalog(page);
     await page.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
     await page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true }).click();
-    const detail = page.locator('.workspace-role-detail');
-    assert.equal(await detail.getAttribute('data-agent-scope'), 'pet-selection');
-    assert.equal(await detail.getByRole('button', { name: `${entry.name} 이 펫으로`, exact: true }).getAttribute('data-agent-id'), 'pet-selection.detail.use');
-    const preview = detail.locator('.result-preview');
+    // The card opens one detail screen: preview on the left, the request and one start button on the right.
+    const flow = page.locator('.workspace-role-detail.pet-start');
+    assert.equal(await flow.getAttribute('data-agent-scope'), 'pet-selection');
+    assert.equal(await flow.getByRole('button', { name: 'Codex에서 시작', exact: true }).getAttribute('data-agent-id'), 'pet-selection.composer.start');
+    assert.equal(await flow.getByRole('button', { name: '바꾸기', exact: true }).getAttribute('data-agent-id'), 'pet-selection.composer.change');
+    const preview = flow.locator('.result-preview');
+    assert.equal(await preview.count(), 1, 'the result preview is shown once, beside the request');
     assert.equal(await preview.getAttribute('data-evidence'), 'design-example');
     assert.equal(await preview.locator('figcaption small').innerText(), '디자인 예시');
-    await detail.getByRole('button', { name: `${entry.name} 이 펫으로`, exact: true }).click();
-    const flow = page.locator('.pet-composer');
-    assert.equal(await flow.getAttribute('data-agent-scope'), 'pet-selection');
-    assert.equal(await flow.locator('.composer-more').evaluate(element => element.open), false);
+    assert.equal(await flow.locator('.pet-start-change').count(), 0, 'less common settings stay folded');
     assert.equal(await flow.locator('.composer-identity .pet-source-line').count(), 0, 'default identity keeps only pet and name');
-    assert.equal(await flow.locator('.result-preview').count(), 0, 'large result preview is not repeated in composer');
-    assert.equal(await flow.locator('.composer-more .pet-skill-source').isVisible(), false, 'long provenance is disclosed on request');
+    assert.equal(await flow.locator('.pet-skill-source').count(), 0, 'long provenance is disclosed on request');
     await showMore(flow);
     const source = flow.getByRole('region', { name: '이 펫의 스킬 출처' });
     await source.waitFor();
@@ -35,15 +34,19 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await source.getByRole('link', { name: '원작자 결과 예시 ↗', exact: true }).count(), entry.id === 'presentation' ? 1 : 0);
     if (entry.id === 'presentation') assert.ok((await source.locator(':scope > strong').innerText()).startsWith('frontend-slides'));
     const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
-    await openCopy(flow);
+    assert.equal(await input.inputValue(), '', 'the request starts empty');
+    assert.equal(await input.getAttribute('placeholder'), entry.example);
+    assert.equal(await flow.getByRole('button', { name: 'Codex에서 시작', exact: true }).isDisabled(), true, 'an empty request cannot start');
+    await flow.getByRole('button', { name: '예시로 채우기', exact: true }).click();
     assert.equal(await input.inputValue(), entry.example);
+    await openCopy(flow);
     assert.equal(await flow.locator('input[aria-label="Figma 시안 활용"]').count(), entry.id === 'ui-webpage' ? 1 : 0);
     await input.fill(`${entry.example}\n한글 추가 조건`);
     await leaveComposer(flow); await dismissRoleDetail(page);
     await chooseRole(page, entry.name);
     await openCopy(flow);
     assert.ok((await input.inputValue()).endsWith('한글 추가 조건'));
-    await flow.getByRole('button', { name: '확인', exact: true }).click();
+    await flow.getByRole('button', { name: '요청만 복사', exact: true }).click();
     assert.ok((await flow.getByLabel('Codex에 보낼 시작 요청', { exact: true }).inputValue()).includes('한글 추가 조건'));
     await flow.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
     await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
@@ -57,7 +60,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const page = await newPage({ width: 992, height: 688 });
   const initial = structuredClone(base); initial.setup.connections[0].configured = false;
   await mockBridge(page, initial); await page.goto(origin); await openCatalog(page);
-  const flow = page.locator('.pet-composer');
+  const flow = page.locator('.pet-start');
   const selectWeb = () => chooseRole(page, '웹페이지 만들기');
   const count = name => page.evaluate(name => window.__uiTest.calls.filter(call => call.name === name).length, name);
   const capture = async name => { const file = path.join(screenshotDir, `ux-v2-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
@@ -75,14 +78,14 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   for (const [width, height, name] of [[992,688,'desktop'],[794,550,'125-layout'],[661,459,'150-layout'],[375,812,'narrow']]) {
     await page.setViewportSize({width,height}); await selectWeb();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), name);
-    const button = flow.getByRole('button', { name: '펫 만들기', exact: true }); await button.scrollIntoViewIfNeeded();
+    const button = flow.getByRole('button', { name: 'Codex에서 시작', exact: true }); await button.scrollIntoViewIfNeeded();
     assert.equal(await button.evaluate(button => { const box=button.getBoundingClientRect(); return box.y>=0 && box.bottom<=innerHeight+1 && button.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2)); }), true);
     await capture(name); await leaveComposer(flow); await dismissRoleDetail(page);
   }
   await page.setViewportSize({width:992,height:688}); await selectWeb();
   await page.waitForFunction(() => window.__uiTest.onboardingActive);
   await showMore(flow);
-  assert.equal(await flow.locator('.composer-profile-choice').getAttribute('open'), null);
+  assert.equal(await flow.locator('[data-agent-id="pet-selection.composer.profile"]').getAttribute('open'), null);
   await flow.getByRole('radio',{name:'가볍게',exact:true}).focus(); await page.keyboard.press('ArrowRight');
   assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
   await openCopy(flow);
@@ -90,28 +93,38 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await leaveComposer(flow); await dismissRoleDetail(page);
   await page.getByRole('button',{name:'일상',exact:true}).click(); await chooseRole(page, '하루 정리');
   await leaveComposer(flow); await dismissRoleDetail(page); await page.getByRole('button',{name:'업무',exact:true}).click(); await selectWeb();
+  assert.ok((await flow.locator('.pet-start-summary').innerText()).includes('Codex · 표준'),'the folded summary shows the kept help style');
+  await showMore(flow);
   assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
+  await closePetPanel(flow);
   assert.equal(await flow.getByLabel('펫에게 맡길 일',{exact:true}).inputValue(),'학과 행사 소개\n날짜와 프로그램 포함');
-  await flow.getByRole('button',{name:'펫 만들기',exact:true}).click();
+  // First use: start asks once where to begin; choosing Codex is also the consent to connect it.
   await page.evaluate(() => { window.__uiTest.connectionError='fixture unavailable'; });
-  await flow.getByRole('button',{name:'Codex에 펫 준비',exact:true}).click();
+  await flow.getByRole('button',{name:'Codex에서 시작',exact:true}).click();
+  assert.equal(await count('connect_ai'),0,'nothing connects before the user chooses');
+  await flow.getByRole('group',{name:'어디서 시작할까요?'}).getByRole('button',{name:'Codex',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor(); assert.equal(await count('connect_ai'),1);
+  assert.equal(await count('open_pet_in_codex'),0,'a failed connection stops before opening Codex');
+  assert.equal(await flow.getByText('펫 저장 ✓ · Codex 연결 · 새 대화 열림',{exact:true}).isVisible(),true,'the status line shows where it stopped');
   await page.evaluate(() => { window.__uiTest.connectionError=null; window.__uiTest.holdConnection=true; });
-  await flow.getByRole('button',{name:'Codex에 펫 준비',exact:true}).evaluate(b=>{b.click();b.click();});
+  await flow.getByRole('button',{name:'Codex에서 시작',exact:true}).evaluate(b=>{b.click();b.click();});
   await page.waitForFunction(()=>typeof window.__uiTest.releaseConnection==='function');
-  assert.equal(await count('connect_ai'),2); assert.equal(await page.getByRole('button',{name:'내 작업',exact:true}).isDisabled(),true);
+  assert.equal(await count('connect_ai'),2,'the choice is remembered and a double click connects once'); assert.equal(await page.getByRole('button',{name:'내 작업',exact:true}).isDisabled(),true);
+  await flow.getByText('펫 저장 ✓ · Codex 연결 … · 새 대화 열림',{exact:true}).waitFor();
   await page.evaluate(()=>{window.__uiTest.holdConnection=false;window.__uiTest.releaseConnection();});
+  await flow.getByText('펫 저장 ✓ · Codex 연결 ✓ · 새 대화 열림 ✓',{exact:true}).waitFor();
+  assert.equal(await count('open_pet_in_codex'),1);
   await showMore(flow);
   await flow.getByRole('radio',{name:'꼼꼼하게',exact:true}).check();
   await flow.getByRole('radio',{name:'표준',exact:true}).check();
   await openCopy(flow);
-  await flow.getByRole('button',{name:'확인',exact:true}).waitFor();
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).waitFor();
   await page.evaluate(()=>{window.__uiTest.savePetError='fixture save unavailable';});
-  await flow.getByRole('button',{name:'확인',exact:true}).click();
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor(); assert.equal(await page.evaluate(()=>window.__uiTest.roles.pets.length),1);
   assert.equal(await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).count(),0,'a failed confirmation offers nothing to copy');
   await page.evaluate(()=>{window.__uiTest.savePetError=null;window.__uiTest.holdSavePet=true;});
-  await flow.getByRole('button',{name:'확인',exact:true}).evaluate(b=>{b.click();b.click();});
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).evaluate(b=>{b.click();b.click();});
   await page.waitForFunction(()=>typeof window.__uiTest.releaseSavePet==='function'); assert.equal(await count('save_pet'),3);
   await page.evaluate(()=>{window.__uiTest.holdSavePet=false;window.__uiTest.releaseSavePet();});
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
@@ -123,7 +136,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await openCopy(flow);
   assert.equal(await flow.getByRole('button',{name:'시작 요청 다시 복사',exact:true}).count(),0,'a settings change clears the confirmed request');
   await page.evaluate(()=>{window.__uiTest.clipboardError=true;});
-  await flow.getByRole('button',{name:'확인',exact:true}).click();
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).click();
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click(); await flow.getByText(/자동 복사가 되지 않았어요/).waitFor();
   const prompt=flow.getByLabel('Codex에 보낼 시작 요청',{exact:true});
   assert.equal(await prompt.isVisible(),true); assert.ok((await prompt.inputValue()).includes('petRevision=3')); assert.ok((await prompt.inputValue()).includes('프레임 링크'));
@@ -138,17 +151,17 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByRole('button',{name:'시작 요청 다시 복사',exact:true}).click();
   const conflict=flow.getByRole('alert').filter({hasText:'저장한 펫이 다른 곳에서 바뀌었어요'});
   await conflict.waitFor();
-  await page.waitForFunction(()=>{const box=document.querySelector('.composer-feedback')?.getBoundingClientRect();return box && box.y>=0 && box.bottom<=innerHeight+1;});
+  await page.waitForFunction(()=>{const box=document.querySelector('.composer-feedback')?.getBoundingClientRect();return box && box.y>=-1 && box.bottom<=innerHeight+1;});
   const conflictBox=await conflict.boundingBox();
   await capture('revision-conflict');
-  assert.ok(conflictBox.y>=0 && conflictBox.y+conflictBox.height<=689,'revision error and recovery remain visible next to primary action');
+  assert.ok(conflictBox.y>=-1 && conflictBox.y+conflictBox.height<=689,'revision error and recovery remain visible next to primary action');
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),previous); assert.equal(await prompt.count(),0);
   await conflict.getByRole('button',{name:'구성 다시 선택',exact:true}).focus(); await page.keyboard.press('Enter');
   await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='저장한 구성');
   assert.equal(await flow.getByLabel('저장한 구성',{exact:true}).evaluate(el=>document.activeElement===el),true,'recovery focuses latest saved configuration');
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('ui-pet-0');
   await openCopy(flow);
-  await flow.getByRole('button',{name:'확인',exact:true}).click();
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).click();
   await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click(); await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.',{exact:true}).waitFor();
   assert.ok((await page.evaluate(()=>window.__uiTest.clipboard)).includes('petRevision=4'));
   await page.evaluate(uiTemplate=>{
@@ -156,9 +169,9 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     window.__uiTest.emitEvent('autopets://snapshot',window.__uiTest.state);
   },uiTemplate);
   const beforeB=await page.evaluate(()=>structuredClone(window.__uiTest.state.petLinks[1]));
-  await closePetPanel(flow);
+  await openChange(flow);
   await flow.getByLabel('UI 펫을 적용할 채팅',{exact:true}).selectOption(JSON.stringify(['codex-windows-local','11111111-2222-4333-8444-555555555555','C:/UI fixture only']));
-  await flow.getByRole('button',{name:'이 채팅에 펫 적용',exact:true}).click();
+  await flow.getByRole('button',{name:'이 채팅에서 시작',exact:true}).click();
   await flow.locator('.composer-applied').waitFor();
   await flow.getByText('펫 설정을 적용했어요.',{exact:true}).waitFor();
   assert.deepEqual(await page.evaluate(()=>window.__uiTest.state.petLinks[1]),beforeB);
@@ -187,13 +200,13 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('unsupported');
   await openCopy(flow);
   await flow.getByRole('alert').filter({hasText:'사용할 수 없는 작업 설정이에요'}).waitFor();
-  assert.equal(await flow.getByRole('button',{name:'확인',exact:true}).isDisabled(),true);
+  assert.equal(await flow.getByRole('button',{name:'요청만 복사',exact:true}).isDisabled(),true);
   await showMore(flow);
   await flow.getByLabel('저장한 구성',{exact:true}).selectOption('ui-pet-0');
   await openCopy(flow);
   const prior=await page.evaluate(()=>window.__uiTest.clipboard);
   // Copy re-verifies the confirmed request; an unreadable host clears it without copying.
-  await flow.getByRole('button',{name:'확인',exact:true}).click();
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).click();
   await flow.getByLabel('Codex에 보낼 시작 요청',{exact:true}).waitFor();
   await page.evaluate(()=>{
     const invoke=window.__TAURI_INTERNALS__.invoke;let once=true;
@@ -210,12 +223,87 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const invoke=window.__TAURI_INTERNALS__.invoke;
     window.__TAURI_INTERNALS__.invoke=async(name,args)=>{const value=await invoke(name,args);if(name==='save_pet')window.__uiTest.roles.pets.find(p=>p.id===value.id).revision++;return value;};
   });
-  await flow.getByRole('button',{name:'확인',exact:true}).click();
+  await flow.getByRole('button',{name:'요청만 복사',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'저장한 펫이 다른 곳에서 바뀌었어요'}).waitFor();
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),prior);
   assert.equal(await flow.getByLabel('Codex에 보낼 시작 요청',{exact:true}).count(),0);
   await leaveComposer(flow);
-  await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='웹페이지 만들기 이 펫으로');
+  await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='웹페이지 만들기 펫 선택');
   checks.push('unsupported routing, unavailable fresh snapshot and revision changed immediately after save never produce a request; closing restores keyboard focus');
-  await page.close(); return images;
+  await page.close();
+
+  // `$autopets` from a Codex chat: choosing the pet type is enough; start types the request into that same chat.
+  const CALLING = '22222222-3333-4444-8555-666666666666';
+  const chatPage = await newPage({ width: 992, height: 688 });
+  const chatState = structuredClone(base);
+  chatState.setup.setupChat = { sourceId: 'codex-windows-local', threadId: CALLING, cwd: 'C:/UI fixture only/calling' };
+  await mockBridge(chatPage, chatState);
+  await chatPage.addInitScript(() => {
+    const original = window.__TAURI_INTERNALS__.invoke;
+    window.__TAURI_INTERNALS__.invoke = async (name, args) => {
+      if (name === 'open_pet_in_codex_chat') {
+        window.__uiTest.calls.push({ name, args: structuredClone(args) });
+        if (window.__uiTest.holdChat) await new Promise(resolve => { window.__uiTest.releaseChat = resolve; });
+        if (window.__uiTest.chatPromptTooLong) throw 'prompt-too-long';
+        return null;
+      }
+      return original(name, args);
+    };
+  });
+  await chatPage.goto(origin); await chooseRole(chatPage, '웹페이지 만들기');
+  const chatFlow = chatPage.locator('.pet-start');
+  await chatFlow.getByRole('heading', { name: '이 채팅에서 시작할까요?', exact: true }).waitFor();
+  assert.ok((await chatFlow.locator('.pet-start-summary').innerText()).includes('Codex 채팅 calling · 66666666'), 'the calling chat is named before starting');
+  const startHere = chatFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true });
+  assert.equal(await startHere.getAttribute('data-agent-id'), 'pet-selection.composer.start');
+  assert.equal(await startHere.isEnabled(), true, 'from the calling chat the extra request is optional');
+  assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /continue_pet|save_pet|connect_ai|open_pet/.test(call.name))), false, 'choosing a pet sends nothing');
+  await chatPage.evaluate(() => { window.__uiTest.holdChat = true; });
+  await startHere.evaluate(button => { button.click(); button.click(); });
+  await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 …', { exact: true }).waitFor();
+  await chatPage.evaluate(() => { window.__uiTest.holdChat = false; window.__uiTest.releaseChat(); });
+  await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 ✓', { exact: true }).waitFor();
+  await chatFlow.getByText('Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+  const typed = await chatPage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex_chat').map(call => call.args));
+  assert.equal(typed.length, 1, 'a double click opens the chat once');
+  assert.equal(typed[0].threadId, CALLING); assert.equal(typed[0].cwd, 'C:/UI fixture only/calling');
+  assert.ok(typed[0].prompt.includes(`petId=${typed[0].petId}, petRevision=${typed[0].expectedRevision}`));
+  assert.ok(typed[0].prompt.includes('이 채팅에서 앞서 요청한 일을 이 펫으로'), 'without extra text the pet takes over the request already in the chat');
+  assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /continue_pet|open_pet_in_codex$|apply_pet|connect_ai|submit|send|execute/.test(call.name))), false,
+    'it only types into the calling chat: never queues or sends, opens another chat, or reconnects (which would forget the calling chat)');
+  // A request too long for the link falls back to copying, as for a new chat.
+  await chatFlow.getByLabel('펫에게 맡길 일', { exact: true }).fill('추가 조건');
+  await chatPage.evaluate(() => { window.__uiTest.chatPromptTooLong = true; });
+  await startHere.click();
+  await chatFlow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
+  assert.ok((await chatPage.evaluate(() => window.__uiTest.clipboard)).includes('추가 조건'));
+  const callingImage = path.join(screenshotDir, 'ux-v2-calling-chat.png'); await chatPage.screenshot({ path: callingImage, fullPage: true, animations: 'disabled' }); images.push(callingImage);
+  await chatPage.close();
+
+  // A pet recommended for a linked chat: the chat's request is shown, and start applies the pet to that chat.
+  const R = '33333333-4444-4555-8666-777777777777';
+  const recPage = await newPage({ width: 992, height: 688 });
+  const recState = structuredClone(base);
+  const recLink = { version: 1, target: { sourceId: 'codex-windows-local', threadId: R, cwd: 'C:/UI fixture only/rec' }, slot: 0, revision: 2, connected: true, enabled: true, profile: 'light', template: structuredClone(uiTemplate), run: null };
+  recState.petLinks = [recLink];
+  recState.petRecommendations = [{ id: 'rec-1', target: recLink.target, turnId: 'turn-1', source: 'hook', state: 'shown', request: '동아리 소개 페이지를 만들어줘', requestTruncated: false,
+    candidates: [{ petId: 'ui-webpage', reason: '웹페이지 요청', cues: [] }], acceptedPetId: null, createdAt: 1, updatedAt: 1 }];
+  await mockBridge(recPage, recState);
+  await recPage.goto(origin);
+  // The app opens the pet after the user accepts the recommendation on the card or the desktop pet.
+  await recPage.getByRole('button', { name: '웹페이지 만들기 펫 사용하기', exact: true }).waitFor();
+  await recPage.evaluate(() => window.__uiTest.emitEvent('autopets://open-recommendation', { id: 'rec-1', petId: 'ui-webpage' }));
+  const recFlow = recPage.locator('.pet-start');
+  const fromChat = recFlow.getByRole('region', { name: 'Codex 채팅에서 온 요청', exact: true });
+  await fromChat.waitFor();
+  assert.ok((await fromChat.innerText()).includes('동아리 소개 페이지를 만들어줘'));
+  assert.equal(await recFlow.getByLabel('펫에게 맡길 일', { exact: true }).count(), 0, 'the chat request replaces the input; editing it is under "바꾸기"');
+  await recFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
+  await recFlow.locator('.composer-applied').waitFor();
+  const recCalls = await recPage.evaluate(() => window.__uiTest.calls);
+  assert.deepEqual(recCalls.filter(call => call.name === 'apply_pet_link_template').map(call => call.args.target.threadId), [R]);
+  assert.equal(recCalls.some(call => /continue_pet|open_pet_in_codex|submit|send|execute/.test(call.name)), false, 'applying never sends the request for the user');
+  await recPage.close();
+  checks.push('calling chat: pet choice alone types the request into the chat that ran $autopets, once, with a save/type status line, no queue/send, no reconnect and no new chat; too-long requests are copied; a recommended chat shows its request and start applies only to that chat without sending');
+  return images;
 };
