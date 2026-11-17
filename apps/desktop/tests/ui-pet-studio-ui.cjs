@@ -263,12 +263,15 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await startHere.getAttribute('data-agent-id'), 'pet-selection.composer.start');
   assert.equal(await startHere.isEnabled(), true, 'from the calling chat the extra request is optional');
   assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /continue_pet|save_pet|connect_ai|open_pet/.test(call.name))), false, 'choosing a pet sends nothing');
+  await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === true);
   await chatPage.evaluate(() => { window.__uiTest.holdChat = true; });
   await startHere.evaluate(button => { button.click(); button.click(); });
   await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 …', { exact: true }).waitFor();
   await chatPage.evaluate(() => { window.__uiTest.holdChat = false; window.__uiTest.releaseChat(); });
   await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 ✓', { exact: true }).waitFor();
   await chatFlow.getByText('Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+  // The pet now works in Codex: minimizing Codex focuses this screen, which must not hide the working pet.
+  await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === false);
   const typed = await chatPage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex_chat').map(call => call.args));
   assert.equal(typed.length, 1, 'a double click opens the chat once');
   assert.equal(typed[0].threadId, CALLING); assert.equal(typed[0].cwd, 'C:/UI fixture only/calling');
@@ -278,6 +281,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     'it only types into the calling chat: never queues or sends, opens another chat, or reconnects (which would forget the calling chat)');
   // A request too long for the link falls back to copying, as for a new chat.
   await chatFlow.getByLabel('펫에게 맡길 일', { exact: true }).fill('추가 조건');
+  await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === true);
   await chatPage.evaluate(() => { window.__uiTest.chatPromptTooLong = true; });
   await startHere.click();
   await chatFlow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();

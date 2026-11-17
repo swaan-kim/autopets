@@ -149,12 +149,16 @@ export function UiPetStudio({ links, recommendations = [], recommendationOpen = 
     if (notice.startsWith('자동 복사가 되지 않았어요.')) promptField.current?.focus();
   }, [notice]);
   useEffect(() => { setLocalSetup(null); }, [setupKey]);
+  // Desktop pets hide only while a pet is being chosen here, so they do not cover this screen.
+  // Once start has handed the work to Codex/Claude, the pet is working and must stay out, even
+  // when this window gets focus because the user minimized Codex. Editing again hides it again.
+  const handedOff = progress !== null && progress.done === progress.steps.length;
   useEffect(() => {
     if (!isDesktop) return;
     let disposed = false;
-    void setOnboardingActive(open && active).then(() => { if (!disposed) setOverlayError(''); }).catch(() => { if (!disposed) setOverlayError('바탕화면 펫을 잠시 숨기지 못했어요. 화면을 가리면 펫 메뉴에서 숨겨 주세요.'); });
+    void setOnboardingActive(open && active && !handedOff).then(() => { if (!disposed) setOverlayError(''); }).catch(() => { if (!disposed) setOverlayError('바탕화면 펫을 잠시 숨기지 못했어요. 화면을 가리면 펫 메뉴에서 숨겨 주세요.'); });
     return () => { disposed = true; void setOnboardingActive(false).catch(() => undefined); };
-  }, [open, active]);
+  }, [open, active, handedOff]);
   const currentSetup = localSetup ?? setup;
   const prepared = explicitSetupReady(currentSetup);
   const target = links.find(link => targetKey(link) === selectedTarget);
