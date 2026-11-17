@@ -13,6 +13,9 @@
 .pet-start-identity > .pet-favorite-button > span:first-child { font-size: 23px; }
 .pet-start .workspace-detail-summary { margin: 12px 0 22px; }
 .pet-start .pet-start-question { margin: 0 0 12px; color: #20262b; font-size: 22px; font-weight: 700; line-height: 1.4; letter-spacing: -.5px; }
+.pet-start-chat { display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%; margin: 0 0 12px; padding: 7px 12px; border-radius: 8px; background: #eef5f0; color: #20262b; }
+.pet-start-chat small { flex: none; color: #3f7a52; font-size: 12px; font-weight: 600; }
+.pet-start-chat strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
 .pet-start-hint { margin: 0 0 12px; color: #5d6870; font-size: 14px; line-height: 1.6; word-break: keep-all; }
 .pet-start .composer-task { display: grid; gap: 8px; color: #606970; font-size: 13px; }
 .pet-start .composer-task textarea { width: 100%; box-sizing: border-box; min-height: 120px; margin: 0; padding: 14px; border: 1px solid #dde1e4; border-radius: 12px; font: inherit; font-size: 15px; line-height: 1.7; resize: vertical; }

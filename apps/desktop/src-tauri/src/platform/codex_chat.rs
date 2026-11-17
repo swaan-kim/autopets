@@ -259,6 +259,38 @@ pub(crate) async fn codex_chat_delivery_status(thread_id: String, prompt: String
     }).await.map_err(|_| "status-unavailable".into())
 }
 
+/// Codex's own name for each chat, so the app can say which chat a pet uses
+/// instead of an id. Codex appends `{"id", "thread_name"}` to
+/// `session_index.jsonl` and a rename appends again, so the last line per id
+/// wins. Unknown or unnamed chats are left out and the UI shows the id.
+/// Same bounds as the attention hook's `chatTitle`.
+pub(crate) fn read_chat_titles(index: &Path, thread_ids: &[String]) -> std::collections::HashMap<String, String> {
+    let mut titles = std::collections::HashMap::new();
+    if thread_ids.is_empty() || std::fs::metadata(index).map_or(true, |m| m.len() > 8 * 1024 * 1024) { return titles; }
+    let Ok(text) = std::fs::read_to_string(index) else { return titles };
+    for line in text.lines() {
+        let Some(id) = thread_ids.iter().find(|id| line.contains(id.as_str())) else { continue };
+        let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        if entry["id"].as_str() != Some(id.as_str()) { continue; }
+        let Some(name) = entry["thread_name"].as_str() else { continue };
+        let name: String = name.chars().map(|c| if c.is_control() { ' ' } else { c }).collect::<String>().trim().chars().take(80).collect();
+        if name.is_empty() { titles.remove(id); } else { titles.insert(id.clone(), name); }
+    }
+    titles
+}
+
+#[tauri::command]
+pub(crate) async fn codex_chat_titles(thread_ids: Vec<String>) -> Result<std::collections::HashMap<String, String>, String> {
+    let mut ids: Vec<String> = thread_ids.into_iter().filter(|id| uuid::Uuid::parse_str(id).is_ok()).collect();
+    ids.sort();
+    ids.dedup();
+    ids.truncate(64);
+    tauri::async_runtime::spawn_blocking(move || match codex_home() {
+        Some(home) => read_chat_titles(&home.join("session_index.jsonl"), &ids),
+        None => Default::default(),
+    }).await.map_err(|_| "titles-unavailable".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,6 +417,24 @@ mod tests {
         let threads = std::fs::read_dir(rollout.parent().unwrap()).unwrap().count();
         assert_eq!(threads, 1, "no other thread may be created");
         let _ = server.kill();
+    }
+
+    #[test]
+    fn chat_titles_follow_the_latest_codex_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let index = dir.path().join("session_index.jsonl");
+        let other = "01a1e7db-90af-7ad1-8cdb-2be2eee3fc63";
+        let lines = [
+            format!(r#"{{"id":"{THREAD}","thread_name":"옛 이름"}}"#),
+            format!(r#"{{"id":"{other}","thread_name":"다른 채팅"}}"#),
+            "not json".into(),
+            format!(r#"{{"id":"{THREAD}","thread_name":"펫\n테스트"}}"#),
+        ];
+        std::fs::write(&index, lines.join("\n")).unwrap();
+        let titles = read_chat_titles(&index, &[THREAD.into(), "01a1ac6a-0000-4000-8000-000000000000".into()]);
+        assert_eq!(titles.get(THREAD).map(String::as_str), Some("펫 테스트"), "the last name wins, control characters become spaces");
+        assert_eq!(titles.len(), 1, "only asked-for, named chats");
+        assert!(read_chat_titles(&dir.path().join("missing.jsonl"), &[THREAD.into()]).is_empty());
     }
 
     #[test]

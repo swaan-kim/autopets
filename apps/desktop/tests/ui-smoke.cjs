@@ -90,6 +90,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           window.__uiTest.onboardingActive = args.active;
           return null;
         }
+        // Read-only: Codex's own chat names for labels. Not an action, so not in `calls`.
+        if (name === 'codex_chat_titles') return structuredClone(window.__uiTest.chatTitles ?? {});
         calls.push({ name, args });
         if (name === 'save_pet') {
           if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);

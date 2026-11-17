@@ -253,7 +253,12 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await chatPage.goto(origin); await chooseRole(chatPage, '웹페이지 만들기');
   const chatFlow = chatPage.locator('.pet-start');
   await chatFlow.getByRole('heading', { name: '이 채팅에서 시작할까요?', exact: true }).waitFor();
-  assert.ok((await chatFlow.locator('.pet-start-summary').innerText()).includes('Codex 채팅 calling · 66666666'), 'the calling chat is named before starting');
+  assert.ok((await chatFlow.locator('.pet-start-summary').innerText()).includes('Codex 채팅 calling · 66666666'), 'a chat Codex has not named yet keeps folder · id');
+  // Codex named (or renamed) the chat meanwhile: coming back to the app shows that name; the id stays on hover.
+  await chatPage.evaluate(id => { window.__uiTest.chatTitles = { [id]: '학과 행사 페이지' }; window.dispatchEvent(new Event('focus')); }, CALLING);
+  await chatPage.waitForFunction(() => document.querySelector('.pet-start-summary')?.textContent?.includes('Codex 채팅 학과 행사 페이지 ·'));
+  assert.equal(await chatFlow.locator('.pet-start-chat strong').innerText(), '학과 행사 페이지', 'the calling chat is named under the question, not only in the summary');
+  assert.match(await chatFlow.locator('.pet-start-summary > span').first().getAttribute('title'), new RegExp(`calling · ${CALLING}$`), 'hover keeps the folder and full chat id');
   const startHere = chatFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true });
   assert.equal(await startHere.getAttribute('data-agent-id'), 'pet-selection.composer.start');
   assert.equal(await startHere.isEnabled(), true, 'from the calling chat the extra request is optional');
