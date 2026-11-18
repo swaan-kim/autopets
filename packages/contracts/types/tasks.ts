@@ -41,6 +41,7 @@ export interface Snapshot {
   petLinks?: import('./pet-link').PetLink[];
   petRecommendations?: import('./pet-link').PetRecommendation[];
   codexAttention?: import('./pet-link').CodexAttention[];
+  petJobs?: import('./pet-link').PetJob[];
   setup?: import('./setup').SetupState | null;
   sessions: Session[];
   slots: Slot[];

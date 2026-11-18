@@ -126,4 +126,87 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   await overlay.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).waitFor();
   checks.push('explicit pet return: contextual plan/result labels require current connected/enabled records, new-task action only for confirmed completion, A/B isolation and disconnected fallback, duplicate clicks/stale receipts suppressed, wrong dispatch exposes ID fallback, manager/overlay share exact-target navigation; fixture dispatch is not real navigation');
   await page.close(); await overlay.close();
+
+
+  // Jobs an AI reported through MCP: the first pet works, asks, finishes and shows where to look.
+  const jobId = '77777777-7777-4777-8777-777777777777';
+  const job = (state, extra = {}) => ({ id: jobId, state, host: 'claude-code', title: '발표자료 만들기', petId: null, resultPath: null, createdAt: Date.now(), updatedAt: Date.now(), ...extra });
+  const reportedState = { ...structuredClone(fixture), sessions: [], petLinks: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), petJobs: [job('asking')] };
+  const jobPet = await newPage({ width: 328, height: 600 });
+  await mockBridge(jobPet, reportedState); await jobPet.goto(`${origin}/?pet=0`);
+  const jobNotice = jobPet.locator('.pet-bubble');
+  await jobNotice.waitFor();
+  assert.equal(await jobNotice.getAttribute('data-tone'), 'ask');
+  assert.ok((await jobNotice.innerText()).includes('질문이 있어요') && (await jobNotice.innerText()).includes('Claude Code'), 'the notice names the AI, since the chat itself is not known');
+  const jobFit = await jobPet.evaluate(() => { const pet = document.querySelector('.floating-pet').getBoundingClientRect(), bubble = document.querySelector('.pet-bubble').getBoundingClientRect(); return bubble.left >= pet.left - 1 && bubble.right <= pet.right + 1; });
+  assert.equal(jobFit, true, 'the longest AI name still fits the compact pet');
+  await jobNotice.getByRole('button', { name: /질문이 있어요/ }).click();
+  const list = jobPet.getByRole('region', { name: 'AI가 알려준 일' });
+  await list.waitFor();
+  assert.ok((await list.innerText()).includes('발표자료 만들기') && (await list.innerText()).includes('Claude Code · 질문에 답해 주세요'));
+  await jobPet.keyboard.press('Escape');
+  const report = async next => jobPet.evaluate(next => { window.__uiTest.state.now = Date.now(); window.__uiTest.state.petJobs = [next]; window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); }, next);
+  await report(job('working'));
+  await jobPet.locator('.floating-status').filter({ hasText: 'Claude Code에서 작업 중' }).waitFor();
+  assert.equal(await jobNotice.count(), 0, 'working is shown by the pet, not by a notice');
+  await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides' }));
+  await jobNotice.waitFor();
+  assert.equal(await jobNotice.getAttribute('data-tone'), 'done'); assert.ok((await jobNotice.innerText()).includes('결과 열기'));
+  await jobNotice.getByRole('button', { name: /다 됐어요!/ }).click();
+  await jobPet.locator('.floating-status').waitFor();
+  assert.deepEqual(await jobPet.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_job_result').map(call => call.args)), [{ id: jobId }], 'only the job id is sent; the app opens the folder it already holds');
+  assert.equal(await jobPet.evaluate(() => window.__uiTest.calls.some(call => /submit|send|create.*thread|open_pet_task/.test(call.name))), false);
+  await report(job('failed'));
+  await jobNotice.waitFor();
+  assert.equal(await jobNotice.getAttribute('data-tone'), 'error');
+  // The pet looked at the result file itself: the notice and the list say how many places still need the user.
+  await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 4, notes: 3, external: 0 }, updatedAt: Date.now() + 5 }));
+  await jobPet.locator('.pet-bubble').filter({ hasText: '볼 곳 7' }).waitFor();
+  assert.ok((await jobNotice.innerText()).includes('결과 열기'));
+  const reviewFit = await jobPet.evaluate(() => { const pet = document.querySelector('.floating-pet').getBoundingClientRect(), bubble = document.querySelector('.pet-bubble').getBoundingClientRect(); return bubble.left >= pet.left - 1 && bubble.right <= pet.right + 1; });
+  assert.equal(reviewFit, true, 'the longer notice still fits the compact pet');
+  await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
+  const reviewed = jobPet.getByRole('region', { name: 'AI가 알려준 일' }).locator('.pet-job-review');
+  await reviewed.waitFor();
+  assert.equal(await reviewed.innerText(), '펫이 확인 · 5장 · 빈칸 4곳 · 남은 안내 문구 3곳');
+  assert.equal(await reviewed.getAttribute('data-attention'), 'true');
+  await jobPet.keyboard.press('Escape');
+  await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 0, notes: 0, external: 0 }, updatedAt: Date.now() + 9 }));
+  // The notice for the new report replaces the previous one; wait for that text, not just for a notice.
+  await jobPet.locator('.pet-bubble').filter({ hasNotText: '볼 곳' }).filter({ hasText: '다 됐어요!' }).waitFor();
+  await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
+  await jobPet.locator('.pet-job-review').filter({ hasText: '펫이 확인 · 5장 · 빈칸 없음' }).waitFor();
+  await jobPet.keyboard.press('Escape');
+  // Only the newest job speaks: an older finished job that was never opened stays quiet while a newer
+  // one works or waits, and does not come back after the newer result is opened.
+  const older = { ...job('done'), id: '88888888-4888-4888-8888-888888888888', title: '예전 일', host: 'codex', updatedAt: Date.now() - 60_000 };
+  const reportAll = async jobs => jobPet.evaluate(jobs => { window.__uiTest.state.now = Date.now(); window.__uiTest.state.petJobs = jobs; window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); }, jobs);
+  await reportAll([job('working'), older]);
+  await jobPet.locator('.floating-status').filter({ hasText: 'Claude Code에서 작업 중' }).waitFor();
+  assert.equal(await jobNotice.count(), 0, 'the older "done" does not speak over the job in progress');
+  await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
+  const card = jobPet.locator('.pet-quick-card');
+  await card.waitFor();
+  assert.ok((await card.innerText()).includes('Claude Code에서 작업 중'));
+  assert.equal(/작업 연결 전|채팅 연결 대기|전달된 단계 없음/u.test(await card.innerText()), false, 'the old link wording is not shown next to a reported job');
+  await jobPet.keyboard.press('Escape');
+  await reportAll([job('asking', { updatedAt: Date.now() + 1 }), older]);
+  await jobNotice.waitFor();
+  assert.equal(await jobNotice.getAttribute('data-tone'), 'ask');
+  await jobNotice.getByRole('button', { name: '알림 닫기' }).click();
+  await jobPet.locator('.floating-status').filter({ hasText: 'Claude Code에서 답을 기다려요' }).waitFor();
+  assert.equal(await jobNotice.count(), 0, 'closing the newest notice does not bring the older one back');
+  await jobPet.close();
+  const jobManager = await newPage({ width: 992, height: 688 });
+  await mockBridge(jobManager, { ...reportedState, petJobs: [job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides' })] });
+  await jobManager.goto(origin);
+  await jobManager.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).click();
+  const managerList = jobManager.getByRole('region', { name: 'AI가 알려준 일' });
+  await managerList.waitFor();
+  assert.ok((await managerList.innerText()).includes('Claude Code · 완료'));
+  assert.equal(await jobManager.getByText('아직 맡긴 일이 없어요.', { exact: true }).count(), 0, 'a reported job is a task the user gave');
+  await managerList.getByRole('button', { name: '결과 열기 →', exact: true }).click();
+  await jobManager.waitForFunction(() => window.__uiTest.calls.some(call => call.name === 'open_pet_job_result'));
+  checks.push('reported jobs: asking, working, done and failed reports change the first pet and its notice, name the AI instead of a chat, list the job in the pet card and in My tasks, and open the result by job id only');
+  await jobManager.close();
 };
