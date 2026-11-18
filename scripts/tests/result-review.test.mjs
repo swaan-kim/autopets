@@ -74,6 +74,8 @@ test('the report sends counts to the app and the samples back to the AI in the s
   assert.deepEqual(sent[1].review, { slides: 5, blanks: 5, notes: 2, external: 0 }, 'the app receives counts');
   assert.equal(/모집|동아리/u.test(JSON.stringify(sent[1])), false, 'no text from the result goes to the app');
   assert.equal(done.review.file, 'slides.html'); assert.equal(done.review.blanks.includes('[모집 시작일]'), true);
+  // Found on the installed build: the counts were overwritten by the samples of the same name.
+  assert.deepEqual(done.review.counts, { slides: 5, blanks: 5, notes: 2, external: 0 });
   assert.match(done.reviewNote, /내용을 지어내 빈칸을 채우지 마세요/u);
   const plain = (await call(4, { state: 'done', jobId: working.jobId, resultPath: 'C:\\work\\deck.pptx' })).result.structuredContent;
   assert.equal('review' in plain, false); assert.equal('review' in sent[2], false);

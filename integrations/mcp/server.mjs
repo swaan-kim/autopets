@@ -77,7 +77,7 @@ export function createSession({ library = createLibraryClient(), inspect = revie
       let value;
       try { value = await library({ operation: 'report', jobId, state: args.state, host, ...(review ? { review: review.counts } : {}), ...(args.title ? { title: args.title.trim() } : {}), ...(args.petId ? { petId: args.petId } : {}), ...(args.resultPath ? { resultPath: args.resultPath } : {}) }); }
       catch (cause) { value = { recorded: false, jobId, state: args.state, note: cause?.code === 'report-unavailable' ? '이 AutoPets 앱은 진행 알림을 아직 지원하지 않습니다. 작업은 그대로 계속해 주세요.' : 'AutoPets 앱에 알리지 못했습니다. 작업은 그대로 계속해 주세요.' }; }
-      if (review) value = { ...value, review: { file: review.file, ...review.counts, blanks: review.blanks, notes: review.notes, external: review.external }, reviewNote: REVIEW_NOTE };
+      if (review) value = { ...value, review: { file: review.file, counts: review.counts, blanks: review.blanks, notes: review.notes, external: review.external }, reviewNote: REVIEW_NOTE };
       return reply({ content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value });
     } else return error(-32602, 'Unknown tool');
     try {
