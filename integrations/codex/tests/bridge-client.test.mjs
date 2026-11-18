@@ -24,7 +24,7 @@ test('full installed-app slots reach the caller without retrying or replacing a 
   const cwd=path.resolve('fixture');
   await assert.rejects(runPet(['connect','--codex',path.resolve('codex.exe'),'--connection',path.resolve('connection.json'),
     '--pet','saved-pet','--pet-revision','1'],{CODEX_THREAD_ID:'11111111-1111-4111-8111-111111111111'},
-  {cwd,realpath:async v=>v,inspect:async()=>({node:{cwd},models:[]}),readConnection:async()=>f.connection}),error=>{
+  {cwd,realpath:async v=>v,isFile:async()=>true,inspect:async()=>({node:{cwd},models:[]}),readConnection:async()=>f.connection}),error=>{
     assert.equal(error.code,'slots-full'); assert.equal(error.status,409);
     const failure=petFailure(error);
     assert.equal(failure.retrySubmission,false);

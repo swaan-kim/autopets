@@ -10,7 +10,7 @@ const parent='11111111-1111-4111-8111-111111111111', child='22222222-2222-4222-8
 const cwd=path.resolve('fixture'), executable=path.resolve('fixture-codex.exe'), connection=path.resolve('fixture-connection.json');
 function fixture() {
   let link=null; const calls=[];
-  const deps={cwd,realpath:async v=>v,readConnection:async ()=>({}),preflight:async()=>({supported:true}),
+  const deps={cwd,realpath:async v=>v,isFile:async ()=>true,readConnection:async ()=>({}),preflight:async()=>({supported:true}),
     inspect:async ()=>({node:{cwd},models:[{model:'gpt-6-luna',supportedReasoningEfforts:['low']},{model:'gpt-6-sol',supportedReasoningEfforts:['low','medium']}]}),
     request:async (_,url,input)=>{
       calls.push({url,input});

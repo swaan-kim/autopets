@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Explicit attachment: never depends on hooks, launches AI, or fabricates a session event.
 import path from 'node:path';
-import { realpath } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
@@ -32,6 +32,17 @@ export function parsePetArgs(args) {
   }
   return result;
 }
+const regularFile=file=>stat(file).then(s=>s.isFile(),()=>false);
+// Codex's executable path contains its version and changes on every update, so it is never
+// remembered: each call takes the first one the current host gives and checks it still exists.
+// A missing selected path is an error, not a reason to try the next source.
+export async function resolveCodexExecutable(explicit,env,isFile=regularFile) {
+  const selected=[explicit,env.AUTOPETS_CODEX_EXECUTABLE,env.CODEX_APP_RUNTIME_CLI_PATH].find(v=>typeof v==='string' && v!=='');
+  if(!selected) throw Error('codex-runtime-required');
+  if(!path.isAbsolute(selected) || !(await isFile(selected))) throw Error('codex-runtime-unavailable');
+  return selected;
+}
+const failureCode=error=>/^[a-z][a-z-]{0,63}$/u.test(error?.message??'')?error.message:null;
 export async function inspectPetHost({executable,cwd,threadId,includeModels=true,runtime=withReadOnlyRuntime}) {
   return runtime({executable,cwd},async ({call})=>{
     const {thread}=await call('thread/read',{threadId,includeTurns:false});
@@ -51,9 +62,10 @@ export async function inspectPetHost({executable,cwd,threadId,includeModels=true
 export async function runPet(args,env=process.env,deps={}) {
   const o=parsePetArgs(args), cwd=await (deps.realpath??realpath)(deps.cwd??process.cwd());
   if(!uuid(env.CODEX_THREAD_ID)) throw Error('current-task-unavailable');
-  const executable=o.executable??env.AUTOPETS_CODEX_EXECUTABLE;
-  if(!executable || !path.isAbsolute(executable)) throw Error('codex-runtime-required');
-  const host=await (deps.inspect??inspectPetHost)({executable,cwd,threadId:env.CODEX_THREAD_ID,includeModels:['settings','prepare'].includes(o.operation)});
+  const executable=await resolveCodexExecutable(o.executable,env,deps.isFile);
+  let host;
+  try { host=await (deps.inspect??inspectPetHost)({executable,cwd,threadId:env.CODEX_THREAD_ID,includeModels:['settings','prepare'].includes(o.operation)}); }
+  catch(error) { throw failureCode(error)?error:Error('codex-runtime-failed'); }
   const target={sourceId:'codex-windows-local',threadId:env.CODEX_THREAD_ID,cwd:host.node.cwd};
   const connectionPath=o.connection??env.AUTOPETS_CONNECTION_FILE??path.join(env.AUTOPETS_DATA_DIR??path.join(env.LOCALAPPDATA??'', 'local.autopets.desktop'),'connection.json');
   // Explicit invocation can open the installed app; hooks and diagnostics cannot.
@@ -147,8 +159,17 @@ function unavailableProfileMessage(requested) {
       :'AutoPets 앱의 펫 설정에서 작업 방식을 "가볍게"로 바꾼 뒤 다시 요청해 주세요.');
 }
 export function petFailure(error) {
-  const code=/^[a-z-]+$/u.test(error?.message??'')?error.message:'pet-connection-unavailable';
+  // Only a short known-shape code leaves; raw OS/runtime text may hold paths or tokens.
+  const code=failureCode(error)??'pet-internal-error';
+  const connectionFile='AutoPets 연결 파일을 읽을 수 없어요. AutoPets 앱을 다시 켠 뒤 시도해 주세요.';
   const messages = {
+    'codex-runtime-required':'현재 Codex 실행 파일 경로를 받지 못했습니다. Codex 앱의 채팅에서 다시 요청해 주세요.',
+    'codex-runtime-unavailable':'현재 Codex 실행 파일을 찾을 수 없습니다. Codex 업데이트로 경로가 변경됐을 수 있습니다.',
+    'codex-runtime-failed':'현재 Codex 실행 파일을 실행하지 못했거나 응답을 확인하지 못했어요. Codex를 다시 시작한 뒤 시도해 주세요.',
+    'connection-unavailable':'AutoPets 연결 파일을 찾을 수 없어요. AutoPets 앱이 켜져 있는지 확인해 주세요.',
+    'connection-format':connectionFile,'connection-size':connectionFile,'connection-path':connectionFile,
+    'bridge-unavailable':'AutoPets 앱의 로컬 연결이 응답하지 않아요. AutoPets 앱이 켜져 있는지 확인해 주세요.',
+    'pet-internal-error':'펫 도구에서 예상하지 못한 오류가 났어요. 보안을 위해 세부 내용은 표시하지 않아요.',
     'unsupported-runtime-index':'현재 Codex의 작업 기록을 확인할 수 없어 새 펫 작업을 시작하지 않았어요. Codex 버전과 연결 상태를 확인해 주세요.',
     'unsupported-runtime-record':'현재 채팅의 실행 기록을 확인할 수 없어 새 펫 작업을 시작하지 않았어요. 기존 작업은 다시 실행하지 말고 상태를 확인해 주세요.',
     'pet-revision-changed':'설정이 바뀌었어요. 현재 채팅의 펫 상태를 다시 확인해 주세요.',
