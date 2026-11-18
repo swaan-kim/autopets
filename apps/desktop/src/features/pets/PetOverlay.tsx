@@ -25,7 +25,7 @@ import { PetRecommendationCard, recommendationStatus, visibleRecommendation } fr
 import { usePetGesture } from './usePetGesture';
 import { usePetDock, type DockBadge } from './usePetDock';
 import { PetDockHandle } from './PetDockHandle';
-import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention } from './PetAttention';
+import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention, type MarkControls } from './PetAttention';
 
 const moveHint = '클릭하면 작업 카드, 끌면 이동';
 
@@ -50,11 +50,16 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const returning = useRef(false);
   const action = useAction();
   const roles = useRoles();
-  // Codex attention bubble: which notice it shows (null = closed).
+  // Codex attention bubble: which notice it shows while pinned or popped up (null = closed),
+  // and `peek`: the pointer is on the pet's ? / ✓ mark, which shows it only while it stays there.
   const [bubbleId, setBubbleId] = useState<string | null>(null);
+  const [peek, setPeek] = useState(false);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(peekTimer.current), []);
+  const closeBubble = () => { clearTimeout(peekTimer.current); setPeek(false); setBubbleId(null); };
   const bubbled = useRef(new Set<string>());
   // Dragging the pet body moves its window; the open card and the bubble close first.
-  const gesture = usePetGesture({ onDragStart: () => { setExpanded(false); setBubbleId(null); } });
+  const gesture = usePetGesture({ onDragStart: () => { setExpanded(false); closeBubble(); } });
   // Dropped at the left or right screen edge, the pet tucks into a small handle there.
   const dock = usePetDock(index);
   const dockHandle = (name: string, badge: DockBadge, peek: ReactElement) => dock.edge &&
@@ -78,7 +83,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const notices = attentionForSlot(snapshot, index);
   const marked = markedAttention(notices);
   const unread = notices.find(item => !item.read);
-  const bubble = notices.find(item => item.id === bubbleId);
+  const shownId = bubbleId ?? (peek ? marked?.id : undefined);
+  const bubble = notices.find(item => item.id === shownId);
   const noticeOpen = Boolean(bubble) && !expanded && dock.phase === 'shown';
   useEffect(() => {
     if (!unread || bubbled.current.has(unread.id) || expanded || dock.phase !== 'shown') return;
@@ -86,6 +92,20 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   }, [unread?.id, expanded, dock.phase]);
   // Clicking the handle brings the pet back with the waiting notice open.
   useEffect(() => { if (dock.phase === 'entering' && marked) { bubbled.current.add(marked.id); setBubbleId(marked.id); } }, [dock.phase]);
+  // The ? / ✓ mark: pointing at it shows the bubble until the pointer leaves; a click pins it
+  // open, and another click closes it. While the card is open the click opens/closes the card.
+  const markControls: MarkControls = {
+    onEnter: () => { clearTimeout(peekTimer.current); setPeek(true); },
+    // A short grace absorbs the native window resize that follows the bubble opening.
+    onLeave: () => { clearTimeout(peekTimer.current); peekTimer.current = setTimeout(() => setPeek(false), 120); },
+    onToggle: event => {
+      if (expanded || !marked) return;
+      event.stopPropagation();
+      if (bubbleId === marked.id) closeBubble();
+      else { bubbled.current.add(marked.id); setBubbleId(marked.id); }
+    },
+  };
+  const mark = marked && <AttentionMark item={marked} controls={markControls} />;
   const markLabel = marked ? ` · ${attentionStatus(marked)}` : '';
   const codexBadge: DockBadge = marked ? (isAsk(marked) ? 'codex-ask' : 'codex-done') : null;
   // Codex called AutoPets in a chat: this pet is out already and the chat connection follows.
@@ -116,7 +136,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const summonText = summon?.phase === 'connecting' ? 'Codex 연결 중…' : summon?.phase === 'connected' ? 'Codex 채팅과 연결됨' : summon ? 'Codex 연결 확인 필요' : '';
   const summonStatus = summon && <span className={`floating-status summon ${summon.phase}`} role="status" title={summonText}>{summonText}</span>;
   const codexStatus = marked && <span className={`floating-status codex-${isAsk(marked) ? 'ask' : 'done'}`} title={marked.summary}>{attentionStatus(marked)}</span>;
-  const noticeBubble = noticeOpen && bubble && <AttentionBubble item={bubble} more={notices.length - 1} onDone={() => setBubbleId(null)} />;
+  const noticeBubble = noticeOpen && bubble && <AttentionBubble item={bubble} more={notices.length - 1} onDone={closeBubble} />;
   const noticeCard = marked && <AttentionBubble item={marked} card more={notices.length - 1} />;
   // Development diagnostics: tell the app where this pet drew the notice (ids only).
   const drawnOn = !marked ? null : dock.handle ? 'handle' : expanded ? 'card' : noticeOpen && bubble?.id === marked.id ? 'bubble' : 'mark';
@@ -160,7 +180,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       {noticeBubble}
       {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
       <div className="floating-pet">
-        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{marked && <AttentionMark item={marked} />}</button>
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{mark}</button>
         <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span>{summonStatus || codexStatus || <span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span>}
       </div></div>;
   }
@@ -213,8 +233,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     </div>}
     <div className="floating-pet">
       <button className="pet-menu-button" aria-expanded={expanded} aria-label="펫 메뉴" onClick={() => setExpanded(!expanded)}>⋯</button>
-      {session ? <button className="pet-hit" aria-expanded={expanded} aria-label={`${session.label} · 작업 카드 열기${markLabel}`} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}{marked && <AttentionMark item={marked} />}</button>
-        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} gesture={gesture} recommended={waitingRecommendation?.state === 'shown'} mark={marked && <AttentionMark item={marked} />} markLabel={markLabel} />}
+      {session ? <button className="pet-hit" aria-expanded={expanded} aria-label={`${session.label} · 작업 카드 열기${markLabel}`} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><PetAppearance template={appearance}><Pet index={index} activity={observedActivity(session, disconnected)} motion={motion} paused={disconnected || session.connection !== 'observed'} /></PetAppearance>{attention && <span className={`pet-attention-dot ${attention.kind}`} aria-label={view.text}>{attention.kind === 'elapsed' ? '◷' : attention.kind === 'milestone' ? '✓' : '!'}</span>}{mark}</button>
+        : <UnassignedPetButton index={index} expanded={expanded} onToggle={() => setExpanded(!expanded)} gesture={gesture} recommended={waitingRecommendation?.state === 'shown'} mark={mark} markLabel={markLabel} />}
       {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span>
       {summonStatus || codexStatus || (waitingRecommendation ? <span className="floating-status recommend" title={recommendationStatus(waitingRecommendation)}>{recommendationStatus(waitingRecommendation)}</span>

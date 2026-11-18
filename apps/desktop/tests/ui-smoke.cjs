@@ -12,6 +12,7 @@ const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
+const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetQuickUseChecks } = require('./pet-quick-use-ui.cjs');
@@ -332,6 +333,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     if (process.env.AUTOPETS_UI_PET_LINK_ONLY === '1') {
       await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_PET_ATTENTION_ONLY === '1') {
+      await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, checks, pageErrors: errors }, null, 2)); return;
     }
     if (process.env.AUTOPETS_UI_VISUAL_ONLY === '1') {
       const screenshots = await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
@@ -741,6 +746,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     graphScreenshots.push(...await runCompanionChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

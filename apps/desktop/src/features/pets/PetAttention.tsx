@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import type { CodexAttention, Snapshot } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 import './pet-attention.css';
@@ -30,8 +30,11 @@ export function attentionStatus(item: CodexAttention): string {
 export const markedAttention = (items: CodexAttention[]) => items.find(item => isAsk(item) || !item.read);
 const chatLabel = (item: CodexAttention) => item.chatTitle ?? `채팅 · ${item.target.threadId.slice(-8)}`;
 
-export function AttentionMark({ item }: { item: CodexAttention }) {
-  return <span className={`pet-codex-mark ${isAsk(item) ? 'ask' : 'done'}${item.read ? ' read' : ''}`} aria-hidden="true">{isAsk(item) ? '?' : '✓'}</span>;
+export interface MarkControls { onEnter: () => void; onLeave: () => void; onToggle: (event: ReactMouseEvent) => void }
+/** With `controls`, the mark on the pet previews its bubble on hover and pins it on click. */
+export function AttentionMark({ item, controls }: { item: CodexAttention; controls?: MarkControls }) {
+  return <span className={`pet-codex-mark ${isAsk(item) ? 'ask' : 'done'}${item.read ? ' read' : ''}${controls ? ' hoverable' : ''}`} aria-hidden="true"
+    onPointerEnter={controls?.onEnter} onPointerLeave={controls?.onLeave} onClick={controls?.onToggle}>{isAsk(item) ? '?' : '✓'}</span>;
 }
 
 /**

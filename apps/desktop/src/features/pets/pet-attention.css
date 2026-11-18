@@ -23,6 +23,8 @@
 /* The mark on the pet itself (top left: the right corner holds the recommendation dot and ⋯ menu). */
 .pet-codex-mark { position: absolute; left: 6px; top: 8px; width: 24px; height: 24px; display: grid; place-items: center; font-size: 14px; font-weight: 800; line-height: 1;
   color: #ffffff; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 1px 4px #00000026; pointer-events: none; }
+/* On the pet the mark takes the pointer: hover previews the bubble, a click pins it. */
+.pet-codex-mark.hoverable { pointer-events: auto; cursor: pointer; }
 .pet-codex-mark.ask { background: #f59e3b; }
 .pet-codex-mark.done { background: #34a86a; }
 .pet-codex-mark.read { opacity: .72; }
