@@ -159,6 +159,42 @@ test('valid Markdown heading indentation and fenced reproduction commands remain
   assert.deepEqual(validatePullRequest(indented), []);
 });
 
+test('a PR that edits screen files must show the screen, whatever kind it declares', () => {
+  // The real case: a behaviour PR that changed the pet screen's main button with text only.
+  const textOnly = body.replace('- 비교 유형: 화면', '- 비교 유형: 동작')
+    .replace('| ![이전](docs/changes/22/before.png) | ![변경](docs/changes/22/after.png) |', '| 새 대화로만 시작 | 부른 채팅에서 이어가기 |');
+  assert.deepEqual(validatePullRequest(textOnly), [], 'without a file list the old rule applies');
+  assert.deepEqual(validatePullRequest(textOnly, { files: ['integrations/mcp/server.mjs', 'apps/desktop/src-tauri/src/lib.rs', 'apps/desktop/tests/ui-smoke.cjs', 'docs/a.md'] }), [], 'no screen file was touched');
+  const errors = validatePullRequest(textOnly, { files: ['apps/desktop/src/features/pets/UiPetStudio.tsx', 'apps\\desktop\\src\\features\\pets\\pet-composer-simple.css', 'apps/desktop/src/a.tsx', 'apps/desktop/src/b.tsx', 'README.md'] });
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /화면 파일을 바꿨어요\(apps\/desktop\/src\/features\/pets\/UiPetStudio\.tsx, .*외 1개\)/u);
+  assert.match(errors[0], /변경 후 화면 이미지/u);
+  // The same PR with an image passes; the declared kind does not matter.
+  assert.deepEqual(validatePullRequest(textOnly.replace('| 새 대화로만 시작 | 부른 채팅에서 이어가기 |', '| 새 대화로만 시작 | 부른 채팅에서 이어가기 |\n\n![변경 후](docs/changes/74/after.png)'), { files: ['apps/desktop/src/features/pets/UiPetStudio.tsx'] }), []);
+  assert.deepEqual(validatePullRequest(body, { files: ['apps/desktop/src/features/pets/UiPetStudio.tsx'] }), []);
+  // Nothing to see needs a stated reason, not just the words.
+  const renamed = textOnly.replace('- 비교 조건:', '- 화면 변화 없음: 변수 이름만 바꿨고 그려지는 내용은 같습니다\n- 비교 조건:');
+  assert.deepEqual(validatePullRequest(renamed, { files: ['apps/desktop/src/features/pets/UiPetStudio.tsx'] }), []);
+  assert.equal(validatePullRequest(textOnly.replace('- 비교 조건:', '- 화면 변화 없음: 없음\n- 비교 조건:'), { files: ['apps/desktop/src/features/pets/UiPetStudio.tsx'] }).length, 1);
+  // An image outside the evidence section does not count.
+  assert.equal(validatePullRequest(textOnly.replace('## 검토 요청', '![참고](docs/changes/74/after.png)\n## 검토 요청'), { files: ['apps/desktop/src/app/Manager.tsx'] }).length, 1);
+});
+
+test('the CLI reads the changed file list as data', async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'autopets-pr-files-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const script = fileURLToPath(new URL('../check-pull-request.mjs', import.meta.url));
+  const text = path.join(directory, 'body.md'), files = path.join(directory, 'files.txt');
+  await writeFile(text, body.replace('- 비교 유형: 화면', '- 비교 유형: 동작').replace('| ![이전](docs/changes/22/before.png) | ![변경](docs/changes/22/after.png) |', '| 이전 동작 설명 | 변경 후 동작 설명 |'));
+  await writeFile(files, 'apps/desktop/src/features/pets/PetOverlay.tsx\r\n$(touch should-not-run)\n\nREADME.md\n');
+  const failed = spawnSync(process.execPath, [script, '--body', text, '--files', files], { cwd: directory, encoding: 'utf8' });
+  assert.equal(failed.status, 1); assert.match(failed.stderr, /화면 파일을 바꿨어요\(apps\/desktop\/src\/features\/pets\/PetOverlay\.tsx\)/u);
+  await writeFile(files, 'README.md\n');
+  assert.equal(spawnSync(process.execPath, [script, '--body', text, '--files', files], { cwd: directory, encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync(process.execPath, [script, '--body', text, '--files'], { cwd: directory, encoding: 'utf8' }).status, 1, 'a missing list is a usage error');
+  assert.equal(spawnSync(process.execPath, [script, '--body', text, '--other', files], { cwd: directory, encoding: 'utf8' }).status, 1);
+});
+
 test('event CLI reads shell-like PR text as data and returns failure for incomplete content', async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'autopets-pr-format-'));
   t.after(() => {
