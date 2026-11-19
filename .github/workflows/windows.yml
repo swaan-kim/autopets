@@ -100,10 +100,24 @@ jobs:
           cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
       - name: Stage bounded application bridge probe
         run: |
-          $taskProbeFiles = @(Get-ChildItem -LiteralPath 'apps/desktop/src-tauri/target/debug/deps' -Filter 'autopets_lib-*.exe' -File)
-          if ($taskProbeFiles.Count -ne 1) { throw 'Expected one compiled app test executable.' }
+          # Ask Cargo for the already-built test executable instead of assuming target/debug/deps:
+          # Rust 1.100 (stable 2026-11-12) moved test executables to <target>/debug/build/<pkg>/<hash>/out.
+          $taskManifest = 'apps/desktop/src-tauri/Cargo.toml'
+          $taskTargetDir = (cargo metadata --format-version 1 --no-deps --manifest-path $taskManifest | ConvertFrom-Json).target_directory
+          if ($LASTEXITCODE -ne 0 -or -not $taskTargetDir) { throw 'cargo metadata could not report the target directory.' }
+          Write-Host "Cargo target_directory: $taskTargetDir (CARGO_TARGET_DIR='$env:CARGO_TARGET_DIR', CARGO_BUILD_TARGET='$env:CARGO_BUILD_TARGET', $(cargo --version))"
+          $taskProbeFiles = @(cargo test --locked --manifest-path $taskManifest --lib --no-run --message-format=json |
+            ForEach-Object { try { $_ | ConvertFrom-Json } catch { } } |
+            Where-Object { $_.reason -eq 'compiler-artifact' -and $_.target.name -eq 'autopets_lib' -and $_.profile.test -and $_.executable } |
+            ForEach-Object { $_.executable } | Sort-Object -Unique)
+          if ($LASTEXITCODE -ne 0) { throw 'cargo test --no-run could not report the compiled app test executable.' }
+          if ($taskProbeFiles.Count -ne 1 -or -not (Test-Path -LiteralPath $taskProbeFiles[0] -PathType Leaf)) {
+            $taskFound = @(Get-ChildItem -LiteralPath $taskTargetDir -Recurse -Filter 'autopets_lib-*.exe' -File -ErrorAction SilentlyContinue | ForEach-Object FullName)
+            throw "Expected one existing app test executable. Cargo reported: [$($taskProbeFiles -join ', ')]; autopets_lib-*.exe under ${taskTargetDir}: [$($taskFound -join ', ')]"
+          }
+          Write-Host "Bridge probe source: $($taskProbeFiles[0])"
           New-Item -ItemType Directory -Path work/bridge-probe -Force | Out-Null
-          Copy-Item -LiteralPath $taskProbeFiles[0].FullName -Destination work/bridge-probe/autopets-bridge-probe.exe
+          Copy-Item -LiteralPath $taskProbeFiles[0] -Destination work/bridge-probe/autopets-bridge-probe.exe
           $taskProbeHash = (Get-FileHash -LiteralPath work/bridge-probe/autopets-bridge-probe.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           @{ sourceCommit=$env:GITHUB_SHA; sha256=$taskProbeHash; testOnly=$true } | ConvertTo-Json | Set-Content work/bridge-probe/build.json -Encoding utf8
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
