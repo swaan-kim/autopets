@@ -80,6 +80,14 @@ pub(crate) fn dock_edge(body_left: i32, body_right: i32, body_y: i32, screens: &
     }
 }
 
+/// "숨기기" on the pet popup: the left or right side of the screen showing the pet body,
+/// whichever is closer (a tie goes right, where the pets start out).
+pub(crate) fn nearest_edge(body_x: i32, body_y: i32, screens: &[Screen]) -> Option<(Edge, Rect)> {
+    let work = nearest_screen(screens, body_x, body_y)?.work;
+    let edge = if body_x - work.left < work.right() - body_x { Edge::Left } else { Edge::Right };
+    Some((edge, work))
+}
+
 /// The screen showing this point, or the closest one when the point is on no
 /// screen any more (a monitor was removed or the resolution changed).
 pub(crate) fn nearest_screen(screens: &[Screen], x: i32, y: i32) -> Option<Screen> {
@@ -206,6 +214,24 @@ pub(crate) fn watch_pet_drag(window: tauri::WebviewWindow, docks: tauri::State<P
     Ok(())
 }
 
+/// "숨기기" on the pet popup: chooses the closer side of this pet's screen, as if the pet had
+/// been dropped there, and returns it. The pet then slides out and calls `dock_pet` as usual.
+/// The popup must be closed first: the pet body is read from the collapsed window.
+#[tauri::command]
+pub(crate) fn tuck_pet(window: tauri::WebviewWindow, docks: tauri::State<PetDocks>) -> Result<Edge, String> {
+    require_pet(window.label())?;
+    if docked_edge(window.app_handle(), window.label()).is_some() { return Err("이미 가장자리에 숨어 있어요.".into()); }
+    let error = |e: tauri::Error| e.to_string();
+    let position = window.outer_position().map_err(error)?;
+    let size = window.outer_size().map_err(error)?;
+    let scale = window.scale_factor().map_err(error)?;
+    if f64::from(size.width) > PET_W * scale * 1.2 { return Err("펫 카드를 닫은 뒤 숨겨 주세요.".into()); }
+    let found = nearest_edge(position.x + size.width as i32 / 2, position.y + (BODY_CENTER_Y * scale).round() as i32, &screens(&window))
+        .ok_or("화면 정보를 읽을 수 없습니다.")?;
+    docks.pending.lock().map_err(|_| "펫을 숨길 수 없습니다.")?.insert(window.label().to_owned(), found);
+    Ok(found.0)
+}
+
 /// Tucks the pet into the edge it was just dropped at (after its slide-out).
 #[tauri::command]
 pub(crate) fn dock_pet(window: tauri::WebviewWindow, docks: tauri::State<PetDocks>, edge: Edge) -> Result<(), String> {
@@ -307,6 +333,22 @@ mod tests {
         let left_of = [screen(-1920, 1920, 1.0), screen(0, 1920, 1.0)];
         assert_eq!(dock_edge(0, 160, 500, &left_of), None);
         assert_eq!(dock_edge(-1920, -1760, 500, &left_of).map(|d| d.0), Some(Edge::Left));
+    }
+
+    #[test]
+    fn hiding_from_the_popup_picks_the_closer_side_of_the_pets_screen() {
+        let one = [screen(0, 1920, 1.0)];
+        assert_eq!(nearest_edge(300, 500, &one).map(|d| d.0), Some(Edge::Left));
+        assert_eq!(nearest_edge(1500, 500, &one).map(|d| d.0), Some(Edge::Right));
+        assert_eq!(nearest_edge(960, 500, &one).map(|d| d.0), Some(Edge::Right), "a tie goes right");
+        // With two monitors the side of the pet's own screen counts, even next to the other monitor.
+        let two = [screen(0, 1920, 1.0), screen(1920, 2560, 1.5)];
+        assert_eq!(nearest_edge(1700, 500, &two), Some((Edge::Right, rect(0, 0, 1920, 1040))));
+        assert_eq!(nearest_edge(2100, 500, &two), Some((Edge::Left, rect(1920, 0, 2560, 1040))));
+        // A side taskbar moves that side to the work area.
+        let taskbar_left = [Screen { bounds: rect(0, 0, 1920, 1080), work: rect(48, 0, 1872, 1080), scale: 1.0 }];
+        assert_eq!(nearest_edge(100, 500, &taskbar_left).map(|d| (d.0, d.1.left)), Some((Edge::Left, 48)));
+        assert!(nearest_edge(0, 0, &[]).is_none());
     }
 
     #[test]

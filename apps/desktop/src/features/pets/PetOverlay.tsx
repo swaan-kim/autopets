@@ -18,7 +18,8 @@ import { TaskPetArt } from './TaskPetArt';
 import { catalogFor } from './petCatalog';
 import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
-import { ExplicitPet, explicitPetStatus, explicitPetMotion } from './ExplicitPet';
+import { explicitPetStatus, explicitPetMotion } from './ExplicitPet';
+import { PetPopup } from './PetPopup';
 import { companionState, companionRunKey } from './companionMotion';
 import { CompanionPet } from './CompanionPet';
 import { PetRecommendationCard, recommendationStatus, visibleRecommendation } from './PetRecommendation';
@@ -150,11 +151,12 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   useEffect(() => {
     if (!expanded) return;
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { setExpanded(false); overlay.current?.querySelector<HTMLButtonElement>('.pet-hit')?.focus(); } };
-    const outside = (event: PointerEvent) => { if (event.target === overlay.current || event.target === document.body || event.target === document.documentElement) setExpanded(false); };
+    // The empty, transparent part of the expanded pet window counts as outside the popup.
+    const outside = (event: PointerEvent) => { if (event.target === overlay.current || event.target === document.body || event.target === document.documentElement || (event.target instanceof Element && event.target.classList.contains('quick-card-stack'))) setExpanded(false); };
     const blur = () => setExpanded(false);
     document.addEventListener('keydown', key); document.addEventListener('pointerdown', outside); window.addEventListener('blur', blur);
     // Native resizing finishes after this effect; focusing must not scroll the compact window.
-    overlay.current?.querySelector<HTMLButtonElement>('.pet-quick-card button')?.focus({ preventScroll: true });
+    overlay.current?.querySelector<HTMLButtonElement>('.pet-popup .pet-popup-actions button, .pet-quick-card button')?.focus({ preventScroll: true });
     return () => { document.removeEventListener('keydown', key); document.removeEventListener('pointerdown', outside); window.removeEventListener('blur', blur); };
   }, [expanded]);
   useEffect(() => {
@@ -164,6 +166,15 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     add<{ exceptSlot: number | null }>('autopets://collapse-pets', payload => { if (payload.exceptSlot !== index) setExpanded(false); });
     return () => { disposed = true; disposers.forEach(remove => remove()); };
   }, [index]);
+  // "숨기기" on the popup: close it, let the window shrink back to the pet, then tuck the pet into
+  // the closer screen side (the handle with the arrow). If it cannot tuck, it hides as before.
+  const tuckAway = () => {
+    setExpanded(false); closeBubble();
+    resizeQueue.current = resizeQueue.current.catch(() => undefined)
+      .then(() => command('set_pet_expanded', { expanded: false, notice: false }))
+      .then(() => dock.tuck(), () => false)
+      .then(tucked => { if (!tucked) void action.run('set_pet_visible', { slot: index, visible: false }); });
+  };
   const explicit = snapshot.petLinks?.find(link => link.slot === index);
   if (explicit) {
     const active = explicit.connected && !disconnected && !explicit.run?.trackingClosed && (explicit.enabled || Boolean(explicit.run));
@@ -178,7 +189,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     }
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
       {noticeBubble}
-      {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<div className="pet-quick-card"><ExplicitPet link={explicit} disconnected={disconnected} showPet={false} onHide={() => { setExpanded(false); void action.run('set_pet_visible', { slot: index, visible: false }); }} /><button onClick={() => setExpanded(false)}>닫기</button></div></div>}
+      {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} /></div>}
       <div className="floating-pet">
         <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{mark}</button>
         <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span>{summonStatus || codexStatus || <span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span>}

@@ -69,6 +69,19 @@ export function usePetDock(index: number) {
       .catch(cause => { setError(String(cause)); setDock({ phase: 'hidden', edge }); });
   }, []);
 
+  // "숨기기" on the pet popup: the pet slides into the closer side of its screen, exactly as if
+  // it had been dropped there. Resolves false when it could not (the caller decides what then).
+  const tuck = useCallback(async () => {
+    if (current.current.phase !== 'shown') return false;
+    try {
+      const edge = await command<DockEdge | null>('tuck_pet');
+      if (edge !== 'left' && edge !== 'right') return false;
+      setError('');
+      setDock(state => state.phase === 'shown' ? { phase: 'hiding', edge } : state);
+      return true;
+    } catch (cause) { setError(String(cause)); return false; }
+  }, []);
+
   // Codex called AutoPets in a chat (`$autopets`, `/오토펫`): a tucked-in pet comes back out,
   // like a click on its handle. A pet already out is left alone.
   useEffect(() => {
@@ -82,5 +95,5 @@ export function usePetDock(index: number) {
 
   const handle = dock.phase === 'hidden' || dock.phase === 'restoring';
   const overlayClass = dock.phase === 'hiding' ? ` dock-leave dock-${dock.edge}` : dock.phase === 'entering' ? ` dock-enter dock-${dock.edge}` : '';
-  return { ...dock, handle, overlayClass, error, restore };
+  return { ...dock, handle, overlayClass, error, restore, tuck };
 }

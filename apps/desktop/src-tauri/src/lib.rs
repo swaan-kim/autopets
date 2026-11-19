@@ -46,6 +46,7 @@ pub fn run() {
             platform::codex_chat::codex_chat_titles,
             platform::pet_dock::watch_pet_drag,
             platform::pet_dock::dock_pet,
+            platform::pet_dock::tuck_pet,
             platform::pet_dock::undock_pet,
             platform::pet_dock::get_pet_dock,
             platform::pet_dock::reanchor_pet,
