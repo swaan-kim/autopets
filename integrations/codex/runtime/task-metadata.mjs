@@ -31,7 +31,7 @@ export function summarizeTaskMetadata(thread, expected, observedAt) {
       || !Number.isSafeInteger(observedAt) || observedAt < 0) throw new Error('Invalid metadata time');
   return {
     id: expected.id, label: expected.label, cwd: thread.cwd, projectId: thread.projectId ?? null, parentId, forkedFromId,
-    creationSurface: thread.originator === 'Codex Desktop' ? 'codex-local' : thread.originator === 'codex_work_desktop' ? 'work-local' : 'unknown',
+    creationSurface: ['Codex Desktop', 'codex_vscode'].includes(thread.originator) ? 'codex-local' : thread.originator === 'codex_work_desktop' ? 'work-local' : 'unknown',
     runtimeStatus: ({ notLoaded: 'not-loaded', idle: 'idle', active: 'active', systemError: 'error' })[thread.status?.type] ?? 'unknown',
     configuredModel: text(thread.model, 128) ? thread.model : null,
     configuredReasoning: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(thread.reasoningEffort) ? thread.reasoningEffort : null,
