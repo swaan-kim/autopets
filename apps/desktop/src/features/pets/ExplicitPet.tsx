@@ -9,6 +9,7 @@ import { TaskPetArt } from './TaskPetArt';
 import { catalogFor } from './petCatalog';
 import { companionState, companionRunKey } from './companionMotion';
 import { useTaskLabel } from './useTaskLabel';
+import { chatBadge, chatDetail, useCodexChatTitles } from './useCodexChatTitles';
 const profiles = { light: '가볍게', standard: '표준', careful: '꼼꼼하게', plan: '계획만' };
 export const unresolvedPetRun = (link: PetLink) => Boolean(link.run && !link.run.trackingClosed && ['requested', 'working', 'returned', 'unknown'].includes(link.run.state));
 export function explicitPetMotion(link: PetLink, disconnected = false): PetMotion {
@@ -32,6 +33,7 @@ export function explicitPetStatus(link: PetLink, disconnected = false): string {
 }
 export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, showPet = true, compact = false }: { link: PetLink; disconnected?: boolean; onHide?: () => void; onNewTask?: (link: PetLink) => void; showPet?: boolean; compact?: boolean }) {
   const action = useAction();
+  const chatTitles = useCodexChatTitles([link.target.threadId]);
   const [closing, setClosing] = useState(false);
   const [copyNotice, setCopyNotice] = useState('');
   const [copyText, setCopyText] = useState('');
@@ -78,7 +80,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
     {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={!active} motion={explicitPetMotion(link, disconnected)} state={companionState(link, disconnected)} runKey={companionRunKey(link)} interactive={active} /></div>}
     <div className="explicit-identity" data-agent-id="task-card.identity">
       <header className="explicit-heading"><strong>{displayLabel || link.template.name}</strong><span>Codex</span></header>
-      <div className="explicit-location">{displayLabel && <p className="explicit-role">{link.template.name}</p>}<p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={link.target.threadId}>채팅 · {link.target.threadId.slice(-8)}</small></div>
+      <div className="explicit-location">{displayLabel && <p className="explicit-role">{link.template.name}</p>}<p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={chatDetail(link.target)}>{chatBadge(chatTitles, link.target.threadId)}</small></div>
     </div>
     <div className="explicit-status-panel" data-agent-id="task-card.status" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p>{(!compact || !active || !link.enabled || state === 'failed' || state === 'unknown') && <p className="explicit-help">{help}</p>}</div>
     {link.run && ['complete', 'waiting', 'returned'].includes(link.run.state) && !runTemplate.skills.every(expected => link.run!.skillEvidence?.some(skill => skill.id === expected.id && skill.version === expected.version)) && <p className="explicit-help" role="status">결과 도착 · 일하는 방법 확인 필요</p>}

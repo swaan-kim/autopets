@@ -50,4 +50,4 @@ fs.cpSync(sourceSkill, target, { recursive: true });
 fs.copyFileSync(builtExe, installedExe);
 fs.writeFileSync(marker, `Installed from ${previewRoot}\n`);
 console.log(`Installed Codex skill "autopet" to ${target}`);
-console.log('Start a new Codex chat and type /오토펫 (or /autopet, $autopet).');
+console.log('Start a new Codex chat and type /autopet (or $autopet). /오토펫 opens the AutoPets dog app.');

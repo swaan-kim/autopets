@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "autopets-agentation": {
+      "command": "node",
+      "args": ["scripts/feedback-mcp.mjs"]
+    }
+  }
+}

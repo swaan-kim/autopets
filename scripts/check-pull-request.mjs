@@ -67,8 +67,16 @@ function field(text, name) {
     .find(match => names.includes(match?.[1]))?.[2]?.trim() ?? '';
 }
 
-/** Structure and evidence presence only. Does not certify images, test results or approval. */
-export function validatePullRequest(body) {
+/** Files that draw the app's screens. A PR that edits one must show the screen (#90). */
+export const screenFiles = files => (Array.isArray(files) ? files : [])
+  .filter(file => typeof file === 'string' && /^apps\/desktop\/src\/.+\.(?:tsx|css)$/u.test(file.replaceAll('\\', '/')));
+
+/**
+ * Structure and evidence presence only. Does not certify images, test results or approval.
+ * `files` is the list of paths the PR changes, when known. The declared 비교 유형 is the author's
+ * word; the changed files are what happened, so screen files require a screen image either way.
+ */
+export function validatePullRequest(body, { files } = {}) {
   if (typeof body !== 'string' || !body.trim()) return ['PR 설명을 작성하세요.'];
   if (body.length > 100000) return ['PR 설명은 100,000자 이내로 줄이고 상세 자료를 연결하세요.'];
   const errors = [], text = withoutFencedCode(clean(body)).split(/\r?\n/u)
@@ -110,6 +118,12 @@ export function validatePullRequest(body) {
   if (kind === '문서' && !comparison) errors.push('문서 변경에는 이전 설명과 바뀐 설명을 비교하는 표를 적으세요.');
   if (kind === '신규 기능' && !image && !comparison) errors.push('신규 기능은 이미지나 동작 표로 보여주세요.');
   if (kind === '화면' && !comparison && !missingBefore) errors.push('Before/After 표를 채우거나 이전 자료가 없는 이유를 적으세요.');
+  const screens = screenFiles(files);
+  // A change with nothing to see (a rename, a type fix) says so in one line; the reviewer judges the reason.
+  const nothingToSee = [...field(comparisonRecord, '화면 변화 없음')].length >= 10;
+  if (screens.length && !image && !nothingToSee) {
+    errors.push(`화면 파일을 바꿨어요(${screens.slice(0, 3).join(', ')}${screens.length > 3 ? ` 외 ${screens.length - 3}개` : ''}). 비교 유형과 관계없이 "사용 흐름과 전후 비교"에 변경 후 화면 이미지를 넣어 주세요. 화면에 보이는 변화가 없다면 "- 화면 변화 없음: <이유>"를 적으세요.`);
+  }
   if (details.length !== 1) errors.push('본문 아래에 접힌 개발 기록과 다음 작업 구역을 하나 작성하세요.');
   else for (const names of handoffFields) {
     const value = field(details[0][1], names);
@@ -120,11 +134,13 @@ export function validatePullRequest(body) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const [mode, file, ...extra] = process.argv.slice(2);
-    if (!['--body', '--event'].includes(mode) || !file || extra.length) throw Error('사용법: pnpm review:check --body <PR설명.md> 또는 --event <GitHub event.json>');
+    const [mode, file, option, list, ...extra] = process.argv.slice(2);
+    if (!['--body', '--event'].includes(mode) || !file || option !== undefined && (option !== '--files' || !list) || extra.length) throw Error('사용법: pnpm review:check --body <PR설명.md> 또는 --event <GitHub event.json> [--files <바뀐 파일 목록.txt>]');
+    // One changed path per line, read as data.
+    const files = list ? (await readFile(list, 'utf8')).split(/\r?\n/u).map(line => line.trim()).filter(Boolean) : undefined;
     const input = await readFile(file, 'utf8');
     const body = mode === '--event' ? JSON.parse(input).pull_request?.body : input;
-    const errors = validatePullRequest(body);
+    const errors = validatePullRequest(body, { files });
     if (errors.length) {
       console.error(errors.map(error => `- ${error}`).join('\n'));
       process.exitCode = 1;

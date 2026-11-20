@@ -12,10 +12,22 @@ use std::{
 };
 use tauri::{Emitter, Manager, PhysicalPosition};
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Position {
     pub(crate) x: i32,
     pub(crate) y: i32,
+    /// Set while the pet is tucked into a screen edge; `x`/`y` are then where it comes back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) edge: Option<super::pet_dock::Edge>,
+}
+
+pub(crate) fn save_positions(desktop: &Desktop, positions: &HashMap<String, Position>) {
+    if let Ok(json) = serde_json::to_vec(positions) {
+        let temp = desktop.data_dir.join("positions.tmp");
+        if std::fs::write(&temp, json).is_ok() {
+            let _ = std::fs::rename(temp, desktop.data_dir.join("positions.json"));
+        }
+    }
 }
 pub(crate) struct Desktop {
     pub(crate) visible: AtomicBool,
@@ -140,6 +152,31 @@ pub(crate) fn reopen(app: &tauri::AppHandle) {
     show_manager(app.clone(), None, None);
 }
 
+/// A second launch with `--show-pets [--chat <thread id>]`: Codex called AutoPets
+/// (`$autopets`, `/오토펫`). The dog pets come out now, before the chat is connected,
+/// and the manager is neither opened nor focused. Pets the user hid are shown again for
+/// this explicit call; a pet tucked into a screen edge restores itself (its window
+/// listens for `autopets://pet-summoned`). Visible pets are left as they are.
+pub(crate) fn second_launch(app: &tauri::AppHandle, argv: &[String]) {
+    if !argv.iter().any(|arg| arg == "--show-pets") { return reopen(app); }
+    let chat = argv.iter().position(|arg| arg == "--chat").and_then(|i| argv.get(i + 1))
+        .filter(|id| uuid::Uuid::parse_str(id).is_ok()).cloned();
+    summon_pets(app, chat);
+}
+
+pub(crate) fn summon_pets(app: &tauri::AppHandle, chat: Option<String>) {
+    if let Some(desktop) = app.try_state::<Desktop>() {
+        desktop.visible.store(true, Ordering::Relaxed);
+        if let Ok(mut hidden) = desktop.hidden_slots.lock() { *hidden = [false; 3]; }
+        // Right after a cold start the manager page may not have reported its first-use guide yet;
+        // an explicit call from Codex does not wait for that report. A guide that is open and
+        // focused still keeps the pets out of its way (`onboarding_suppressed`).
+        desktop.onboarding_initialized.store(true, Ordering::Relaxed);
+    }
+    refresh_pet_visibility(app);
+    let _ = app.emit("autopets://pet-summoned", serde_json::json!({"chatId": chat, "at": crate::domain::activity::now_ms()}));
+}
+
 pub(crate) fn set_pets_visible(
     app: tauri::AppHandle,
     store: tauri::State<SharedStore>,
@@ -224,9 +261,15 @@ pub(crate) fn open_pet(
     Ok(())
 }
 
-pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> Result<(), String> {
+/// `expanded`: the pet card is open. `notice`: only the small Codex notice bubble above the pet
+/// is open (a slightly taller window; never focused, never moved to the screen centre).
+pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool, notice: bool) -> Result<(), String> {
     if !["pet-0", "pet-1", "pet-2"].contains(&window.label()) {
         return Err("펫 창에서만 사용할 수 있습니다.".into());
+    }
+    // A pet tucked into a screen edge keeps its handle size until it is restored.
+    if super::pet_dock::docked_edge(window.app_handle(), window.label()).is_some() {
+        return Ok(());
     }
     if expanded {
         let slot = window
@@ -243,17 +286,15 @@ pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> 
     let current_monitor = window.current_monitor().ok().flatten();
     let (width, height) = if let Some(monitor) = current_monitor.as_ref() {
         let area = monitor.work_area();
-        fit_pet_size(
+        fit_pet_layout(
             expanded,
+            notice,
             window.scale_factor().unwrap_or(monitor.scale_factor()),
             area.size.width,
             area.size.height,
         )
     } else {
-        (
-            if expanded { 328.0 } else { 180.0 },
-            if expanded { 600.0 } else { 230.0 },
-        )
+        pet_layout(expanded, notice)
     };
     window
         .set_size(tauri::LogicalSize::new(width, height))
@@ -262,6 +303,7 @@ pub(crate) fn set_pet_expanded(window: tauri::WebviewWindow, expanded: bool) -> 
     let anchored = Position {
         x: prior.x + old_size.width as i32 - new_size.width as i32,
         y: prior.y + old_size.height as i32 - new_size.height as i32,
+        edge: None,
     };
     // Keep the pet on its original monitor: expansion near the left edge can
     // place the proposed top-left point inside an adjacent monitor.
@@ -331,8 +373,26 @@ pub(crate) fn clamp_position(window: &tauri::WebviewWindow, position: Position) 
     }
 }
 
+/// Logical size of a pet window: the card, the notice bubble, or the pet alone.
+pub(crate) fn pet_layout(expanded: bool, notice: bool) -> (f64, f64) {
+    if expanded { (328.0, 600.0) } else if notice { (PET_NOTICE_W, PET_NOTICE_H) } else { (180.0, 230.0) }
+}
+pub(crate) const PET_NOTICE_W: f64 = 252.0;
+pub(crate) const PET_NOTICE_H: f64 = 404.0;
+
+#[cfg(test)]
 pub(crate) fn fit_pet_size(
     expanded: bool,
+    scale: f64,
+    work_width: u32,
+    work_height: u32,
+) -> (f64, f64) {
+    fit_pet_layout(expanded, false, scale, work_width, work_height)
+}
+
+pub(crate) fn fit_pet_layout(
+    expanded: bool,
+    notice: bool,
     scale: f64,
     work_width: u32,
     work_height: u32,
@@ -342,8 +402,7 @@ pub(crate) fn fit_pet_size(
     } else {
         1.0
     };
-    let desired_width: f64 = if expanded { 328.0 } else { 180.0 };
-    let desired_height: f64 = if expanded { 600.0 } else { 230.0 };
+    let (desired_width, desired_height) = pet_layout(expanded, notice);
     (
         desired_width.min((f64::from(work_width) / scale).floor().max(1.0)),
         desired_height.min((f64::from(work_height) / scale).floor().max(1.0)),
@@ -366,6 +425,7 @@ pub(crate) fn clamp_to_work_area(
         y: position
             .y
             .clamp(top, (top + work_height as i32 - height).max(top)),
+        edge: None,
     }
 }
 

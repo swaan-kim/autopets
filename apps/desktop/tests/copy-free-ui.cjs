@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { chooseRole, openCopy, openPetSettings, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
+const { chooseRole, openCopy, openPetSettings, openChange, closePetPanel, leaveComposer } = require('./entry-navigation.cjs');
 
 const A = '11111111-2222-4333-8444-555555555555';
 const B = '11111111-2222-4333-8444-666666666666';
@@ -11,7 +11,9 @@ const link = (threadId, slot = 0) => ({
   slot, revision: 4, enabled: true, connected: true, profile: 'light',
   template: structuredClone(template), run: null,
 });
-const mainApply = composer => composer.getByRole('button', { name: /^(?:이 채팅에 펫 적용|적용 확인 중…)$/ });
+// With a chat chosen, the one start button applies the pet to that chat.
+const mainApply = composer => composer.getByRole('button', { name: '이 채팅에서 시작', exact: true });
+const startButton = composer => composer.locator('[data-agent-id="pet-selection.composer.start"]');
 
 exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
   const base = { ...structuredClone(fixture), sessions: [], slots: [], petLinks: [],
@@ -61,16 +63,17 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
     }, options);
     await page.goto(origin);
     await chooseRole(page, '웹페이지 만들기');
-    return { page, composer: page.locator('.pet-composer') };
+    return { page, composer: page.locator('.pet-start') };
   };
 
   // Preparation is not connection, and a browser cannot mutate the native app.
   const waiting = await create([]);
-  await waiting.composer.getByRole('button', { name: '펫 만들기', exact: true }).waitFor();
-  assert.equal(await waiting.composer.locator('.composer-copy-fallback').isVisible(), false);
+  await waiting.composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).waitFor();
+  assert.equal(await waiting.composer.locator('.pet-start-change').count(), 0);
   assert.deepEqual(await waiting.page.evaluate(() => window.__uiTest.calls), [], 'no-link state never installs, copies, guesses a chat, or dispatches work');
   await waiting.page.evaluate(next => { window.__uiTest.state.petLinks = [next]; window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); }, link(A));
   const lateTarget = waiting.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
+  await openChange(waiting.composer);
   await lateTarget.waitFor({ state: 'attached' });
   assert.equal(await lateTarget.inputValue(), '', 'a newly discovered chat never silently retargets an open composer');
   await lateTarget.selectOption(key(link(A)));
@@ -79,25 +82,25 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   await waiting.page.close();
   const browser = await newPage();
   await browser.goto(origin); await chooseRole(browser, '웹페이지 만들기');
-  assert.equal(await browser.locator('.pet-composer').getByRole('button', { name: '펫 만들기', exact: true }).isDisabled(), true);
+  await browser.locator('.pet-start').getByLabel('펫에게 맡길 일', { exact: true }).fill('브라우저 미리보기 요청');
+  assert.equal(await browser.locator('.pet-start').getByRole('button', { name: 'Codex에서 시작', exact: true }).isDisabled(), true, 'a browser preview cannot start work');
   assert.match(await browser.locator('.workspace-note').innerText(), /설치 앱/);
   await browser.close();
   checks.push('copy-free entry: no-link state offers independent pet creation, keeps free-text copying secondary, and never guesses a destination; browser preview remains non-executing');
 
   const { page, composer } = await create([link(A), link(B, 1)], { holdApply: true });
   const select = composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
+  await openChange(composer);
   assert.equal(await select.inputValue(), '', 'multiple chats require an explicit selection');
-  assert.equal(await mainApply(composer).isDisabled(), true);
+  assert.equal(await mainApply(composer).count(), 0, 'without a chosen chat, start never applies to a chat');
   await select.selectOption(key(link(A)));
   assert.equal(await composer.getAttribute('data-agent-scope'), 'pet-selection');
-  assert.equal(await mainApply(composer).getAttribute('data-agent-id'), 'pet-selection.composer.apply');
+  assert.equal(await mainApply(composer).getAttribute('data-agent-id'), 'pet-selection.composer.start');
   const targetDetails = composer.locator('.composer-target-details');
-  assert.equal(await targetDetails.locator('.composer-target-id').isVisible(), false, 'technical target details stay optional');
+  await closePetPanel(composer);
+  assert.equal(await targetDetails.count(), 0, 'technical target details stay optional');
   await openPetSettings(composer);
   assert.ok((await targetDetails.innerText()).includes(A), 'expanded target details retain the exact selected chat ID');
-  await closePetPanel(composer);
-  await select.focus(); await page.keyboard.press('Tab');
-  await openCopy(composer);
   const draft = composer.getByLabel('펫에게 맡길 일', { exact: true });
   await draft.fill('앱에만 남기는 초안\n이 문장을 아직 보내지 마.');
   await closePetPanel(composer);
@@ -105,7 +108,8 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   await mainApply(composer).evaluate(button => { button.click(); button.click(); });
   await page.waitForFunction(() => typeof window.__uiTest.releaseApply === 'function');
   assert.equal(await page.evaluate(() => window.__uiTest.copyFreeOrder.filter(call => call.name === 'apply_pet_link_template').length), 1);
-  assert.equal(await mainApply(composer).isDisabled(), true);
+  assert.equal(await mainApply(composer).count(), 0, 'while applying, the start button gives way to the status line');
+  await composer.getByText('펫 저장 ✓ · Codex 연결 ✓ · 채팅에 적용 …', { exact: true }).waitFor();
   await page.evaluate(() => window.__uiTest.releaseApply());
   await composer.locator('.composer-applied').waitFor();
   await composer.getByText('펫 설정을 적용했어요.', { exact: true }).waitFor();
@@ -123,7 +127,10 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   assert.equal(appliedArgs.expectedRevision, 4);
   assert.deepEqual(Object.keys(appliedArgs).sort(), ['expectedRevision', 'petId', 'petRevision', 'target']);
   assert.equal(after.calls.some(call => /submit|send|execute_pet|prepare_pet/.test(call.name)), false);
+  await composer.getByText('펫 저장 ✓ · Codex 연결 ✓ · 채팅에 적용 ✓', { exact: true }).waitFor();
+  await openCopy(composer);
   assert.equal(await draft.inputValue(), '앱에만 남기는 초안\n이 문장을 아직 보내지 마.');
+  await closePetPanel(composer);
   for (const [width, height] of [[992, 688], [716, 701], [661, 459], [375, 812]]) {
     await page.setViewportSize({ width, height });
     const button = composer.locator('.composer-applied').getByRole('button', { name: 'Codex 작업 열기', exact: true });
@@ -161,6 +168,7 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   ]) {
     const blocked = await create([{ ...link(A), ...patch }]);
     const target = blocked.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
+    await openChange(blocked.composer);
     assert.equal(await target.inputValue(), '', `${name} is never selected by default`);
     await target.selectOption(key(link(A)));
     assert.equal(await mainApply(blocked.composer).isDisabled(), true, name);
@@ -169,6 +177,7 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
     await blocked.page.close();
   }
   const offline = await create([link(A)], { serviceDisconnected: true });
+  await openChange(offline.composer);
   await offline.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).selectOption(key(link(A)));
   assert.equal(await mainApply(offline.composer).isDisabled(), true, 'local service offline');
   assert.equal(await offline.page.evaluate(() => window.__uiTest.calls.some(call => call.name === 'apply_pet_link_template')), false);
@@ -176,6 +185,7 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   for (const readback of ['missing', 'wrong-pet', 'wrong-pet-revision', 'duplicate-target', 'wrong-template', 'wrong-profile', 'wrong-revision', 'disconnected', 'disabled', 'timeout']) {
     const failed = await create([link(A)], { readback });
     const target = failed.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
+    await openChange(failed.composer);
     await target.selectOption(key(link(A)));
     await mainApply(failed.composer).click();
     await failed.composer.getByRole('alert').waitFor();
@@ -186,6 +196,7 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   }
   for (const change of ['revision', 'removed', 'disabled', 'disconnected']) {
     const stale = await create([link(A), link(B, 1)], { holdReadback: true });
+    await openChange(stale.composer);
     await stale.composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).selectOption(key(link(A)));
     await mainApply(stale.composer).click();
     await stale.page.waitForFunction(() => typeof window.__uiTest.releaseReadback === 'function');
@@ -198,7 +209,7 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
       window.__uiTest.emitEvent('autopets://snapshot', state);
     }, change);
     await stale.page.evaluate(() => window.__uiTest.releaseReadback());
-    await stale.composer.getByRole('button', { name: '이 채팅에 펫 적용', exact: true }).waitFor();
+    await startButton(stale.composer).waitFor();
     assert.equal(await stale.composer.locator('.composer-applied').count(), 0, `late readback after ${change}`);
     assert.equal(await stale.composer.getByText('펫 설정을 적용했어요.', { exact: true }).count(), 0, change);
     assert.deepEqual(await stale.page.evaluate(() => window.__uiTest.state.petLinks.find(link => link.slot === 1)), oldB);

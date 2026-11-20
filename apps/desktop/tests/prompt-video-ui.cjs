@@ -50,9 +50,9 @@ exports.runPromptVideoChecks = async ({ newPage, mockBridge, state, origin, chec
   assert.ok(playerBox.x >= 0 && playerBox.x + playerBox.width <= 375);
   assert.equal(await page.locator('.prompt-idea-dialog video').evaluate(element => element.paused), true);
   await page.getByRole('button', { name: /이 방식으로 펫 준비/ }).click();
-  const composer = page.locator('.pet-composer');
+  const composer = page.locator('.pet-start');
   await composer.getByRole('heading', { name: '영상 프롬프트 만들기', exact: true }).waitFor();
-  await composer.getByRole('button', { name: /이 채팅에 펫 적용/ }).click();
+  await composer.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
   await composer.locator('.composer-applied').waitFor();
   const result = await page.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, clipboard: window.__uiTest.clipboard, links: window.__uiTest.state.petLinks }));
   assert.match(result.pets[0].template.instruction, /백조.*잔물결/);
@@ -74,7 +74,7 @@ exports.runPromptVideoChecks = async ({ newPage, mockBridge, state, origin, chec
   await broken.getByRole('status').filter({ hasText: '영상을 재생할 수 없어요.' }).waitFor();
   assert.equal(await broken.locator('.prompt-idea-dialog img').count(), 1);
   await broken.getByRole('button', { name: /이 방식으로 펫 준비/ }).click();
-  await broken.locator('.pet-composer').getByRole('heading', { name: '영상 프롬프트 만들기', exact: true }).waitFor();
+  await broken.locator('.pet-start').getByRole('heading', { name: '영상 프롬프트 만들기', exact: true }).waitFor();
   await broken.close();
   checks.push('two real local AI videos decode/play/pause; no autoplay or movie fetch on first open; close/visibility stop with no automatic resume; source attribution, 375px reduced motion, missing video/poster recovery, bounded preset applies only A without clipboard or AI execution, and no external media request');
 };

@@ -1,8 +1,12 @@
 # 명시적 제작 펫 연결
 
-설치된 bundled Node와 이 스킬의 `scripts/pet.mjs`를 사용한다. 호스트가 제공한 `CODEX_THREAD_ID`와 실제 작업 폴더를 유지한다. 다른 ID로 환경변수를 덮어쓰거나 `--thread`를 만들어 전달하지 않는다. 현재 호스트의 Codex 실행 파일 절대 경로를 확인하고 `--codex`로 전달한다. 알 수 없다면 경로를 추측하지 않는다.
+설치된 bundled Node와 이 스킬의 `scripts/pet.mjs`를 사용한다. 호스트가 제공한 `CODEX_THREAD_ID`와 실제 작업 폴더를 유지한다. 다른 ID로 환경변수를 덮어쓰거나 `--thread`를 만들어 전달하지 않는다.
 
-모든 호출에 `--codex <현재 호스트 실행 파일>`과 필요하면 `--connection <앱의 연결 파일>`을 붙인다. 인증 파일 내용은 출력하지 않는다. 도구는 작업 ID/폴더를 호스트 정보와 대조한다. 현재 연결은 Windows 로컬 Codex만 지원한다.
+Codex 실행 파일 경로에는 버전이 들어가 Codex가 업데이트될 때마다 바뀐다. 이전 호출·대화·메모·다른 채팅에서 본 실행 파일 경로를 다시 쓰거나 스킬·스크립트에 적어 두지 않는다. 현재 호스트가 `CODEX_APP_RUNTIME_CLI_PATH`를 제공하면 `--codex`를 생략한다. `pet.mjs`는 호출할 때마다 `--codex` → `AUTOPETS_CODEX_EXECUTABLE` → `CODEX_APP_RUNTIME_CLI_PATH` 순서로 처음 주어진 값 하나를 고르고, 요청 전에 절대 경로의 실제 파일인지 확인한다. `--codex`는 현재 호스트가 이번 호출에 직접 제공한 경로가 있을 때만 붙인다. 알 수 없다면 경로를 추측하거나 다른 버전 폴더를 찾아 쓰지 않는다.
+
+필요하면 `--connection <앱의 연결 파일>`을 붙인다. 인증 파일 내용은 출력하지 않는다. 도구는 작업 ID/폴더를 호스트 정보와 대조한다. 현재 연결은 Windows 로컬 Codex만 지원한다.
+
+오류 코드를 구분해 설명하고 실패 응답의 `message`를 그대로 전한다. `codex-runtime-unavailable`은 고른 Codex 실행 파일이 없다는 뜻이다(업데이트로 경로가 바뀌었을 수 있음). AutoPets 앱이나 연결 파일 문제로 설명하지 않는다. 같은 경로로 다시 시도하지 않으며, `--codex`를 붙였다면 생략하고 현재 `CODEX_APP_RUNTIME_CLI_PATH`로 한 번만 다시 확인한다. `codex-runtime-failed`는 실행 파일은 있지만 실행·응답 확인에 실패한 경우다. `connection-unavailable`(연결 파일 없음), `connection-format`(연결 파일을 읽을 수 없음), `bridge-unavailable`(앱의 로컬 연결 무응답)은 AutoPets 앱 쪽 문제다.
 
 ## 연결
 
@@ -13,6 +17,21 @@
 `slots-full`은 연결 가능한 펫 3개가 모두 사용 중이라는 뜻이다. 앱에서 사용하지 않는 연결을 하나 해제한 뒤 다시 연결하도록 안내한다. 다른 채팅을 임의로 해제하거나 원래 작업을 다시 실행하지 않는다. 연결 오류를 훅 신뢰나 모델 실행 실패로 설명하지 않는다.
 
 앱에서 복사한 요청에 `petId=<ID>, petRevision=<정수>`가 있으면 `connect --pet <ID> --pet-revision <정수>`로 그 저장 펫 개정을 현재 채팅에 적용한다. 별도 설정 변경은 `apply-pet`에 같은 인수를 사용한다. 사용자 요청의 ID와 개정을 그대로 사용하고 임의로 최신 개정이나 다른 펫을 고르지 않는다. 재조회한 `link.savedPet`이 일치해야 적용 완료다. 오래된 개정이면 앱에서 시작 요청을 다시 복사하도록 안내한다. 연결과 계획을 함께 요청했다면 성공한 뒤 아래 절차로 `prepare --profile plan`을 한 번 수행한다. 연결만 요청했다면 AI 작업을 만들지 않는다. 하루 정리·여행·공부·홍보글처럼 `link.template.planFirst:false`인 펫의 결과 요청은 저장된 기본 프로필로 바로 한 번 수행한다. 웹페이지·발표자료처럼 `planFirst:true`인 펫은 계획부터 수행하고 명시적 제작 요청을 기다린다. 스킬 이름을 UI 제작으로 임의 대체하지 않는다. 발표자료는 HTML 슬라이드이며 PPTX가 아니다.
+
+## 앱에서 시작한 요청 (`recipe=`)
+
+요청이 `AutoPets 스킬로 "<이름>" 시작해줘. petId=<ID>, petRevision=<정수>, recipe=<레시피>.` 형태면 사용자가 앱에서 할 일 하나를 고른 것이다. 요청은 링크에 담기도록 일부러 짧다. 물어볼 것과 작업 규칙은 이 절과 도구가 돌려주는 `recipe`에 있으며, 사용자에게 긴 설명을 다시 붙여넣게 하지 않는다.
+
+1. `connect --pet <ID> --pet-revision <정수> --recipe <레시피>`를 한 번 호출하고 응답의 `recipe`를 사용한다. `unknown-recipe`·`recipe-pet-mismatch`·`invalid-recipe`면 실패 응답의 `message`를 그대로 전하고 멈춘다. 다른 레시피나 펫으로 바꾸지 않는다.
+2. **먼저 묻는다.** `recipe.intakeMessage`를 고치지 않고 한 메시지로 보낸다. 요청의 `할 일:`·`이 페이지를 볼 사람:`·`꼭 알릴 내용:`에 이미 답이 있는 질문은 빼도 된다. `할 일:`이 없으면 `recipe.intakeMessage` 대신 `recipe.intakeMessageWithTask`(무엇을 할지가 1번 질문)를 보낸다. 이 단계에서는 `prepare`를 호출하거나 파일을 만들지 않는다.
+3. **답을 받으면 끝까지 진행한다.** 사용자가 “기본으로”라고 하거나 일부만 답하면 나머지는 `recipe.defaults`를 쓴다. 답을 되묻거나 다시 확인받지 않는다. 아래 “요청한 펫 작업 한 번”을 저장된 기본 프로필로 수행한다. `planFirst:true`인 펫도 여기서는 계획에서 멈추지 않는다. 사용자가 질문에 답해 방향을 정했으므로, 자식에게 할 일과 답을 전달하면서 “사용자가 아래 답으로 방향을 확인했다. 짧은 구성안을 먼저 적고 이어서 제작한다”고 알린다. 사용자가 “계획만”이라고 했을 때만 `--profile plan`으로 계획에서 멈춘다.
+4. **결과 위치.** `recipe.output`이 `files`면 `recipe.saveFolder.preferred`(문서의 AutoPets 아래 새 폴더)에 저장하게 한다. 그 위치에 쓸 수 없으면 현재 작업 폴더 안의 `recipe.saveFolder.fallback`을 쓴다. 폴더가 이미 있으면 이름 뒤에 `-2`처럼 번호를 붙이고 기존 파일을 덮어쓰지 않는다. 끝나면 저장한 폴더의 전체 경로와 여는 방법을 한 줄로 알린다. `chat`이면 파일을 만들거나 고치지 않고 결과를 채팅에 보여준다.
+5. `recipe.format`과 다른 형식(예: PowerPoint 파일)을 만들었다고 말하지 않는다. 확인할 수 없는 사실은 미확인으로 구분한다. 외부 서비스 연결이 필요하면 먼저 알린다. 요청에 `새 작업이야`가 있으면 이전 작업의 계획·승인·내용을 재사용하지 않는다. `Figma 시안을 쓸 거야`가 있으면 질문 메시지에서 프레임 링크도 함께 묻는다.
+6. 결과를 본 뒤의 수정·질문은 같은 채팅에서 받는다. 작은 수정은 이 채팅에서 바로 반영하고, 처음부터 다시 만드는 요청만 펫 작업을 한 번 더 준비한다. 앱으로 돌아가 다시 시작하라고 안내하지 않는다.
+
+질문 한 번과 그 답은 사용자가 고른 시작 방식이다. 그 밖의 추가 업무 질문은 만들지 않는다. `recipe=`가 없는 저장 펫 요청은 위와 아래의 기존 규칙을 그대로 따른다.
+
+## 설정
 
 `pet.mjs status`로 현재 설정을 읽는다. `settings --profile light|standard|careful|plan`은 사용자가 요청한 기본값 변경에만 사용한다. 기본 light=Luna/low, standard=Sol/low, careful=Sol/medium이다. plan은 저장한 펫의 계획 설정을 따른다(계획 우선 카탈로그 펫은 Astra/high, 기존·설정 없는 펫은 Luna/low). `prepare`가 반환한 `requestedModel`·`requestedEffort`를 그대로 사용하고, 모두 현재 가용 목록에서 확인돼야 한다. 가용하지 않으면 다른 모델로 바꾸지 않고 멈추며, 실패 응답의 `message`를 사용자에게 그대로 전한다. `disable`, `enable`, `disconnect`는 해당 채팅에만 적용한다.
 

@@ -15,6 +15,13 @@ export interface PetLink {
     template?: PetRoleTemplate | null; savedPet?: SavedPetReference | null;
     skillEvidence?: PetSkillReference[]; figmaUsed?: boolean };
 }
+/** A job an AI reported through the AutoPets MCP tool (`autopets_report`). In-memory app state; no chat text. */
+export interface PetJob {
+  id: string; state: 'asking' | 'working' | 'done' | 'failed'; host: 'codex' | 'claude' | 'claude-code' | 'other';
+  title: string; petId: string | null; resultPath: string | null; createdAt: number; updatedAt: number;
+  /** Counts from the pet's own look at the finished result file. No text from the file is kept. */
+  review?: { slides: number; blanks: number; notes: number; external: number } | null;
+}
 /** One existing catalog pet suggested for a request sent in a connected Codex chat. */
 export interface PetRecommendationCandidate { petId: string; reason: string; cues: string[] }
 /** In-memory app state; `request` is the user's own message, kept only for prefill. */
@@ -23,4 +30,20 @@ export interface PetRecommendation {
   state: 'preparing' | 'shown' | 'accepted' | 'dismissed' | 'running';
   request: string | null; requestTruncated: boolean; candidates: PetRecommendationCandidate[];
   acceptedPetId: string | null; createdAt: number; updatedAt: number;
+}
+/**
+ * A connected Codex chat needs the user (`action_required`: a question, a plan to confirm, an
+ * approval prompt) or the requested work finished (`completed`). In-memory app state from the
+ * AutoPets attention hook. `read` means the user closed or opened it from the pet; Codex may still
+ * be waiting. A notice disappears only when Codex reports the wait ended.
+ */
+export interface CodexAttention {
+  id: string; target: PetLink['target']; chatTitle: string | null; turnId: string;
+  kind: 'action_required' | 'completed';
+  reason: 'question' | 'confirmation_required' | 'approval_required' | 'completed';
+  source: 'stop' | 'permission' | 'user-input';
+  summary: string;
+  /** Completed notices: what the turn observably did. `verified: false` = no transcript to check. */
+  evidence: { fileChanges: number; workCommands: number; verified: boolean } | null;
+  read: boolean; createdAt: number; updatedAt: number;
 }
