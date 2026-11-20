@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { PetJob, PetLink, Session } from '@autopets/contracts/types';
+import type { PetJob, Session } from '@autopets/contracts/types';
 import { HOST_NAMES, reviewAttention } from './PetJobs';
 import './pet-bubble.css';
 
@@ -7,17 +7,6 @@ import './pet-bubble.css';
 // a finished job, or a problem. One short line that opens the chat with one click.
 // It never takes focus and shows only what the app already knows; no AI call is made for it.
 export type PetBubbleNotice = { key: string; tone: 'ask' | 'done' | 'error'; text: string; action: string };
-
-/** Notice for a pet job started with the AutoPets skill (the default path). */
-export function linkBubble(link: PetLink, disconnected: boolean): PetBubbleNotice | null {
-  const run = link.run;
-  if (disconnected || !link.connected || !run || run.trackingClosed) return null;
-  const key = JSON.stringify(['link', link.target.threadId, run.id, run.state]);
-  if (run.state === 'waiting') return { key, tone: 'ask', text: '계획을 확인해 주세요', action: '채팅 열기' };
-  if (run.state === 'complete') return { key, tone: 'done', text: '다 됐어요!', action: '결과 보기' };
-  if (run.state === 'failed' || run.state === 'unknown') return { key, tone: 'error', text: '문제가 생겼어요', action: '확인하기' };
-  return null;
-}
 
 /** Notice for a chat observed through hooks: permission needed, finished and unread, or a tool error. */
 export function sessionBubble(session: Session, attention: Session['attention'], disconnected: boolean): PetBubbleNotice | null {
