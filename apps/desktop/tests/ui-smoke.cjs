@@ -12,6 +12,7 @@ const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
+const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetQuickUseChecks } = require('./pet-quick-use-ui.cjs');
@@ -90,6 +91,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           window.__uiTest.onboardingActive = args.active;
           return null;
         }
+        // Read-only: Codex's own chat names for labels. Not an action, so not in `calls`.
+        if (name === 'codex_chat_titles') return structuredClone(window.__uiTest.chatTitles ?? {});
         calls.push({ name, args });
         if (name === 'save_pet') {
           if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
@@ -331,6 +334,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ checks, pageErrors: errors }, null, 2)); return;
     }
+    if (process.env.AUTOPETS_UI_PET_ATTENTION_ONLY === '1') {
+      await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, checks, pageErrors: errors }, null, 2)); return;
+    }
     if (process.env.AUTOPETS_UI_VISUAL_ONLY === '1') {
       const screenshots = await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
@@ -376,7 +383,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await empty.getByRole('heading', { name: '펫 고르기', exact: true }).waitFor();
     assert.equal(await empty.locator('.pet-card').count(), 0);
     await chooseRole(empty, '웹페이지 만들기');
-    assert.equal(await empty.getByRole('button', { name: '펫 만들기', exact: true }).isEnabled(), false);
+    assert.equal(await empty.getByRole('button', { name: 'Codex에서 시작', exact: true }).isEnabled(), false, 'a browser preview cannot start work');
     await empty.locator('.app-settings > summary').click(); await empty.getByRole('button', { name: '연결 설정', exact: true }).click();
     await empty.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
     assert.equal(await empty.locator('input[type=checkbox]:visible').count(), 0);
@@ -739,6 +746,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     graphScreenshots.push(...await runCompanionChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

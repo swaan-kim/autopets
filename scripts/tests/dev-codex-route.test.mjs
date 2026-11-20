@@ -36,6 +36,24 @@ test('install backs up the installed skill once and restore returns the same byt
   assert.deepEqual(await fs.readFile(paths.skillFile), original);
 });
 
+test('/오토펫 in the skill picker and a bare call both start the dog pet; restore removes the picker entry', async () => {
+  const { paths } = await sandbox();
+  const text = renderSkill({ node: 'node', ...paths });
+  assert.match(text.split('\n')[2], /\/오토펫, \/autopets, \$autopets/u);
+  assert.match(text, /다른 요청 없이 이 스킬만 불렀거나/u);
+  await fs.mkdir(path.dirname(paths.skillFile), { recursive: true });
+  await fs.writeFile(paths.skillFile, original);
+  await install({ paths, node: 'node' });
+  const agent = path.join(path.dirname(paths.skillFile), 'agents/openai.yaml');
+  assert.match(await fs.readFile(agent, 'utf8'), /display_name: "오토펫 · AutoPets"/u);
+  await restore({ paths });
+  await assert.rejects(fs.access(agent));
+  // Someone else's picker entry is never overwritten.
+  await fs.mkdir(path.dirname(agent), { recursive: true }); await fs.writeFile(agent, 'interface:\n  display_name: "mine"\n');
+  await install({ paths, node: 'node' });
+  assert.equal(await fs.readFile(agent, 'utf8'), 'interface:\n  display_name: "mine"\n');
+});
+
 test('install refuses to replace a different saved original and restore refuses a non-dev skill', async () => {
   const { paths } = await sandbox();
   await fs.mkdir(path.dirname(paths.skillFile), { recursive: true });
@@ -50,25 +68,34 @@ test('install refuses to replace a different saved original and restore refuses 
 
 function fakeDriver({ liveAfter = 0, exists = true, state = { version: 1, appReady: true, installedVersion: '0.1.0' } } = {}) {
   let reads = 0, clock = 0;
-  const calls = { launches: [], posts: [] };
+  const calls = { launches: [], posts: [], order: [] };
   return { calls, driver: {
     readSetup: async () => (reads++ >= liveAfter ? { connection: { token: 't' }, state } : null),
-    post: async (connection, body) => { calls.posts.push(body); return { phase: 'connecting', appReady: true }; },
+    post: async (connection, body) => { calls.order.push('post'); calls.posts.push(body); return { phase: 'connecting', appReady: true }; },
     exists: async () => exists,
-    launch: async (command, args, options) => { calls.launches.push({ command, args, dataDir: options.env.AUTOPETS_DATA_DIR }); },
+    launch: async (command, args, options) => { calls.order.push(command === 'cmd.exe' ? 'launcher' : 'show-pets'); calls.launches.push({ command, args, dataDir: options.env.AUTOPETS_DATA_DIR }); },
     sleep: async ms => { clock += ms; },
     now: () => clock,
   } };
 }
 
-test('start reuses a running dev app and links the calling chat', async () => {
+test('start reuses a running dev app: the dog pets are shown first, then the calling chat is linked', async () => {
   const { paths } = await sandbox();
   const { driver, calls } = fakeDriver();
-  const result = await startDev({ paths, driver, env: { CODEX_THREAD_ID: 'thread-1' }, cwd: path.resolve('/work') });
+  const chat = '0199aaaa-1111-7222-8333-444455556666';
+  const result = await startDev({ paths, driver, env: { CODEX_THREAD_ID: chat }, cwd: path.resolve('/work') });
   assert.equal(result.launch, 'reused-running-dev-app');
   assert.equal(result.target, 'source-dev-app');
-  assert.deepEqual(calls.launches, [{ command: paths.devExe, args: [], dataDir: paths.dataDir }]);
-  assert.deepEqual(calls.posts, [{ installedVersion: '0.1.0', sessionId: 'thread-1', cwd: path.resolve('/work'), hostId: 'codex-windows-local', entryPoint: 'ai', connectionMode: 'explicit-pet' }]);
+  assert.equal(result.pets, 'show-requested');
+  // The second launch asks the running app to show its pets (never the plain relaunch that only opens the manager).
+  assert.deepEqual(calls.launches, [{ command: paths.devExe, args: ['--show-pets', '--chat', chat], dataDir: paths.dataDir }]);
+  assert.deepEqual(calls.order, ['show-pets', 'post']);
+  assert.deepEqual(calls.posts, [{ installedVersion: '0.1.0', sessionId: chat, cwd: path.resolve('/work'), hostId: 'codex-windows-local', entryPoint: 'ai', connectionMode: 'explicit-pet' }]);
+  assert.deepEqual(Object.keys(result.timings), ['appReadyMs', 'petsRequestedMs', 'chatConnectedMs']);
+  // A non-UUID thread id is still sent to setup but never passed on the command line.
+  const other = fakeDriver();
+  await startDev({ paths, driver: other.driver, env: { CODEX_THREAD_ID: 'thread-1' }, cwd: path.resolve('/work') });
+  assert.deepEqual(other.calls.launches[0].args, ['--show-pets']);
 });
 
 test('start opens the dev launcher when no app answers, then waits for it', async () => {
@@ -76,8 +103,11 @@ test('start opens the dev launcher when no app answers, then waits for it', asyn
   const { driver, calls } = fakeDriver({ liveAfter: 3 });
   const result = await startDev({ paths, driver, env: {}, cwd: path.resolve('/work') });
   assert.equal(result.launch, 'started-dev-launcher');
-  assert.equal(calls.launches.length, 1);
+  assert.deepEqual(calls.order, ['launcher', 'show-pets', 'post']);
   assert.equal(calls.launches[0].command, 'cmd.exe');
+  assert.deepEqual(calls.launches[1].args, ['--show-pets']);
+  // It polls quickly so the pet appears as soon as the app answers.
+  assert.equal(result.timings.appReadyMs, 750);
   assert.ok(calls.launches[0].args.includes(`"${paths.launcher}"`));
   assert.equal(calls.posts[0].sessionId, null);
   assert.equal(calls.posts[0].cwd, null);

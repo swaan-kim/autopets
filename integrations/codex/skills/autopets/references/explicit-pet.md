@@ -1,8 +1,12 @@
 # 명시적 제작 펫 연결
 
-설치된 bundled Node와 이 스킬의 `scripts/pet.mjs`를 사용한다. 호스트가 제공한 `CODEX_THREAD_ID`와 실제 작업 폴더를 유지한다. 다른 ID로 환경변수를 덮어쓰거나 `--thread`를 만들어 전달하지 않는다. 현재 호스트의 Codex 실행 파일 절대 경로를 확인하고 `--codex`로 전달한다. 알 수 없다면 경로를 추측하지 않는다.
+설치된 bundled Node와 이 스킬의 `scripts/pet.mjs`를 사용한다. 호스트가 제공한 `CODEX_THREAD_ID`와 실제 작업 폴더를 유지한다. 다른 ID로 환경변수를 덮어쓰거나 `--thread`를 만들어 전달하지 않는다.
 
-모든 호출에 `--codex <현재 호스트 실행 파일>`과 필요하면 `--connection <앱의 연결 파일>`을 붙인다. 인증 파일 내용은 출력하지 않는다. 도구는 작업 ID/폴더를 호스트 정보와 대조한다. 현재 연결은 Windows 로컬 Codex만 지원한다.
+Codex 실행 파일 경로에는 버전이 들어가 Codex가 업데이트될 때마다 바뀐다. 이전 호출·대화·메모·다른 채팅에서 본 실행 파일 경로를 다시 쓰거나 스킬·스크립트에 적어 두지 않는다. 현재 호스트가 `CODEX_APP_RUNTIME_CLI_PATH`를 제공하면 `--codex`를 생략한다. `pet.mjs`는 호출할 때마다 `--codex` → `AUTOPETS_CODEX_EXECUTABLE` → `CODEX_APP_RUNTIME_CLI_PATH` 순서로 처음 주어진 값 하나를 고르고, 요청 전에 절대 경로의 실제 파일인지 확인한다. `--codex`는 현재 호스트가 이번 호출에 직접 제공한 경로가 있을 때만 붙인다. 알 수 없다면 경로를 추측하거나 다른 버전 폴더를 찾아 쓰지 않는다.
+
+필요하면 `--connection <앱의 연결 파일>`을 붙인다. 인증 파일 내용은 출력하지 않는다. 도구는 작업 ID/폴더를 호스트 정보와 대조한다. 현재 연결은 Windows 로컬 Codex만 지원한다.
+
+오류 코드를 구분해 설명하고 실패 응답의 `message`를 그대로 전한다. `codex-runtime-unavailable`은 고른 Codex 실행 파일이 없다는 뜻이다(업데이트로 경로가 바뀌었을 수 있음). AutoPets 앱이나 연결 파일 문제로 설명하지 않는다. 같은 경로로 다시 시도하지 않으며, `--codex`를 붙였다면 생략하고 현재 `CODEX_APP_RUNTIME_CLI_PATH`로 한 번만 다시 확인한다. `codex-runtime-failed`는 실행 파일은 있지만 실행·응답 확인에 실패한 경우다. `connection-unavailable`(연결 파일 없음), `connection-format`(연결 파일을 읽을 수 없음), `bridge-unavailable`(앱의 로컬 연결 무응답)은 AutoPets 앱 쪽 문제다.
 
 ## 연결
 

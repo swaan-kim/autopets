@@ -31,19 +31,19 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await page.locator('.pet-home-find').click();
   assert.equal(await page.locator('.workspace-role-card').count(), 6, 'one primary home action opens the six-role catalog');
   await page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
-  assert.equal(await page.locator('.pet-composer').count(), 0, 'preview requires explicit use');
-  assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'browsing never saves, connects or executes');
-  await page.locator('.workspace-role-detail').getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
-  const composer = page.locator('.pet-composer');
-  assert.equal(await composer.locator('.composer-copy-fallback').isVisible(), false, 'app task composition is a secondary, disclosed path');
-  assert.equal(await composer.getByLabel('펫에게 맡길 일', { exact: true }).isVisible(), false);
-  await openCopy(composer);
+  // One click on a card opens its detail: the preview beside the request and one start button.
+  const composer = page.locator('.pet-start');
+  await composer.getByRole('heading', { name: '웹페이지 만들기', exact: true }).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'opening a pet never saves, connects or executes');
+  assert.equal(await composer.locator('.pet-start-change').count(), 0, 'copying and settings are a secondary, folded path');
+  assert.equal(await composer.getByLabel('펫에게 맡길 일', { exact: true }).isVisible(), true, 'the request is asked right on the detail');
   const task = composer.getByLabel('펫에게 맡길 일', { exact: true });
   await task.fill('학과 행사 웹페이지를 만들어줘.\n일정과 신청 안내, 모바일 화면을 포함해줘.');
-  assert.equal(await composer.locator('.result-preview').count(), 0);
-  assert.equal(await composer.locator('.composer-settings').isVisible(), false);
+  assert.equal(await composer.locator('.result-preview').count(), 1, 'the result preview appears once, beside the request');
+  await openCopy(composer);
+  assert.equal(await composer.locator('.pet-start-change').isVisible(), true);
   await capture('composer');
-  await composer.getByRole('button', { name: '확인', exact: true }).click();
+  await composer.getByRole('button', { name: '요청만 복사', exact: true }).click();
   await composer.getByRole('button', { name: '시작 요청 복사', exact: true }).click();
   await composer.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
   assert.ok((await page.evaluate(() => window.__uiTest.clipboard)).includes('일정과 신청 안내, 모바일 화면을 포함해줘.'));
@@ -72,8 +72,6 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await page.keyboard.press('Escape'); await example.waitFor({ state: 'hidden' });
   assert.equal(await openExample.evaluate(el => document.activeElement === el), true, 'example close returns focus');
   await detail.getByRole('button', { name: '데스크톱', exact: true }).click();
-  await detail.getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).click();
-  await openCopy(composer);
   await task.fill('역할별 기존 초안: 작품 소개 웹페이지');
   await closePetPanel(composer);
   await page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
@@ -95,14 +93,14 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await chooseRole(page, '공부 도우미');
   await composer.getByRole('heading', { name: '공부 도우미', exact: true }).waitFor();
   await page.close();
-  checks.push('pet and single selection action fit 992×688/716×701; home has no task submission; browsing is local only; optional copy and role drafts preserved; preview is design-only and absent from composer; copy never claims chat receipt or executes');
+  checks.push('pet and single selection action fit 992×688/716×701; home has no task submission; browsing is local only; optional copy and role drafts preserved; preview is design-only and shown once beside the request; copy never claims chat receipt or executes');
 
   const fallback = await newPage();
   await fallback.route('**/assets/design-example-v1/*.webp', route => route.abort());
   await fallback.goto(origin); await openCatalog(fallback);
   await fallback.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
   await fallback.locator('.workspace-role-detail .result-thumbnail-fallback').waitFor();
-  assert.equal(await fallback.getByRole('button', { name: '웹페이지 만들기 이 펫으로', exact: true }).isEnabled(), true, 'missing example does not block choosing a role');
+  assert.equal(await fallback.getByLabel('펫에게 맡길 일', { exact: true }).isEditable(), true, 'missing example does not block choosing a role');
   await fallback.close();
   const A = '11111111-2222-4333-8444-555555555555';
   const B = '11111111-2222-4333-8444-666666666666';

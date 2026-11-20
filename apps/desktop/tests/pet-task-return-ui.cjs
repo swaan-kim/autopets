@@ -105,7 +105,8 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   const overlay = await newPage({ width: 420, height: 640 });
   await mockBridge(overlay, value); await overlay.goto(`${origin}/?pet=0`);
   await overlay.getByRole('button', { name: `${template.name} 메뉴`, exact: true }).click();
-  await overlay.getByRole('button', { name: 'Codex 작업 열기', exact: true }).click();
+  // The desktop popup uses the same exact-target return with short labels.
+  await overlay.getByRole('button', { name: '채팅 열기', exact: true }).click();
   await overlay.getByText(/Codex에 열기를 요청했어요/).waitFor();
   assert.deepEqual(await overlay.evaluate(() => window.__uiTest.calls.find(call => call.name === 'open_pet_task').args), {
     target: value.petLinks[0].target, expectedRevision: 1,
@@ -114,16 +115,20 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
     window.__uiTest.state.petLinks[0].run = { id: 'overlay-plan', profile: 'plan', state: 'waiting' };
     window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
   });
-  await overlay.getByRole('button', { name: '계획 보러 가기', exact: true }).waitFor();
+  await overlay.getByRole('button', { name: '계획 보기', exact: true }).waitFor();
   await overlay.evaluate(() => {
     window.__uiTest.state.petLinks[0].run = { id: 'overlay-done', profile: 'light', state: 'complete' };
     window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
   });
-  await overlay.getByRole('button', { name: '결과 보러 가기', exact: true }).waitFor();
-  assert.equal(await overlay.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0, 'overlay without composer callback keeps existing next-request flow');
-  assert.equal(await overlay.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).isVisible(), false);
-  await overlay.locator('.explicit-chat-help > summary').click();
-  await overlay.getByRole('button', { name: '다음 계획 요청 복사', exact: true }).waitFor();
-  checks.push('explicit pet return: contextual plan/result labels require current connected/enabled records, new-task action only for confirmed completion, A/B isolation and disconnected fallback, duplicate clicks/stale receipts suppressed, wrong dispatch exposes ID fallback, manager/overlay share exact-target navigation; fixture dispatch is not real navigation');
+  await overlay.getByRole('button', { name: '결과 보기', exact: true }).waitFor();
+  assert.equal(await overlay.getByRole('button', { name: '같은 펫으로 새 일', exact: true }).count(), 0, 'the popup never starts new work');
+  assert.equal(await overlay.locator('.explicit-chat-help').count(), 0, 'request copy helpers stay in the app card');
+  // A wrong dispatch still offers the ID fallback in the popup.
+  await overlay.evaluate(() => { window.__uiTest.returnWrongTarget = true; });
+  await overlay.getByRole('button', { name: '결과 보기', exact: true }).click();
+  await overlay.getByRole('alert').getByText('Codex 작업을 열지 못했어요. 작업 ID로 직접 찾아주세요.', { exact: true }).waitFor();
+  await overlay.getByRole('button', { name: '작업 ID 복사', exact: true }).click();
+  assert.equal(await overlay.evaluate(() => window.__uiTest.clipboard), A);
+  checks.push('explicit pet return: contextual plan/result labels require current connected/enabled records, new-task action only for confirmed completion, A/B isolation and disconnected fallback, duplicate clicks/stale receipts suppressed, wrong dispatch exposes ID fallback, manager/popup share exact-target navigation (popup: 채팅 열기/계획 보기/결과 보기, ID fallback on a wrong dispatch, no copy helpers); fixture dispatch is not real navigation');
   await page.close(); await overlay.close();
 };

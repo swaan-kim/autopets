@@ -1,4 +1,4 @@
-// Development-only route: make Codex `$autopets` open the SOURCE dev app instead of
+// Development-only route: make Codex \`$autopets\` open the SOURCE dev app instead of
 // the installed release. The installed connector's start.mjs always launches the
 // exe beside its `connector` folder and talks to the installed app's data, so a
 // Codex-invoked pet would otherwise show the older installed UI.
@@ -41,7 +41,7 @@ export function renderSkill({ node, script, dataDir, launcher, reference, petScr
   const args = [script, 'start', '--data-dir', dataDir, ...(launcher ? ['--launcher', launcher] : [])];
   return `---
 name: autopets
-description: AutoPets를 켜거나 현재 Codex 작업에 제작·UI 제작 펫을 연결하고, 저장한 펫 적용과 펫 작업, 현재 계획의 후속 구현, 상태 확인을 요청할 때 사용한다.
+description: AutoPets 강아지 펫을 화면에 띄우고(/오토펫, /autopets, $autopets), 현재 Codex 작업에 제작·UI 제작 펫을 연결하고, 저장한 펫 적용과 펫 작업, 현재 계획의 후속 구현, 상태 확인을 요청할 때 사용한다.
 ---
 ${MARKER}
 # AutoPets (소스 개발 앱)
@@ -54,12 +54,22 @@ ${MARKER}
 
 그 안내의 pet.mjs는 ${JSON.stringify(petScript)}이고 Node는 ${JSON.stringify(node)}를 쓴다. 모든 pet.mjs 호출에 \`--connection ${JSON.stringify(connection)}\`을 붙인다. 이 인수를 빼면 설치된 앱이 열리므로 생략하지 않는다.
 
-사용자가 켜 달라고 요청하면 현재 작업 디렉터리와 CODEX_THREAD_ID를 유지하고 아래 실행 파일과 인수를 구조화해서 실행한다.
+사용자가 다른 요청 없이 이 스킬만 불렀거나(\`/오토펫\`, \`/autopets\`, \`$autopets\`), 켜 달라·불러 달라·띄워 달라·보여 달라고 하면 **다른 말이나 확인 질문을 하기 전에 가장 먼저** 현재 작업 디렉터리와 CODEX_THREAD_ID를 유지하고 아래 실행 파일과 인수를 구조화해서 실행한다.
 
 실행 파일: ${JSON.stringify(node)}
 인수: ${JSON.stringify(args)}
 
-실행 중인 개발 앱이 있으면 그 창을 다시 보여 주고, 없으면 지정한 개발 실행기를 켜고 기다린다. 결과의 target은 source-dev-app이어야 한다. 처음 결과가 connecting이면 앱은 실행됐지만 채팅 연결은 대기 중이라고 설명한다. 명시적 펫 연결에는 훅 허용이 필요하지 않다. 새 스킬이 발견되지 않을 때만 작업 종료 후 Codex 재시작을 안내한다. trust나 실행 정책을 우회하지 않는다. 상태·모델·절감 효과를 추정하지 않는다. 같은 설정을 다시 묻지 않는다. 자동 도움·보호의 실제 검증 상태를 그대로 전달한다. 실패하면 결과의 message를 그대로 전하고 설치된 앱으로 대신 열지 않는다.
+실행 중인 개발 앱이 있으면 그 앱의 강아지 펫을 바로 보여 주고(숨김·가장자리 숨김도 다시 꺼냄, 관리 화면은 열지 않음), 없으면 지정한 개발 실행기를 켜고 준비되는 즉시 펫을 보여 준다. 그다음 이 채팅을 연결한다. 결과의 target은 source-dev-app이어야 하고 \`pets\`가 \`show-requested\`이면 펫 표시를 요청한 것이다. 처음 결과가 connecting이면 펫은 떠 있고 채팅 연결은 대기 중이라고 설명한다. 명시적 펫 연결에는 훅 허용이 필요하지 않다. 새 스킬이 발견되지 않을 때만 작업 종료 후 Codex 재시작을 안내한다. trust나 실행 정책을 우회하지 않는다. 상태·모델·절감 효과를 추정하지 않는다. 같은 설정을 다시 묻지 않는다. 자동 도움·보호의 실제 검증 상태를 그대로 전달한다. 실패하면 결과의 message를 그대로 전하고 설치된 앱으로 대신 열지 않는다.
+`;
+}
+
+export const AGENT_FILE = 'agents/openai.yaml';
+export function renderAgent() {
+  return `# ${MARKER}
+interface:
+  display_name: "오토펫 · AutoPets"
+  short_description: "AutoPets 강아지 펫을 바로 띄우고 이 채팅과 연결합니다 (소스 개발 앱)"
+  default_prompt: "AutoPets 강아지 펫을 화면에 띄워줘."
 `;
 }
 
@@ -77,6 +87,10 @@ export async function install({ paths = devPaths(), node = process.execPath } = 
   }
   await fs.mkdir(path.dirname(paths.skillFile), { recursive: true });
   await fs.writeFile(paths.skillFile, renderSkill({ node, ...paths }));
+  const agent = path.join(path.dirname(paths.skillFile), AGENT_FILE);
+  const existingAgent = await read(agent);
+  // Only our own picker entry is written; a different one is left untouched.
+  if (existingAgent === null || isDevRoute(existingAgent)) { await fs.mkdir(path.dirname(agent), { recursive: true }); await fs.writeFile(agent, renderAgent()); }
   return { ok: true, skill: paths.skillFile, backup: (backedUp || backup !== null) ? paths.backupFile : null, dataDir: paths.dataDir, launcher: paths.launcher };
 }
 
@@ -85,6 +99,8 @@ export async function restore({ paths = devPaths() } = {}) {
   if (backup === null) throw Error('backup-missing');
   if (current !== null && !isDevRoute(current)) throw Error('skill-not-dev-route');
   await fs.writeFile(paths.skillFile, backup);
+  const agent = path.join(path.dirname(paths.skillFile), AGENT_FILE);
+  if (isDevRoute(await read(agent))) await fs.rm(agent, { force: true });
   return { ok: true, skill: paths.skillFile, restoredFrom: paths.backupFile };
 }
 
@@ -106,26 +122,37 @@ export const systemDriver = {
 export async function startDev({ paths = devPaths(), env = process.env, cwd = process.cwd(), driver = systemDriver, waitMs = 240000 } = {}) {
   const connectionPath = path.join(paths.dataDir, 'connection.json');
   const appEnv = { ...env, AUTOPETS_DATA_DIR: paths.dataDir };
+  const started = driver.now();
+  const sessionId = env.CODEX_THREAD_ID || null;
   let live = await driver.readSetup(connectionPath), launch;
-  if (live) {
-    // Same as the installed path: a second launch reaches the single-instance
-    // handler, which shows the running manager window and exits.
-    launch = 'reused-running-dev-app';
-    if (await driver.exists(paths.devExe)) await driver.launch(paths.devExe, [], { env: appEnv });
-  } else {
+  if (live) launch = 'reused-running-dev-app';
+  else {
     if (!paths.launcher || !(await driver.exists(paths.launcher))) throw Error('dev-app-unavailable');
     launch = 'started-dev-launcher';
     await driver.launch('cmd.exe', ['/c', 'start', '"AutoPets Dev"', '/min', `"${paths.launcher}"`], { env: appEnv, cwd: paths.repo, windowsVerbatimArguments: true });
     const until = driver.now() + waitMs;
-    while (!live && driver.now() < until) { await driver.sleep(1000); live = await driver.readSetup(connectionPath); }
+    // The app writes its connection file once its bridge listens; the pets are shown right after.
+    while (!live && driver.now() < until) { await driver.sleep(250); live = await driver.readSetup(connectionPath); }
     if (!live) throw Error('dev-app-unavailable');
   }
   const { connection, state } = live;
   if (state?.version !== 1 || state?.appReady !== true) throw Error('dev-app-unavailable');
-  const sessionId = env.CODEX_THREAD_ID || null;
+  const appReadyMs = driver.now() - started;
+  // 1) Show the dog pets now: a second launch with `--show-pets` reaches the running app's
+  //    single-instance handler, which shows hidden pets, restores docked ones and neither
+  //    opens nor focuses the manager. 2) Then connect the calling chat. The pet says
+  //    "Codex 연결 중" in between, so showing it never waits for the chat connection.
+  let pets = 'dev-exe-missing';
+  if (await driver.exists(paths.devExe)) {
+    const chat = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(sessionId ?? '') ? ['--chat', sessionId] : [];
+    await driver.launch(paths.devExe, ['--show-pets', ...chat], { env: appEnv });
+    pets = 'show-requested';
+  }
+  const petsRequestedMs = driver.now() - started;
   const result = await driver.post(connection, { installedVersion: state.installedVersion, sessionId, cwd: sessionId ? cwd : null,
     hostId: 'codex-windows-local', entryPoint: 'ai', connectionMode: 'explicit-pet' });
-  return { ok: true, ...result, target: 'source-dev-app', launch, connection: connectionPath, publicOneCallVerified: false };
+  return { ok: true, ...result, target: 'source-dev-app', launch, pets, connection: connectionPath, publicOneCallVerified: false,
+    timings: { appReadyMs, petsRequestedMs, chatConnectedMs: driver.now() - started } };
 }
 
 export function parseArgs(argv) {

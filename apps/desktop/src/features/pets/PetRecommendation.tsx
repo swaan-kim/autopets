@@ -2,6 +2,7 @@ import type { PetRecommendation, Snapshot } from '@autopets/contracts/types';
 import { useAction } from '../../bridge/useAction';
 import { petCatalog } from './petCatalog';
 import { TaskPetArt } from './TaskPetArt';
+import { chatBadge, chatDetail, useCodexChatTitles } from './useCodexChatTitles';
 import './pet-recommendation.css';
 
 /** Only existing catalog pets can be shown; an unknown id is never replaced by a placeholder. */
@@ -26,9 +27,10 @@ export function PetRecommendationCard({ item, compact = false, linked = true }: 
   const accept = (petId: string, other = false) => void action.run('respond_pet_recommendation', { id: item.id, response: { action: 'accept', petId, other } });
   const dismiss = () => void action.run('respond_pet_recommendation', { id: item.id, response: { action: 'dismiss' } });
   const browse = () => void action.run('browse_pet_recommendation', { id: item.id });
-  const chat = `채팅 · ${item.target.threadId.slice(-8)}`;
+  const chatTitles = useCodexChatTitles([item.target.threadId]);
+  const chat = chatBadge(chatTitles, item.target.threadId);
   return <section className={`pet-recommendation ${compact ? 'compact' : ''}`} data-state={item.state} data-agent-id="pet-recommendation.card" aria-label="Codex 요청에 맞는 펫 추천">
-    <header className="pet-recommendation-header"><strong>{item.state === 'preparing' ? 'Codex 요청 확인 중' : '이 요청에 맞는 펫'}</strong><small title={item.target.threadId}>{chat}</small></header>
+    <header className="pet-recommendation-header"><strong>{item.state === 'preparing' ? 'Codex 요청 확인 중' : '이 요청에 맞는 펫'}</strong><small title={chatDetail(item.target)}>{chat}</small></header>
     {item.request && <blockquote className="pet-recommendation-request" title={item.request}>“{quote(item.request)}”</blockquote>}
     {item.state === 'preparing' && <p className="pet-recommendation-note" role="status">보낸 요청에 맞는 펫이 있는지 확인하고 있어요.</p>}
     {item.state === 'shown' && <>

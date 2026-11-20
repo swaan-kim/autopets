@@ -329,6 +329,8 @@ impl Store {
             "protection":{"model":false,"reasoning":false,"submission":false},
             "retryable":true, "nextAction":if !configured { "start" } else if connected { "none" } else if request.is_some_and(|r| r.connection_mode.as_deref()==Some("explicit-pet")) { "send-message" } else { "review-hooks" },
             "connectionMode":request.and_then(|r| r.connection_mode.as_ref()),
+            // The exact chat that ran `$autopets` ("현재 채팅에서 계속하기" target); null when none.
+            "setupChat":self.setup_chat().map(|t| serde_json::json!({"sourceId":t.source_id,"threadId":t.thread_id,"cwd":t.cwd})),
             "currentHostId": request.map(|r| r.host_id.as_deref().unwrap_or(crate::domain::connections::CODEX_LOCAL)),
             "entryPoint":request.and_then(|r| r.entry_point.as_ref()),
             "hosts":crate::domain::connections::catalog(),

@@ -215,7 +215,9 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .selectable { user-select: text; font-family: Consolas, 'Malgun Gothic', monospace; }
 .loading-state { display: grid; place-items: center; padding: 15px; height: 100vh; font-size: 12px; color: #8d8d8d; overflow-wrap: anywhere; }
 .overlay, .overlay body, .overlay #root { background: transparent !important; overflow: hidden; }
-.pet-overlay { width: 180px; height: 230px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 6px; padding: 4px; }
+/* Anchored bottom-right like the native resize (set_pet_expanded), so the pet stays under the
+   pointer while the window grows for the card or the Codex bubble. */
+.pet-overlay { position: fixed; right: 0; bottom: 0; width: 180px; height: 230px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 6px; padding: 4px; }
 .pet-overlay.expanded { width: 328px; height: 600px; max-width: 100vw; max-height: 100vh; }
 .floating-pet { position: relative; width: 172px; min-height: 218px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; padding-top: 10px; }
 .pet-hit { border: 0; background: none; padding: 0; width: 160px; height: 151px; position: relative; display: grid; place-items: center; cursor: grab; touch-action: none; }

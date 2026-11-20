@@ -2,32 +2,39 @@ import { useRef, useState } from 'react';
 import type { SavedPet } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
 
-type Action = 'install' | 'use';
+export type ClaudeAction = 'install' | 'use';
 
 // Claude's own install window and a prefilled new chat replace the manual file
 // and copy-paste steps. Claude still asks the user to confirm the install and to
 // send the message; AutoPets never claims either happened.
+// Shared with the pet start button. Resolves to the notice to show; rejects with a readable message.
+export async function runClaudeAction(action: ClaudeAction, pet: SavedPet | null) {
+  try {
+    if (action === 'install') {
+      const name = await command<string>('install_pet_preferences_in_claude');
+      if (typeof name !== 'string' || !/^AutoPets-pet-preferences-[0-9a-f-]{36}\.mcpb$/.test(name)) throw Error('unconfirmed-export');
+      return 'Claude 설치 창에서 설치를 눌러 주세요. 이미 설치했다면 닫아도 돼요.';
+    }
+    if (!pet) return '';
+    await command('open_pet_in_claude', { petId: pet.id, expectedRevision: pet.revision });
+    return 'Claude 새 대화에 요청을 넣었어요. 모델을 고르고 보내기만 누르세요.';
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
+    throw Error(/[가-힣]/.test(message) ? message : action === 'install' ? 'Claude 설치 창을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.' : 'Claude 앱을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.');
+  }
+}
+
 export function PetPreferencesConnector({ compact = false, pet = null }: { compact?: boolean; pet?: SavedPet | null }) {
-  const [busy, setBusy] = useState<Action | null>(null);
+  const [busy, setBusy] = useState<ClaudeAction | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const pending = useRef(false);
-  const act = async (action: Action) => {
+  const act = async (action: ClaudeAction) => {
     if (pending.current) return;
     pending.current = true; setBusy(action); setError(''); setNotice('');
-    try {
-      if (action === 'install') {
-        const name = await command<string>('install_pet_preferences_in_claude');
-        if (typeof name !== 'string' || !/^AutoPets-pet-preferences-[0-9a-f-]{36}\.mcpb$/.test(name)) throw Error('unconfirmed-export');
-        setNotice('Claude 설치 창에서 설치를 눌러 주세요. 이미 설치했다면 닫아도 돼요.');
-      } else if (pet) {
-        await command('open_pet_in_claude', { petId: pet.id, expectedRevision: pet.revision });
-        setNotice('Claude 새 대화에 요청을 넣었어요. 모델을 고르고 보내기만 누르세요.');
-      }
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
-      setError(/[가-힣]/.test(message) ? message : action === 'install' ? 'Claude 설치 창을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.' : 'Claude 앱을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.');
-    } finally { pending.current = false; setBusy(null); }
+    try { setNotice(await runClaudeAction(action, pet)); }
+    catch (cause) { setError((cause as Error).message); }
+    finally { pending.current = false; setBusy(null); }
   };
   const install = isDesktop
     ? <button className="button secondary" disabled={busy !== null} onClick={() => void act('install')}>{busy === 'install' ? '여는 중…' : 'Claude에 설치'}</button>

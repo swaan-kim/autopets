@@ -34,7 +34,7 @@ pub(crate) fn pet_task_uri(
     task_uri(&link.target.thread_id, &link.target.cwd)
 }
 
-fn task_uri(session_id: &str, expected_cwd: &str) -> Result<String, String> {
+pub(crate) fn task_uri(session_id: &str, expected_cwd: &str) -> Result<String, String> {
     let bytes = expected_cwd.as_bytes();
     if bytes.len() < 3
         || !bytes[0].is_ascii_alphabetic()
