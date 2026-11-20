@@ -17,6 +17,7 @@ pub struct Snapshot {
     pub pet_recommendations: Vec<super::recommendation::Recommendation>,
     /// Codex chats that need the user, or whose requested work finished (see `domain::attention`).
     pub codex_attention: Vec<super::attention::Notice>,
+    pub pet_jobs: Vec<super::pet_job::Job>,
     pub sessions: Vec<Session>,
     pub slots: Vec<Slot>,
     pub approvals: Vec<Approval>,

@@ -15,6 +15,8 @@ pub struct Store {
     pub(crate) recommendations: crate::domain::recommendation::Recommendations,
     /// Codex attention notices for the pet; in-memory only, never written to SQLite.
     pub(crate) attention: crate::domain::attention::Attention,
+    /// Jobs reported by an AI through MCP. In-memory only; never written to SQLite.
+    pub(crate) pet_jobs: crate::domain::pet_job::Jobs,
     pub(crate) db: Connection,
     pub assistance: crate::application::assistance::AssistanceStore,
     pub workflow: crate::application::workflow::WorkflowStore,
@@ -62,6 +64,7 @@ impl Store {
         Snapshot {
             pet_recommendations: self.recommendations.snapshot(&self.pet_links, self.setup_chat().as_ref(), now),
             codex_attention: self.attention.snapshot(&self.pet_links, self.setup_chat().as_ref()),
+            pet_jobs: self.pet_jobs.snapshot(now),
             pet_links: { let mut links: Vec<_> = self.pet_links.values().cloned().collect(); links.sort_by_key(|l| l.slot); links },
             sessions,
             slots: self

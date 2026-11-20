@@ -29,7 +29,7 @@ export async function collectConnectorFiles({ root, node, license }) {
     const file = `integrations/codex/scripts/${name}`;
     await add(file, path.join(root, file));
   }
-  for (const name of ['server.mjs', 'client.mjs', 'README.md']) {
+  for (const name of ['server.mjs', 'client.mjs', 'review.mjs', 'README.md']) {
     const file = `integrations/mcp/${name}`;
     await add(file, path.join(root, file));
   }
