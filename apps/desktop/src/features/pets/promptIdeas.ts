@@ -12,11 +12,11 @@ export const promptIdeas: PromptIdea[] = [
 
 const base = roles.find(role => role.id === 'research-document') as PetRoleTemplate;
 export const promptPets: PetCatalogEntry[] = (['image', 'video'] as const).map(kind => ({
-  id: `${kind}-prompt`, category: 'work', name: kind === 'image' ? '이미지 프롬프트 만들기' : '영상 프롬프트 만들기',
-  summary: '원하는 구도와 분위기를 생성 도구에 쓸 요청으로 정리해요.', inputLabel: '만들고 싶은 장면', optionalLabel: '구도와 분위기',
-  example: promptIdeas.find(idea => idea.kind === kind)!.prompt, output: '생성 도구에 쓸 프롬프트와 입력 조건',
-  before: '어떤 장면을 어떻게 설명할지 막막해요.', after: '장면·구도·빛·움직임을 짧은 프롬프트로 정리해요.',
-  limit: '이 펫은 프롬프트를 정리해요. 이미지·영상 생성 도구 연결과 실제 결과는 따로 확인해요.',
+  id: `${kind}-prompt`, category: 'work', name: kind === 'image' ? '이미지 요청문 만들기' : '영상 요청문 만들기',
+  summary: '원하는 구도와 분위기를 생성 앱에 넣을 요청문으로 정리해요.', inputLabel: '만들고 싶은 장면', optionalLabel: '구도와 분위기',
+  example: promptIdeas.find(idea => idea.kind === kind)!.prompt, output: '생성 앱에 넣을 요청문과 입력 조건',
+  before: '어떤 장면을 어떻게 설명할지 막막해요.', after: '장면·구도·빛·움직임을 짧은 요청문으로 정리해요.',
+  limit: `이 펫은 요청문만 정리해요. ${kind === 'image' ? '이미지' : '영상'}는 생성 앱에서 직접 만들어 주세요.`,
   symbol: kind === 'image' ? '▧' : '▷', publisher: 'AutoPets', source: null,
   template: { ...structuredClone(base), name: kind === 'image' ? '이미지 프롬프트 펫' : '영상 프롬프트 펫', planFirst: false,
     planning: { model: 'gpt-6-luna', reasoning: 'low' }, execution: { model: 'gpt-6-luna', reasoning: 'low' },

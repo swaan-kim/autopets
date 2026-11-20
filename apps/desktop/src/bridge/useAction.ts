@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { command } from './command';
+import { command, errorMessage } from './command';
 
 export function useAction() {
   const [busy, setBusy] = useState(false);
@@ -9,7 +9,7 @@ export function useAction() {
     if (active.current) return false;
     active.current = true; setBusy(true); setError('');
     try { await command(name, args); return true; }
-    catch (cause) { setError(String(cause)); return false; }
+    catch (cause) { setError(errorMessage(cause)); return false; }
     finally { active.current = false; setBusy(false); }
   };
   return { busy, error, run };

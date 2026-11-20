@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PetLink } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
+import { chatTitle, useCodexChatTitles } from './useCodexChatTitles';
 
 export function canReturnToPetTask(link: PetLink): boolean {
   const { target, revision } = link;
@@ -18,10 +19,8 @@ export const targetKey = (link: PetLink) => JSON.stringify([link.target.sourceId
 const hasCurrentPetResult = (link: PetLink, disconnected: boolean) => link.connected && link.enabled && !disconnected && !link.run?.trackingClosed;
 
 export function petTaskReturnLabel(link: PetLink, disconnected = false): string {
-  if (!hasCurrentPetResult(link, disconnected)) return 'Codex 작업 열기';
-  if (link.run?.state === 'waiting' && link.run.profile === 'plan') return '계획 보러 가기';
-  if (link.run?.state === 'complete') return '결과 보러 가기';
-  return 'Codex 작업 열기';
+  if (hasCurrentPetResult(link, disconnected) && link.run?.state === 'waiting' && link.run.profile === 'plan') return '계획 보기';
+  return 'Codex에서 보기';
 }
 
 export function canStartNewPetTask(link: PetLink, disconnected = false): boolean {
@@ -36,7 +35,9 @@ export function PetTaskReturn({ link, disconnected = false }: { link: PetLink; d
 /** Opens the pet's exact Codex chat (`open_pet_task`). Shared by the app card and the pet popup.
  *  A different target or revision owns a different request: its state resets and a late receipt
  *  for the previous one is dropped, so a stale receipt never shows. */
-export function usePetTaskReturn(link: PetLink) {
+export function usePetTaskReturn(link: PetLink, chatName?: string | null) {
+  // What the user can look for in Codex: the chat's own name, or the folder it works in.
+  const findName = chatName || link.target.cwd.split(/[\\/]/).filter(Boolean).pop() || link.target.cwd;
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [failed, setFailed] = useState(false);
@@ -70,7 +71,7 @@ export function usePetTaskReturn(link: PetLink) {
     } catch (cause) {
       if (live(at)) {
         const changed = String(cause).includes('pet-revision-changed') || String(cause).includes('pet-target-mismatch');
-        setNotice(changed ? '연결 정보가 바뀌었어요. 현재 펫을 다시 확인하거나 작업 ID로 찾아주세요.' : 'Codex 작업을 열지 못했어요. 작업 ID로 직접 찾아주세요.');
+        setNotice(changed ? '연결 정보가 바뀌었어요. 펫을 다시 확인하거나 Codex에서 채팅을 직접 찾아 주세요.' : 'Codex를 열지 못했어요. Codex에서 채팅을 직접 찾아 주세요.');
         setFailed(true);
       }
     } finally {
@@ -79,21 +80,21 @@ export function usePetTaskReturn(link: PetLink) {
     }
   };
   const copy = async () => {
-    try { await navigator.clipboard.writeText(link.target.threadId); if (mounted.current) setCopyNotice('작업 ID를 복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
-    catch { if (mounted.current) setCopyNotice('복사하지 못했어요. 아래 작업 ID를 직접 선택해 주세요.'); }
+    try { await navigator.clipboard.writeText(findName); if (mounted.current) setCopyNotice('채팅 이름을 복사했어요. Codex에서 같은 이름의 채팅을 찾아 주세요.'); }
+    catch { if (mounted.current) setCopyNotice(`복사하지 못했어요. Codex에서 ‘${findName}’ 채팅을 찾아 주세요.`); }
   };
-  return { supported, busy, notice, failed, opened, copyNotice, open, copy };
+  return { supported, busy, notice, failed, opened, copyNotice, findName, open, copy };
 }
 
 function PetTaskReturnAction({ link, disconnected }: { link: PetLink; disconnected: boolean }) {
-  const { supported, busy, notice, failed, copyNotice, open, copy } = usePetTaskReturn(link);
+  const titles = useCodexChatTitles([link.target.threadId]);
+  const { supported, busy, notice, failed, copyNotice, findName, open, copy } = usePetTaskReturn(link, chatTitle(titles, link.target.threadId));
   return <div className="pet-task-return" data-testid="pet-task-return" data-agent-id="task-card.return-panel">
-    <button className="button explicit-return" data-agent-id="task-card.return" disabled={busy || !supported} onClick={() => void open()}>{busy ? 'Codex에 요청 중…' : petTaskReturnLabel(link, disconnected)}</button>
+    <button className="button explicit-return" data-agent-id="task-card.return" disabled={busy || !supported} onClick={() => void open()}>{busy ? 'Codex에 요청 중…' : `${petTaskReturnLabel(link, disconnected)} ↗`}</button>
     {notice && <p className="explicit-return-notice" role={failed ? 'alert' : 'status'}>{notice}</p>}
     {(!supported || failed) && <div className="explicit-return-fallback">
-      {!supported && <p>지금은 앱에서 바로 열 수 없어요. Codex에서 같은 작업을 찾아주세요.</p>}
-      <button className="text-button" onClick={() => void copy()}>작업 ID 복사</button>
-      <code tabIndex={0} aria-label="Codex 작업 ID">{link.target.threadId}</code>
+      {!supported && <p>지금은 바로 열 수 없어요. Codex에서 ‘{findName}’ 채팅을 찾아 주세요.</p>}
+      <button className="text-button" onClick={() => void copy()}>채팅 이름 복사</button>
       {copyNotice && <p role="status">{copyNotice}</p>}
     </div>}
   </div>;

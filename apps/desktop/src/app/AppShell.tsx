@@ -2,7 +2,7 @@ import { useRef, type ReactNode } from 'react';
 import { isDesktop } from '../bridge/command';
 
 export type ManagerSection = 'home' | 'pets' | 'catalog' | 'saved' | 'connection' | 'assistance' | 'intro' | 'roles';
-const sectionNames: Record<ManagerSection, string> = { home: '홈', pets: '내 작업', catalog: '펫 고르기', saved: '내 펫', connection: '연결 설정', assistance: '자동 도움', intro: '소개 자료', roles: '역할과 내 펫' };
+const sectionNames: Record<ManagerSection, string> = { home: '홈', pets: '내 작업', catalog: '펫 고르기', saved: '내 펫', connection: 'AI 연결', assistance: '자동 도움', intro: '소개 자료', roles: '내 펫 만들기' };
 function NavigationIcon({ section }: { section: ManagerSection }) {
   const paths: Record<ManagerSection, ReactNode> = {
     home: <><path d="M4 11 12 4l8 7v9H4z" /><path d="M9 20v-6h6v6" /></>,
@@ -25,7 +25,13 @@ export function AppShell({ settings, bound, disconnected, busy, error, onNavigat
       <button type="button" className="brand brand-home" disabled={busy} aria-label="AutoPets 홈으로" aria-current={settings === 'home' ? 'page' : undefined} onClick={() => { onNavigate('home'); if (menu.current) menu.current.open = false; }}><img className="brand-logo" src="/assets/brand/autopets-logo.svg" alt="" width="142" height="33" /></button>
       <nav aria-label="앱 메뉴">{settings !== 'home' && navigation('catalog')}{navigation('pets')}</nav>
       <details className="app-settings" ref={menu} onKeyDown={event => { if (event.key === 'Escape' && menu.current) { menu.current.open = false; menu.current.querySelector('summary')?.focus(); } }}>
-        <summary>설정</summary><div className="settings-menu">{navigation('connection')}{navigation('assistance')}{navigation('intro')}{navigation('roles')}<span className={`connection-pill ${disconnected ? 'offline' : ''}`}>{!isDesktop ? '미리보기 · 연결 없음' : disconnected ? '앱 연결 확인 필요' : '앱 실행 중'}</span><button className="text-button" disabled={!isDesktop || busy} onClick={onQuit}>AutoPets 종료</button><span className="version">이 PC에 저장돼요 · 0.1</span></div>
+        <summary>설정</summary><div className="settings-menu">{navigation('connection')}
+          {/* Experimental pages stay reachable but out of a beginner's first view. */}
+          <details className="settings-advanced"><summary>고급 · 실험 기능</summary>{navigation('assistance')}{navigation('intro')}{navigation('roles')}</details>
+          {(!isDesktop || disconnected) && <span className={`connection-pill ${disconnected ? 'offline' : ''}`}>{!isDesktop ? '미리보기 화면이에요' : '앱 연결 확인 필요'}</span>}
+          <hr className="settings-divider" />
+          <button className="nav-item" disabled={!isDesktop || busy} onClick={onQuit}>AutoPets 종료</button>
+          <span className="version">버전 0.1 · 내 자료는 이 PC에만 저장돼요</span></div>
       </details>
     </header>
     <main className="main-content" id="main-content" tabIndex={-1}>

@@ -14,9 +14,9 @@ export function PetHome({ active, connectedCount, onBrowse, children }: {
         <CompanionPet state="idle" paused={!active} interaction={interaction} />
       </button>
       <h1 data-agent-id="home.title">어떤 펫과 일할까요?</h1>
-      <p className="pet-home-intro" id="home-codex-hint" data-agent-id="home.intro">펫을 고르고, 할 일은 쓰던 Codex에서 말해요.</p>
+      <p className="pet-home-intro" id="home-codex-hint" data-agent-id="home.intro">펫을 고르고 시작을 누르면, AI 채팅에 요청을 넣어 드려요.</p>
       <button type="button" ref={choose} className="button pet-home-find" aria-describedby="home-codex-hint" data-agent-id="home.choose-pet" onClick={onBrowse}>펫 고르기 <span aria-hidden="true">→</span></button>
-      <p className="pet-home-connection" data-agent-id="home.connection" role="status" aria-live="polite" aria-atomic="true">{connectedCount ? `연결된 Codex 채팅 ${connectedCount}개` : '처음이라면 Codex에서 “AutoPets 켜줘”라고 말해보세요.'}</p>
+      <p className="pet-home-connection" data-agent-id="home.connection" role="status" aria-live="polite" aria-atomic="true">{connectedCount ? `연결된 Codex 채팅 ${connectedCount}개` : 'Codex나 Claude 앱이 있으면 바로 시작할 수 있어요.'}</p>
     </div>
     {children}
   </section>;

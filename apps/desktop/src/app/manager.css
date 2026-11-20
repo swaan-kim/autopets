@@ -126,6 +126,9 @@
 .app-header .settings-menu .nav-item { width: 100%; }
 .settings-menu .connection-pill { margin: 12px 4px 4px; }
 .settings-menu > .text-button, .settings-menu .version { margin: 4px 10px; display: block; }
+.settings-advanced > summary { cursor: pointer; min-height: 40px; padding: 10px 12px; border-radius: 10px; color: var(--muted); font-size: 13px; }
+.settings-advanced > summary:hover { background: #ededed; }
+.settings-divider { border: 0; border-top: 1px solid var(--line); margin: 8px 4px; }
 @media (max-width: 700px) {
   .app-header { padding: 12px 16px; gap: 12px; flex-wrap: wrap; }
   .app-header > nav { order: 3; width: 100%; margin: 0; justify-content: space-between; gap: 4px; }

@@ -13,7 +13,7 @@ exports.runToolActivityChecks = async ({ newPage, mockBridge, fixture, origin, s
   const manager = await newPage();
   await mockBridge(manager, state);
   await manager.goto(origin);
-    await manager.locator('.app-settings > summary').click(); await manager.getByRole('button', {name:'연결 설정',exact:true}).click(); await manager.getByText('이전에 연결한 작업', { exact: true }).click();
+  await require('./entry-navigation.cjs').openLegacyTasks(manager);
   await manager.locator('.pet-card-0').getByRole('button', { name: '작업 카드 열기 →' }).click();
   const activity = manager.getByRole('region', { name: '관측된 도구 실행' });
   await activity.getByText('mcp__fixture__read', { exact: true }).waitFor();
@@ -32,7 +32,7 @@ exports.runToolActivityChecks = async ({ newPage, mockBridge, fixture, origin, s
   const pet = await newPage({ width: 500, height: 700 });
   await mockBridge(pet, state);
   await pet.goto(`${origin}/?pet=0`);
-  const prop = pet.getByRole('img', { name: 'MCP · 최근 도구 실행 완료', exact: true });
+  const prop = pet.getByRole('img', { name: '최근 도구 실행 완료', exact: true });
   await prop.waitFor();
   assert.equal(await prop.getAttribute('data-state'), 'completed');
   // A running non-MCP tool must not turn a completed MCP call into "in use".
@@ -46,17 +46,17 @@ exports.runToolActivityChecks = async ({ newPage, mockBridge, fixture, origin, s
   await pet.evaluate(() => {
     window.__uiTest.state.sessions[0].toolActivityV1.calls[0].state = 'running';
   });
-  await pet.getByRole('img', { name: 'MCP · 1개 도구 사용 중', exact: true }).waitFor();
+  await pet.getByRole('img', { name: '1개 도구 사용 중', exact: true }).waitFor();
   await pet.evaluate(() => {
     window.__uiTest.state.sessions[0].toolActivityV1.calls[1].state = 'completed';
     window.__uiTest.state.sessions[0].toolActivityV1.calls[0].state = 'failed';
   });
-  await pet.getByRole('img', { name: 'MCP · 최근 도구 실행 실패', exact: true }).waitFor();
+  await pet.getByRole('img', { name: '최근 도구 실행 실패', exact: true }).waitFor();
   assert.equal(await pet.locator('.mcp-pet-prop').getAttribute('data-state'), 'failed', 'a generic working gesture must not claim that the failed tool is running');
   await pet.evaluate(() => { window.__uiTest.state.sessions[0].toolActivityV1.calls[0].state = 'running'; });
-  await pet.getByRole('img', { name: 'MCP · 1개 도구 사용 중', exact: true }).waitFor();
+  await pet.getByRole('img', { name: '1개 도구 사용 중', exact: true }).waitFor();
   await pet.evaluate(() => { window.__uiTest.state.sessions[0].connection = 'unknown'; });
-  await pet.getByRole('img', { name: 'MCP · 최근 도구 결과 확인 필요', exact: true }).waitFor();
+  await pet.getByRole('img', { name: '최근 도구 결과 확인 필요', exact: true }).waitFor();
   await pet.evaluate(() => { delete window.__uiTest.state.sessions[0].toolActivityV1; });
   await pet.locator('.mcp-pet-prop').waitFor({ state: 'detached' });
   assert.equal(await pet.getByText('1개 도구 사용 중', { exact: true }).count(), 0);

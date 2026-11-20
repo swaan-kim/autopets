@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AssistanceSnapshot } from '@autopets/contracts/types';
-import { command } from './command';
+import { command, errorMessage } from './command';
 import { EMPTY_ASSISTANCE } from './defaults';
 
 export function useAssistance() {
@@ -13,7 +13,7 @@ export function useAssistance() {
     if (active.current) return;
     active.current = true;
     try { const next = await command<AssistanceSnapshot>('get_assistance'); if (alive.current) { setSnapshot(next); setError(''); setLoaded(true); } }
-    catch (cause) { if (alive.current) setError(String(cause)); }
+    catch (cause) { if (alive.current) setError(errorMessage(cause)); }
     finally { active.current = false; }
   };
   useEffect(() => {

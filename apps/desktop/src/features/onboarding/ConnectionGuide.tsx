@@ -6,8 +6,9 @@ import { AppUpdate } from './AppUpdate';
 import { PetPreferencesConnector } from './PetPreferencesConnector';
 import './connection.css';
 
-const stageLabel = { implementation: '연결 구현 · 실환경 검증 범위 확인', compatibility: '호환성 확인 전', planned: '연결 준비 중', guidance: '안내만 제공' };
-export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultLabel = '균형 있게', backLabel = '나의 펫 보기', onBack, onPreferences }: {
+const stageLabel = { implementation: '연결 기능 있음 · 실제 환경은 확인 중', compatibility: '아직 확인 못 함', planned: '준비 중', guidance: '안내만 제공' };
+const PREVIEW_NOTE = '미리보기 화면이에요. 저장과 연결은 Windows 앱에서만 돼요.';
+export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultLabel = '균형 있게', backLabel = '돌아가기', onBack, onPreferences }: {
   connectionPath: string; setup?: SetupState | null; petLinks?: PetLink[]; defaultLabel?: string; backLabel?: string; onBack: () => void; onPreferences: () => void;
 }) {
   const [latest, setLatest] = useState(setup);
@@ -28,47 +29,47 @@ export function ConnectionGuide({ connectionPath, setup, petLinks = [], defaultL
     try {
       const result = await command<SetupState>(name, { hostId });
       setLatest(result);
-      setNotice([name === 'connect_ai' ? '펫 호출 스킬을 준비했어요. 쓰던 Codex 채팅에서 AutoPets 스킬을 선택해 펫을 불러주세요.' : 'AutoPets 연결 설정을 해제했어요.', ...(result.warnings || [])].join(' '));
-    } catch { setError('연결 설정을 바꾸지 못했어요. 앱과 Codex 상태를 확인한 뒤 다시 시도해 주세요.'); }
+      setNotice([name === 'connect_ai' ? 'Codex 준비를 마쳤어요. 이제 펫을 고르고 시작을 눌러 보세요.' : 'Codex와 AutoPets의 연결을 해제했어요.', ...(result.warnings || [])].join(' '));
+    } catch { setError('AI 연결을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.'); }
     finally { working.current = false; setBusy(false); }
   };
+  const previewNote = !isDesktop && <p className="small-note">{PREVIEW_NOTE}</p>;
   return <div className="connection-guide">
-    <div className="page-heading setup-heading"><div><h1>연결 설정</h1><p>펫을 부르는 연결을 확인하고 관리해요.</p></div><button className="button secondary" onClick={onBack}>{backLabel}</button></div>
+    <div className="page-heading setup-heading"><div><h1>AI 연결</h1><p>AI 채팅과 AutoPets를 이어 주는 준비예요. 한 번만 하면 돼요.</p></div><button className="button secondary" onClick={onBack}>{backLabel}</button></div>
     <section className="connection-manage-card" aria-label="AI 연결 관리">
-      <div className="setup-step-title"><h2>{host?.label ?? 'Codex · Windows'}</h2><span className="setup-status">{petConnected ? '펫 연결됨' : configured ? '호출 준비됨' : '연결 전'}</span></div>
+      <div className="setup-step-title"><h2>{host?.label ?? 'Codex · Windows'}</h2><span className="setup-status">{petConnected ? '사용 중' : configured ? '준비됨' : '준비 전'}</span></div>
       {host?.connectAvailable ? <>
-        <ol className="setup-progress" aria-label="펫 연결 순서">
+        <ol className="setup-progress" aria-label="연결 순서">
           {[
             { label: '앱 준비', done: isDesktop && latest?.appReady === true },
-            { label: '호출 스킬 준비', done: configured },
-            { label: '현재 채팅 연결', done: petConnected },
+            { label: 'Codex 준비', done: configured },
+            { label: '첫 작업 시작', done: petConnected },
           ].map((step, index) => <li key={step.label} data-done={step.done}>
             <span className="setup-step-number" aria-hidden="true">{step.done ? '✓' : index + 1}</span>
-            <span>{step.label}<small>{step.done ? '확인됨' : '아직 확인 전'}</small></span>
+            <span>{step.label}<small>{step.done ? '완료' : '아직'}</small></span>
           </li>)}
         </ol>
-        <p>{petConnected ? '연결된 펫의 작업과 설정은 나의 펫에서 확인하세요.' : configured ? '준비한 스킬을 Codex 채팅에서 부르면 펫이 연결돼요.' : '이 PC에 펫 호출 스킬을 준비하면 기존 Codex 채팅에서 사용할 수 있어요.'}</p>
+        <p>{petConnected ? '펫이 맡은 일은 ‘내 작업’에서 확인하세요.' : configured ? '준비됐어요. 펫을 고르고 시작을 누르면 Codex 채팅이 열려요.' : '한 번 준비해 두면, 펫의 시작 버튼이 Codex 채팅을 열 수 있어요.'}</p>
         {configured && !petConnected && <div className="setup-next-step">
-          <strong>이제 쓰던 Codex 채팅에서 불러주세요.</strong>
-          <p>AutoPets 스킬을 선택하고 <q>제작 펫 연결해줘</q>라고 말해보세요.</p>
-          <small>펫을 연결한 뒤 앱에서 선택·적용해요. 역할 지침이나 설정을 붙여넣을 필요가 없어요.</small>
+          <strong>이제 펫을 골라 시작해 보세요.</strong>
+          <p>시작을 누르면 요청이 적힌 Codex 채팅이 열려요. 거기서 보내기만 눌러 주세요.</p>
         </div>}
-        <div className="setup-actions">{configured ? <><button className="button secondary" disabled={!isDesktop || busy} onClick={() => void run('connect_ai')}>연결 복구</button><details><summary>연결 해제</summary><p>이 PC의 AutoPets 호출 설정을 해제해요. 기존 Codex 작업은 계속돼요.</p><button className="text-button danger-text" disabled={!isDesktop || busy} onClick={() => void run('disconnect_ai')}>이 AI 연결 해제</button></details></> : <button className="button primary" disabled={!isDesktop || busy} onClick={() => void run('connect_ai')}>{busy ? '준비하는 중…' : '이 AI 연결하기'}</button>}</div>
-        <details className="setup-help"><summary>펫이 연결되지 않나요?</summary><p>Codex의 스킬 목록에서 AutoPets를 선택하고 “제작 펫 연결”을 보내세요. 새 스킬이 보이지 않으면 작업을 마친 뒤 Codex를 다시 열어주세요.</p><small>펫 호출에는 새 훅 허용이 필요하지 않아요. 기존 훅 설정은 변경하지 않아요.</small></details>
-      </> : <p className="setup-guidance">{host?.execution === 'cloud' ? '이 웹·클라우드 환경은 아직 펫과 연결되지 않아요.' : '이 환경의 실제 펫 연결은 아직 검증하지 않았어요.'} <button className="text-button" onClick={onPreferences}>요청 문구·설정 안내 보기 →</button></p>}
-      {!isDesktop && <p className="small-note">브라우저 미리보기에서는 연결을 바꾸지 않아요.</p>}
+        <div className="setup-actions">{configured ? <><button className="button secondary" disabled={!isDesktop || busy} onClick={() => void run('connect_ai')}>연결 복구</button><details><summary>연결 해제</summary><p>이 PC에서 Codex와 AutoPets의 연결을 끊어요. 하던 Codex 작업은 그대로 이어져요.</p><button className="text-button danger-text" disabled={!isDesktop || busy} onClick={() => void run('disconnect_ai')}>이 AI 연결 해제</button></details></> : <button className="button primary" disabled={!isDesktop || busy} onClick={() => void run('connect_ai')}>{busy ? '준비하는 중…' : '이 AI 연결하기'}</button>}</div>
+        {previewNote}
+        <details className="setup-help"><summary>펫이 연결되지 않나요?</summary><p>하던 작업을 마친 뒤 Codex를 닫았다가 다시 열고, 펫의 시작 버튼을 다시 눌러 주세요.{configured && ' 그래도 안 되면 위의 ‘연결 복구’를 눌러 주세요.'}</p><p>Codex 채팅의 스킬 목록에서 AutoPets를 고르고 “제작 펫 연결”이라고 보내도 연결돼요.</p><small>Codex에 이미 있던 설정은 그대로 둬요.</small></details>
+      </> : <><p className="setup-guidance">이 환경에서는 펫 연결을 아직 확인하지 못했어요. <button className="text-button" onClick={onPreferences}>요청 문구·설정 안내 보기 →</button></p>{previewNote}</>}
       {error && <p className="error" role="alert">{error}</p>}{notice && <p className="setup-notice" role="status">{notice}</p>}
     </section>
-    <details className="connection-advanced"><summary>다른 환경과 연결 상세</summary>
+    <PetPreferencesConnector />
+    <details className="connection-advanced"><summary>문제 해결용 상세 정보</summary>
       <label className="field-label" htmlFor="setup-host">사용할 AI</label><select id="setup-host" className="text-input" value={hostId} disabled={busy} onChange={event => { setHostId(event.target.value); setError(''); setNotice(''); }}>{hosts.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
       {host && <p className="setup-host-stage">{stageLabel[host.stage]}</p>}
-      <p>현재 첫 체험은 Windows의 Codex를 지원해요. 다른 환경의 안내와 실제 연결은 별개예요.</p>
-      <dl className="connection-detail-list"><div><dt>앱</dt><dd>{latest?.appReady ? '준비됨' : isDesktop ? '상태 확인 중' : '브라우저 미리보기'}</dd></div><div><dt>활동 알림</dt><dd>{connection?.status === 'connected' ? '수신 확인' : '미확인'}</dd></div><div><dt>자동 도움 전달</dt><dd>{connection?.guidanceDelivered ? '확인됨' : '미확인'}</dd></div></dl>
-      <details className="setup-help"><summary>실제 설정 확인</summary><p>모델 {connection?.settingsVerified.model ? '확인' : '미검증'} · 추론 {connection?.settingsVerified.reasoning ? '확인' : '미검증'} · 제출 보호 {connection?.settingsVerified.submission ? '확인' : '미검증'}</p><p>부모 채팅의 설정과 펫 하위 작업은 구분해요. 펫 작업의 확인값은 해당 펫 카드에서 볼 수 있어요.</p></details>
-      <div className="setup-default"><span>기존 자동 도움 기본값 <strong>{defaultLabel}</strong></span><button className="text-button" onClick={onPreferences}>작업 방식 보기 →</button></div>
-      <details className="setup-help"><summary>연결 파일 위치</summary><code className="path-code">{connectionPath || '연결 파일 준비 전'}</code></details>
+      <p>지금은 Windows의 Codex 연결을 지원해요. 다른 환경은 안내만 볼 수 있어요.</p>
+      <dl className="connection-detail-list"><div><dt>앱</dt><dd>{latest?.appReady ? '준비됨' : isDesktop ? '확인 중' : '미리보기'}</dd></div><div><dt>활동 알림</dt><dd>{connection?.status === 'connected' ? '받는 중' : '확인 못 함'}</dd></div><div><dt>자동 도움 전달</dt><dd>{connection?.guidanceDelivered ? '전달됨' : '확인 못 함'}</dd></div></dl>
+      <details className="setup-help"><summary>실제 설정 확인</summary><p>모델 {connection?.settingsVerified.model ? '확인됨' : '확인 못 함'} · 추론 {connection?.settingsVerified.reasoning ? '확인됨' : '확인 못 함'} · 전송 보호 {connection?.settingsVerified.submission ? '확인됨' : '확인 못 함'}</p><p>채팅의 설정과 펫이 맡은 작업의 설정은 따로 확인해요. 펫 작업의 값은 그 펫 카드에서 볼 수 있어요.</p></details>
+      <div className="setup-default"><span>자동 도움 기본값 <strong>{defaultLabel}</strong></span><button className="text-button" onClick={onPreferences}>작업 방식 보기 →</button></div>
+      <details className="setup-help"><summary>연결 파일 위치</summary><code className="path-code">{connectionPath || '연결 파일이 아직 없어요'}</code></details>
     </details>
-    <PetPreferencesConnector />
     <AppUpdate />
   </div>;
 }
