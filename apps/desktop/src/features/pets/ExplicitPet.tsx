@@ -23,15 +23,15 @@ export function explicitPetMotion(link: PetLink, disconnected = false): PetMotio
   return 'idle';
 }
 export function explicitPetStatus(link: PetLink, disconnected = false): string {
-  if (disconnected || !link.connected) return '연결 확인 필요';
-  if (link.run?.trackingClosed) return '추적 종료';
+  if (disconnected || !link.connected) return '연결이 끊겼어요';
+  if (link.run?.trackingClosed) return '더 확인하지 않아요';
   if (!link.enabled && !link.run) return '펫 도움 꺼짐';
-  if (!link.run) return '작업 대기';
+  if (!link.run) return '새 일을 맡길 수 있어요';
   if (link.run.state === 'requested' || link.run.state === 'working') return link.run.profile === 'plan' ? '계획 중' : '작업 중';
-  const labels = { returned: '결과 확인', waiting: '계획 확인 필요', complete: '완료', failed: '작업 확인 실패', unknown: '실행 상태 확인 필요' };
+  const labels = { returned: '결과 확인 중', waiting: '계획을 확인해 주세요', complete: '완료', failed: '문제가 생겼어요', unknown: '문제가 생겼어요' };
   return labels[link.run.state];
 }
-export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, showPet = true, compact = false }: { link: PetLink; disconnected?: boolean; onHide?: () => void; onNewTask?: (link: PetLink) => void; showPet?: boolean; compact?: boolean }) {
+export function ExplicitPet({ link, disconnected = false, onNewTask, showPet = true, compact = false }: { link: PetLink; disconnected?: boolean; onNewTask?: (link: PetLink) => void; showPet?: boolean; compact?: boolean }) {
   const action = useAction();
   const chatTitles = useCodexChatTitles([link.target.threadId]);
   const [closing, setClosing] = useState(false);
@@ -60,22 +60,22 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
     copyPending.current = true; setCopying(true);
     const scope = copyScope;
     setCopyText(nextPrompt);
-    try { await navigator.clipboard.writeText(nextPrompt); if (currentCopyScope.current === scope) setCopyNotice('복사했어요. 이 펫이 연결된 Codex 채팅에 직접 보내주세요.'); }
+    try { await navigator.clipboard.writeText(nextPrompt); if (currentCopyScope.current === scope) setCopyNotice('복사했어요. 이 펫이 연결된 Codex 채팅에 직접 보내 주세요.'); }
     catch { if (currentCopyScope.current === scope) setCopyNotice('자동 복사가 되지 않았어요. 아래 문장을 직접 선택해 복사해 주세요.'); }
     finally { copyPending.current = false; setCopying(false); }
   };
   const actionError = action.error.includes('pet-revision-changed') ? '설정이 바뀌었어요. 현재 상태를 확인한 뒤 다시 선택해 주세요.' : action.error.includes('pet-run-active-or-unresolved') ? '현재 작업을 먼저 확인해 주세요.' : action.error ? '변경하지 못했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요.' : '';
   const status = explicitPetStatus(link, disconnected);
-  const help = !link.connected || disconnected ? '저장된 채팅을 열고 “펫 상태 확인”을 보내주세요.'
+  const help = !link.connected || disconnected ? 'Codex 채팅에 ‘펫 상태 확인’이라고 보내 주세요.'
     : link.run?.trackingClosed ? 'Codex에서 기존 작업을 확인한 뒤 다음 작업을 맡겨주세요.'
     : !link.enabled ? '새 펫 작업은 꺼져 있어요. 이미 시작한 작업은 계속 확인해요.'
-    : state === 'waiting' ? 'Codex에서 계획을 확인하고 “그대로 구현해줘”라고 보내주세요.'
+    : state === 'waiting' ? 'Codex에서 계획을 확인하고 “그대로 구현해줘”라고 보내 주세요.'
     : state === 'complete' ? 'Codex 채팅에서 결과를 확인해 주세요.'
     : state === 'returned' ? '결과가 돌아왔어요. 실행 기록을 확인하고 있어요.'
     : state === 'requested' ? '실행 요청을 보냈어요. 시작 확인을 기다리고 있어요.'
     : state === 'working' ? link.run?.profile === 'plan' ? '계획을 정리하고 있어요. 파일은 구현 요청 뒤에 바꿔요.' : '맡긴 작업을 진행하고 있어요.'
-    : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
-    : link.template.planFirst ? '같은 Codex 채팅에서 펫에게 계획을 맡겨보세요.' : '같은 Codex 채팅에서 펫에게 일을 맡겨보세요.';
+    : state === 'failed' || state === 'unknown' ? 'Codex 채팅에 ‘펫 상태 확인’이라고 보내 주세요.'
+    : '새 일은 ‘새 일 맡기기’에서 시작할 수 있어요.';
   return <div className={`explicit-pet ${compact ? 'explicit-compact' : ''}`} aria-label={`연결된 ${link.template.name}`} data-agent-scope="task-card" data-agent-id="task-card.root" data-agent-item={`slot-${link.slot}`}>
     {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={!active} motion={explicitPetMotion(link, disconnected)} state={companionState(link, disconnected)} runKey={companionRunKey(link)} interactive={active} /></div>}
     <div className="explicit-identity" data-agent-id="task-card.identity">
@@ -83,7 +83,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
       <div className="explicit-location">{displayLabel && <p className="explicit-role">{link.template.name}</p>}<p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={chatDetail(link.target)}>{chatBadge(chatTitles, link.target.threadId)}</small></div>
     </div>
     <div className="explicit-status-panel" data-agent-id="task-card.status" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p>{(!compact || !active || !link.enabled || state === 'failed' || state === 'unknown') && <p className="explicit-help">{help}</p>}</div>
-    {link.run && ['complete', 'waiting', 'returned'].includes(link.run.state) && !runTemplate.skills.every(expected => link.run!.skillEvidence?.some(skill => skill.id === expected.id && skill.version === expected.version)) && <p className="explicit-help" role="status">결과 도착 · 일하는 방법 확인 필요</p>}
+    {link.run && ['complete', 'waiting', 'returned'].includes(link.run.state) && !runTemplate.skills.every(expected => link.run!.skillEvidence?.some(skill => skill.id === expected.id && skill.version === expected.version)) && <p className="explicit-help" role="status">결과가 왔어요 · 일하는 방법은 확인하지 못했어요</p>}
     <PetTaskReturn link={link} disconnected={disconnected} />
     {canReuse && <button className="text-button explicit-next" data-agent-id="task-card.reuse" onClick={() => onNewTask?.(link)}>같은 펫으로 새 일</button>}
     {!canReuse && <details className="explicit-chat-help" data-agent-id="task-card.chat-help"><summary>채팅 요청 예시</summary><div className="explicit-chat-help-body">
@@ -101,15 +101,13 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
       {uiPet && <small>저장한 펫 구성은 바꾸지 않아요.</small>}
       <p className="explicit-help-toggle">펫 도움 {link.enabled ? '켜짐' : '꺼짐'}</p>
       <div className="card-options"><button className="text-button" disabled={action.busy || disconnected} onClick={() => void action.run('set_pet_link_enabled', { target: link.target, expectedRevision: link.revision, enabled: !link.enabled })}>{link.enabled ? '도움 끄기' : '도움 켜기'}</button>
-        <button className="text-button" disabled={action.busy || unresolved} title={unresolved ? '현재 작업을 먼저 확인해 주세요. 새 작업만 막으려면 도움을 꺼주세요.' : undefined} onClick={() => void action.run('disconnect_pet_link', { target: link.target, expectedRevision: link.revision })}>연결 해제</button>
-        {onHide && <button className="text-button" onClick={onHide}>숨기기</button>}
-        <button className="text-button" onClick={() => void command('show_manager')}>앱 열기</button>
-        {unresolved && <button className="text-button" disabled={action.busy || disconnected} onClick={() => setClosing(true)}>추적 정리</button>}
+        <button className="text-button" disabled={action.busy || unresolved} title={unresolved ? '현재 작업을 먼저 확인해 주세요. 새 작업만 막으려면 도움을 꺼 주세요.' : undefined} onClick={() => void action.run('disconnect_pet_link', { target: link.target, expectedRevision: link.revision })}>연결 해제</button>        <button className="text-button" onClick={() => void command('show_manager')}>앱 열기</button>
+        {unresolved && <button className="text-button" disabled={action.busy || disconnected} onClick={() => setClosing(true)}>이 작업 그만 확인하기</button>}
       </div>
-      {closing && unresolved && <div role="group" aria-label="펫 작업 추적 정리"><p>이 펫의 추적만 종료해요. Codex 작업은 계속 실행 중일 수 있어요. 새 작업을 맡기기 전에 Codex에서 확인해 주세요.</p>
-        <button disabled={action.busy} onClick={() => { setClosing(false); void action.run('close_pet_tracking', { target: link.target, expectedRevision: link.revision, requestId: link.run!.id }); }}>이 작업 추적 종료</button>
-        <button onClick={() => setClosing(false)}>계속 추적</button></div>}
-      <small>채팅에서 직접 맡긴 펫 작업만 표시해요. 훅 자동화는 사용하지 않아요.</small>
+      {closing && unresolved && <div role="group" aria-label="이 작업 그만 확인하기"><p>이 펫이 이 작업을 더 확인하지 않아요. Codex 작업은 계속 실행 중일 수 있어요. 새 일을 맡기기 전에 Codex에서 확인해 주세요.</p>
+        <button disabled={action.busy} onClick={() => { setClosing(false); void action.run('close_pet_tracking', { target: link.target, expectedRevision: link.revision, requestId: link.run!.id }); }}>그만 확인하기</button>
+        <button onClick={() => setClosing(false)}>계속 확인하기</button></div>}
+      <small>채팅에서 직접 맡긴 일만 보여요.</small>
     </div></details>
     <details className="explicit-evidence" data-agent-id="task-card.evidence"><summary>실행 설정·스킬 확인</summary><div className="explicit-evidence-body">
       {uiPet && <p>일하는 방법: Anthropic frontend-design 기반{designSkill && /^[0-9a-f]{40}$/.test(designSkill.version) && <> · <a href={`https://github.com/anthropics/skills/blob/${designSkill.version}/skills/frontend-design/SKILL.md`} target="_blank" rel="noreferrer">원본 보기 ↗</a></>}</p>}

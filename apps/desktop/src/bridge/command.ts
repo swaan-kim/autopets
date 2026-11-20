@@ -13,6 +13,8 @@ export async function command<T=void>(name:string,args?:Record<string,unknown>):
     return feedbackTaskSnapshot() as T;
   }
   if (!isDesktop && name === 'roles_snapshot') return { templates: roleTemplates, pets: [], bindings: [] } as T;
-  if(!isDesktop) { if(name==='get_snapshot')return empty as T; if(name==='get_assistance')return EMPTY_ASSISTANCE as T; if(name==='workflow_snapshot')return EMPTY_WORKFLOW as T; if(name==='artifact_snapshot')return EMPTY_ARTIFACTS as T; throw new Error('Windows 데스크톱 앱에서 사용할 수 있습니다.'); }
+  if(!isDesktop) { if(name==='get_snapshot')return empty as T; if(name==='get_assistance')return EMPTY_ASSISTANCE as T; if(name==='workflow_snapshot')return EMPTY_WORKFLOW as T; if(name==='artifact_snapshot')return EMPTY_ARTIFACTS as T; throw new Error('Windows 앱에서만 쓸 수 있어요.'); }
   return invoke<T>(name,args);
 }
+// Shown to users: an Error's own message, never the "Error: " prefix String() adds.
+export const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);

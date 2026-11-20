@@ -28,7 +28,7 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   const previewBeforeExpansion = await dialog.locator('.ux-art-generated').boundingBox();
   const detailBeforeExpansion = await dialog.locator('.prompt-idea-detail').boundingBox();
   await dialog.getByText('3:2 가로 구도', { exact: true }).waitFor();
-  await dialog.getByText('이 이미지를 만든 프롬프트', { exact: true }).click();
+  await dialog.getByText('이 이미지를 만든 요청문', { exact: true }).click();
   const previewAfterExpansion = await dialog.locator('.ux-art-generated').boundingBox();
   const detailAfterExpansion = await dialog.locator('.prompt-idea-detail').boundingBox();
   assert.ok(Math.abs((previewAfterExpansion.y - detailAfterExpansion.y) - (previewBeforeExpansion.y - detailBeforeExpansion.y)) <= 1, 'expanding the source prompt keeps the result image aligned with the explanation');
@@ -37,15 +37,15 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   assert.match(await dialog.locator('.prompt-idea-source').textContent(), /1536×1024/);
   await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'hidden' });
   assert.equal(await trigger.evaluate(element => element === document.activeElement), true);
-  await trigger.click(); await dialog.getByRole('button', { name: /이 방식으로 펫 준비/ }).click();
+  await trigger.click(); await dialog.getByRole('button', { name: /이 예시로 시작/ }).click();
   const composer = page.locator('.pet-start');
-  await composer.getByRole('heading', { name: '이미지 프롬프트 만들기', exact: true }).waitFor();
+  await composer.getByRole('heading', { name: '이미지 요청문 만들기', exact: true }).waitFor();
   assert.equal(await composer.locator('.pet-start-change').count(), 0, 'using an idea never opens a copy gate');
   await openChange(composer);
-  assert.equal(await composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).inputValue(), JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]), 'the only eligible conversation is preselected without retargeting to disconnected B');
+  assert.equal(await composer.getByLabel('펫을 쓸 채팅', { exact: true }).inputValue(), JSON.stringify([link.target.sourceId, link.target.threadId, link.target.cwd]), 'the only eligible conversation is preselected without retargeting to disconnected B');
   await closePetPanel(composer);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [], 'browsing and choosing an idea do not connect, save, or execute');
-  await composer.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
+  await composer.getByRole('button', { name: '이 채팅에 펫 적용', exact: true }).click();
   await composer.locator('.composer-applied').waitFor();
   const result = await page.evaluate(() => ({ calls: window.__uiTest.calls, pets: window.__uiTest.roles.pets, links: window.__uiTest.state.petLinks, clipboard: window.__uiTest.clipboard }));
   assert.equal(result.pets.length, 1);
@@ -57,7 +57,7 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   assert.equal(result.clipboard, '');
   assert.match(result.calls.find(call => call.name === 'save_pet').args.template.instruction, /기본 조건: 3:2 가로 구도 · 자연광 · 제품 사진/);
   assert.equal(result.calls.filter(call => call.name === 'apply_pet_link_template').length, 1);
-  await composer.getByRole('button', { name: 'Codex 작업 열기', exact: true }).click();
+  await composer.getByRole('button', { name: 'Codex에서 보기 ↗', exact: true }).click();
   await composer.getByText(/Codex에 열기를 요청했어요/).waitFor();
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_task').map(call => call.args.target)), [link.target]);
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /submit|execute|delegate|send/.test(call.name))), false);

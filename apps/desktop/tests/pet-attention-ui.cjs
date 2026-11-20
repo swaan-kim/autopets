@@ -32,8 +32,8 @@ exports.runPetAttentionChecks = async ({ newPage, mockBridge, fixture, origin, c
     // Hover shows it, leaving hides it.
     const before = await mark.boundingBox();
     await mark.hover();
-    await bubble.locator('.pet-codex-headline', { hasText: 'Codex에서 확인이 필요해!' }).waitFor();
-    await bubble.getByRole('button', { name: 'Codex에서 확인하기', exact: true }).waitFor();
+    await bubble.locator('.pet-codex-headline', { hasText: 'Codex에서 답을 기다려요' }).waitFor();
+    await bubble.getByRole('button', { name: 'Codex에서 보기 ↗', exact: true }).waitFor();
     assert.deepEqual(await mark.boundingBox(), before, `${label}: the pet stays under the pointer while the bubble opens`);
     await page.waitForFunction(() => window.__uiTest.calls.some(call => call.name === 'set_pet_expanded' && call.args?.notice === true));
     await away();
@@ -45,7 +45,7 @@ exports.runPetAttentionChecks = async ({ newPage, mockBridge, fixture, origin, c
     assert.equal(await bubble.count(), 1, `${label}: a clicked bubble stays after the pointer leaves`);
     assert.equal(await card.count(), 0, `${label}: clicking the mark does not open the pet card`);
     // Its buttons are reachable while pinned.
-    await bubble.getByRole('button', { name: 'Codex에서 확인하기', exact: true }).hover();
+    await bubble.getByRole('button', { name: 'Codex에서 보기 ↗', exact: true }).hover();
     assert.equal(await bubble.count(), 1);
 
     // Clicking the mark again closes it, even with the pointer still on the mark.

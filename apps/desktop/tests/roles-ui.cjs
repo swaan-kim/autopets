@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const templates = require('../../../packages/contracts/data/roles.json');
 const { emptyWorkflow } = require('./workflow-ui.cjs');
+const { openSettingsPage, openDisclosure, labelStatusPill } = require('./entry-navigation.cjs');
 
 async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, origin, screenshotDir, checks }) {
   const page = await newPage({ width: 1120, height: 900 });
@@ -55,14 +56,15 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   await page.evaluate(() => {
     if (!window.__TAURI_INTERNALS__) throw Error('missing mock bridge');
   });
-  await page.locator('.app-settings > summary').click();
-  await page.getByRole('button', { name: '역할과 내 펫', exact: true }).click();
-  await page.getByRole('heading', { name: /필요한 역할을 고르고/ }).waitFor();
+  await openSettingsPage(page, '내 펫 만들기');
+  await page.getByRole('heading', { name: '내 펫 만들기', exact: true }).waitFor();
+  assert.equal(await page.getByLabel('역할을 선택할 작업').isVisible(), false, 'applying to a running task stays folded until asked for');
   await page.getByRole('button', { name: '제작·구현', exact: true }).click();
   await page.getByLabel('펫 이름', { exact: true }).fill('나의 구현 펫');
   await page.getByLabel('역할 소품').selectOption('notebook');
   await page.getByLabel('역할 배경').selectOption('meadow');
   const key = identity => JSON.stringify([identity.provider, identity.accountId, identity.chatId]);
+  await openDisclosure(page, '고급: 진행 중인 작업에 적용');
   await page.getByLabel('역할을 선택할 작업').selectOption(key(workflow.tasks[0].identity));
   await page.getByLabel('계획 역할 모델').selectOption('gpt-6-sol');
   const solInfo = page.getByLabel('gpt-6-sol 모델 정보');
@@ -70,7 +72,7 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   assert.match(await solInfo.innerText(), /자료 확인 2026-09-26/);
   assert.match(await solInfo.getByRole('link').getAttribute('href'), /^https:\/\/learn.chatgpt.com\//);
   const informationScreenshot = path.join(screenshotDir, 'native-ui-model-information.png');
-  await page.evaluate(() => { document.querySelector('.connection-pill').textContent = '합성 UI 검사 · 실제 연결 미검증'; });
+  await labelStatusPill(page, '합성 UI 검사 · 실제 연결 미검증');
   await page.screenshot({ path: informationScreenshot, fullPage: true });
   await page.getByLabel('계획 역할 모델').selectOption('gpt-6-luna');
   await page.getByLabel('gpt-6-luna 모델 정보').getByText(/많이 반복/).waitFor();
@@ -81,7 +83,7 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   assert.equal(await solInfo.getByText(/복잡한 코딩/).count(), 0);
   await page.clock.setFixedTime(new Date('2026-09-26T12:00:00Z'));
   await page.getByLabel('계획 역할 모델').selectOption('fixture-model');
-  await page.getByLabel('fixture-model 모델 정보').getByText(/미확인/).waitFor();
+  await page.getByLabel('fixture-model 모델 정보').getByText(/비교 자료는 아직 확인 못 했어요/).waitFor();
   await page.getByLabel('계획 역할 추론').selectOption('high');
   assert.equal(await page.getByLabel('계획 역할 추론').locator('option').count(), 2);
   await page.getByRole('button', { name: '내 펫 저장', exact: true }).click();
@@ -111,7 +113,7 @@ async function runRoleChecks({ newPage, mockBridge, fixture, assistanceFixture, 
   await page.setViewportSize({ width: 800, height: 650 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 800));
   const screenshot = path.join(screenshotDir, 'native-ui-roles.png');
-  await page.evaluate(() => { document.querySelector('.connection-pill').textContent = '합성 UI 검사 · 실제 연결 미검증'; });
+  await labelStatusPill(page, '합성 UI 검사 · 실제 연결 미검증');
   await page.screenshot({ path: screenshot, fullPage: true });
   checks.push('two roles save selected preferences, bind separate chats, copy bounded instructions without context, support off and validate Korean byte limits');
   checks.push('model information follows exact selection, links dated official evidence, hides stale comparisons and keeps unknown data unknown');

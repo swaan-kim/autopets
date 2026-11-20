@@ -44,14 +44,19 @@
 .pet-start .composer-observed { margin: 10px 0 0; font-size: 13px; color: #2f6b43; }
 .pet-start-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: #5d6870; font-size: 13px; }
 .pet-start-summary > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pet-start-summary > span > span { color: #3f9a5d; }
+.pet-start .workspace-detail-summary { margin-bottom: 6px; }
+.pet-start .pet-start-limit { margin: 0 0 22px; }
+.pet-start-info { color: #65717a; font-size: 13px; }
+.pet-start-info > summary { min-height: 36px; padding-block: 8px; cursor: pointer; }
+.pet-start-info > .composer-target-details { margin: 6px 0 12px; }
 .pet-start-summary .text-button { min-height: 36px; padding: 0 4px; font-size: 13px; }
 .pet-start-change { display: grid; gap: 18px; margin-top: 10px; padding: 18px; border: 1px solid #e6e9ec; border-radius: 16px; background: #fbfcfc; }
 .pet-start-change .composer-profile-choice { margin: 0; padding: 0; border: 0; min-width: 0; }
 .pet-start-change .composer-profile-choice legend { margin-bottom: 8px; font-size: 13px; color: #606970; }
 .pet-start-change .composer-profiles > div { display: flex; gap: 8px; }
 .pet-start-change .composer-profiles label { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
-.pet-start-change .composer-profiles label > span { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px; box-sizing: border-box; }
+.pet-start-change .composer-profiles label > span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 40px; padding: 8px; box-sizing: border-box; }
+.pet-start-change .composer-profiles small { margin-top: 2px; font-size: 11px; color: #727c84; word-break: keep-all; }
 .pet-start-change .composer-profiles input:checked + span { border-color: #35434d; background: #f0f4f5; }
 .pet-start-change .composer-profiles strong { font-size: 13px; }
 .pet-start .ui-pet-select { display: grid; gap: 8px; font-size: 13px; color: #606970; }

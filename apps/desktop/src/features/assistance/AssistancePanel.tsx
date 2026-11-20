@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AssistanceSnapshot, ChatIdentity, UserPreferences } from '@autopets/contracts/types';
-import { command, isDesktop } from '../../bridge/command';
+import { command, errorMessage, isDesktop } from '../../bridge/command';
 import { splitLines } from '../../app/shared/text';
 import { identityKey } from './identity';
 import { CurrentTaskPanel } from './CurrentTaskPanel';
@@ -44,15 +44,15 @@ export function AssistancePanel({ snapshot, sessions, initialSessionId, initialI
     if (working.current || disabled) return false;
     working.current = true; setBusy(true); setActionError(''); setNotice('');
     try { await command(name, args); await Promise.all([refresh(), workflow.refresh()]); setNotice(message); return true; }
-    catch (cause) { setActionError(String(cause)); return false; }
+    catch (cause) { setActionError(errorMessage(cause)); return false; }
     finally { working.current = false; setBusy(false); }
   };
   const savePreferences = async (preferences: UserPreferences) => {
     if (await run('save_preferences', { preferences: { ...preferences, fixedModel: preferences.fixedModel?.trim() || null, allowedModels: splitLines(preferences.allowedModels.join('\n')) } }, '설정을 저장했어요. 다음 메시지부터 전달을 시도해요.')) setDirty(false);
   };
   return <section className="assistance-page" aria-label="자동 도움 설정">
-    <div className="page-heading"><span className="eyebrow">YOUR WORK, YOUR WAY</span><h1>내 일에 맞게,<br />가볍게 조절해요.</h1><p>필요한 도움을 확인하고 바꿔보세요.</p></div>
-    {!isDesktop && <p className="assistance-notice" role="status">브라우저 미리보기 · 연결 없음. 설정은 저장되지 않아요.</p>}
+    <div className="page-heading"><h1>자동 도움</h1><p>원하는 작업 방식을 저장해 두는 곳이에요. 아직 시험 중이라 AI에 전달되지 않을 수 있어요.</p></div>
+    {!isDesktop && <p className="assistance-notice" role="status">미리보기 화면이에요. 저장과 연결은 Windows 앱에서만 돼요.</p>}
     {(error || actionError) && <p className="error" role="alert">{error || actionError}</p>}
     {notice && <p className="assistance-notice" role="status">{notice}</p>}
     <div className="assistance-tabs" role="tablist" aria-label="도움 설정 분류" onKeyDown={event => {

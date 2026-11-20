@@ -28,7 +28,7 @@ import { usePetDock, type DockBadge } from './usePetDock';
 import { PetDockHandle } from './PetDockHandle';
 import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention, type MarkControls } from './PetAttention';
 import { PetBubble, jobBubble, noticeSeen, sessionBubble } from './PetBubble';
-import { HOST_NAMES, JOB_ACTIVE_MS, PetJobList, activeJob, openJobResult } from './PetJobs';
+import { HOST_NAMES, JOB_ACTIVE_MS, PetJobList, openJobResult, reviewAttention } from './PetJobs';
 import type { CompanionState } from './companionMotion';
 import { PetStartCard } from './PetStartCard';
 
@@ -80,7 +80,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const helpTask = assistance.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const workflowTask = workflow.snapshot.tasks.find(task => identityKey(task.identity) === taskKey);
   const disconnected = Boolean(error) || (isDesktop && !snapshot.connectionPath);
-  const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결 확인 필요' : snapshot.setup?.phase === 'connecting' ? '채팅 연결 대기' : '작업 연결 전' };
+  const view = session ? status(session, snapshot.now, disconnected) : { kind: 'idle', text: disconnected ? '연결이 끊겼어요' : snapshot.setup?.phase === 'connecting' ? 'AI 연결 준비 중' : '새 일을 맡길 수 있어요' };
   const attention = session ? dueAttention(session, snapshot.now) : null;
   // A connected Codex chat needs the user, or its requested work finished. The bubble opens by
   // itself once per new notice, only while the pet is out and its card is closed. It never takes
@@ -138,7 +138,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       ? current.phase === 'connecting' ? { ...current, phase: 'failed' } : null : current), summon.phase === 'connecting' ? 30000 : summon.phase === 'connected' ? 3000 : 8000);
     return () => clearTimeout(timer);
   }, [summon]);
-  const summonText = summon?.phase === 'connecting' ? 'Codex 연결 중…' : summon?.phase === 'connected' ? 'Codex 채팅과 연결됨' : summon ? 'Codex 연결 확인 필요' : '';
+  const summonText = summon?.phase === 'connecting' ? 'Codex 연결 중…' : summon?.phase === 'connected' ? 'Codex 채팅과 연결됨' : summon ? 'Codex 연결이 안 됐어요' : '';
   const summonStatus = summon && <span className={`floating-status summon ${summon.phase}`} role="status" title={summonText}>{summonText}</span>;
   const codexStatus = marked && <span className={`floating-status codex-${isAsk(marked) ? 'ask' : 'done'}`} title={marked.summary}>{attentionStatus(marked)}</span>;
   const noticeBubble = noticeOpen && bubble && <AttentionBubble item={bubble} more={notices.length - 1} onDone={closeBubble} />;
@@ -157,14 +157,18 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   // A Codex job the hooks already announce for its exact chat is not announced a second time here.
   const reportedNotice = reported && !(marked && reported.job.host === 'codex') ? reported.notice : null;
   const openReported = async () => { if (!reported || !await openJobResult(reported.job)) setExpanded(true); };
-  const working = activeJob(jobs, snapshot.now);
+  // A docked pet shows the same notice as a badge on its handle.
+  const jobBadge: DockBadge = !reportedNotice ? null : reportedNotice.tone === 'done' ? 'done' : reportedNotice.tone === 'error' ? 'error' : 'ask';
   const latest = jobs[0] && snapshot.now - jobs[0].updatedAt < JOB_ACTIVE_MS ? jobs[0] : undefined;
-  // Once an AI has reported a job, the pet describes that job instead of the older link wording.
-  const jobLabel = !latest ? '' : working ? `${HOST_NAMES[working.host]}에서 작업 중` : latest.state === 'asking' ? `${HOST_NAMES[latest.host]}에서 답을 기다려요` : '새 일을 맡길 수 있어요';
+  // Once an AI has reported a job, the pet describes that newest job (label and motion alike).
+  const latestAi = latest ? HOST_NAMES[latest.host] : '';
+  const latestLook = latest ? reviewAttention(latest) : 0;
+  const jobLabel = !latest ? '' : latest.state === 'working' ? `${latestAi}에서 작업 중` : latest.state === 'asking' ? `${latestAi}에서 답을 기다려요`
+    : latest.state === 'failed' ? `${latestAi}에서 문제가 생겼어요` : latestLook ? `완료 · 확인할 곳 ${latestLook}곳` : `${latestAi} 작업 완료`;
   const jobState: CompanionState = !latest ? 'idle' : latest.state === 'working' ? 'working' : latest.state === 'asking' ? 'waiting' : latest.state === 'failed' ? 'error' : 'complete';
   useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {
-    if (isDesktop) resizeQueue.current = resizeQueue.current.catch(() => undefined).then(() => command('set_pet_expanded', { expanded, notice: noticeOpen })).catch(cause => setWindowError(String(cause)));
+    if (isDesktop) resizeQueue.current = resizeQueue.current.catch(() => undefined).then(() => command('set_pet_expanded', { expanded, notice: noticeOpen })).catch(() => setWindowError('카드를 열지 못했어요.'));
   }, [expanded, noticeOpen]);
   useEffect(() => {
     if (!expanded) return;
@@ -180,7 +184,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   useEffect(() => {
     if (!isDesktop) return;
     let disposed = false; const disposers: (() => void)[] = [];
-    const add = <T,>(name: string, fn: (payload: T) => void) => { void listen<T>(name, event => fn(event.payload)).then(remove => { if (disposed) remove(); else disposers.push(remove); }).catch(cause => { if (!disposed) setWindowError(String(cause)); }); };
+    const add = <T,>(name: string, fn: (payload: T) => void) => { void listen<T>(name, event => fn(event.payload)).then(remove => { if (disposed) remove(); else disposers.push(remove); }).catch(() => { if (!disposed) setWindowError('카드를 열지 못했어요.'); }); };
     add<{ exceptSlot: number | null }>('autopets://collapse-pets', payload => { if (payload.exceptSlot !== index) setExpanded(false); });
     return () => { disposed = true; disposers.forEach(remove => remove()); };
   }, [index]);
@@ -202,12 +206,12 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
     const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
     if (dock.handle) {
-      const badge: DockBadge = codexBadge ?? (offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : null);
+      const badge: DockBadge = codexBadge ?? (offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : null) ?? (offered ? null : jobBadge);
       return dockHandle(explicit.template.name, badge, <TaskPetArt entry={catalogFor(explicit.template)} state={companionState(explicit, disconnected)} interactive={false} />);
     }
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
       {noticeBubble}
-      {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<PetJobList jobs={jobs} compact /><PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} /></div>}
+      {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<PetJobList jobs={jobs} compact now={snapshot.now} /><PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} /></div>}
       <div className="floating-pet">
         <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{mark}</button>
         <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span>{summonStatus || codexStatus || <PetBubble notice={offered ? null : reportedNotice} onOpen={openReported}><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span></PetBubble>}
@@ -221,40 +225,40 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     : workflowTask?.enabled ? workflow.error ? '설정 확인 필요' : workflowHelp(workflowTask, workflow.snapshot.capabilities[workflowTask.identity.provider]) || '계획 지침 준비됨'
     : workflowTask && !workflowTask.enabled ? '이번 채팅의 자동 도움은 꺼져 있어요'
     : helpTask && (!assistance.snapshot.preferences.enabled || !helpTask.enabled) ? '이번 채팅의 자동 도움은 꺼져 있어요'
-    : session ? currentAction(session) : '함께할 작업을 기다려요';
-  // The chat that started the app with `$autopets` and has no pet yet ("채팅 연결 대기"): its
+    : session ? currentAction(session) : view.text;
+  // The chat that started the app with `$autopets` and has no pet yet: its
   // recommendation is the only one without a link, and it is shown on the first, unassigned pet.
   const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
     !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
   if (dock.handle) {
     const badge: DockBadge = codexBadge ?? (waitingRecommendation?.state === 'shown' || (attention && attention.kind !== 'milestone') || session?.state === 'waiting' ? 'ask'
-      : attention?.kind === 'milestone' || (session?.state === 'done' && session.unread) ? 'done' : null);
+      : attention?.kind === 'milestone' || (session?.state === 'done' && session.unread) ? 'done' : null) ?? (waitingRecommendation ? null : jobBadge);
     return dockHandle(session?.label ?? PET_NAMES[index], badge, session
       ? <PetAppearance template={appearance}><Pet index={index} paused /></PetAppearance>
       : <CompanionPet state="idle" paused />);
   }
   return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
     {noticeBubble}
-    {expanded && <div className="quick-card-stack">{noticeCard}{!session && index === 0 && <PetStartCard setup={snapshot.setup} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || (jobLabel ? PET_NAMES[index] : '작업 연결 전')} help={!session && jobLabel ? jobLabel : help} showStep={Boolean(session) || !jobLabel}
+    {expanded && <div className="quick-card-stack">{noticeCard}{!session && index === 0 && <PetStartCard setup={snapshot.setup} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact now={snapshot.now} /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || PET_NAMES[index]} help={!session && jobLabel ? jobLabel : help} showStep={Boolean(session)} detailsLabel={session ? undefined : '앱 열기 →'}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
       disabled={!isDesktop || !!assistance.error} busy={action.busy} error={error || action.error || windowError} notice={notice}
-      returnLabel={session && canAttemptReturn(session) ? '앱에서 열기 시도' : '작업명·ID 복사'} onReturn={session ? async () => {
+      returnLabel={session && canAttemptReturn(session) ? 'Codex에서 보기 ↗' : '채팅 이름 복사'} onReturn={session ? async () => {
         if (returning.current) return;
         if (canAttemptReturn(session)) {
           const target = returnTarget.current;
           returning.current = true;
           try { const message = await returnToTask(session); if (returnTarget.current === target) setNotice(message); }
-          catch (cause) { if (returnTarget.current === target) setNotice(`${String(cause)} 작업 ID: ${session.id}`); }
+          catch { if (returnTarget.current === target) setNotice(`Codex를 열지 못했어요. Codex에서 ‘${session.label}’ 채팅을 직접 찾아 주세요.`); }
           finally { returning.current = false; }
           return;
         }
-        try { await navigator.clipboard.writeText(`${session.label}\n${session.id}`); setNotice('복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
-        catch { setNotice(`복사하지 못했어요. 작업 ID: ${session.id}`); }
+        try { await navigator.clipboard.writeText(session.label); setNotice('복사했어요. Codex에서 같은 이름의 채팅을 찾아 주세요.'); }
+        catch { setNotice(`복사하지 못했어요. Codex에서 ‘${session.label}’ 채팅을 찾아 주세요.`); }
       } : undefined}
       onWorkStyle={async workStyle => { if (helpTask && await action.run('set_task_work_style', { identity: helpTask.identity, workStyle, expectedRevision: helpTask.settingsRevision ?? 0 })) { await assistance.refresh(); setNotice('이 작업만 변경했어요. 다음 메시지 전달 대기 중이에요.'); } }}
-      onDetails={async () => { await action.run('show_manager', { section: 'assistance', sessionId: session?.id }); }}
+      onDetails={async () => { await action.run('show_manager', session ? { section: 'assistance', sessionId: session.id } : undefined); }}
       onToggleAssistance={helpTask ? async () => { if (await action.run('set_chat_assistance', { identity: helpTask.identity, enabled: !(helpTask.enabled || workflowTask?.enabled) })) await Promise.all([assistance.refresh(), workflow.refresh()]); } : workflowTask ? async () => { if (await action.run('configure_workflow_task', { identity: workflowTask.identity, configuration: { enabled: !workflowTask.enabled, preset: workflowTask.preset, planFirst: workflowTask.planFirst, planning: workflowTask.planning, execution: workflowTask.execution }, expectedRevision: workflowTask.settingsRevision })) await workflow.refresh(); } : undefined}
       onHide={async () => { setExpanded(false); await action.run('set_pet_visible', { slot: index, visible: false }); }}
       onQuit={async () => { await action.run('quit_app'); }} onClose={() => setExpanded(false)} />
@@ -267,7 +271,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       {session && <McpProp session={session} disconnected={disconnected} />}
       <span className="floating-label" title={session?.label}>{session?.unread && <i className="unread-dot" />}{session?.label ?? PET_NAMES[index]}</span>
       {summonStatus || codexStatus || (waitingRecommendation ? <span className="floating-status recommend" title={recommendationStatus(waitingRecommendation)}>{recommendationStatus(waitingRecommendation)}</span>
-        : <PetBubble notice={reportedNotice ?? (session ? sessionBubble(session, attention, disconnected) : null)} onOpen={async () => {
+        : <PetBubble notice={reportedNotice ?? (session ? sessionBubble(session, attention, disconnected, canAttemptReturn(session)) : null)} onOpen={async () => {
             if (reportedNotice) { await openReported(); return; }
             if (!session || !canAttemptReturn(session)) { setExpanded(true); return; }
             try { await returnToTask(session); } catch { setExpanded(true); }

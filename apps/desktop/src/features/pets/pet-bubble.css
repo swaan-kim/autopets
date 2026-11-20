@@ -5,9 +5,10 @@
 .pet-bubble[data-tone='done'] { background: #e7f6ec; border-color: #a9d8b8; color: #154a2a; }
 .pet-bubble[data-tone='error'] { background: #fdeaea; border-color: #eab3b3; color: #6b1a1a; }
 .pet-bubble button { position: relative; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-.pet-bubble-open { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 6px 2px 6px 9px; white-space: nowrap; }
-.pet-bubble-open strong { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-.pet-bubble-open span { opacity: .8; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Two short lines: what happened, then what the button does. Longer wording (an AI's name, a count) wraps instead of being cut off. */
+.pet-bubble-open { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 6px 2px 6px 9px; text-align: left; white-space: normal; word-break: keep-all; }
+.pet-bubble-open strong { font-weight: 700; }
+.pet-bubble-open span { opacity: .8; white-space: nowrap; }
 .pet-bubble-close { padding: 0 7px 0 4px; opacity: .55; font-size: 13px; }
 .pet-bubble-close:hover, .pet-bubble-close:focus-visible { opacity: 1; }
 .pet-bubble button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; border-radius: 8px; }

@@ -13,7 +13,9 @@ import { PromptIdeaLibrary } from './PromptIdeaLibrary';
 
 export type PetWorkspaceView = 'home' | 'pets' | 'catalog' | 'saved';
 const groupFor = (link: PetLink, disconnected: boolean) => {
-  if (disconnected || !link.connected || !link.enabled || link.run?.trackingClosed || ['waiting', 'returned', 'failed', 'unknown'].includes(link.run?.state ?? '')) return 'attention';
+  if (disconnected || !link.connected || link.run?.trackingClosed || ['waiting', 'returned', 'failed', 'unknown'].includes(link.run?.state ?? '')) return 'attention';
+  // Help the user turned off is a choice, not a problem to check.
+  if (!link.enabled) return 'ready';
   if (['requested', 'working'].includes(link.run?.state ?? '')) return 'working';
   if (link.run?.state === 'complete') return 'complete';
   return 'ready';
@@ -22,10 +24,10 @@ const groups = [['attention', '확인이 필요해요'], ['working', '함께하�
 const categoryNames = { all: '전체', daily: '일상', work: '업무' } as const;
 const rolePromises: Partial<Record<string, string>> = {
   'daily-plan': '무리하게 다 넣지 않아요',
-  'travel-plan': '확인 못 한 건 확정하지 않아요',
+  'travel-plan': '확인 못 한 건 확정하지 않게 해요',
   'study-helper': '정답은 풀고 나서 보여줘요',
   'ui-webpage': '모바일 화면까지 확인해요',
-  'marketing-copy': '없는 사실은 지어내지 않아요',
+  'marketing-copy': '없는 사실은 쓰지 않게 해요',
   presentation: '한 장에 한 메시지만 담아요',
 };
 
@@ -42,7 +44,9 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
   const choose = (entry: PetCatalogEntry) => onSelect(entry);
   const shelf = (items: typeof favoriteEntries, area: 'favorites' | 'saved') => <div className="workspace-saved-grid">{items.map(({ id, entry, pet }) => {
     const current = pet ? catalogFor(pet.template) : entry;
-    return <article key={id} className="workspace-saved-card" data-role={current?.id} data-agent-id={`pet-selection.${area}.${id}`}><TaskPetArt entry={current} small /><div><h3>{pet?.template.name ?? entry?.template.name ?? '찾을 수 없는 펫'}</h3><p>{current?.output ?? '저장한 구성을 다시 확인해 주세요.'}</p><button className="text-button" disabled={!current} onClick={() => pet ? onSaved(pet) : entry && choose(entry)}>이 펫 부르기 →</button></div><FavoriteButton selected={favorites.includes(id)} label={`${pet?.template.name ?? entry?.template.name ?? '펫'} 즐겨찾기`} onClick={() => onFavorite(id)} /></article>;
+    // The catalog name replaces only the built-in template name; a name the user gave stays.
+    const title = (pet && current && pet.template.name !== current.template.name ? pet.template.name : current?.name) ?? pet?.template.name;
+    return<article key={id} className="workspace-saved-card" data-role={current?.id} data-agent-id={`pet-selection.${area}.${id}`}><TaskPetArt entry={current} small /><div><h3>{title ?? '찾을 수 없는 펫'}</h3><p>{current?.output ?? '저장한 펫을 다시 확인해 주세요.'}</p><button className="text-button" disabled={!current} onClick={() => pet ? onSaved(pet) : entry && choose(entry)}>살펴보기 →</button></div><FavoriteButton selected={favorites.includes(id)} label={`${title ?? '펫'} 즐겨찾기`} onClick={() => onFavorite(id)} /></article>;
   })}</div>;
   const liveCard = (link: PetLink, home = false) => <article className={`workspace-live-card pet-card-${link.slot}`} key={JSON.stringify(link.target)}><ExplicitPet link={link} disconnected={disconnected} compact showPet={!home} onNewTask={catalogFor(link.template) ? onNewTask : undefined} /></article>;
   const recent = groups.flatMap(([group]) => links.filter(link => groupFor(link, disconnected) === group)).slice(0, 3);
@@ -54,19 +58,19 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
     {view === 'pets' && <>
       <header className="workspace-heading"><h1>내 작업</h1><button className="button secondary" onClick={onBrowse}>새 일 맡기기 +</button></header>
       <PetJobList jobs={jobs} />
-      {links.length > 0 ? <section className="workspace-activity workspace-activity-grid" aria-label="연결된 작업">{groups.flatMap(([group, label]) => {
+      {links.length > 0 ? <section className="workspace-activity workspace-activity-grid" aria-label="연결된 작업"><h2 className="workspace-activity-title">Codex 채팅에 연결한 펫</h2>{groups.flatMap(([group, label]) => {
         const items = links.filter(link => groupFor(link, disconnected) === group);
         return items.length ? [<h2 id={`activity-${group}`} key={group}>{label}<span>{items.length}</span></h2>, ...items.map(link => liveCard(link))] : [];
-      })}</section> : jobs.length > 0 ? null : <div className="workspace-empty"><p>아직 맡긴 일이 없어요.</p><button className="text-button" onClick={onBrowse}>펫 고르기 →</button></div>}{legacy}
+      })}</section> : jobs.length > 0 ? null : <div className="workspace-empty"><p>아직 맡긴 일이 없어요.</p><button className="text-button" onClick={onBrowse}>새 일 맡기기 +</button></div>}{legacy}
     </>}
     {catalogVisible && <>
-        <header className="workspace-heading"><h1>펫 고르기</h1><div className="workspace-shelf-tabs" data-agent-id="pet-selection.shelf" role="group" aria-label="펫 보관함"><button aria-pressed={shelfTab === 'all'} onClick={() => setShelfTab('all')}>전체 펫</button><button aria-pressed={shelfTab === 'saved'} onClick={() => setShelfTab('saved')}>내 펫</button></div></header>
+        <header className="workspace-heading"><h1>{shelfTab === 'saved' ? '내 펫' : '펫 고르기'}</h1><div className="workspace-shelf-tabs" data-agent-id="pet-selection.shelf" role="group" aria-label="펫 보관함"><button aria-pressed={shelfTab === 'all'} onClick={() => setShelfTab('all')}>전체 펫</button><button aria-pressed={shelfTab === 'saved'} onClick={() => setShelfTab('saved')}>내 펫</button></div></header>
         {shelfTab === 'saved' ? <>
-          <section className="pet-favorites workspace-favorites" aria-label="즐겨찾는 펫"><h2>즐겨찾기</h2>{favoriteEntries.length ? shelf(favoriteEntries, 'favorites') : <div className="workspace-empty"><p>마음에 드는 펫에 ☆를 눌러보세요.</p><button className="text-button" onClick={() => setShelfTab('all')}>펫 둘러보기 →</button></div>}</section>
-          <section className="workspace-saved"><h2>저장한 구성</h2>{pets.length ? shelf(pets.map(pet => ({ id: `saved:${pet.id}`, pet, entry: undefined })), 'saved') : <p className="workspace-note">저장한 펫이 여기에 보여요.</p>}</section>
-        </> : <><section className="workspace-library" aria-label="할 일 고르기">
-          <div className="workspace-library-heading"><div className="pet-category-tabs" data-agent-id="pet-selection.categories" role="group" aria-label="할 일 분류">{(['all', 'daily', 'work'] as const).map(id => <button key={id} aria-label={categoryNames[id]} aria-pressed={category === id} onClick={() => onCategory(id)}>{categoryNames[id]}</button>)}</div></div>
-          <div className="workspace-role-grid">{petCatalog.filter(entry => category === 'all' || entry.category === category).map(entry => <article className="workspace-role-card" key={entry.id} data-role={entry.id} data-agent-id={`pet-selection.role.${entry.id}`}><FavoriteButton selected={favorites.includes(`template:${entry.id}`)} label={`${entry.name} 즐겨찾기`} onClick={() => onFavorite(`template:${entry.id}`)} /><button className="workspace-role-select" data-agent-id={`pet-selection.role.${entry.id}.choose`} aria-label={`${entry.name} 펫 선택`} onClick={() => choose(entry)}><TaskPetArt entry={entry} small /><span className="workspace-role-text"><h3>{entry.name}</h3>{rolePromises[entry.id] && <span className="workspace-role-promise"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" /><path d="M4.6 8.3 7 10.6l4.4-4.9" /></svg>{rolePromises[entry.id]}</span>}<span className="workspace-role-action">살펴보기 <span aria-hidden="true">↗</span></span></span><PetCardThumb entry={entry} /></button></article>)}</div>
+          <section className="pet-favorites workspace-favorites" aria-label="즐겨찾는 펫"><h2>즐겨찾기</h2>{favoriteEntries.length ? shelf(favoriteEntries, 'favorites') : <div className="workspace-empty"><p>마음에 드는 펫에 ☆를 눌러보세요.</p><button className="text-button" onClick={() => setShelfTab('all')}>펫 고르기 →</button></div>}</section>
+          <section className="workspace-saved"><h2>저장한 펫</h2>{pets.length ? shelf(pets.map(pet => ({ id: `saved:${pet.id}`, pet, entry: undefined })), 'saved') : <div className="workspace-empty"><p>한 번 시작한 펫은 여기에 저장돼요.</p><button className="text-button" onClick={() => setShelfTab('all')}>펫 고르기 →</button></div>}</section>
+        </> : <><section className="workspace-library" aria-label="펫 목록">
+          <div className="workspace-library-heading"><div className="pet-category-tabs" data-agent-id="pet-selection.categories" role="group" aria-label="펫 분류">{(['all', 'daily', 'work'] as const).map(id => <button key={id} aria-label={categoryNames[id]} aria-pressed={category === id} onClick={() => onCategory(id)}>{categoryNames[id]}</button>)}</div></div>
+          <div className="workspace-role-grid">{petCatalog.filter(entry => category === 'all' || entry.category === category).map(entry => <article className="workspace-role-card" key={entry.id} data-role={entry.id} data-agent-id={`pet-selection.role.${entry.id}`}><FavoriteButton selected={favorites.includes(`template:${entry.id}`)} label={`${entry.name} 즐겨찾기`} onClick={() => onFavorite(`template:${entry.id}`)} /><button className="workspace-role-select" data-agent-id={`pet-selection.role.${entry.id}.choose`} aria-label={`${entry.name} 펫 선택`} onClick={() => choose(entry)}><TaskPetArt entry={entry} small /><span className="workspace-role-text"><h3>{entry.name}</h3>{rolePromises[entry.id] && <span className="workspace-role-promise"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" /></svg>{rolePromises[entry.id]}</span>}<span className="workspace-role-action">살펴보기 <span aria-hidden="true">→</span></span></span><PetCardThumb entry={entry} /></button></article>)}</div>
         </section><SkillHub /><PromptIdeaLibrary active={active} onSelect={onSelect} /></>}
     </>}
     {error && <p className="error" role="alert">{error}</p>}

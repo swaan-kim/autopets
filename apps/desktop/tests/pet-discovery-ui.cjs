@@ -15,22 +15,22 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await openSaved(page);
  const shelf=page.getByRole('region',{name:'즐겨찾는 펫',exact:true});
  // A favorite opens the same detail screen directly; there is no separate "이 펫으로" step.
- await shelf.getByRole('button',{name:'이 펫 부르기 →',exact:true}).click();
+ await shelf.getByRole('button',{name:'살펴보기 →',exact:true}).click();
  const flow=page.locator('.pet-start');
  await flow.getByRole('heading',{name:'웹페이지 만들기',exact:true}).waitFor();
  await openPetSettings(flow);
- await flow.getByLabel('저장한 구성',{exact:true}).selectOption('favorite-standard');
+ await flow.getByLabel('저장한 펫',{exact:true}).selectOption('favorite-standard');
  await openPetSettings(flow);
  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
  await flow.getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true}).click();
  await openCopy(flow);
  await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill('');
- assert.equal(await flow.getByRole('button',{name:'요청만 복사',exact:true}).isDisabled(),true);
+ assert.equal(await flow.getByRole('button',{name:'요청 미리 보기',exact:true}).isDisabled(),true);
  const request='도예 작품 포트폴리오를 만들고 싶어요.\n작품 3개와 소개, 연락 방법을 담아줘.';
  await flow.getByLabel('펫에게 맡길 일',{exact:true}).fill(request);
- await flow.getByRole('button',{name:'요청만 복사',exact:true}).click();
- await flow.getByRole('button',{name:'시작 요청 복사',exact:true}).click();
- await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.',{exact:true}).waitFor();
+ await flow.getByRole('button',{name:'요청 미리 보기',exact:true}).click();
+ await flow.getByRole('button',{name:'요청 복사',exact:true}).click();
+ await flow.getByText('쓸 Codex 채팅에 붙여 넣고 보내 주세요.',{exact:true}).waitFor();
  const copied=await page.evaluate(()=>window.__uiTest.clipboard);
  assert.ok(copied.includes(request)); assert.ok(copied.includes('petId=favorite-standard, petRevision=2')); assert.ok(!copied.includes('autopets-demo'));
  assert.deepEqual(await page.evaluate(()=>window.__uiTest.calls),[]);
@@ -38,8 +38,8 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await leaveComposer(flow); await openSaved(page);
  const image=path.join(screenshotDir,'ux-v2-my-pets.png'); await page.screenshot({path:image,fullPage:true});
  await page.reload(); await openSaved(page);
- const saved=shelf.locator('article').filter({has:page.getByRole('button',{name:'UI 제작 펫 즐겨찾기',exact:true})}).last();
- await saved.getByRole('button',{name:'이 펫 부르기 →',exact:true}).click();
+ const saved=shelf.locator('article').filter({has:page.getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true})}).last();
+ await saved.getByRole('button',{name:'살펴보기 →',exact:true}).click();
  await openPetSettings(flow);
  assert.equal(await flow.locator('input[aria-label="표준"]').isChecked(),true);
  assert.equal(await flow.getByRole('button',{name:'Codex에서 시작',exact:true}).count(),1,'a saved pet starts from the same one button');
@@ -47,7 +47,7 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await leaveComposer(flow); await openSaved(page);
  await page.evaluate(()=>{window.__uiTest.roles.pets=[];window.__uiTest.emitEvent('autopets://roles-changed',{});});
  const missing=shelf.locator('article').filter({hasText:'찾을 수 없는 펫'}); await missing.waitFor();
- assert.equal(await missing.getByRole('button',{name:'이 펫 부르기 →',exact:true}).isDisabled(),true);
+ assert.equal(await missing.getByRole('button',{name:'살펴보기 →',exact:true}).isDisabled(),true);
  await missing.getByRole('button',{name:'펫 즐겨찾기',exact:true}).click();
  await page.evaluate(key=>{localStorage.setItem(key,'{broken');window.dispatchEvent(new StorageEvent('storage',{key}));},KEY);
  await shelf.locator('.pet-favorite-button').click();

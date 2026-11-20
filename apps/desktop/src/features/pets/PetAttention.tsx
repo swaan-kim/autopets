@@ -18,17 +18,19 @@ export function attentionForSlot(snapshot: Snapshot, index: number): CodexAttent
 
 export const isAsk = (item: CodexAttention) => item.kind === 'action_required';
 export function attentionHeadline(item: CodexAttention): string {
-  if (isAsk(item)) return 'Codex에서 확인이 필요해!';
-  return item.evidence?.verified === false ? 'Codex 답변이 끝났어' : 'Codex 작업이 완료됐어!';
+  if (isAsk(item)) return 'Codex에서 답을 기다려요';
+  return item.evidence?.verified === false ? 'Codex 답변이 끝났어요' : 'Codex 작업이 끝났어요';
 }
-/** The short line under the pet. A read ask is still waiting in Codex. */
+/** The short line under the pet. A read ask is still waiting in Codex, so it reads the same. */
 export function attentionStatus(item: CodexAttention): string {
-  if (isAsk(item)) return item.read ? 'Codex가 답을 기다리는 중' : 'Codex 확인 필요';
+  if (isAsk(item)) return 'Codex에서 답을 기다려요';
   return item.evidence?.verified === false ? 'Codex 답변 끝남' : 'Codex 작업 완료';
 }
 /** A notice the pet still marks: every unanswered ask, and finished work the user has not seen. */
 export const markedAttention = (items: CodexAttention[]) => items.find(item => isAsk(item) || !item.read);
-const chatLabel = (item: CodexAttention) => item.chatTitle ?? `채팅 · ${item.target.threadId.slice(-8)}`;
+const chatLabel = (item: CodexAttention) => item.chatTitle ?? '이름 없는 채팅';
+/** How to name the chat in a sentence: its Codex name when known, never an id. */
+const chatInWords = (item: CodexAttention, fallback: string) => item.chatTitle ? `‘${item.chatTitle}’ 채팅` : fallback;
 
 export interface MarkControls { onEnter: () => void; onLeave: () => void; onToggle: (event: ReactMouseEvent) => void }
 /** With `controls`, the mark on the pet previews its bubble on hover and pins it on click. */
@@ -54,11 +56,11 @@ export function AttentionBubble({ item, more = 0, card = false, onDone }: { item
     try {
       if (isDesktop) await command('open_codex_attention', { id: item.id });
       // The deep link reached Windows; whether Codex showed this exact chat cannot be checked from here.
-      setNote(`Codex에 이 채팅을 열어 달라고 요청했어. 다른 채팅이 보이면 ‘${chatLabel(item)}’을 찾아 줘.`);
+      setNote(`Codex에 이 채팅을 열어 달라고 했어요. 다른 채팅이 보이면 ${chatInWords(item, '방금 쓰던 채팅')}을 찾아 주세요.`);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => onDone?.(), 6000);
     } catch (cause) {
-      setNote(String(cause).includes('attention-not-found') ? '이미 해결된 알림이야.' : `Codex를 열지 못했어. Codex에서 ‘${chatLabel(item)}’ 채팅을 직접 열어 줘.`);
+      setNote(String(cause).includes('attention-not-found') ? '이미 해결된 알림이에요.' : `Codex를 열지 못했어요. Codex에서 ${chatInWords(item, '이 채팅')}을 직접 열어 주세요.`);
     } finally { setBusy(false); }
   };
   const close = async () => {
@@ -68,16 +70,16 @@ export function AttentionBubble({ item, more = 0, card = false, onDone }: { item
   const files = item.evidence?.fileChanges ?? 0;
   return <section className={`pet-codex-bubble ${isAsk(item) ? 'ask' : 'done'}${card ? ' card' : ''}`} data-agent-id="pet-codex-attention.bubble"
     role="status" aria-live="polite" aria-label={`${attentionHeadline(item)} ${chatLabel(item)}`}>
-    <header><span>AutoPets</span><small title={item.chatTitle ?? item.target.threadId}>{chatLabel(item)}</small></header>
+    <header><span>AutoPets</span><small title={chatLabel(item)}>{chatLabel(item)}</small></header>
     <strong className="pet-codex-headline"><AttentionMark item={item} />{attentionHeadline(item)}</strong>
     <p className="pet-codex-summary" title={item.summary}>{item.summary}</p>
     {item.kind === 'completed' && (item.evidence?.verified === false
-      ? <p className="pet-codex-note">작업 결과는 확인하지 못했어. Codex에서 직접 봐 줘.</p>
-      : <p className="pet-codex-note">요청한 작업이 끝났어. 결과를 확인해 봐!{files > 0 ? ` · 파일 ${files}개 변경` : ''}</p>)}
-    {item.read && isAsk(item) && !note && <p className="pet-codex-note">아직 Codex에서 답을 기다리고 있어.</p>}
+      ? <p className="pet-codex-note">결과는 확인하지 못했어요. Codex에서 직접 봐 주세요.</p>
+      : <p className="pet-codex-note">결과를 확인해 주세요.{files > 0 ? ` · 파일 ${files}개 변경` : ''}</p>)}
+    {item.read && isAsk(item) && !note && <p className="pet-codex-note">아직 Codex에서 답을 기다리고 있어요.</p>}
     {note && <p className="pet-codex-note" role="status">{note}</p>}
     <div className="pet-codex-actions">
-      <button type="button" className="button primary" disabled={busy} onClick={() => void open()}>{isAsk(item) ? 'Codex에서 확인하기' : 'Codex에서 결과 확인'}</button>
+      <button type="button" className="button primary" disabled={busy} onClick={() => void open()}>Codex에서 보기 ↗</button>
       <button type="button" className="text-button" onClick={() => void close()}>{card ? '알림 닫기' : '닫기'}</button>
     </div>
     {more > 0 && <p className="pet-codex-more">다른 알림 {more}개</p>}

@@ -9,12 +9,12 @@ exports.runTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, che
   const page = await newPage();
   await mockBridge(page, state);
   await page.goto(origin);
-    await page.locator('.app-settings > summary').click(); await page.getByRole('button', {name:'연결 설정',exact:true}).click(); await page.getByText('이전에 연결한 작업', { exact: true }).click();
+  await require('./entry-navigation.cjs').openLegacyTasks(page);
   await page.locator('.pet-card-0').getByRole('button', { name: '작업 카드 열기 →' }).click();
   await page.getByRole('button', { name: 'Codex 작업 찾기 ↗' }).click();
   const before = await page.evaluate(() => structuredClone(window.__uiTest.state));
   await page.getByRole('button', { name: '앱에서 열기 시도 ↗' }).click();
-  await page.getByText('작업 앱에 열기를 요청했어요.', { exact: false }).waitFor();
+  await page.getByText('Codex에 열기를 요청했어요.', { exact: false }).waitFor();
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(x => x.name === 'open_local_task')), [
     { name: 'open_local_task', args: { sessionId: id, expectedCwd: state.sessions[0].cwd } },
   ]);
@@ -27,13 +27,13 @@ exports.runTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, che
   await page.evaluate(() => { window.__uiTest.returnError = null; window.__uiTest.returnWrongTarget = true; });
   await page.getByRole('button', { name: '앱에서 열기 시도 ↗' }).click();
   await page.getByText('열기 요청 결과를 확인하지 못했어요.', { exact: false }).waitFor();
-  assert.equal(await page.getByText('작업 앱에 열기를 요청했어요.', { exact: false }).count(), 0);
+  assert.equal(await page.getByText('Codex에 열기를 요청했어요.', { exact: false }).count(), 0);
   const pet = await newPage({ width: 500, height: 700 });
   await mockBridge(pet, state);
   await pet.goto(`${origin}/?pet=0`);
   await pet.getByRole('button', { name: '근거 자료 조사 · 작업 카드 열기', exact: true }).click();
-  await pet.getByRole('button', { name: /^앱에서 열기 시도/ }).click();
-  await pet.getByText('작업 앱에 열기를 요청했어요.', { exact: false }).waitFor();
+  await pet.getByRole('button', { name: 'Codex에서 보기 ↗', exact: true }).click();
+  await pet.getByText('Codex에 열기를 요청했어요.', { exact: false }).waitFor();
   assert.equal(await pet.evaluate(() => window.__uiTest.calls.filter(x => x.name === 'open_local_task').length), 1);
   checks.push('local UUID return dispatch is task-bound, never claims navigation, keeps ID fallback on failure and does not alter A/B state');
 };
