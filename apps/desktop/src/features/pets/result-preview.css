@@ -1,6 +1,11 @@
 /* Design samples are presentation data, never task execution results. */
 .designed-result .result-thumbnail { border-radius: 12px; background: #f7f8f8; }
 .designed-result .result-thumbnail-web { background: #fffefa; aspect-ratio: 1440 / 900; }
+.designed-result .result-thumbnail-web:not(.mobile) { display: flex; flex-direction: column; }
+.designed-result .result-thumbnail-web:not(.mobile) img { min-height: 0; flex: 1; height: calc(100% - 22px); }
+.result-browser-bar { display: flex; align-items: center; gap: 4px; flex: 0 0 22px; padding: 0 9px; background: #f0f1ed; }
+.result-browser-bar > i { width: 4px; height: 4px; border-radius: 50%; background: #c5c8c0; }
+.result-browser-bar > span { flex: 1; color: #8a9084; text-align: center; font-size: 7px; letter-spacing: .06em; }
 .designed-result .result-thumbnail-web.mobile { aspect-ratio: auto; height: 420px; background: #f4f5f5; padding: 12px; }
 .designed-result .result-thumbnail-web.mobile img { object-fit: contain; object-position: center; }
 .visual-result-preview.designed-result .result-thumbnail-label,
@@ -9,6 +14,7 @@
 .designed-result .sample-output { display: block; aspect-ratio: 8 / 5; padding: 0; overflow: hidden; }
 .designed-result .result-sample-art { width: 100%; height: 100%; display: block; }
 .result-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.result-preview-caption { color: #7a8389; font-size: 12px; }
 .result-device-choice { display: inline-flex; background: #f0f2f3; border-radius: 10px; padding: 3px; gap: 2px; }
 .result-device-choice button, .result-live-open { border: 0; background: transparent; padding: 8px 12px; border-radius: 7px; font: inherit; font-size: 12px; cursor: pointer; color: #646c72; min-height: 36px; }
 .result-device-choice button[aria-pressed='true'] { color: #30373d; background: #fff; box-shadow: 0 1px 4px #26323812; }
