@@ -11,7 +11,13 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   for (const entry of catalog) {
     const page = await newPage({ width: 992, height: 688 }); await mockBridge(page, base); await page.goto(origin); await openCatalog(page);
     await page.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
-    await page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true }).click();
+    // The same authored example is shown on the card, in the detail screen and enlarged (#82).
+    const card = page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true });
+    const artwork = node => node.querySelector('[data-sample-kind]')?.textContent ?? node.querySelector('.result-thumbnail img')?.getAttribute('src');
+    const cardArtwork = await card.evaluate(artwork);
+    assert.ok(cardArtwork, 'the card shows a result example');
+    assert.equal(await card.locator('button, details').count(), 0, 'a card preview has no nested controls');
+    await card.click();
     // The card opens one detail screen: preview on the left, the request and one start button on the right.
     const flow = page.locator('.workspace-role-detail.pet-start');
     assert.equal(await flow.getAttribute('data-agent-scope'), 'pet-selection');
@@ -21,6 +27,16 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await preview.count(), 1, 'the result preview is shown once, beside the request');
     assert.equal(await preview.getAttribute('data-evidence'), 'design-example');
     assert.equal(await preview.locator('figcaption small').innerText(), '디자인 예시');
+    assert.equal(await preview.evaluate(artwork), cardArtwork, 'the card and the detail screen show the same example');
+    const enlarge = flow.getByRole('button', { name: '크게 보기 ↗', exact: true });
+    await enlarge.click();
+    const enlarged = page.getByRole('dialog');
+    await enlarged.waitFor();
+    assert.equal(await enlarged.evaluate(artwork), cardArtwork, 'enlarging keeps the same example');
+    await page.keyboard.press('Escape');
+    await enlarged.waitFor({ state: 'detached' });
+    assert.equal(await enlarge.evaluate(node => node === document.activeElement), true, 'Escape returns focus to the button that opened it');
+    assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(call => /open_pet|save_pet|connect_ai/.test(call.name))), [], 'looking at an example starts nothing');
     assert.equal(await flow.locator('.pet-start-change').count(), 0, 'less common settings stay folded');
     assert.equal(await flow.locator('.composer-identity .pet-source-line').count(), 0, 'default identity keeps only pet and name');
     assert.equal(await flow.locator('.pet-skill-source').count(), 0, 'long provenance is disclosed on request');
