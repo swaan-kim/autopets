@@ -77,6 +77,8 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const page = await newPage({ width: 992, height: 688 });
   const initial = structuredClone(base); initial.setup.connections[0].configured = false;
   await mockBridge(page, initial); await page.goto(origin); await openCatalog(page);
+  // The pointer stays where the catalog button was; move it off the cards so a hover greeting is not read as autoplay.
+  await page.mouse.move(0, 0);
   const flow = page.locator('.pet-start');
   const selectWeb = () => chooseRole(page, '웹페이지 만들기');
   const count = name => page.evaluate(name => window.__uiTest.calls.filter(call => call.name === name).length, name);

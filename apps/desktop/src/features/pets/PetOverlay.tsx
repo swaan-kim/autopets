@@ -164,7 +164,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const latestAi = latest ? HOST_NAMES[latest.host] : '';
   const latestLook = latest ? reviewAttention(latest) : 0;
   const jobLabel = !latest ? '' : latest.state === 'working' ? `${latestAi}에서 작업 중` : latest.state === 'asking' ? `${latestAi}에서 답을 기다려요`
-    : latest.state === 'failed' ? `${latestAi}에서 문제가 생겼어요` : latestLook ? `완료 · 확인할 곳 ${latestLook}곳` : `${latestAi} 작업 완료`;
+    : latest.state === 'failed' ? `${latestAi}에서 문제가 생겼어요` : latestLook ? `다 됐어요 · 확인할 곳 ${latestLook}곳` : `${latestAi} 작업 완료`;
   const jobState: CompanionState = !latest ? 'idle' : latest.state === 'working' ? 'working' : latest.state === 'asking' ? 'waiting' : latest.state === 'failed' ? 'error' : 'complete';
   useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {

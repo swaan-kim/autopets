@@ -179,14 +179,16 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
   const reviewed = jobPet.getByRole('region', { name: '맡긴 일' }).locator('.pet-job-review');
   await reviewed.waitFor();
-  assert.equal(await reviewed.innerText(), '펫이 확인 · 5장 · 빈칸 4곳 · 남은 안내 문구 3곳');
+  assert.equal(await reviewed.innerText(), '펫이 센 것 · 5장 · 빈칸 4곳 · 남은 안내 문구 3곳 · 내용은 직접 봐 주세요');
   assert.equal(await reviewed.getAttribute('data-attention'), 'true');
+  // Review evidence for the job list wording: the open job card only.
+  await jobPet.getByRole('region', { name: '맡긴 일' }).screenshot({ path: require('node:path').join(__dirname, '../../../work/pet-job-review.png'), animations: 'disabled' });
   await jobPet.keyboard.press('Escape');
   await report(job('done', { resultPath: 'C:\\fixture\\Documents\\AutoPets\\1112-slides', review: { slides: 5, blanks: 0, notes: 0, external: 0 }, updatedAt: Date.now() + 9 }));
   // The notice for the new report replaces the previous one; wait for that text, not just for a notice.
   await jobPet.locator('.pet-bubble').filter({ hasNotText: '확인할 곳' }).filter({ hasText: '다 됐어요' }).waitFor();
   await jobPet.getByRole('button', { name: /작업 카드 열기/ }).click();
-  await jobPet.locator('.pet-job-review').filter({ hasText: '펫이 확인 · 5장 · 빈칸 없음' }).waitFor();
+  await jobPet.locator('.pet-job-review').filter({ hasText: '펫이 센 것 · 5장 · 빈칸 0곳' }).waitFor();
   await jobPet.keyboard.press('Escape');
   // Only the newest job speaks: an older finished job that was never opened stays quiet while a newer
   // one works or waits, and does not come back after the newer result is opened.
@@ -214,7 +216,7 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
   await jobManager.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).click();
   const managerList = jobManager.getByRole('region', { name: '맡긴 일' });
   await managerList.waitFor();
-  assert.ok((await managerList.innerText()).includes('Claude Code · 완료'));
+  assert.ok((await managerList.innerText()).includes('Claude Code · 다 됐어요'));
   assert.equal(await jobManager.getByText('아직 맡긴 일이 없어요.', { exact: true }).count(), 0, 'a reported job is a task the user gave');
   await managerList.getByRole('button', { name: '결과 폴더 열기 ↗', exact: true }).click();
   await jobManager.waitForFunction(() => window.__uiTest.calls.some(call => call.name === 'open_pet_job_result'));

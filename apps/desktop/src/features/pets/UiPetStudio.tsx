@@ -559,7 +559,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
           <p>처음 한 번, Codex에 AutoPets를 연결해요. Codex 설정에 AutoPets 항목이 추가돼요.</p>
           <div><button className="button secondary" disabled={busy} onClick={confirmConnect}>연결하고 시작</button><button className="text-button" disabled={busy} onClick={() => setPendingChoice(null)}>취소</button></div>
         </div>}
-        {connectBlocked && <div className="composer-feedback" role="alert"><p>Codex 연결이 아직 준비되지 않았어요.</p><button className="text-button" onClick={onConnection}>AI 연결 열기 →</button></div>}
+        {connectBlocked && <div className="composer-feedback" role="alert"><p>Codex 연결이 아직 준비되지 않았어요. AI 연결에서 '이 AI 연결하기'를 눌러 주세요.</p><button className="text-button" onClick={onConnection}>AI 연결 열기 →</button></div>}
         {isDesktop && setupChat && confirmChat && target && <section className="composer-chat-continue" data-agent-id="pet-selection.composer.continue-chat.status" aria-label="현재 채팅에서 계속하기">
           <div className="composer-chat-confirm" role="alert"><p>고른 채팅({shortChat(target.target)})이 아니라 펫을 부른 채팅({shortChat(setupChat)})에 요청을 넣어요. 괜찮을까요?</p>
             <button className="button secondary" disabled={busy} onClick={() => void startInChat(true)}>이 채팅에 넣기</button><button className="text-button" disabled={busy} onClick={() => setConfirmChat(false)}>취소</button></div>
