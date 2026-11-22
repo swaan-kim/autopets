@@ -213,6 +213,8 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
     window.__uiTest.state.petLinks[0].profile = 'light'; window.__uiTest.state.petLinks[0].run = null;
     window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
   });
+  // Wait until the snapshot above is applied; clicking earlier races it and saves the profile again.
+  await choices.getByRole('radio', { name: '작업 방식 가볍게', exact: true }).and(choices.locator('[aria-checked="true"]')).waitFor();
   await choices.getByRole('radio', { name: '작업 방식 가볍게', exact: true }).click();
   assert.equal(await overlay.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'set_pet_link_profile').length), 2, 'choosing the current style only folds the line');
 
