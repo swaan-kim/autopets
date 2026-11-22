@@ -23,12 +23,12 @@ const groupFor = (link: PetLink, disconnected: boolean) => {
 const groups = [['attention', '확인이 필요해요'], ['working', '함께하고 있어요'], ['complete', '최근 결과'], ['ready', '준비된 펫']] as const;
 const categoryNames = { all: '전체', daily: '일상', work: '업무' } as const;
 const rolePromises: Partial<Record<string, string>> = {
-  'daily-plan': '무리하게 다 넣지 않아요',
+  'daily-plan': '무리하게 다 넣지 않게 해요',
   'travel-plan': '확인 못 한 건 확정하지 않게 해요',
-  'study-helper': '정답은 풀고 나서 보여줘요',
-  'ui-webpage': '모바일 화면까지 확인해요',
+  'study-helper': '정답은 풀고 나서 보여 주게 해요',
+  'ui-webpage': '모바일 화면까지 챙기게 해요',
   'marketing-copy': '없는 사실은 쓰지 않게 해요',
-  presentation: '한 장에 한 메시지만 담아요',
+  presentation: '한 장에 한 메시지만 담게 해요',
 };
 
 export function PetWorkspace({ view, navigationRevision = 0, active, category, onCategory, links, disconnected, legacy, pets, favorites, onFavorite, onSelect, onSaved, onNewTask, onBrowse, error, jobs = [] }: {

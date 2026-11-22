@@ -51,7 +51,7 @@ export function SkillHub() {
       if (isDesktop) {
         // Only the id and target cross the bridge. The app owns the URL and prompt.
         await command('start_hub_entry', { id: entry.id, target });
-        setNotice({ id: entry.id, text: address ? '브라우저에서 열려요.' : `${target === 'claude' ? 'Claude' : 'AI 채팅'}에 요청을 넣었어요. 보내기만 눌러 주세요.` });
+        setNotice({ id: entry.id, text: address ? '브라우저에서 열려요.' : `${target === 'claude' ? 'Claude' : 'AI'} 채팅을 열었어요. 입력창의 요청을 확인하고 보내 주세요.` });
       } else if (address) {
         window.open(address, '_blank', 'noopener,noreferrer');
       } else setNotice({ id: entry.id, text: '설치 앱에서 열 수 있어요.' });

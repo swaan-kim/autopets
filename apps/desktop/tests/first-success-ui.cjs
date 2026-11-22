@@ -144,7 +144,9 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   await openMore(composer);
   await composer.getByLabel('펫을 쓸 채팅', { exact: true }).selectOption('');
   await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();
-  await composer.getByText('Codex 새 채팅에 요청을 넣었어요. 보내기만 눌러 주세요.', { exact: true }).waitFor();
+  await composer.getByText('Codex 새 채팅을 열었어요. 입력창의 요청을 확인하고 보내 주세요.', { exact: true }).waitFor();
+  // Review evidence for the start notice wording (#100): the notice area only.
+  await composer.locator('.pet-start-action').locator('..').screenshot({ path: path.join(path.dirname(compactImage), 'first-success-codex-opened.png'), animations: 'disabled' });
   const opened = await next.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args));
   assert.equal(opened.length, 1);
   assert.deepEqual(Object.keys(opened[0]).sort(), ['expectedRevision', 'petId', 'prompt']);

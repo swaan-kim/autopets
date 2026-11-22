@@ -11,7 +11,7 @@ import './pet-start-card.css';
 // request filled in. The words are matched to a pet on this PC only; no AI is called for it.
 const DEFAULTS = ['presentation', 'study-helper', 'marketing-copy'];
 const notices = (ai: string) => ({
-  opened: `${ai}에 넣었어요. 보내기만 누르세요.`,
+  opened: `${ai} 채팅을 열었어요. 입력창의 요청을 확인하고 보내 주세요.`,
   copied: `요청이 길어 복사했어요. ${ai}에 붙여넣고 보내 주세요.`,
   'not-ready': 'Codex 연결을 준비하지 못했어요. 앱의 ‘AI 연결’에서 확인해 주세요.',
 });

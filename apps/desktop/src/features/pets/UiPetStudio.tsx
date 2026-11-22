@@ -48,9 +48,9 @@ type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
 
-const CODEX_OPENED = 'Codex 새 채팅에 요청을 넣었어요. 보내기만 눌러 주세요.';
+const CODEX_OPENED = 'Codex 새 채팅을 열었어요. 입력창의 요청을 확인하고 보내 주세요.';
 // "현재 채팅에서 계속하기": the chat that ran `$autopets` opens with the request typed in; the user sends it.
-const CHAT_FILLED = 'Codex 채팅 입력창에 요청을 넣었어요. 보내기만 눌러 주세요.';
+const CHAT_FILLED = '그 Codex 채팅을 열었어요. 입력창의 요청을 확인하고 보내 주세요.';
 // A short hint, so the placeholder cannot be mistaken for typed text.
 const shortExample = (example: string) => `예: ${example.split('. ')[0].replace(/\.$/, '')}`;
 // The catalog name replaces only the built-in template name; a name the user gave stays.
