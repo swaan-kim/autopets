@@ -14,7 +14,8 @@ import { PetSkillSource } from './PetSkillSource';
 import { PetPreferencesConnector, runClaudeAction } from '../onboarding/PetPreferencesConnector';
 import { PetRecommendationCard } from './PetRecommendation';
 import { chatDetail, chatName, useCodexChatTitles } from './useCodexChatTitles';
-import { PPTX_REQUEST, DESIGN_REFERENCE_REQUEST } from '../../../../../packages/guidance/start-request.mjs';
+import { PPTX_REQUEST, designReferenceLine } from '../../../../../packages/guidance/start-request.mjs';
+import { DesignReferences, type DesignImage } from './DesignReferences';
 
 import { usePetFavorites } from './usePetFavorites';
 import './ui-pet-studio.css';
@@ -45,9 +46,10 @@ function setOnboardingActive(active: boolean) {
 }
 
 // Presentation pet options (Issue #104 prototype). Both are optional and only add one line each to the request.
-type SlideOptions = { pptx: boolean; design: boolean };
-const NO_SLIDE_OPTIONS: SlideOptions = { pptx: false, design: false };
-type TaskContext = { audience?: string; message?: string; newTask?: boolean; slides?: SlideOptions };
+type SlideOptions = { pptx: boolean; images: DesignImage[] };
+const NO_SLIDE_OPTIONS: SlideOptions = { pptx: false, images: [] };
+// `designRef` names photos the app saved for this request (design-references/<ref>/ in its data folder).
+type TaskContext = { audience?: string; message?: string; newTask?: boolean; slides?: SlideOptions; designRef?: string };
 type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean;
@@ -79,7 +81,8 @@ export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: Ta
     : `이 채팅에서 앞서 요청한 일을 이 펫으로 ${pet.template.planFirst ? '이어받아 계획만 세워줘' : '이어서 진행하고 결과를 채팅에 보여줘'}.`,
   ...(catalogFor(pet.template)?.id === 'ui-webpage' ? [context.audience?.trim() && `이 페이지를 볼 사람: ${context.audience.trim()}`, context.message?.trim() && `꼭 알릴 내용: ${context.message.trim()}`].filter(Boolean) : []),
   ...(context.newTask ? ['새로운 작업이야. 이전 작업의 내용이나 계획 승인을 이 요청에 재사용하지 마.'] : []),
-  ...(catalogFor(pet.template)?.id === 'presentation' ? [context.slides?.pptx && PPTX_REQUEST, context.slides?.design && DESIGN_REFERENCE_REQUEST].filter(Boolean) : []),
+  ...(catalogFor(pet.template)?.id === 'presentation' ? [context.slides?.pptx && PPTX_REQUEST,
+    (context.slides?.images.length ?? 0) > 0 && designReferenceLine(context.designRef)].filter(Boolean) : []),
   pet.template.features?.figmaDesign ? 'Figma 시안 활용 특성을 선택했어. 사용할 프레임 링크를 나에게 먼저 확인하고, 실제 시안을 읽은 뒤 계획해줘. 연결이나 접근이 안 되면 필요한 조치를 알려줘.' : '별도 서비스 연결 없이 가능한 범위부터 도와주고, 외부 서비스가 필요하면 먼저 알려줘.',
   pet.template.planFirst ? '지금은 파일을 바꾸지 말고 계획을 보여준 뒤 내 구현 요청을 기다려줘. 구현 위치와 기존 파일을 먼저 확인하고 기존 내용을 덮어쓰지 마.' : '파일을 수정하거나 외부 서비스에 등록하지 말고, 제공한 내용을 바탕으로 결과를 보여줘. 확인할 수 없는 사실은 미확인으로 구분해줘.',
   ...(task.trim() === EXAMPLE_TASK ? ['이 예시에는 실제 개인정보 대신 가상 내용을 사용하고, 구현할 때는 새 autopets-demo 폴더를 사용하되 기존 파일이 있으면 먼저 알려줘.'] : []),
@@ -123,6 +126,16 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const [reuseTarget, setReuseTarget] = useState<PetLink['target'] | null>(null);
   const [newTask, setNewTask] = useState(false);
   const [slides, setSlides] = useState<SlideOptions>(NO_SLIDE_OPTIONS);
+  // The same set of photos is saved once; confirm, copy and start then carry the same ref.
+  const savedDesign = useRef<{ key: string; ref: string } | null>(null);
+  const saveDesignRef = async () => {
+    if (!slides.images.length) return undefined;
+    const key = slides.images.map(image => image.id).join(',');
+    if (savedDesign.current?.key === key) return savedDesign.current.ref;
+    const ref = await command<string>('save_design_references', { images: slides.images.map(image => Array.from(image.bytes)) });
+    savedDesign.current = { key, ref };
+    return ref;
+  };
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -257,11 +270,11 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   };
   // '확인' saves and verifies the pet as copying used to, then only shows the request below.
   // It never copies or sends. Any later edit clears it (invalidateRequest), so it must be confirmed again.
-  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask, slides })); });
+  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask, slides, designRef: await saveDesignRef() })); });
   // Copy re-checks the saved pet and copies only the request that is on screen.
   const copyRequest = () => run(async () => {
     if (!prompt || !task.trim()) throw Error('request not confirmed');
-    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask, slides });
+    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask, slides, designRef: await saveDesignRef() });
     if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
     await copy(value, pet);
   }, undefined, true);
@@ -288,7 +301,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     const pet = await save(); step(1);
     if (!await connectIfNeeded()) return;
     step(2);
-    if (await openInCodex(pet, uiPetStartPrompt(pet, task, { audience, message, newTask, slides }))) step(3); else setProgress(null);
+    if (await openInCodex(pet, uiPetStartPrompt(pet, task, { audience, message, newTask, slides, designRef: await saveDesignRef() }))) step(3); else setProgress(null);
   });
   // Start in the chat that ran `$autopets` ("현재 채팅에서 계속하기"): that chat opens with the
   // request typed into its composer; the user presses send. No connect step here: the chat's own
@@ -300,7 +313,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     setConfirmChat(false);
     setProgress({ steps: ['펫 저장', '채팅에 입력'], done: 0 });
     const pet = await save(); step(1);
-    const value = uiPetStartPrompt(pet, task, { audience, message, newTask, slides });
+    const value = uiPetStartPrompt(pet, task, { audience, message, newTask, slides, designRef: await saveDesignRef() });
     try { await command('open_pet_in_codex_chat', { petId: pet.id, expectedRevision: pet.revision, prompt: value, threadId: chat.threadId, cwd: chat.cwd }); }
     catch (cause) {
       if (/prompt-too-long/.test(String(cause))) { await copy(value, pet); setProgress(null); return; }
@@ -548,8 +561,10 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
           <legend>선택 사항</legend>
           <label><input type="checkbox" checked={slides.pptx} onChange={event => { setSlides(value => ({ ...value, pptx: event.target.checked })); invalidateRequest(); setProgress(null); }} />
             <span>PowerPoint 파일(.pptx)로도 받기<small>HTML 슬라이드와 같은 내용으로 만들어요. 시험 기능이에요.</small></span></label>
-          <label><input type="checkbox" checked={slides.design} onChange={event => { setSlides(value => ({ ...value, design: event.target.checked })); invalidateRequest(); setProgress(null); }} />
-            <span>디자인 참고 사진 있음<small>시작한 뒤 Codex 채팅에 예시 PPT 사진을 붙여넣으면 그 디자인에 맞춰 만들어요.</small></span></label>
+          <div className="composer-design-reference">
+            <span>디자인 참고 사진<small>예시 PPT 사진을 넣으면 색·글꼴 느낌·배치를 따라 만들어요. 최대 3장.</small></span>
+            <DesignReferences images={slides.images} disabled={busy} onChange={images => { setSlides(value => ({ ...value, images })); invalidateRequest(); setProgress(null); }} />
+          </div>
         </fieldset>}
         <div className="composer-action pet-start-action" data-agent-id="pet-selection.composer.action" data-next={startMode}>
           {startMode === 'apply' && confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>

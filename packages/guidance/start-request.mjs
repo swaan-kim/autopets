@@ -16,11 +16,18 @@ const line = value => (typeof value === 'string' ? value.trim() : '');
 // longer lines pushed the request over the limit, so the app copied it instead of opening the chat.
 export const PPTX_REQUEST = 'PPTX도 만들어줘.';
 export const DESIGN_REFERENCE_REQUEST = '디자인 참고 사진 있어.';
+const DESIGN_REF = /^[0-9a-f]{12}$/u;
+/**
+ * The design line. With a `ref` (photos pasted in the app and saved under its data folder as
+ * design-references/<ref>/) the AI opens those files; without one it asks for photos in the chat.
+ */
+export const designReferenceLine = ref => (typeof ref === 'string' && DESIGN_REF.test(ref) ? `디자인 참고 사진 있어: ref=${ref}.` : DESIGN_REFERENCE_REQUEST);
 
 /**
  * @param {{ name: string, petId: string, petRevision: number, recipe?: string | null, task?: string,
  *   audience?: string, message?: string, newTask?: boolean, figma?: boolean, pptx?: boolean,
- *   designReference?: boolean, via?: 'skill' | 'tool' }} input
+ *   designReference?: boolean | string, via?: 'skill' | 'tool' }} input
+ *   `designReference` is `true` (photos follow in the chat) or the 12-character ref of photos saved by the app.
  *   `via: 'skill'` (Codex) calls the AutoPets skill; `via: 'tool'` (Claude) names the AutoPets read tool.
  */
 export function petStartRequest({ name, petId, petRevision, recipe = null, task = '', audience = '', message = '', newTask = false, figma = false, pptx = false, designReference = false, via = 'skill' }) {
@@ -33,7 +40,7 @@ export function petStartRequest({ name, petId, petRevision, recipe = null, task 
     newTask && '새 작업이야. 이전 작업의 계획이나 승인을 재사용하지 마.',
     figma && 'Figma 시안을 쓸 거야. 프레임 링크부터 나에게 확인해줘.',
     pptx && PPTX_REQUEST,
-    designReference && DESIGN_REFERENCE_REQUEST,
+    designReference && designReferenceLine(designReference),
   ].filter(Boolean).join('\n');
 }
 

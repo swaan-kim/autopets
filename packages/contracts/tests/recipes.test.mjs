@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { RECIPES, RECIPE_ID, validateRecipes, intakeMessage, saveFolder, recipeStart, baseRecipeStart, START_RULES } from '../recipes.mjs';
-import { petStartRequest, codexLinkLength, fitsCodexLink, MAX_LAUNCH_URI, PPTX_REQUEST, DESIGN_REFERENCE_REQUEST } from '../../guidance/start-request.mjs';
+import { petStartRequest, codexLinkLength, fitsCodexLink, MAX_LAUNCH_URI, PPTX_REQUEST, DESIGN_REFERENCE_REQUEST, designReferenceLine } from '../../guidance/start-request.mjs';
 
 const read = name => JSON.parse(fs.readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8'));
 const catalog = read('pet-catalog.json');
@@ -111,9 +111,15 @@ test('presentation options add one line each, only when chosen, and still fit a 
   assert.deepEqual(both.split('\n').slice(-2), [PPTX_REQUEST, DESIGN_REFERENCE_REQUEST]);
   assert.ok(fitsCodexLink(both), String(codexLinkLength(both)));
   // Both lines together stay a small share of the link, so they never turn "open the chat" into "copy".
-  assert.ok(codexLinkLength(`\n${PPTX_REQUEST}\n${DESIGN_REFERENCE_REQUEST}`) - codexLinkLength('') <= 160);
+  assert.ok(codexLinkLength(`\n${PPTX_REQUEST}\n${designReferenceLine('0123456789ab')}`) - codexLinkLength('') <= 200);
+  // Photos pasted in the app travel as a short ref only; anything that is not a ref falls back to "paste in the chat".
+  const withRef = petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 3, recipe: 'presentation', task: job, designReference: '0123456789ab' });
+  assert.equal(withRef.split('\n').at(-1), '디자인 참고 사진 있어: ref=0123456789ab.');
+  for (const bad of ['..\\..\\x', 'ABCDEF012345', '0123456789abc', '', null]) assert.equal(designReferenceLine(bad), DESIGN_REFERENCE_REQUEST, String(bad));
   // The Codex guide holds the steps the two lines point to, so the request stays short.
   const guide = fs.readFileSync(new URL('../../../integrations/codex/skills/autopets/references/explicit-pet.md', import.meta.url), 'utf8');
   for (const line of [PPTX_REQUEST, DESIGN_REFERENCE_REQUEST]) assert.ok(guide.includes(line.split('.')[0]), line);
   assert.match(guide, /pptxgenjs@3\.12\.0/u);
+  assert.match(guide, /design-references\\<ref>\\/u);
+  assert.match(guide, /view_image/u);
 });
