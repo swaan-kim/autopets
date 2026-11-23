@@ -14,6 +14,7 @@ import { PetSkillSource } from './PetSkillSource';
 import { PetPreferencesConnector, runClaudeAction } from '../onboarding/PetPreferencesConnector';
 import { PetRecommendationCard } from './PetRecommendation';
 import { chatDetail, chatName, useCodexChatTitles } from './useCodexChatTitles';
+import { PPTX_REQUEST, DESIGN_REFERENCE_REQUEST } from '../../../../../packages/guidance/start-request.mjs';
 
 import { usePetFavorites } from './usePetFavorites';
 import './ui-pet-studio.css';
@@ -43,10 +44,14 @@ function setOnboardingActive(active: boolean) {
   return request;
 }
 
-type TaskContext = { audience?: string; message?: string; newTask?: boolean };
+// Presentation pet options (Issue #104 prototype). Both are optional and only add one line each to the request.
+type SlideOptions = { pptx: boolean; design: boolean };
+const NO_SLIDE_OPTIONS: SlideOptions = { pptx: false, design: false };
+type TaskContext = { audience?: string; message?: string; newTask?: boolean; slides?: SlideOptions };
 type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
-  prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
+  prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean;
+  slides: SlideOptions };
 
 const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
 // "현재 채팅에서 계속하기": the chat that ran `$autopets` opens with the request typed in; the user sends it.
@@ -74,6 +79,7 @@ export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: Ta
     : `이 채팅에서 앞서 요청한 일을 이 펫으로 ${pet.template.planFirst ? '이어받아 계획만 세워줘' : '이어서 진행하고 결과를 채팅에 보여줘'}.`,
   ...(catalogFor(pet.template)?.id === 'ui-webpage' ? [context.audience?.trim() && `이 페이지를 볼 사람: ${context.audience.trim()}`, context.message?.trim() && `꼭 알릴 내용: ${context.message.trim()}`].filter(Boolean) : []),
   ...(context.newTask ? ['새로운 작업이야. 이전 작업의 내용이나 계획 승인을 이 요청에 재사용하지 마.'] : []),
+  ...(catalogFor(pet.template)?.id === 'presentation' ? [context.slides?.pptx && PPTX_REQUEST, context.slides?.design && DESIGN_REFERENCE_REQUEST].filter(Boolean) : []),
   pet.template.features?.figmaDesign ? 'Figma 시안 활용 특성을 선택했어. 사용할 프레임 링크를 나에게 먼저 확인하고, 실제 시안을 읽은 뒤 계획해줘. 연결이나 접근이 안 되면 필요한 조치를 알려줘.' : '별도 서비스 연결 없이 가능한 범위부터 도와주고, 외부 서비스가 필요하면 먼저 알려줘.',
   pet.template.planFirst ? '지금은 파일을 바꾸지 말고 계획을 보여준 뒤 내 구현 요청을 기다려줘. 구현 위치와 기존 파일을 먼저 확인하고 기존 내용을 덮어쓰지 마.' : '파일을 수정하거나 외부 서비스에 등록하지 말고, 제공한 내용을 바탕으로 결과를 보여줘. 확인할 수 없는 사실은 미확인으로 구분해줘.',
   ...(task.trim() === EXAMPLE_TASK ? ['이 예시에는 실제 개인정보 대신 가상 내용을 사용하고, 구현할 때는 새 autopets-demo 폴더를 사용하되 기존 파일이 있으면 먼저 알려줘.'] : []),
@@ -116,6 +122,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const [reuseTarget, setReuseTarget] = useState<PetLink['target'] | null>(null);
   const [newTask, setNewTask] = useState(false);
+  const [slides, setSlides] = useState<SlideOptions>(NO_SLIDE_OPTIONS);
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -250,11 +257,11 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   };
   // '확인' saves and verifies the pet as copying used to, then only shows the request below.
   // It never copies or sends. Any later edit clears it (invalidateRequest), so it must be confirmed again.
-  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask })); });
+  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask, slides })); });
   // Copy re-checks the saved pet and copies only the request that is on screen.
   const copyRequest = () => run(async () => {
     if (!prompt || !task.trim()) throw Error('request not confirmed');
-    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask, slides });
     if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
     await copy(value, pet);
   }, undefined, true);
@@ -281,7 +288,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     const pet = await save(); step(1);
     if (!await connectIfNeeded()) return;
     step(2);
-    if (await openInCodex(pet, uiPetStartPrompt(pet, task, { audience, message, newTask }))) step(3); else setProgress(null);
+    if (await openInCodex(pet, uiPetStartPrompt(pet, task, { audience, message, newTask, slides }))) step(3); else setProgress(null);
   });
   // Start in the chat that ran `$autopets` ("현재 채팅에서 계속하기"): that chat opens with the
   // request typed into its composer; the user presses send. No connect step here: the chat's own
@@ -293,7 +300,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     setConfirmChat(false);
     setProgress({ steps: ['펫 저장', '채팅에 입력'], done: 0 });
     const pet = await save(); step(1);
-    const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    const value = uiPetStartPrompt(pet, task, { audience, message, newTask, slides });
     try { await command('open_pet_in_codex_chat', { petId: pet.id, expectedRevision: pet.revision, prompt: value, threadId: chat.threadId, cwd: chat.cwd }); }
     catch (cause) {
       if (/prompt-too-long/.test(String(cause))) { await copy(value, pet); setProgress(null); return; }
@@ -332,11 +339,11 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     const previous = drafts.current[key] ?? (sameRole ? drafts.current[draftKey.current] : undefined);
     // Selecting a current configuration refreshes settings, but never moves one role's brief into another.
     enter(key, { ...freshDraft(nextEntry, item ?? null), task: previous?.task ?? '',
-      audience: previous?.audience ?? '', message: previous?.message ?? '',
+      audience: previous?.audience ?? '', message: previous?.message ?? '', slides: previous?.slides ?? NO_SLIDE_OPTIONS,
       reuseTarget: sameRole ? reuseTarget : null, newTask: sameRole ? newTask : false });
   };
   function remember() {
-    drafts.current[draftKey.current] = { task, audience, message, draft: structuredClone(draft), saved, dirty, prompt, copied, manualCopy, notice, handoff, reuseTarget, newTask };
+    drafts.current[draftKey.current] = { task, audience, message, draft: structuredClone(draft), saved, dirty, prompt, copied, manualCopy, notice, handoff, reuseTarget, newTask, slides };
   }
   const enter = (key: string, value: ComposerDraft, targetOverride?: string) => {
     setChangeOpen(false); setProgress(null); setPendingChoice(null); setConnectBlocked(false);
@@ -344,6 +351,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     setDraft(structuredClone(value.draft)); setSaved(value.saved); setDirty(value.dirty); setStaleSaved(false); setError('');
     setTask(value.task); setAudience(value.audience); setMessage(value.message); setPrompt(value.prompt); setCopied(value.copied);
     setManualCopy(value.manualCopy); setNotice(value.notice); setHandoff(value.handoff); setReuseTarget(value.reuseTarget); setNewTask(value.newTask);
+    setSlides(value.slides ?? NO_SLIDE_OPTIONS);
     // The only eligible chat is preselected, except when `$autopets` was run from a chat:
     // start then goes to that calling chat, so nothing else is guessed.
     const available = disconnected || setupChat ? [] : links.filter(link => link.connected && link.enabled && !unresolvedPetRun(link));
@@ -360,7 +368,8 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     return value;
   };
   const freshDraft = (next: PetCatalogEntry, item: SavedPet | null = null): ComposerDraft => ({ task: '', audience: '', message: '',
-    draft: freshTemplate(next, item), saved: item, dirty: !item, prompt: '', copied: false, manualCopy: false, notice: '', handoff: null, reuseTarget: null, newTask: false });
+    draft: freshTemplate(next, item), saved: item, dirty: !item, prompt: '', copied: false, manualCopy: false, notice: '', handoff: null, reuseTarget: null, newTask: false,
+    slides: NO_SLIDE_OPTIONS });
   const selectEntry = (next: PetCatalogEntry, request?: string, targetOverride?: string) => {
     listScroll.current = window.scrollY;
     selectionChat.current = null;
@@ -535,6 +544,13 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
           : startMode === 'apply' ? <p className="pet-start-hint">이 채팅에 {entry.name} 펫을 적용해요. 적용한 뒤 그 채팅에서 할 일을 말하면 펫이 함께해요.</p>
           : startMode === 'claude' ? <p className="pet-start-hint">Claude에는 펫 설정이 넘어가요. 맡길 일은 Claude 새 대화에서 적어 주세요.</p>
           : <>{taskField(entry.inputLabel, entry.example)}{exampleChip}</>}
+        {entry.id === 'presentation' && (startMode === 'chat' || startMode === 'codex') && <fieldset className="composer-slide-options" data-agent-id="pet-selection.composer.slide-options" disabled={busy}>
+          <legend>선택 사항</legend>
+          <label><input type="checkbox" checked={slides.pptx} onChange={event => { setSlides(value => ({ ...value, pptx: event.target.checked })); invalidateRequest(); setProgress(null); }} />
+            <span>PowerPoint 파일(.pptx)로도 받기<small>HTML 슬라이드와 같은 내용으로 만들어요. 시험 기능이에요.</small></span></label>
+          <label><input type="checkbox" checked={slides.design} onChange={event => { setSlides(value => ({ ...value, design: event.target.checked })); invalidateRequest(); setProgress(null); }} />
+            <span>디자인 참고 사진 있음<small>시작한 뒤 Codex 채팅에 예시 PPT 사진을 붙여넣으면 그 디자인에 맞춰 만들어요.</small></span></label>
+        </fieldset>}
         <div className="composer-action pet-start-action" data-agent-id="pet-selection.composer.action" data-next={startMode}>
           {startMode === 'apply' && confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
             : busy && progress ? <p className="pet-start-progress" role="status">{progressLine}</p>

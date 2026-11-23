@@ -45,7 +45,7 @@
       ]
     },
     {
-      "id": "presentation", "petId": "presentation", "name": "발표자료 만들기", "subject": "무엇에 대한 발표인가요?", "resultKind": "slides", "format": "브라우저에서 여는 슬라이드 파일(HTML, PowerPoint 파일 아님)", "output": "files",
+      "id": "presentation", "petId": "presentation", "name": "발표자료 만들기", "subject": "무엇에 대한 발표인가요?", "resultKind": "slides", "format": "브라우저에서 여는 슬라이드 파일(HTML). 요청에 있을 때만 PowerPoint 파일(PPTX)도", "output": "files",
       "intake": [
         { "key": "purpose", "question": "어디에 쓰는 발표인가요?", "options": ["수업·과제 발표", "회사·팀 보고", "행사·모임 소개"], "default": 0 },
         { "key": "audience", "question": "누가 듣나요?", "options": ["내용을 처음 듣는 사람", "같은 분야 사람", "결정을 내릴 사람"], "default": 0 },

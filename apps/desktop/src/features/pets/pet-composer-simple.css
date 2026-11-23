@@ -87,3 +87,11 @@
 }
 /* From the calling chat the extra request is optional, so its field stays small. */
 .pet-start .pet-start-hint + .composer-task textarea { min-height: 72px; }
+/* Presentation pet options (Issue #104 prototype): optional, so they stay quiet below the request. */
+.pet-start .composer-slide-options { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; border: 0; min-width: 0; }
+.pet-start .composer-slide-options legend { padding: 0; margin-bottom: 4px; color: #606970; font-size: 12px; }
+.pet-start .composer-slide-options label { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1px solid #dde1e4; border-radius: 12px; color: #252c32; font-size: 13px; cursor: pointer; }
+.pet-start .composer-slide-options input { width: 18px; height: 18px; margin: 1px 0 0; flex-shrink: 0; accent-color: #424950; }
+.pet-start .composer-slide-options small { display: block; margin-top: 3px; color: #6b747b; font-size: 11px; line-height: 1.5; }
+.pet-start .composer-slide-options label:has(input:checked) { border-color: #9aa3aa; background: #f6f7f8; }
+.pet-start .composer-slide-options label:has(input:focus-visible) { outline: 2px solid #424950; outline-offset: 2px; }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { RECIPES, RECIPE_ID, validateRecipes, intakeMessage, saveFolder, recipeStart, baseRecipeStart, START_RULES } from '../recipes.mjs';
-import { petStartRequest, codexLinkLength, fitsCodexLink, MAX_LAUNCH_URI } from '../../guidance/start-request.mjs';
+import { petStartRequest, codexLinkLength, fitsCodexLink, MAX_LAUNCH_URI, PPTX_REQUEST, DESIGN_REFERENCE_REQUEST } from '../../guidance/start-request.mjs';
 
 const read = name => JSON.parse(fs.readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8'));
 const catalog = read('pet-catalog.json');
@@ -60,7 +60,8 @@ test('starting a recipe returns only that pet\'s questions; unknown or foreign r
   assert.equal(slides.saveFolder.preferred, path.join(home, 'Documents', 'AutoPets', '1112-presentation'));
   assert.equal(slides.saveFolder.fallback, path.join('AutoPets', '1112-presentation'));
   assert.equal(slides.defaults.length, '5장');
-  assert.match(slides.format, /PowerPoint 파일 아님/u);
+  // HTML stays the default result; PPTX only when the request carries the app's PPTX line (Issue #104 prototype).
+  assert.match(slides.format, /HTML\)\. 요청에 있을 때만 PowerPoint 파일\(PPTX\)도/u);
   const study = recipeStart('study-helper', template('study-helper'), { home, now });
   assert.equal(study.output, 'chat'); assert.equal(study.saveFolder, undefined);
   assert.throws(() => recipeStart('presentation', template('ui-webpage'), { home }), /recipe-pet-mismatch/);
@@ -99,4 +100,18 @@ test('the start request names the pet and recipe and always fits a Codex link wi
   const viaTool = petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 1, recipe: 'presentation', task: job, via: 'tool' });
   assert.ok(viaTool.startsWith(`AutoPets 도구(autopets_read_pet)로 "발표자료 만들기" 펫을 불러와 시작해줘. petId=${id}, petRevision=1, recipe=presentation.`));
   assert.deepEqual(viaTool.split('\n').slice(1), petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 1, recipe: 'presentation', task: job }).split('\n').slice(1));
+});
+
+test('presentation options add one line each, only when chosen, and still fit a Codex link', () => {
+  const id = '3f2b8c1e-aaaa-4bbb-8ccc-1234567890ab';
+  const job = '동아리 신입 부원 모집 발표자료를 만들고 싶어. 활동 소개와 일정, 지원 방법을 넣어줘.';
+  const plain = petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 3, recipe: 'presentation', task: job });
+  assert.equal(plain.includes(PPTX_REQUEST) || plain.includes(DESIGN_REFERENCE_REQUEST), false, 'not chosen, not sent');
+  const both = petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 3, recipe: 'presentation', task: job, pptx: true, designReference: true });
+  assert.deepEqual(both.split('\n').slice(-2), [PPTX_REQUEST, DESIGN_REFERENCE_REQUEST]);
+  assert.ok(fitsCodexLink(both), String(codexLinkLength(both)));
+  // The Codex guide holds the steps the two lines point to, so the request stays short.
+  const guide = fs.readFileSync(new URL('../../../integrations/codex/skills/autopets/references/explicit-pet.md', import.meta.url), 'utf8');
+  for (const line of [PPTX_REQUEST, DESIGN_REFERENCE_REQUEST]) assert.ok(guide.includes(line.split('.')[0]), line);
+  assert.match(guide, /pptxgenjs@3\.12\.0/u);
 });

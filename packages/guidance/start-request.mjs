@@ -10,12 +10,18 @@ const CODEX_NEW_THREAD = 'codex://threads/new?prompt=';
 
 const line = value => (typeof value === 'string' ? value.trim() : '');
 
+// Presentation pet options (Issue #104, prototype before the team decision). Each is one line the
+// AI reads; the steps live in the AutoPets skill (references/explicit-pet.md), not in the request.
+export const PPTX_REQUEST = 'PowerPoint 파일(.pptx)로도 만들어줘. HTML 슬라이드와 같은 내용·순서로.';
+export const DESIGN_REFERENCE_REQUEST = '디자인 참고용 PPT 사진을 이 채팅에 붙여넣을게. 사진을 먼저 받고 그 디자인에 맞춰 만들어줘.';
+
 /**
  * @param {{ name: string, petId: string, petRevision: number, recipe?: string | null, task?: string,
- *   audience?: string, message?: string, newTask?: boolean, figma?: boolean, via?: 'skill' | 'tool' }} input
+ *   audience?: string, message?: string, newTask?: boolean, figma?: boolean, pptx?: boolean,
+ *   designReference?: boolean, via?: 'skill' | 'tool' }} input
  *   `via: 'skill'` (Codex) calls the AutoPets skill; `via: 'tool'` (Claude) names the AutoPets read tool.
  */
-export function petStartRequest({ name, petId, petRevision, recipe = null, task = '', audience = '', message = '', newTask = false, figma = false, via = 'skill' }) {
+export function petStartRequest({ name, petId, petRevision, recipe = null, task = '', audience = '', message = '', newTask = false, figma = false, pptx = false, designReference = false, via = 'skill' }) {
   const identity = `petId=${petId}, petRevision=${petRevision}${recipe ? `, recipe=${recipe}` : ''}.`;
   return [
     via === 'tool' ? `AutoPets 도구(autopets_read_pet)로 "${name}" 펫을 불러와 시작해줘. ${identity}` : `AutoPets 스킬로 "${name}" 시작해줘. ${identity}`,
@@ -24,6 +30,8 @@ export function petStartRequest({ name, petId, petRevision, recipe = null, task 
     line(message) && `꼭 알릴 내용: ${line(message)}`,
     newTask && '새 작업이야. 이전 작업의 계획이나 승인을 재사용하지 마.',
     figma && 'Figma 시안을 쓸 거야. 프레임 링크부터 나에게 확인해줘.',
+    pptx && PPTX_REQUEST,
+    designReference && DESIGN_REFERENCE_REQUEST,
   ].filter(Boolean).join('\n');
 }
 
