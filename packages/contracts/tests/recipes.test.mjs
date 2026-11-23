@@ -110,6 +110,8 @@ test('presentation options add one line each, only when chosen, and still fit a 
   const both = petStartRequest({ name: '발표자료 만들기', petId: id, petRevision: 3, recipe: 'presentation', task: job, pptx: true, designReference: true });
   assert.deepEqual(both.split('\n').slice(-2), [PPTX_REQUEST, DESIGN_REFERENCE_REQUEST]);
   assert.ok(fitsCodexLink(both), String(codexLinkLength(both)));
+  // Both lines together stay a small share of the link, so they never turn "open the chat" into "copy".
+  assert.ok(codexLinkLength(`\n${PPTX_REQUEST}\n${DESIGN_REFERENCE_REQUEST}`) - codexLinkLength('') <= 160);
   // The Codex guide holds the steps the two lines point to, so the request stays short.
   const guide = fs.readFileSync(new URL('../../../integrations/codex/skills/autopets/references/explicit-pet.md', import.meta.url), 'utf8');
   for (const line of [PPTX_REQUEST, DESIGN_REFERENCE_REQUEST]) assert.ok(guide.includes(line.split('.')[0]), line);

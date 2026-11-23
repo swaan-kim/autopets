@@ -10,10 +10,12 @@ const CODEX_NEW_THREAD = 'codex://threads/new?prompt=';
 
 const line = value => (typeof value === 'string' ? value.trim() : '');
 
-// Presentation pet options (Issue #104, prototype before the team decision). Each is one line the
-// AI reads; the steps live in the AutoPets skill (references/explicit-pet.md), not in the request.
-export const PPTX_REQUEST = 'PowerPoint 파일(.pptx)로도 만들어줘. HTML 슬라이드와 같은 내용·순서로.';
-export const DESIGN_REFERENCE_REQUEST = '디자인 참고용 PPT 사진을 이 채팅에 붙여넣을게. 사진을 먼저 받고 그 디자인에 맞춰 만들어줘.';
+// Presentation pet options (Issue #104, prototype before the team decision). Each is one short line
+// the AI reads; the steps live in the AutoPets skill (references/explicit-pet.md), not in the request.
+// Kept short on purpose: a Korean character costs 9 characters in the Codex link (2000 at most), and
+// longer lines pushed the request over the limit, so the app copied it instead of opening the chat.
+export const PPTX_REQUEST = 'PPTX도 만들어줘.';
+export const DESIGN_REFERENCE_REQUEST = '디자인 참고 사진 있어.';
 
 /**
  * @param {{ name: string, petId: string, petRevision: number, recipe?: string | null, task?: string,
