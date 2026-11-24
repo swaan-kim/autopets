@@ -121,7 +121,7 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
         onOpen={batch => setReviewPage({ batch })} onBack={() => setReviewPage(null)} />}
       <div hidden={!['home', 'pets', 'catalog', 'saved'].includes(settings) || Boolean(reviewPage)}>
         <UiPetStudio navigationRevision={navigationRevision} active={isPetSection(settings) && !reviewPage} view={studioView}
-          review={snapshot.review} reviewDetailOpen={reviewDetail} onReviewBatches={() => setReviewPage({ batch: null })} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
+          review={snapshot.review} reviewDetailOpen={reviewDetail} onReviewBatches={() => setReviewPage({ batch: null })} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} jobs={snapshot.petJobs ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
  />
       </div>
   </AppShell>;

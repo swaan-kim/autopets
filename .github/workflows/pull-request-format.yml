@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: pr-format-${{ github.event.pull_request.number }}
@@ -26,6 +27,12 @@ jobs:
           package-manager-cache: false
       - name: Test the format validator
         run: node --test scripts/tests/pull-request.test.mjs
+      - name: List the files this PR changes
+        # Only the PR number (an integer) goes into the command; file names are written to a file and read as data.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > "$RUNNER_TEMP/changed-files.txt"
       - name: Check the PR body as data
         # Never interpolate PR text into shell commands or use pull_request_target.
-        run: node scripts/check-pull-request.mjs --event "$GITHUB_EVENT_PATH"
+        run: node scripts/check-pull-request.mjs --event "$GITHUB_EVENT_PATH" --files "$RUNNER_TEMP/changed-files.txt"

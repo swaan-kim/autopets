@@ -1,0 +1,13 @@
+/* The pet's one-line notice. It replaces the small grey status under the pet and fits the compact 180×230 window. */
+.pet-bubble { position: relative; display: flex; align-items: stretch; max-width: 169px; margin-top: 5px; border: 1px solid #d9dee2; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px #0000001f; font-size: 11px; line-height: 1.2; }
+.pet-bubble::before { content: ''; position: absolute; left: 50%; top: -5px; width: 8px; height: 8px; margin-left: -4px; background: inherit; border-left: inherit; border-top: inherit; transform: rotate(45deg); }
+.pet-bubble[data-tone='ask'] { background: #fff6d6; border-color: #ecd27a; color: #4a3d00; }
+.pet-bubble[data-tone='done'] { background: #e7f6ec; border-color: #a9d8b8; color: #154a2a; }
+.pet-bubble[data-tone='error'] { background: #fdeaea; border-color: #eab3b3; color: #6b1a1a; }
+.pet-bubble button { position: relative; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.pet-bubble-open { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 6px 2px 6px 9px; white-space: nowrap; }
+.pet-bubble-open strong { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.pet-bubble-open span { opacity: .8; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pet-bubble-close { padding: 0 7px 0 4px; opacity: .55; font-size: 13px; }
+.pet-bubble-close:hover, .pet-bubble-close:focus-visible { opacity: 1; }
+.pet-bubble button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; border-radius: 8px; }

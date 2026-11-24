@@ -44,6 +44,7 @@ export interface Snapshot {
   codexAttention?: import('./pet-link').CodexAttention[];
   /** 복습 도우미: today's review count (at most 10), saved cards and batches, and whether today's notice was shown. */
   review?: ReviewSummary;
+  petJobs?: import('./pet-link').PetJob[];
   setup?: import('./setup').SetupState | null;
   sessions: Session[];
   slots: Slot[];

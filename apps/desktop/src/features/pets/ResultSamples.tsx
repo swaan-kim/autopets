@@ -1,75 +1,122 @@
 import { useId } from 'react';
 
-// Authored design samples. They do not report skill execution or user results.
+// Original design examples, not AI execution evidence. Reuse the same artwork at every size.
 export function ResultSample({ kind }: { kind: string }) {
   const id = 'sample' + useId().replace(/:/g, '');
   return <svg viewBox="0 0 640 400" className="result-sample-art" aria-hidden="true" data-sample-kind={kind}>
     <defs>
-      <clipPath id={id + 'photo'}><rect x="280" width="360" height="400" /></clipPath>
-      <clipPath id={id + 'coast'}><rect width="640" height="230" /></clipPath>
-      <linearGradient id={id + 'shade'} x2="0" y2="1"><stop stopColor="#1c312d" stopOpacity="0" /><stop offset="1" stopColor="#182e29" stopOpacity=".75" /></linearGradient>
-      <linearGradient id={id + 'mint'} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#b4d6bf" /><stop offset="1" stopColor="#6e9e87" /></linearGradient>
+      <clipPath id={id + 'product'}><rect x="322" width="318" height="268" /></clipPath>
+      <clipPath id={id + 'coast'}><rect width="640" height="264" /></clipPath>
+      <linearGradient id={id + 'shade'} x2="0" y2="1"><stop stopColor="#183e43" stopOpacity="0" /><stop offset="1" stopColor="#16363b" stopOpacity=".72" /></linearGradient>
     </defs>
-    {kind === 'marketing-copy' ? <g>
-      <rect width="640" height="400" fill="#f4eee3" />
-      <image href="/assets/prompt-gallery-v1/product.webp" x="280" width="360" height="400" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'photo)'} />
-      <text x="34" y="65" fill="#344e3d" fontFamily="Georgia, serif" fontSize="46">mori</text>
-      <path d="M35 89h205" stroke="#c9c9b8" />
-      <text x="35" y="117" fill="#7c8271" fontSize="11" letterSpacing="2">A LITTLE GREEN, EVERY DAY.</text>
-      <text x="35" y="223" fill="#344e3d" fontSize="23" fontWeight="400">조금 더 가벼운</text>
-      <text x="33" y="267" fill="#344e3d" fontSize="37" fontWeight="650" letterSpacing="-2">매일의 시작.</text>
-      <text x="35" y="303" fill="#7d806f" fontSize="14">당신의 하루에, 작은 초록을.</text>
-      <rect x="35" y="337" width="174" height="32" rx="16" fill="#344e3d" />
-      <text x="52" y="358" fill="#fffdf4" fontSize="12">mori와 함께 시작하기</text><path d="M185 348l5 5-5 5m-7-5h12" fill="none" stroke="#fffdf4" strokeWidth="1.5" />
-    </g> : kind === 'presentation' ? <g>
-      <rect width="640" height="400" fill="#172d2c" />
-      <path d="M409 0v400M497 0v400M585 0v400M380 77h260M380 165h260M380 253h260M380 341h260" stroke="#abc4b0" strokeOpacity=".08" />
-      <text x="36" y="42" fill="#c2d0c2" fontSize="10" letterSpacing="2.5">MARKETING OPERATIONS / 2026</text>
-      <text x="35" y="141" fill="#f4f0df" fontSize="41" fontWeight="600" letterSpacing="-2">작은 팀의</text>
-      <text x="35" y="193" fill="#f4f0df" fontSize="41" fontWeight="600" letterSpacing="-2">콘텐츠 운영 제안</text>
-      <path d="M37 218h44" stroke="#adcfad" strokeWidth="3" />
-      <text x="36" y="252" fill="#b5c5b8" fontSize="15">조사부터 제작, 배포까지.</text>
-      <text x="36" y="277" fill="#b5c5b8" fontSize="15">작은 팀이 함께 쓰는 하나의 흐름.</text>
-      <g transform="translate(455 225) rotate(-12)">
-        <rect x="-25" y="9" width="151" height="95" rx="6" fill="#496d60" />
-        <rect x="-13" y="-8" width="151" height="95" rx="6" fill="#789c85" />
-        <rect y="-25" width="151" height="95" rx="6" fill={'url(#' + id + 'mint)'} />
-        <rect x="17" y="-7" width="34" height="5" rx="2" fill="#294d40" opacity=".65" />
-        <rect x="17" y="13" width="24" height="33" rx="3" fill="#e4ecdb" /><rect x="51" y="3" width="24" height="43" rx="3" fill="#f0f2df" /><rect x="85" y="-7" width="24" height="53" rx="3" fill="#f8f7e6" />
-      </g>
-      <path d="M36 346h568" stroke="#8ba895" strokeOpacity=".25" />
-      <text x="36" y="373" fill="#a0b8a7" fontSize="10" letterSpacing="1">01 현황 정리　 /　02 운영 설계　 /　03 실행 계획</text>
-      <text x="585" y="373" fill="#d4e3d0" fontSize="11">01</text>
-    </g> : kind === 'daily-plan' ? <g>
-      <rect width="640" height="400" fill="#eeeee5" />
-      <rect x="27" y="24" width="586" height="352" rx="12" fill="#fffef8" />
-      <text x="53" y="65" fill="#969e8d" fontSize="10" letterSpacing="2">YOUR DAY, WITH A LITTLE ROOM.</text>
-      <text x="51" y="114" fill="#3e4b3a" fontSize="34" fontWeight="650" letterSpacing="-1.5">오늘을 가볍게.</text>
-      <text x="53" y="143" fill="#8f9685" fontSize="13">꼭 필요한 세 가지, 그리고 나를 위한 시간.</text>
-      <path d="M53 164h534M398 187v153" stroke="#e4e7db" />
-      <g fill="#4d5845" fontSize="18"><text x="88" y="213">초안 마무리</text><text x="88" y="263">장보기</text><text x="88" y="313">20분 산책</text></g>
-      <circle cx="65" cy="207" r="9" fill="#72836b" /><path d="m61 207 3 3 5-6" fill="none" stroke="#fffef6" strokeWidth="1.8" /><circle cx="65" cy="257" r="9" fill="none" stroke="#ced5c4" strokeWidth="1.5" /><circle cx="65" cy="307" r="9" fill="none" stroke="#ced5c4" strokeWidth="1.5" />
-      <text x="457" y="210" fill="#8b9580" fontSize="12">작은 루틴</text><circle cx="491" cy="267" r="33" fill="none" stroke="#edf0e5" strokeWidth="7" /><path d="M491 234a33 33 0 0 1 29 49" fill="none" stroke="#93a57f" strokeWidth="7" strokeLinecap="round" /><text x="477" y="274" fill="#697a58" fontSize="20">1/3</text><text x="450" y="327" fill="#9aa28e" fontSize="11">조금씩, 꾸준히.</text>
+    {kind === 'daily-plan' ? <g>
+      <rect width="640" height="400" fill="#f6f3ed" />
+      <rect x="24" y="24" width="204" height="352" rx="18" fill="#f1dfc7" />
+      <text x="48" y="65" fill="#8a6748" fontSize="12" letterSpacing="2">A LITTLE ROOM</text>
+      <text x="44" y="141" fill="#4a392e" fontSize="60" fontWeight="700" letterSpacing="-4">오늘을</text>
+      <text x="44" y="206" fill="#4a392e" fontSize="60" fontWeight="700" letterSpacing="-4">가볍게.</text>
+      <rect x="46" y="256" width="158" height="43" rx="21" fill="#fffaf2" />
+      <circle cx="68" cy="277" r="9" fill="none" stroke="#a37d56" strokeWidth="1.5" /><path d="M68 271v6l4 3" fill="none" stroke="#a37d56" strokeWidth="1.5" />
+      <text x="86" y="282" fill="#785a3d" fontSize="15">여유 25분</text>
+      <text x="48" y="347" fill="#886e55" fontSize="12">꼭 필요한 일부터, 하나씩.</text>
+      <text x="257" y="60" fill="#39413a" fontSize="21" fontWeight="650">오늘의 세 가지</text>
+      {[
+        { y: 84, title: '초안 마무리', time: '09:00 · 집중하는 시간', done: true },
+        { y: 184, title: '장보기', time: '10:30 · 필요한 것만', done: false },
+        { y: 284, title: '20분 산책', time: '11:15 · 나를 위한 여유', done: false },
+      ].map(({ y, title, time, done }, index) => <g key={title}>
+        <rect x="252" y={y} width="364" height="82" rx="13" fill="#fffefa" stroke="#e7e5dc" />
+        <circle cx="281" cy={y + 32} r="11" fill={done ? '#72856d' : '#fffefa'} stroke={done ? '#72856d' : '#d0d5cb'} strokeWidth="1.5" />
+        {done ? <path d={`m276 ${y + 32} 4 4 7-8`} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" /> : <text x="277" y={y + 36} fill="#8b9786" fontSize="11">{index + 1}</text>}
+        <text x="307" y={y + 35} fill="#3c493b" fontSize="20" fontWeight="600">{title}</text>
+        <text x="307" y={y + 60} fill="#899082" fontSize="12">{time}</text>
+      </g>)}
     </g> : kind === 'travel-plan' ? <g>
-      <rect width="640" height="400" fill="#fffdf7" />
-      <image href="/assets/prompt-gallery-v1/coast.webp" width="640" height="230" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'coast)'} />
-      <rect width="640" height="230" fill={'url(#' + id + 'shade)'} />
-      <text x="35" y="49" fill="#fffbec" fontSize="10" letterSpacing="2.8">SLOW TRAVEL / ONE DAY</text>
-      <text x="34" y="181" fill="#fffdf2" fontSize="37" fontWeight="600" letterSpacing="-1.5">바다 곁의 하루.</text>
-      <text x="36" y="207" fill="#e2e4d3" fontSize="12">서두르지 않아도 충분한 여행.</text>
-      <path d="M52 280v67" stroke="#d4dcc9" strokeWidth="2" /><circle cx="52" cy="280" r="5" fill="#779881" /><circle cx="52" cy="344" r="5" fill="#9eb296" />
-      <text x="77" y="285" fill="#3f5649" fontSize="20" fontWeight="550">바다 산책</text><text x="77" y="309" fill="#9aa28f" fontSize="12">10:00　느긋하게 해변 한 바퀴</text><text x="77" y="350" fill="#3f5649" fontSize="20" fontWeight="550">풍경이 좋은 카페</text><text x="77" y="374" fill="#9aa28f" fontSize="12">12:00　쉬어가는 점심시간</text>
-      <text x="460" y="295" fill="#a3b19d" fontSize="11" letterSpacing="1">LESS RUSH.</text><text x="460" y="317" fill="#a3b19d" fontSize="11" letterSpacing="1">MORE MOMENTS.</text>
+      <rect width="640" height="400" fill="#edf4f3" />
+      <image href="/assets/prompt-gallery-v1/coast.webp" width="640" height="264" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'coast)'} />
+      <rect width="640" height="264" fill={'url(#' + id + 'shade)'} />
+      <text x="34" y="43" fill="#f5fcfa" fontSize="12" letterSpacing="3">SLOW TRAVEL</text>
+      <text x="32" y="166" fill="#fff" fontSize="45" fontWeight="650" letterSpacing="-2">바다 곁의 하루.</text>
+      <text x="35" y="198" fill="#eef8f4" fontSize="15">걷고, 쉬고, 풍경을 담는 작은 여행.</text>
+      <rect x="22" y="232" width="596" height="146" rx="16" fill="#fffefa" />
+      <path d="M74 271h488" stroke="#d7e5df" strokeWidth="3" />
+      {[{ x: 75, time: '10:00', title: '바다 산책', note: '느긋하게 해변 한 바퀴' }, { x: 268, time: '12:00', title: '동네 카페', note: '풍경을 보며 쉬어가기' }, { x: 461, time: '17:00', title: '노을 보기', note: '해 질 무렵 전망대' }].map(({ x, time, title, note }) => <g key={time}>
+        <circle cx={x} cy="271" r="7" fill="#547d71" stroke="#fffefa" strokeWidth="3" />
+        <text x={x - 29} y="300" fill="#84968e" fontSize="12">{time}</text>
+        <text x={x - 29} y="330" fill="#35574e" fontSize="21" fontWeight="600">{title}</text>
+        <text x={x - 29} y="354" fill="#89998f" fontSize="11">{note}</text>
+      </g>)}
+    </g> : kind === 'study-helper' ? <g>
+      <rect width="640" height="400" fill="#edf2fa" />
+      <rect x="24" y="24" width="592" height="352" rx="17" fill="#fff" />
+      <text x="47" y="59" fill="#8192b1" fontSize="11" letterSpacing="2">ONE CONCEPT, CLEARLY.</text>
+      <text x="44" y="116" fill="#263c60" fontSize="43" fontWeight="700" letterSpacing="-2">기회비용</text>
+      <text x="47" y="144" fill="#7a88a0" fontSize="15">선택하지 않은, 가장 좋은 대안의 가치.</text>
+      <rect x="44" y="170" width="260" height="120" rx="12" fill="#ecf1fa" />
+      <rect x="324" y="170" width="272" height="120" rx="12" fill="#f5f3ed" />
+      <text x="62" y="199" fill="#8091ae" fontSize="12">내가 고른 것</text>
+      <text x="62" y="239" fill="#375682" fontSize="28" fontWeight="650">책 읽기</text>
+      <path d="M228 214q15-6 29 0v37q-14-6-29 0-15-6-29 0v-37q14-6 29 0v37" fill="#d6e1f4" stroke="#819cc5" strokeWidth="2" strokeLinejoin="round" />
+      <text x="344" y="199" fill="#a29780" fontSize="12">포기한 가장 좋은 대안</text>
+      <text x="344" y="239" fill="#6c6049" fontSize="28" fontWeight="650">영화 보기</text>
+      <rect x="526" y="214" width="47" height="35" rx="4" fill="#e8e0cf" stroke="#b5a58a" strokeWidth="2" /><path d="m543 223 13 8-13 8z" fill="#b5a58a" />
+      <path d="M303 230h21m-7-6 7 6-7 6" fill="none" stroke="#a7b5ca" strokeWidth="2" />
+      <circle cx="60" cy="329" r="13" fill="#eaf0fb" /><text x="54" y="334" fill="#5874a4" fontSize="15" fontWeight="650">Q</text>
+      <text x="84" y="334" fill="#576b89" fontSize="16">이 선택의 기회비용은 무엇일까요?</text>
+      <text x="48" y="359" fill="#a0a9b8" fontSize="11">개념 정리 → 비교 예시 → 확인 문제</text>
+    </g> : kind === 'review-helper' ? <g>
+      <rect width="640" height="400" fill="#eef1f8" />
+      <rect x="24" y="24" width="592" height="352" rx="17" fill="#fff" />
+      <text x="47" y="59" fill="#7f8fb0" fontSize="11" letterSpacing="2">ASK AGAIN, RIGHT BEFORE YOU FORGET.</text>
+      <text x="47" y="96" fill="#8a96ab" fontSize="15">다음 복습</text>
+      <text x="44" y="150" fill="#2c3f7a" fontSize="50" fontWeight="700" letterSpacing="-2">3일 뒤</text>
+      <text x="47" y="180" fill="#7a88a0" fontSize="15">잊을 때쯤 틀린 문제부터 다시 물어봐요.</text>
+      <path d="M66 246h468" stroke="#c9d3f2" strokeWidth="3" />
+      {([[66, '오늘', true], [196, '3일 뒤', true], [356, '7일 뒤', false], [534, '16일 뒤', false]] as const).map(([x, label, done]) => <g key={label}>
+        <circle cx={x} cy="246" r="11" fill={done ? '#5b7bd5' : '#fff'} stroke="#5b7bd5" strokeWidth="3" />
+        <text x={x} y="282" fill={done ? '#2c3f7a' : '#8a96ab'} fontSize="14" fontWeight="650" textAnchor="middle">{label}</text>
+      </g>)}
+      <rect x="44" y="312" width="132" height="34" rx="17" fill="#5b7bd5" /><text x="110" y="334" fill="#fff" fontSize="14" fontWeight="650" textAnchor="middle">틀린 문제 먼저</text>
+      <rect x="188" y="312" width="146" height="34" rx="17" fill="#eef2ff" /><text x="261" y="334" fill="#2c3f7a" fontSize="14" fontWeight="650" textAnchor="middle">문제 묶음 · 10문제</text>
+      <text x="596" y="334" fill="#a0a9b8" fontSize="11" textAnchor="end">풀이와 채점은 Codex 채팅에서</text>
+    </g> : kind === 'marketing-copy' ? <g>
+      <rect width="640" height="400" fill="#f5efe5" />
+      <image href="/assets/prompt-gallery-v1/product.webp" x="322" width="318" height="268" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'product)'} />
+      <text x="31" y="39" fill="#6f7c60" fontSize="11" letterSpacing="2">MORI / CAMPAIGN COPY</text>
+      <text x="29" y="100" fill="#344e3d" fontSize="40" fontWeight="650" letterSpacing="-2">일상에,</text>
+      <text x="29" y="151" fill="#344e3d" fontSize="40" fontWeight="650" letterSpacing="-2">작은 초록.</text>
+      <text x="32" y="184" fill="#88917b" fontSize="14">당신의 하루를 위한 새로운 루틴.</text>
+      <rect x="31" y="212" width="195" height="33" rx="16" fill="#3c5844" /><text x="49" y="234" fill="#fffdf4" fontSize="13">새로운 루틴 만나기　↗</text>
+      {[{ x: 24, tag: '짧고 명확하게', copy: '가벼운 하루의 시작.' }, { x: 226, tag: '감성을 담아서', copy: '오늘도, 작은 초록을.' }, { x: 428, tag: '버튼 문구', copy: '새로운 루틴 만나기' }].map(({ x, tag, copy }) => <g key={tag}>
+        <rect x={x} y="286" width="188" height="89" rx="10" fill="#fffdf8" stroke="#e6e1d4" />
+        <text x={x + 14} y="311" fill="#929980" fontSize="11">{tag}</text>
+        <text x={x + 14} y="342" fill="#495c42" fontSize="16" fontWeight="600">{copy}</text>
+      </g>)}
+    </g> : kind === 'presentation' ? <g>
+      <rect width="640" height="400" fill="#eef0ec" />
+      {[36, 119, 202].map((y, index) => <g key={y}>
+        <rect x="20" y={y} width="94" height="67" rx="5" fill={index === 0 ? '#f1ddba' : '#fffefa'} stroke={index === 0 ? '#d0a76e' : '#dce0d7'} strokeWidth={index === 0 ? '2' : '1'} />
+        <text x="29" y={y + 18} fill="#8e8c7e" fontSize="9">0{index + 1}</text>
+        {index === 0 ? <><path d={`M31 ${y + 34}h58m-58 9h42`} stroke="#876e50" strokeWidth="4" /></> : index === 1 ? <><rect x="33" y={y + 33} width="12" height="20" rx="2" fill="#b0c7a3" /><rect x="50" y={y + 26} width="12" height="27" rx="2" fill="#8aa680" /><rect x="67" y={y + 19} width="12" height="34" rx="2" fill="#65815e" /></> : <><circle cx="45" cy={y + 40} r="12" fill="#ebd9b9" /><path d={`M65 ${y + 34}h31m-31 10h23`} stroke="#d3d9ca" strokeWidth="4" /></>}
+      </g>)}
+      <rect x="137" y="36" width="481" height="301" rx="7" fill="#fffdf7" stroke="#dde0d7" />
+      <text x="164" y="75" fill="#9a927e" fontSize="10" letterSpacing="2">CONTENTS / 2026</text>
+      <text x="160" y="139" fill="#354838" fontSize="33" fontWeight="650" letterSpacing="-1.5">작은 팀의</text>
+      <text x="160" y="182" fill="#354838" fontSize="33" fontWeight="650" letterSpacing="-1.5">콘텐츠 운영 제안</text>
+      <text x="164" y="216" fill="#90947e" fontSize="14">조사부터 제작, 배포까지.</text>
+      <g transform="translate(469 232)">
+        <circle cx="49" cy="15" r="60" fill="#f4e5c9" />
+        <rect x="3" y="3" width="21" height="51" rx="4" fill="#c5d2b8" /><rect x="32" y="-15" width="21" height="69" rx="4" fill="#91a97d" /><rect x="61" y="-36" width="21" height="90" rx="4" fill="#55714c" />
+      </g>
+      <path d="M164 274h230" stroke="#dddccc" /><text x="164" y="300" fill="#8c957d" fontSize="11">01 현황　　02 운영　　03 실행</text>
+      <text x="147" y="370" fill="#7d8876" fontSize="12">콘텐츠 운영 제안</text><text x="566" y="370" fill="#7d8876" fontSize="12">1 / 5</text>
     </g> : <g>
-      <rect width="640" height="400" fill="#f1ece4" /><rect x="27" y="24" width="586" height="352" rx="7" fill="#fffef8" />
-      <path d="M63 74h514" stroke="#e5dfd2" /><text x="64" y="59" fill="#8e8c7b" fontSize="10" letterSpacing="2">A NOTE FOR UNDERSTANDING</text><text x="550" y="59" fill="#9b9988" fontSize="10">01</text>
-      <text x="62" y="136" fill="#344940" fontSize="40" fontWeight="650" letterSpacing="-1">기회비용</text>
-      <text x="64" y="178" fill="#7a8476" fontSize="17">선택하지 않은 가장 좋은 대안의 가치.</text>
-      <path d="M64 203h513" stroke="#e5dfd2" />
-      <rect x="63" y="229" width="230" height="103" rx="8" fill="#eaf0e4" /><rect x="318" y="229" width="260" height="103" rx="8" fill="#f6f2e9" />
-      <text x="82" y="258" fill="#87967b" fontSize="11">내가 고른 것</text><text x="82" y="296" fill="#4b6245" fontSize="23" fontWeight="550">책 읽기</text>
-      <text x="337" y="258" fill="#a49881" fontSize="11">포기한 대안</text><text x="337" y="296" fill="#7b705f" fontSize="23" fontWeight="550">영화 보기</text>
-      <text x="64" y="356" fill="#9e9f8b" fontSize="11">한 개념을 정의, 비교, 예시로 정리했어요.</text>
+      <rect width="640" height="400" fill="#f2f2ef" />
+      <rect x="32" y="32" width="576" height="336" rx="18" fill="#fffefa" />
+      <text x="62" y="90" fill="#8f998d" fontSize="13" letterSpacing="2">A SCENE TO START WITH</text>
+      <text x="59" y="158" fill="#3d5145" fontSize="36" fontWeight="650">원하는 장면을 한 줄로.</text>
+      <text x="62" y="197" fill="#879383" fontSize="17">주인공, 분위기, 빛을 함께 정리해요.</text>
+      {['주인공', '배경', '분위기'].map((text, index) => <g key={text}><rect x={62 + index * 168} y="260" width="150" height="56" rx="12" fill="#edf1e7" /><text x={104 + index * 168} y="295" fill="#728167" fontSize="18">{text}</text></g>)}
     </g>}
   </svg>;
 }

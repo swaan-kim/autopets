@@ -11,3 +11,4 @@ pub mod pet_link;
 pub mod recommendation;
 pub mod attention;
 pub mod review;
+pub mod pet_job;

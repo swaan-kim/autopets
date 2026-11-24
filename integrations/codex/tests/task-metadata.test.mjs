@@ -33,6 +33,7 @@ test('metadata whitelist separates forks, origins and configured settings from e
   assert.equal(result.runtimeStatus, 'not-loaded'); assert.equal(result.creationSurface, 'codex-local');
   assert.equal(JSON.stringify(result).includes('private'), false);
   assert.equal(result.executionModel, undefined); assert.equal(result.accountId, undefined);
+  assert.equal(summarizeTaskMetadata({ ...thread, originator: 'codex_vscode' }, target, 200000).creationSurface, 'codex-local');
   assert.equal(summarizeTaskMetadata({ ...thread, originator: 'codex_work_desktop' }, target, 200000).creationSurface, 'work-local');
   assert.equal(summarizeTaskMetadata({ ...thread, originator: null }, target, 200000).creationSurface, 'unknown');
   assert.equal(summarizeTaskMetadata({ ...thread, parentThreadId: b }, target, 200000).parentId, b);

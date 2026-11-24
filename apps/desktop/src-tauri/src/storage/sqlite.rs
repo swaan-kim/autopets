@@ -65,6 +65,7 @@ impl Store {
             review_cards: Vec::new(),
             review_batches: Vec::new(),
             review_notice_day: None,
+            pet_jobs: Default::default(),
             assistance: crate::application::assistance::AssistanceStore::new(&data_dir)?,
             workflow: crate::application::workflow::WorkflowStore::new(&data_dir)?,
             artifacts: crate::application::artifacts::ArtifactStore::new(&data_dir)?,

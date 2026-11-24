@@ -19,6 +19,7 @@ pub struct Snapshot {
     pub codex_attention: Vec<super::attention::Notice>,
     /// 복습 도우미: today's review count, saved cards, and whether today's notice was shown.
     pub review: super::review::Summary,
+    pub pet_jobs: Vec<super::pet_job::Job>,
     pub sessions: Vec<Session>,
     pub slots: Vec<Slot>,
     pub approvals: Vec<Approval>,
