@@ -14,6 +14,7 @@ pub fn run() {
             platform::windows::second_launch(app, &argv)
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::respond_pet_recommendation,
@@ -50,6 +51,13 @@ pub fn run() {
             platform::pet_dock::undock_pet,
             platform::pet_dock::get_pet_dock,
             platform::pet_dock::reanchor_pet,
+            platform::review_chat::fill_review_request,
+            platform::review_chat::fill_review_batch,
+            platform::review_chat::review_batches,
+            platform::review_chat::review_batch,
+            platform::review_chat::delete_review_card,
+            platform::review_chat::delete_review_batch,
+            platform::review_chat::mark_review_notice,
             platform::claude_code::connect_claude_code,
             platform::claude_code::disconnect_claude_code,
             platform::updater::check_app_update,

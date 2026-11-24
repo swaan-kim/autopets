@@ -8,7 +8,8 @@ export type DockEdge = 'left' | 'right';
 // task, chat link, recommendations and questions keep running underneath.
 export type DockPhase = 'shown' | 'hiding' | 'hidden' | 'restoring' | 'entering';
 // `codex-*`: a Codex chat needs the user / its requested work finished (orange / green).
-export type DockBadge = 'ask' | 'done' | 'codex-ask' | 'codex-done' | null;
+// `review`: 복습 도우미 has cards to review today (blue).
+export type DockBadge = 'ask' | 'done' | 'codex-ask' | 'codex-done' | 'review' | null;
 
 const HIDE_MS = 240;
 const ENTER_MS = 280;

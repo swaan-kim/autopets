@@ -54,6 +54,32 @@ impl Store {
         }
         Ok(())
     }
+    /// `$autopets` from a chat: the pet is used right there. A chat that already has a pet just
+    /// reconnects. Otherwise one pet moves here and its previous chat loses it: a disconnected pet
+    /// first, then the lowest slot. A pet whose work is still running or unconfirmed never moves.
+    /// With no pet linked yet nothing changes (the first pet request connects one, as before).
+    pub(crate) fn summon_pet_link(&mut self, target: Target) -> Result<Option<(Link, bool)>, String> {
+        target.validate()?;
+        if let Some(mut link) = self.pet_links.get(&target.key()).cloned() {
+            if !link.target.matches(&target) { return Err("pet-target-mismatch".into()); }
+            if link.connected { return Ok(Some((link, false))); }
+            link.connected = true;
+            return self.save_link(link).map(|link| Some((link, false)));
+        }
+        let mut movable: Vec<Link> = self.pet_links.values().filter(|l| !l.run.as_ref().is_some_and(Run::unresolved)).cloned().collect();
+        movable.sort_by_key(|l| (l.connected, l.slot));
+        let Some(mut link) = movable.into_iter().next() else { return Ok(None) };
+        let previous = link.target.key();
+        link.target = target; link.connected = true; link.revision += 1; link.run = None;
+        let value = serde_json::to_string(&link).map_err(|e| e.to_string())?;
+        let tx = self.db.unchecked_transaction().map_err(super::sqlite::db_err)?;
+        tx.execute("DELETE FROM explicit_pet_links_v1 WHERE identity=?1", [&previous]).map_err(super::sqlite::db_err)?;
+        tx.execute("INSERT INTO explicit_pet_links_v1(identity,value) VALUES(?1,?2)", params![link.target.key(), value]).map_err(super::sqlite::db_err)?;
+        tx.commit().map_err(super::sqlite::db_err)?;
+        self.pet_links.remove(&previous);
+        self.pet_links.insert(link.target.key(), link.clone());
+        Ok(Some((link, true)))
+    }
     pub fn pet_link_request(&mut self, request: Request) -> Result<Option<Link>, String> {
         let target = match &request { Request::Read{target} | Request::Connect{target} | Request::Settings{target,..} | Request::ApplyPet{target,..} | Request::Enable{target,..} | Request::Disconnect{target,..} | Request::CloseTracking{target,..} | Request::Prepare{target,..} | Request::Report{target,..} => target };
         target.validate()?;

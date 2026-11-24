@@ -25,6 +25,7 @@ mod task_graph;
 mod pet_link;
 mod pet_library;
 mod recommendation;
+mod review;
 mod attention;
 mod claude_code;
 use workflow::workflow;
@@ -119,6 +120,7 @@ pub async fn start(
         .route("/v1/pet-link", post(pet_link::dispatch))
         .route("/v1/pet-library", post(pet_library::read))
         .route("/v1/recommendations", post(recommendation::dispatch))
+        .route("/v1/review", post(review::dispatch))
         .route("/v1/attention", post(attention::dispatch))
         .route("/v1/task-graph", get(task_graph::read).post(task_graph::import))
         .route("/v1/task-context", get(task_context))

@@ -25,6 +25,9 @@ const thumbs: Record<string, { label: string; body: ReactNode }> = {
   'study-helper': { label: '공부 도우미 결과 예시: 기회비용 요약과 확인 문제', body: <Paper eyebrow="한 줄 요약" big="기회비용" sub="포기한 것 전부가 아니라, 그중 가장 아까운 하나.">
     <span className="pct-chips"><span>확인 문제 3개</span><span>정답·해설은 따로</span></span>
   </Paper> },
+  'review-helper': { label: '복습 도우미 결과 예시: 3일 뒤 복습 3개, 틀린 문제 먼저', body: <Paper eyebrow="다음 복습" big="3일 뒤" sub="잊을 때쯤 다시 물어봐요.">
+    <span className="pct-chips"><span>복습 3개</span><span>틀린 문제 먼저</span></span>
+  </Paper> },
   'ui-webpage': { label: '웹페이지 만들기 결과 예시: 학과 행사 소개 페이지', body: <img className="pct-image" src="/assets/design-example-v1/desktop.webp" alt="" loading="lazy" /> },
   'marketing-copy': { label: '홍보글 쓰기 결과 예시: 제목 후보와 버튼 문구', body: <span className="pct-copy">
     <span className="pct-eyebrow">제목 후보 1 / 3</span>

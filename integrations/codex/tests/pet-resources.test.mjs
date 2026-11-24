@@ -36,7 +36,7 @@ async function versionFixture(t) {
 
 test('an installed update retains the old exact skill while short reads choose only the current version', async t => {
   const f = await versionFixture(t), options = { root: f.root };
-  assert.deepEqual(await validateBundledSkillPins(options), { current: 9, preserved: 10 });
+  assert.deepEqual(await validateBundledSkillPins(options), { current: 10, preserved: 11 });
   const old = await readPinnedSkill(f.previous.id, f.previous.version, options);
   const current = await readBundledSkill(f.previous.id, options);
   assert.equal(old.version, f.previous.version);
