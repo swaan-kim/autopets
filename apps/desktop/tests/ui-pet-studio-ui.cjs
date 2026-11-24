@@ -11,11 +11,12 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   for (const entry of catalog) {
     const page = await newPage({ width: 992, height: 688 }); await mockBridge(page, base); await page.goto(origin); await openCatalog(page);
     await page.getByRole('button', { name: entry.category === 'daily' ? '일상' : '업무', exact: true }).click();
-    // The same authored example is shown on the card, in the detail screen and enlarged (#82).
+    // The card shows the "그냥 시켰을 때 ↔ 펫" comparison; the detail screen and its enlarged view keep
+    // the same shared example (#82, #94).
     const card = page.getByRole('button', { name: `${entry.name} 펫 선택`, exact: true });
     const artwork = node => node.querySelector('[data-sample-kind]')?.textContent ?? node.querySelector('.result-thumbnail img')?.getAttribute('src');
-    const cardArtwork = await card.evaluate(artwork);
-    assert.ok(cardArtwork, 'the card shows a result example');
+    assert.match(await card.locator('.pct-t[role="img"]').getAttribute('aria-label'), new RegExp(`^${entry.name}: 그냥 시키면 `), 'the card shows the comparison');
+    assert.equal(await card.locator('.result-thumbnail-label').innerText(), '그냥 시켰을 때 ↔ 펫');
     assert.equal(await card.locator('button, details').count(), 0, 'a card preview has no nested controls');
     await card.click();
     // The card opens one detail screen: preview on the left, the request and one start button on the right.
@@ -27,12 +28,13 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await preview.count(), 1, 'the result preview is shown once, beside the request');
     assert.equal(await preview.getAttribute('data-evidence'), 'design-example');
     assert.equal(await preview.locator('figcaption small').innerText(), '디자인 예시');
-    assert.equal(await preview.evaluate(artwork), cardArtwork, 'the card and the detail screen show the same example');
+    const detailArtwork = await preview.evaluate(artwork);
+    assert.ok(detailArtwork, 'the detail screen shows the shared example');
     const enlarge = flow.getByRole('button', { name: '크게 보기 ↗', exact: true });
     await enlarge.click();
     const enlarged = page.getByRole('dialog');
     await enlarged.waitFor();
-    assert.equal(await enlarged.evaluate(artwork), cardArtwork, 'enlarging keeps the same example');
+    assert.equal(await enlarged.evaluate(artwork), detailArtwork, 'enlarging keeps the same example');
     await page.keyboard.press('Escape');
     await enlarged.waitFor({ state: 'detached' });
     assert.equal(await enlarge.evaluate(node => node === document.activeElement), true, 'Escape returns focus to the button that opened it');

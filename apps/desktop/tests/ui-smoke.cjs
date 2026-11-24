@@ -13,6 +13,7 @@ const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runReviewPetChecks } = require('./review-pet-ui.cjs');
+const { runCardCompareChecks } = require('./card-compare-ui.cjs');
 const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
@@ -334,6 +335,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       const screenshots = await runPetQuickUseChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
       console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_CARD_COMPARE_ONLY === '1') {
+      await runCardCompareChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_CARD_SHOTS, checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2));
       return;
     }
     if (process.env.AUTOPETS_UI_REVIEW_ONLY === '1') {
@@ -776,6 +783,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await closeFixturePages();
     // Screenshots only when asked (AUTOPETS_UI_REVIEW_SHOTS=<folder>), so the run never rewrites docs/images.
     await runReviewPetChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_REVIEW_SHOTS, checks });
+    await runCardCompareChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_CARD_SHOTS, checks });
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
