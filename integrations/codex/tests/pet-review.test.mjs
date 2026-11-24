@@ -113,8 +113,8 @@ test('the review skill keeps its question criteria and saves exactly the fields 
     '묶음 복습도 양에 맞춘다', '같은 주제로 새 문제를 더한다', '그 묶음에 추가로 저장한다', '헷갈리기 쉬운 개념', '"모두 정답", "정답 없음"은 쓰지 않는다', '정답 번호가 한쪽으로 쏠리지 않게',
     '답하기 전에는 정답이나 힌트를 보여주지 않는다', '"모르겠어"라고 하면 틀린 것으로', '질문 문장과 보기 순서는 바꾼다',
     '두 번 연속 틀린 문제', '문제 N개 저장 · 다음 복습 M일 뒤', '복습 끝 · 다음 복습 N일 뒤']) assert.ok(text.includes(rule), rule);
-  // The child's JSON question + the user's result (`correct`) must be exactly the bridge's NewCard fields.
-  const example = JSON.parse(text.match(/```json\n([\s\S]+?)\n```/u)[1]);
+  // A Windows checkout has CRLF line endings. The child's JSON question + the user's result (`correct`) must be exactly the bridge's NewCard fields.
+  const example = JSON.parse(text.match(/```json\r?\n([\s\S]+?)\r?\n```/u)[1]);
   const rust = await fs.readFile(new URL('../../../apps/desktop/src-tauri/src/domain/review.rs', import.meta.url), 'utf8');
   const struct = rust.match(/pub struct NewCard \{([\s\S]+?)\n\}/u)[1];
   const fields = [...struct.matchAll(/pub (\w+):/gu)].map(m => m[1].replace(/_(\w)/gu, (_, c) => c.toUpperCase()));
