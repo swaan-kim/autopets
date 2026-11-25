@@ -102,23 +102,6 @@
 .pet-detail-example-request { max-width: 90%; width: fit-content; margin: 0 0 32px auto; padding: 18px 20px; border-radius: 18px 18px 4px 18px; background: #f4f5f6; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pet-detail-example-result h3 { margin: 0 0 16px; font-size: 15px; line-height: 1.6; }
 .pet-detail-example-result p { margin: 12px 0; line-height: 1.8; font-size: 14px; }
-.pet-detail-example-list { list-style: decimal-leading-zero; margin: 0; padding-left: 30px; }
-.pet-detail-example-list li { padding: 12px 0 12px 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
-.pet-detail-example-list li::marker { color: var(--muted); font-size: 12px; }
-.pet-detail-example-list li span { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
-.pet-detail-example-rows { margin: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.pet-detail-example-rows > div { display: grid; grid-template-columns: 80px 1fr; gap: 16px; padding: 16px; font-size: 14px; }
-.pet-detail-example-rows > div + div { border-top: 1px solid var(--line); }
-.pet-detail-example-rows dt { color: var(--muted); }
-.pet-detail-example-rows dd { margin: 0; }
-.pet-detail-example-copy > p:first-child strong { font-size: 24px; letter-spacing: -.6px; }
-.pet-detail-example-copy > span { display: inline-block; margin-top: 8px; font-size: 13px; color: #606970; }
-.pet-detail-example-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.pet-detail-example-sections > span { padding: 16px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
-.pet-detail-example-slides { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-.pet-detail-example-slides li { display: flex; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
-.pet-detail-example-slides li span { color: var(--muted); font-size: 12px; }
-.pet-detail-example-slides li strong { font-size: 14px; font-weight: 500; }
 .pet-detail-about { margin-top: 32px; padding: 0 4px; }
 .pet-detail-about p { margin: 14px 0 0; color: #606970; font-size: 14px; line-height: 1.8; }
 @media (max-width: 1100px) {

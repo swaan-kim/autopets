@@ -44,14 +44,21 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await flow.getByRole('region', { name: '요청과 결과 예시', exact: true }).getAttribute('data-evidence'), 'design-example');
     const gallery = preview.getByRole('group', { name: '미리보기 화면', exact: true });
     assert.equal(await gallery.getByRole('button').count(), entry.id === 'ui-webpage' ? 3 : 2);
-    const full = gallery.getByRole('button', { name: entry.id === 'ui-webpage' ? '데스크톱' : '전체', exact: true });
-    await gallery.getByRole('button', { name: '세부', exact: true }).focus();
+    const full = gallery.getByRole('button').first();
+    const section = gallery.getByRole('button').nth(1);
+    await section.focus();
     await page.keyboard.press('Enter');
     assert.equal(await full.getAttribute('aria-pressed'), 'false');
-    const viewBox = entry.id === 'ui-webpage' ? null : await preview.locator(':scope > .result-thumbnail svg').getAttribute('viewBox');
+    assert.equal(await section.getAttribute('aria-pressed'), 'true');
+    const sectionArtwork = await preview.evaluate(artwork);
+    assert.notEqual(sectionArtwork, cardArtwork, 'the second view shows a different part of the example');
+    if (entry.id === 'ui-webpage') {
+      const programImage = preview.locator(':scope > .result-thumbnail img');
+      assert.match(await programImage.getAttribute('src'), /program\.webp$/);
+      await programImage.evaluate(image => image.decode());
+    }
     await enlarge.focus(); await page.keyboard.press('Enter'); await enlarged.waitFor();
-    if (entry.id === 'ui-webpage') assert.equal(await enlarged.locator('.result-thumbnail.detail').count(), 1);
-    else assert.equal(await enlarged.locator('.result-thumbnail svg').getAttribute('viewBox'), viewBox, 'enlarging keeps the selected detail crop');
+    assert.equal(await enlarged.evaluate(artwork), sectionArtwork, 'enlarging keeps the selected example section');
     await page.keyboard.press('Escape'); await enlarged.waitFor({ state: 'detached' });
     await full.click();
     assert.equal(await full.getAttribute('aria-pressed'), 'true');

@@ -1,112 +1,142 @@
-import { useId } from 'react';
+import type { ReactNode } from 'react';
 
-// Original design examples, not AI execution evidence. Reuse the same artwork at every size.
+export const resultSections: Record<string, { format: string; first: string; second: string; takeaway: string }> = {
+  'daily-plan': {
+    format: '시간표 · 체크리스트', first: '하루 계획', second: '시간 배치',
+    takeaway: '보고서 초안을 먼저 끝내고, 장보기와 산책 사이에 쉴 시간을 남겼어요.',
+  },
+  'travel-plan': {
+    format: '여행 일정표', first: '첫째 날', second: '둘째 날',
+    takeaway: '첫날은 바다와 전시를 보고, 다음 날은 전포에서 쉬었다가 부산역으로 돌아와요.',
+  },
+  'study-helper': {
+    format: '학습 노트', first: '개념 정리', second: '복습 문제',
+    takeaway: '포기한 대안 중 가장 아쉬운 하나의 가치를 생각해 보세요. 복습 문제로 직접 확인할 수 있어요.',
+  },
+  'ui-webpage': {
+    format: '행사 웹페이지', first: '데스크톱', second: '프로그램',
+    takeaway: '행사 소개, 프로그램과 방문 안내를 한 페이지에 담았어요. 모바일에서도 같은 내용을 볼 수 있어요.',
+  },
+  'marketing-copy': {
+    format: '홍보 문구', first: '소개글', second: '제목 후보',
+    takeaway: '학생이 일정과 참가 방법을 바로 찾을 수 있도록 소개글과 버튼 문구를 만들었어요.',
+  },
+  presentation: {
+    format: '발표 슬라이드', first: '첫 장', second: '발표 순서',
+    takeaway: '신입생에게 행사를 소개한 뒤 프로그램, 일정, 참가 방법까지 다섯 장으로 이어져요.',
+  },
+};
+
+const daily = [
+  { time: '09:00', title: '보고서 초안', note: '90분 · 목차와 핵심 근거 쓰기' },
+  { time: '10:40', title: '장보기', note: '35분 · 필요한 것만 사기' },
+  { time: '11:30', title: '산책', note: '20분 · 집 근처 한 바퀴' },
+];
+const trip = {
+  first: [
+    { time: '10:00', title: '부산역 도착', note: '짐 보관 후 지하철로 이동' },
+    { time: '11:20', title: '광안리 해변', note: '바닷가 산책과 점심' },
+    { time: '14:30', title: '전시 관람', note: '운영 시간과 예매 확인' },
+  ],
+  second: [
+    { time: '10:00', title: '전포 골목', note: '동네 카페와 작은 가게 둘러보기' },
+    { time: '12:00', title: '서면에서 점심', note: '짐을 찾고 부산역으로 이동' },
+    { time: '13:30', title: '부산역 도착', note: '열차 탑승 전 여유 30분' },
+  ],
+};
+const headlines = [
+  '학과 행사, 어디부터 볼까요?',
+  '이번 주 학과 행사를 한눈에',
+  '행사 일정과 참가 방법을 한곳에서',
+];
+const slides = [
+  '처음 만나는 학과',
+  '이 행사를 여는 이유',
+  '함께할 프로그램',
+  '하루 일정',
+  '이렇게 참여해요',
+];
+
+function Sample({ kind, detail, title, meta, children }: { kind: string; detail: boolean; title: string; meta?: string; children: ReactNode }) {
+  return <span className="result-sample-art" data-sample-kind={kind} data-sample-view={detail ? 'detail' : 'full'}>
+    <span className="sample-heading">
+      <strong className="sample-title">{title}</strong>
+      {meta && <span className="sample-meta">{meta}</span>}
+    </span>
+    {children}
+  </span>;
+}
+
+function Schedule({ items, checklist = false }: { items: typeof daily; checklist?: boolean }) {
+  return <span className="sample-schedule" role="list">
+    {items.map(({ time, title, note }) => <span className="sample-schedule-row" key={time} role="listitem">
+      <span className="sample-time">{time}</span>
+      <span className="sample-row-text"><strong>{title}</strong><small>{note}</small></span>
+      {checklist && <span className="sample-check" aria-hidden="true" />}
+    </span>)}
+  </span>;
+}
+
+function Items({ items }: { items: readonly string[] }) {
+  return <span className="sample-items" role="list">
+    {items.map((item, index) => <span key={item} role="listitem">
+      <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><strong>{item}</strong>
+    </span>)}
+  </span>;
+}
+
+// Authored results for the catalog prompts. Text stays readable at every size.
 export function ResultSample({ kind, detail = false }: { kind: string; detail?: boolean }) {
-  const id = 'sample' + useId().replace(/:/g, '');
-  const crops: Record<string, string> = {
-    'daily-plan': '244 24 372 352', 'travel-plan': '22 232 596 146',
-    'study-helper': '44 80 552 240', 'marketing-copy': '24 286 390 89',
-    presentation: '137 36 481 301',
-  };
-  return <svg viewBox={detail ? crops[kind] ?? '32 32 576 336' : '0 0 640 400'} className="result-sample-art" aria-hidden="true" data-sample-kind={kind}>
-    <defs>
-      <clipPath id={id + 'product'}><rect x="322" width="318" height="268" /></clipPath>
-      <clipPath id={id + 'coast'}><rect width="640" height="264" /></clipPath>
-      <linearGradient id={id + 'shade'} x2="0" y2="1"><stop stopColor="#183e43" stopOpacity="0" /><stop offset="1" stopColor="#16363b" stopOpacity=".72" /></linearGradient>
-    </defs>
-    {kind === 'daily-plan' ? <g>
-      <rect width="640" height="400" fill="#f6f3ed" />
-      <rect x="24" y="24" width="204" height="352" rx="18" fill="#f1dfc7" />
-      <text x="48" y="65" fill="#8a6748" fontSize="12" letterSpacing="2">A LITTLE ROOM</text>
-      <text x="44" y="141" fill="#4a392e" fontSize="60" fontWeight="700" letterSpacing="-4">오늘을</text>
-      <text x="44" y="206" fill="#4a392e" fontSize="60" fontWeight="700" letterSpacing="-4">가볍게.</text>
-      <rect x="46" y="256" width="158" height="43" rx="21" fill="#fffaf2" />
-      <circle cx="68" cy="277" r="9" fill="none" stroke="#a37d56" strokeWidth="1.5" /><path d="M68 271v6l4 3" fill="none" stroke="#a37d56" strokeWidth="1.5" />
-      <text x="86" y="282" fill="#785a3d" fontSize="15">여유 25분</text>
-      <text x="48" y="347" fill="#886e55" fontSize="12">꼭 필요한 일부터, 하나씩.</text>
-      <text x="257" y="60" fill="#39413a" fontSize="21" fontWeight="650">오늘의 세 가지</text>
-      {[
-        { y: 84, title: '초안 마무리', time: '09:00 · 집중하는 시간', done: true },
-        { y: 184, title: '장보기', time: '10:30 · 필요한 것만', done: false },
-        { y: 284, title: '20분 산책', time: '11:15 · 나를 위한 여유', done: false },
-      ].map(({ y, title, time, done }, index) => <g key={title}>
-        <rect x="252" y={y} width="364" height="82" rx="13" fill="#fffefa" stroke="#e7e5dc" />
-        <circle cx="281" cy={y + 32} r="11" fill={done ? '#72856d' : '#fffefa'} stroke={done ? '#72856d' : '#d0d5cb'} strokeWidth="1.5" />
-        {done ? <path d={`m276 ${y + 32} 4 4 7-8`} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" /> : <text x="277" y={y + 36} fill="#8b9786" fontSize="11">{index + 1}</text>}
-        <text x="307" y={y + 35} fill="#3c493b" fontSize="20" fontWeight="600">{title}</text>
-        <text x="307" y={y + 60} fill="#899082" fontSize="12">{time}</text>
-      </g>)}
-    </g> : kind === 'travel-plan' ? <g>
-      <rect width="640" height="400" fill="#edf4f3" />
-      <image href="/assets/prompt-gallery-v1/coast.webp" width="640" height="264" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'coast)'} />
-      <rect width="640" height="264" fill={'url(#' + id + 'shade)'} />
-      <text x="34" y="43" fill="#f5fcfa" fontSize="12" letterSpacing="3">SLOW TRAVEL</text>
-      <text x="32" y="166" fill="#fff" fontSize="45" fontWeight="650" letterSpacing="-2">바다 곁의 하루.</text>
-      <text x="35" y="198" fill="#eef8f4" fontSize="15">걷고, 쉬고, 풍경을 담는 작은 여행.</text>
-      <rect x="22" y="232" width="596" height="146" rx="16" fill="#fffefa" />
-      <path d="M74 271h488" stroke="#d7e5df" strokeWidth="3" />
-      {[{ x: 75, time: '10:00', title: '바다 산책', note: '느긋하게 해변 한 바퀴' }, { x: 268, time: '12:00', title: '동네 카페', note: '풍경을 보며 쉬어가기' }, { x: 461, time: '17:00', title: '노을 보기', note: '해 질 무렵 전망대' }].map(({ x, time, title, note }) => <g key={time}>
-        <circle cx={x} cy="271" r="7" fill="#547d71" stroke="#fffefa" strokeWidth="3" />
-        <text x={x - 29} y="300" fill="#84968e" fontSize="12">{time}</text>
-        <text x={x - 29} y="330" fill="#35574e" fontSize="21" fontWeight="600">{title}</text>
-        <text x={x - 29} y="354" fill="#89998f" fontSize="11">{note}</text>
-      </g>)}
-    </g> : kind === 'study-helper' ? <g>
-      <rect width="640" height="400" fill="#edf2fa" />
-      <rect x="24" y="24" width="592" height="352" rx="17" fill="#fff" />
-      <text x="47" y="59" fill="#8192b1" fontSize="11" letterSpacing="2">ONE CONCEPT, CLEARLY.</text>
-      <text x="44" y="116" fill="#263c60" fontSize="43" fontWeight="700" letterSpacing="-2">기회비용</text>
-      <text x="47" y="144" fill="#7a88a0" fontSize="15">선택하지 않은, 가장 좋은 대안의 가치.</text>
-      <rect x="44" y="170" width="260" height="120" rx="12" fill="#ecf1fa" />
-      <rect x="324" y="170" width="272" height="120" rx="12" fill="#f5f3ed" />
-      <text x="62" y="199" fill="#8091ae" fontSize="12">내가 고른 것</text>
-      <text x="62" y="239" fill="#375682" fontSize="28" fontWeight="650">책 읽기</text>
-      <path d="M228 214q15-6 29 0v37q-14-6-29 0-15-6-29 0v-37q14-6 29 0v37" fill="#d6e1f4" stroke="#819cc5" strokeWidth="2" strokeLinejoin="round" />
-      <text x="344" y="199" fill="#a29780" fontSize="12">포기한 가장 좋은 대안</text>
-      <text x="344" y="239" fill="#6c6049" fontSize="28" fontWeight="650">영화 보기</text>
-      <rect x="526" y="214" width="47" height="35" rx="4" fill="#e8e0cf" stroke="#b5a58a" strokeWidth="2" /><path d="m543 223 13 8-13 8z" fill="#b5a58a" />
-      <path d="M303 230h21m-7-6 7 6-7 6" fill="none" stroke="#a7b5ca" strokeWidth="2" />
-      <circle cx="60" cy="329" r="13" fill="#eaf0fb" /><text x="54" y="334" fill="#5874a4" fontSize="15" fontWeight="650">Q</text>
-      <text x="84" y="334" fill="#576b89" fontSize="16">이 선택의 기회비용은 무엇일까요?</text>
-      <text x="48" y="359" fill="#a0a9b8" fontSize="11">개념 정리 → 비교 예시 → 확인 문제</text>
-    </g> : kind === 'marketing-copy' ? <g>
-      <rect width="640" height="400" fill="#f5efe5" />
-      <image href="/assets/prompt-gallery-v1/product.webp" x="322" width="318" height="268" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'product)'} />
-      <text x="31" y="39" fill="#6f7c60" fontSize="11" letterSpacing="2">MORI / CAMPAIGN COPY</text>
-      <text x="29" y="100" fill="#344e3d" fontSize="40" fontWeight="650" letterSpacing="-2">일상에,</text>
-      <text x="29" y="151" fill="#344e3d" fontSize="40" fontWeight="650" letterSpacing="-2">작은 초록.</text>
-      <text x="32" y="184" fill="#88917b" fontSize="14">당신의 하루를 위한 새로운 루틴.</text>
-      <rect x="31" y="212" width="195" height="33" rx="16" fill="#3c5844" /><text x="49" y="234" fill="#fffdf4" fontSize="13">새로운 루틴 만나기　↗</text>
-      {[{ x: 24, tag: '짧고 명확하게', copy: '가벼운 하루의 시작.' }, { x: 226, tag: '감성을 담아서', copy: '오늘도, 작은 초록을.' }, { x: 428, tag: '버튼 문구', copy: '새로운 루틴 만나기' }].map(({ x, tag, copy }) => <g key={tag}>
-        <rect x={x} y="286" width="188" height="89" rx="10" fill="#fffdf8" stroke="#e6e1d4" />
-        <text x={x + 14} y="311" fill="#929980" fontSize="11">{tag}</text>
-        <text x={x + 14} y="342" fill="#495c42" fontSize="16" fontWeight="600">{copy}</text>
-      </g>)}
-    </g> : kind === 'presentation' ? <g>
-      <rect width="640" height="400" fill="#eef0ec" />
-      {[36, 119, 202].map((y, index) => <g key={y}>
-        <rect x="20" y={y} width="94" height="67" rx="5" fill={index === 0 ? '#f1ddba' : '#fffefa'} stroke={index === 0 ? '#d0a76e' : '#dce0d7'} strokeWidth={index === 0 ? '2' : '1'} />
-        <text x="29" y={y + 18} fill="#8e8c7e" fontSize="9">0{index + 1}</text>
-        {index === 0 ? <><path d={`M31 ${y + 34}h58m-58 9h42`} stroke="#876e50" strokeWidth="4" /></> : index === 1 ? <><rect x="33" y={y + 33} width="12" height="20" rx="2" fill="#b0c7a3" /><rect x="50" y={y + 26} width="12" height="27" rx="2" fill="#8aa680" /><rect x="67" y={y + 19} width="12" height="34" rx="2" fill="#65815e" /></> : <><circle cx="45" cy={y + 40} r="12" fill="#ebd9b9" /><path d={`M65 ${y + 34}h31m-31 10h23`} stroke="#d3d9ca" strokeWidth="4" /></>}
-      </g>)}
-      <rect x="137" y="36" width="481" height="301" rx="7" fill="#fffdf7" stroke="#dde0d7" />
-      <text x="164" y="75" fill="#9a927e" fontSize="10" letterSpacing="2">CONTENTS / 2026</text>
-      <text x="160" y="139" fill="#354838" fontSize="33" fontWeight="650" letterSpacing="-1.5">작은 팀의</text>
-      <text x="160" y="182" fill="#354838" fontSize="33" fontWeight="650" letterSpacing="-1.5">콘텐츠 운영 제안</text>
-      <text x="164" y="216" fill="#90947e" fontSize="14">조사부터 제작, 배포까지.</text>
-      <g transform="translate(469 232)">
-        <circle cx="49" cy="15" r="60" fill="#f4e5c9" />
-        <rect x="3" y="3" width="21" height="51" rx="4" fill="#c5d2b8" /><rect x="32" y="-15" width="21" height="69" rx="4" fill="#91a97d" /><rect x="61" y="-36" width="21" height="90" rx="4" fill="#55714c" />
-      </g>
-      <path d="M164 274h230" stroke="#dddccc" /><text x="164" y="300" fill="#8c957d" fontSize="11">01 현황　　02 운영　　03 실행</text>
-      <text x="147" y="370" fill="#7d8876" fontSize="12">콘텐츠 운영 제안</text><text x="566" y="370" fill="#7d8876" fontSize="12">1 / 5</text>
-    </g> : <g>
-      <rect width="640" height="400" fill="#f2f2ef" />
-      <rect x="32" y="32" width="576" height="336" rx="18" fill="#fffefa" />
-      <text x="62" y="90" fill="#8f998d" fontSize="13" letterSpacing="2">A SCENE TO START WITH</text>
-      <text x="59" y="158" fill="#3d5145" fontSize="36" fontWeight="650">원하는 장면을 한 줄로.</text>
-      <text x="62" y="197" fill="#879383" fontSize="17">주인공, 분위기, 빛을 함께 정리해요.</text>
-      {['주인공', '배경', '분위기'].map((text, index) => <g key={text}><rect x={62 + index * 168} y="260" width="150" height="56" rx="12" fill="#edf1e7" /><text x={104 + index * 168} y="295" fill="#728167" fontSize="18">{text}</text></g>)}
-    </g>}
-  </svg>;
+  const mode = { kind, detail };
+  switch (kind) {
+    case 'daily-plan':
+      if (detail) return <Sample {...mode} title="3시간을 이렇게 써요" meta="09:00–12:00">
+        <span className="sample-budget" aria-hidden="true"><span /><span /><span /><span /></span>
+        <span className="sample-budget-key">
+          <span><strong>90분</strong>초안</span><span><strong>35분</strong>장보기</span>
+          <span><strong>20분</strong>산책</span><span><strong>35분</strong>여유</span>
+        </span>
+        <span className="sample-note">일과 일 사이의 이동과 휴식에 여유를 써요.</span>
+      </Sample>;
+      return <Sample {...mode} title="오늘 할 일" meta="3가지 · 여유 35분"><Schedule items={daily} checklist /></Sample>;
+    case 'travel-plan':
+      return <Sample {...mode} title={detail ? '부산에서 보내는 둘째 날' : '부산 1박 2일'} meta={detail ? '전포에서 부산역까지' : '첫째 날 · 대중교통'}>
+        <Schedule items={detail ? trip.second : trip.first} />
+      </Sample>;
+    case 'study-helper':
+      if (detail) return <Sample {...mode} title="기회비용 복습" meta="문제 3개">
+        <span className="sample-quiz" role="list">
+          <span role="listitem"><strong>책을 읽고 영화를 포기했다면?</strong><small>어떤 가치를 놓쳤을까요?</small></span>
+          <span role="listitem"><strong>친구를 만나느라 시급 1만원 일을 포기했다면?</strong><small>포기한 한 시간의 가치를 금액으로 적어 보세요.</small></span>
+          <span role="listitem"><strong>포기한 선택지가 여러 개라면?</strong><small>기회비용을 구할 때 무엇을 비교해야 할까요?</small></span>
+        </span>
+      </Sample>;
+      return <Sample {...mode} title="기회비용" meta="경제 개념 정리">
+        <span className="sample-definition">선택 때문에 놓친 가장 좋은 대안의 가치예요.</span>
+        <span className="sample-study-pair">
+          <span><small>선택</small><strong>한 시간 책 읽기</strong></span>
+          <span><small>놓친 가장 좋은 대안</small><strong>보고 싶던 영화</strong></span>
+        </span>
+        <span className="sample-note">이 경우 영화에서 얻었을 즐거움이 기회비용이에요.</span>
+      </Sample>;
+    case 'marketing-copy':
+      if (detail) return <Sample {...mode} title="어떤 제목이 좋을까요?" meta="제목 후보 3개"><Items items={headlines} /></Sample>;
+      return <Sample {...mode} title={headlines[0]} meta="학과 행사 안내 서비스">
+        <span className="sample-copy">신입생 환영회부터 전공 프로그램까지, 일정과 참가 방법을 한곳에서 무료로 확인하세요.</span>
+        <span className="sample-cta">이번 주 행사 보기 <span aria-hidden="true">↗</span></span>
+      </Sample>;
+    case 'presentation':
+      if (detail) return <Sample {...mode} title="신입생에게 소개하는 순서" meta="브라우저 슬라이드 5장"><Items items={slides} /></Sample>;
+      return <Sample {...mode} title={slides[0]} meta="신입생을 위한 오픈캠퍼스 · 1 / 5">
+        <span className="sample-slide-content">
+          <span className="sample-slide-copy">
+            <span className="sample-slide-takeaway">우리 학과에서 무엇을 배우고, 누구를 만나게 될까요?</span>
+            <span className="sample-slide-topics"><span>행사 취지</span><span>프로그램</span><span>참가 방법</span></span>
+          </span>
+          <img className="sample-slide-photo" src="/assets/design-example-v1/campus-day.webp" alt="" loading="lazy" />
+        </span>
+      </Sample>;
+    default:
+      return null;
+  }
 }
