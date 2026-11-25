@@ -1,8 +1,8 @@
 import { useRef, type ReactNode } from 'react';
 import { isDesktop } from '../bridge/command';
 
-export type ManagerSection = 'home' | 'pets' | 'catalog' | 'saved' | 'connection' | 'assistance' | 'intro' | 'roles';
-const sectionNames: Record<ManagerSection, string> = { home: '홈', pets: '내 작업', catalog: '펫 고르기', saved: '내 펫', connection: '연결 설정', assistance: '자동 도움', intro: '소개 자료', roles: '역할과 내 펫' };
+export type ManagerSection = 'home' | 'pets' | 'catalog' | 'saved' | 'connection' | 'assistance' | 'intro' | 'roles' | 'petSettings';
+const sectionNames: Record<ManagerSection, string> = { home: '홈', pets: '내 작업', catalog: '펫 고르기', saved: '내 펫', connection: '연결 설정', assistance: '자동 도움', intro: '소개 자료', roles: '역할과 내 펫', petSettings: '펫 설정' };
 function NavigationIcon({ section }: { section: ManagerSection }) {
   const paths: Record<ManagerSection, ReactNode> = {
     home: <><path d="M4 11 12 4l8 7v9H4z" /><path d="M9 20v-6h6v6" /></>,
@@ -13,6 +13,7 @@ function NavigationIcon({ section }: { section: ManagerSection }) {
     assistance: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z" />,
     intro: <><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 8h8M8 12h8M8 16h4" /></>,
     roles: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
+    petSettings: <><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>,
   };
   return <svg className="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[section]}</svg>;
 }
@@ -25,7 +26,7 @@ export function AppShell({ settings, bound, disconnected, busy, error, onNavigat
       <button type="button" className="brand brand-home" disabled={busy} aria-label="AutoPets 홈으로" aria-current={settings === 'home' ? 'page' : undefined} onClick={() => { onNavigate('home'); if (menu.current) menu.current.open = false; }}><img className="brand-logo" src="/assets/brand/autopets-logo.svg" alt="" width="142" height="33" /></button>
       <nav aria-label="앱 메뉴">{settings !== 'home' && navigation('catalog')}{navigation('pets')}</nav>
       <details className="app-settings" ref={menu} onKeyDown={event => { if (event.key === 'Escape' && menu.current) { menu.current.open = false; menu.current.querySelector('summary')?.focus(); } }}>
-        <summary>설정</summary><div className="settings-menu">{navigation('connection')}{navigation('assistance')}{navigation('intro')}{navigation('roles')}<span className={`connection-pill ${disconnected ? 'offline' : ''}`}>{!isDesktop ? '미리보기 · 연결 없음' : disconnected ? '앱 연결 확인 필요' : '앱 실행 중'}</span><button className="text-button" disabled={!isDesktop || busy} onClick={onQuit}>AutoPets 종료</button><span className="version">이 PC에 저장돼요 · 0.1</span></div>
+        <summary>설정</summary><div className="settings-menu">{navigation('connection')}{navigation('assistance')}{navigation('intro')}{navigation('roles')}{navigation('petSettings')}<span className={`connection-pill ${disconnected ? 'offline' : ''}`}>{!isDesktop ? '미리보기 · 연결 없음' : disconnected ? '앱 연결 확인 필요' : '앱 실행 중'}</span><button className="text-button" disabled={!isDesktop || busy} onClick={onQuit}>AutoPets 종료</button><span className="version">이 PC에 저장돼요 · 0.1</span></div>
       </details>
     </header>
     <main className="main-content" id="main-content" tabIndex={-1}>

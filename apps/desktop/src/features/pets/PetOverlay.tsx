@@ -25,6 +25,7 @@ import { CompanionPet } from './CompanionPet';
 import { PetRecommendationCard, recommendationStatus, visibleRecommendation } from './PetRecommendation';
 import { usePetGesture } from './usePetGesture';
 import { usePetDock, type DockBadge } from './usePetDock';
+import { usePetSettings, usePetSettingsTry, type AlertKind } from './petSettings';
 import { PetDockHandle } from './PetDockHandle';
 import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention, type MarkControls } from './PetAttention';
 import { FILLED_TEXT, isReviewPet, NO_REVIEW, ReviewDropMenu, ReviewDueBubble } from './ReviewMenu';
@@ -134,10 +135,11 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const reviewFilled = () => { setFilled(Date.now()); setExpanded(false); setDropMenu(false); setDueBubble(false); };
   const reviewStatusText = !reviewPet ? '' : filled ? FILLED_TEXT : dragOverCodex ? '여기에 놓기' : '';
   const reviewStatus = reviewStatusText && <span className={`floating-status ${filled ? 'review-filled' : 'review-drop'}`} role="status" title={reviewStatusText}>{reviewStatusText}</span>;
+  const [petSettings] = usePetSettings();
   useEffect(() => {
-    if (!unread || bubbled.current.has(unread.id) || expanded || dock.phase !== 'shown') return;
+    if (!unread || bubbled.current.has(unread.id) || expanded || dock.phase !== 'shown' || !petSettings.bubbleWhenOut) return;
     bubbled.current.add(unread.id); setBubbleId(unread.id);
-  }, [unread?.id, expanded, dock.phase]);
+  }, [unread?.id, expanded, dock.phase, petSettings.bubbleWhenOut]);
   // Clicking the handle brings the pet back with the waiting notice open.
   useEffect(() => { if (dock.phase === 'entering' && marked) { bubbled.current.add(marked.id); setBubbleId(marked.id); } }, [dock.phase]);
   // The ? / ✓ mark: pointing at it shows the bubble until the pointer leaves; a click pins it
@@ -156,6 +158,66 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const mark = marked && <AttentionMark item={marked} controls={markControls} />;
   const markLabel = marked ? ` · ${attentionStatus(marked)}` : '';
   const codexBadge: DockBadge = marked ? (isAsk(marked) ? 'codex-ask' : 'codex-done') : null;
+  // What the handle's badge says while tucked in. Worked out here for both kinds of pet so a new
+  // notice can also bring a tucked-in pet back out (below).
+  const explicit = snapshot.petLinks?.find(link => link.slot === index);
+  const active = Boolean(explicit) && explicit!.connected && !disconnected && !explicit!.run?.trackingClosed && (explicit!.enabled || Boolean(explicit!.run));
+  const state = active ? explicit!.run?.state : undefined;
+  // A recommendation for this chat only changes the pet's badge and text; it never takes focus.
+  const recommendation = explicit ? visibleRecommendation(snapshot, explicit.target.threadId) : undefined;
+  const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
+  // The chat that started the app with `$autopets` and has no pet yet ("채팅 연결 대기"): its
+  // recommendation is the only one without a link, and it is shown on the first, unassigned pet.
+  const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
+    !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
+  const badge: DockBadge = codexBadge ?? (explicit
+    ? offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : reviewPet && review.due > 0 ? 'review' : null
+    : waitingRecommendation?.state === 'shown' || (attention && attention.kind !== 'milestone') || session?.state === 'waiting' ? 'ask'
+      : attention?.kind === 'milestone' || (session?.state === 'done' && session.unread) ? 'done' : null);
+  // 설정 → 펫 설정: a notice that arrives while the pet is tucked in can bring it back out with its
+  // bubble ("뛰어나오기"), or out for a few seconds and back in ("잠깐 나왔다 숨기"), or only change
+  // the badge. Notices that were already there when this window opened never bring it out.
+  // Every unread Codex notice counts on its own (an earlier one may still be unread), plus the
+  // pet's own badge state when it is not a Codex one.
+  const ownKind: AlertKind | null = badge === 'review' ? 'review' : badge === 'ask' ? 'ask' : badge === 'done' ? 'done' : null;
+  const alerts: [string, AlertKind][] = [
+    ...notices.filter(item => !item.read).map(item => [`codex:${item.id}`, isAsk(item) ? 'ask' : 'done'] as [string, AlertKind]),
+    ...(ownKind ? [[`${ownKind}:${explicit ? `${explicit.slot}:${explicit.run ? companionRunKey(explicit) : ''}` : session ? `${session.id}:${session.state}:${attention?.kind ?? ''}` : waitingRecommendation?.id ?? ''}`, ownKind] as [string, AlertKind]] : []),
+  ];
+  const alertKeys = alerts.map(([key]) => key).join('\n');
+  const seenAlerts = useRef<Set<string> | null>(null);
+  const peekBack = useRef(false);
+  useEffect(() => {
+    if (!seenAlerts.current) { seenAlerts.current = new Set(alerts.map(([key]) => key)); return; }
+    const fresh = alerts.filter(([key]) => !seenAlerts.current!.has(key));
+    fresh.forEach(([key]) => seenAlerts.current!.add(key));
+    if (!fresh.length || petSettings.dockedAlert === 'badge' || !fresh.some(([, kind]) => petSettings.alertOn[kind])) return;
+    if (dock.alertOut(petSettings.entrance === 'bounce')) peekBack.current = petSettings.dockedAlert === 'peek';
+  }, [alertKeys]);
+  // "숨은 펫으로 시험해보기": come out exactly as a notice would, whatever the notice kinds chosen.
+  usePetSettingsTry(() => {
+    if (petSettings.dockedAlert === 'badge') return;
+    if (dock.alertOut(petSettings.entrance === 'bounce')) peekBack.current = petSettings.dockedAlert === 'peek';
+  });
+  // "잠깐 나왔다 숨기": once out, the pet goes back into its side after a few seconds unless the user
+  // touches it (pointer on the pet or its bubble, a click, a key) or opens its card.
+  useEffect(() => {
+    if (dock.phase !== 'shown' || !peekBack.current) return;
+    const armed = Date.now() + 600; // the window growing under a resting pointer is not a touch
+    const touch = (event: Event) => { if (event.type !== 'pointermove' || Date.now() > armed) peekBack.current = false; };
+    const events = ['pointermove', 'pointerdown', 'keydown', 'wheel'] as const;
+    events.forEach(name => document.addEventListener(name, touch));
+    const timer = setTimeout(() => {
+      if (!peekBack.current) return;
+      peekBack.current = false;
+      closeBubble(); setPeek(false);
+      resizeQueue.current = resizeQueue.current.catch(() => undefined)
+        .then(() => isDesktop ? command('set_pet_expanded', { expanded: false, notice: false }) : undefined)
+        .then(() => { dock.redock(); }, () => undefined);
+    }, petSettings.peekSeconds * 1000);
+    return () => { clearTimeout(timer); events.forEach(name => document.removeEventListener(name, touch)); };
+  }, [dock.phase]);
+  useEffect(() => { if (expanded) peekBack.current = false; }, [expanded]);
   // Codex called AutoPets in a chat: this pet is out already and the chat connection follows.
   // "Codex 연결 중" until the app has that chat as its setup chat, then the usual status again.
   const [summon, setSummon] = useState<{ chatId: string | null; at: number; phase: 'connecting' | 'connected' | 'failed' } | null>(null);
@@ -236,16 +298,9 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
       .then(() => dock.tuck(), () => false)
       .then(tucked => { if (!tucked) void action.run('set_pet_visible', { slot: index, visible: false }); });
   };
-  const explicit = snapshot.petLinks?.find(link => link.slot === index);
   if (explicit) {
-    const active = explicit.connected && !disconnected && !explicit.run?.trackingClosed && (explicit.enabled || Boolean(explicit.run));
-    const state = active ? explicit.run?.state : undefined;
-    // A recommendation for this chat only changes the pet's badge and text; it never takes focus.
-    const recommendation = visibleRecommendation(snapshot, explicit.target.threadId);
-    const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
     const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
     if (dock.handle) {
-      const badge: DockBadge = codexBadge ?? (offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : reviewPet && review.due > 0 ? 'review' : null);
       return dockHandle(explicit.template.name, badge, <TaskPetArt entry={catalogFor(explicit.template)} state={companionState(explicit, disconnected)} interactive={false} />);
     }
     const reviewLost = disconnected || !explicit.connected;
@@ -271,13 +326,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     : workflowTask && !workflowTask.enabled ? '이번 채팅의 자동 도움은 꺼져 있어요'
     : helpTask && (!assistance.snapshot.preferences.enabled || !helpTask.enabled) ? '이번 채팅의 자동 도움은 꺼져 있어요'
     : session ? currentAction(session) : '함께할 작업을 기다려요';
-  // The chat that started the app with `$autopets` and has no pet yet ("채팅 연결 대기"): its
-  // recommendation is the only one without a link, and it is shown on the first, unassigned pet.
-  const waitingRecommendation = !session && index === 0 && !disconnected ? snapshot.petRecommendations?.find(item =>
-    !snapshot.petLinks?.some(link => link.target.threadId === item.target.threadId) && ['preparing', 'shown', 'accepted'].includes(item.state)) : undefined;
   if (dock.handle) {
-    const badge: DockBadge = codexBadge ?? (waitingRecommendation?.state === 'shown' || (attention && attention.kind !== 'milestone') || session?.state === 'waiting' ? 'ask'
-      : attention?.kind === 'milestone' || (session?.state === 'done' && session.unread) ? 'done' : null);
     return dockHandle(session?.label ?? PET_NAMES[index], badge, session
       ? <PetAppearance template={appearance}><Pet index={index} paused /></PetAppearance>
       : <CompanionPet state="idle" paused />);

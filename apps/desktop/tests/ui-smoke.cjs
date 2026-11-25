@@ -15,6 +15,7 @@ const { runPetLinkChecks } = require('./pet-link-ui.cjs');
 const { runReviewPetChecks } = require('./review-pet-ui.cjs');
 const { runCardCompareChecks } = require('./card-compare-ui.cjs');
 const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
+const { runPetSettingsChecks } = require('./pet-settings-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetQuickUseChecks } = require('./pet-quick-use-ui.cjs');
@@ -368,6 +369,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     if (process.env.AUTOPETS_UI_PET_ATTENTION_ONLY === '1') {
       await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_PET_SETTINGS_ONLY === '1') {
+      await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2)); return;
     }
     if (process.env.AUTOPETS_UI_VISUAL_ONLY === '1') {
       const screenshots = await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
@@ -780,6 +785,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
+    await closeFixturePages();
+    await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
     await closeFixturePages();
     // Screenshots only when asked (AUTOPETS_UI_REVIEW_SHOTS=<folder>), so the run never rewrites docs/images.
     await runReviewPetChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_REVIEW_SHOTS, checks });
