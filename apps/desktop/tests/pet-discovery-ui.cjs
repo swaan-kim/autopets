@@ -8,6 +8,28 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.addInitScript(template=>{window.__uiTest.roles.pets=[{id:'favorite-standard',revision:2,template:{...template,execution:{model:'gpt-6-sol',reasoning:'low'}}}];},template);
  await page.goto(origin); await openCatalog(page);
+ const daily = page.getByRole('button', { name: '하루 정리 펫 선택', exact: true });
+ const art = daily.locator('.task-pet-art');
+ const still = art.locator('.companion-pet[data-playing="false"] [data-clip="still"]');
+ const settleTransform = () => art.evaluate(async element => {
+   getComputedStyle(element).transform;
+   await Promise.all(element.getAnimations().map(animation => animation.finished));
+   return getComputedStyle(element).transform;
+ });
+ await still.waitFor();
+ await daily.hover();
+ assert.notEqual(await settleTransform(), 'none', 'the pet leans gently while the pointer is over the card');
+ assert.equal(await still.count(), 1, 'hover does not start a pose clip');
+ await page.mouse.move(1, 1);
+ assert.equal(await settleTransform(), 'none', 'leaving the card restores the resting pose');
+ await page.getByRole('button', { name: '하루 정리 즐겨찾기', exact: true }).focus();
+ await page.keyboard.press('Tab');
+ assert.notEqual(await settleTransform(), 'none', 'keyboard focus also moves the pet');
+ assert.equal(await still.count(), 1, 'keyboard focus keeps the same pose');
+ await page.emulateMedia({ reducedMotion: 'reduce' });
+ await daily.hover();
+ assert.equal(await settleTransform(), 'none', 'reduced motion keeps the pet still even with focus and hover');
+ await page.emulateMedia({ reducedMotion: 'no-preference' });
  const favorite=page.locator('.workspace-role-card').getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true});
  await favorite.click(); assert.equal(await favorite.getAttribute('aria-pressed'),'true');
  assert.deepEqual(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),KEY),{version:1,ids:['template:ui-webpage']});

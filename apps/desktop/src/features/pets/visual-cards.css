@@ -26,6 +26,17 @@
 .workspace-role-grid .workspace-role-card > .pet-favorite-button > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #ffffffd9; box-shadow: 0 1px 4px #0000001f; color: #888888; font-size: 18px; line-height: 1; }
 .workspace-role-grid .workspace-role-card > .pet-favorite-button[aria-pressed=true] > span { color: #f5b400; }
 .workspace-role-card .pet-origin-badge { display: none; }
+/* Keep the catalog pose still, with a small lean on intentional interaction. */
+@media (prefers-reduced-motion: no-preference) {
+  .workspace-role-select > .task-pet-art {
+    transform-origin: 50% 88%;
+    transition: transform 280ms ease-out;
+  }
+  .workspace-role-select:focus-visible > .task-pet-art { transform: translateY(-2px) rotate(-2deg); }
+  @media (hover: hover) {
+    .workspace-role-select:hover > .task-pet-art { transform: translateY(-2px) rotate(-2deg); }
+  }
+}
 @media (max-width: 1180px) {
   .workspace-role-grid { grid-template-columns: 1fr; }
 }
