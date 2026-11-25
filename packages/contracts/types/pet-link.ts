@@ -4,6 +4,8 @@ export interface PetLink {
   version: 1;
   target: { sourceId: 'codex-windows-local'; threadId: string; cwd: string };
   slot: number; revision: number; enabled: boolean; connected: boolean;
+  /** Restored by an app restart and not confirmed since: shown resting; "채팅 열기" resumes it. */
+  resting?: boolean;
   profile: 'light' | 'standard' | 'careful' | 'plan';
   template: PetRoleTemplate;
   savedPet?: SavedPetReference | null;

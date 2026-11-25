@@ -125,3 +125,26 @@ fn the_codex_notice_bubble_is_a_small_window_between_the_pet_and_its_card() {
     assert_eq!(pet_layout(true, true), (328.0, 600.0));
     assert_eq!(fit_pet_layout(false, true, 2.0, 1920, 600), (252.0, 300.0));
 }
+
+#[test]
+fn which_pets_were_out_is_kept_for_the_next_sign_in_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let desktop = Desktop {
+        visible: AtomicBool::new(true),
+        onboarding_active: AtomicBool::new(false),
+        onboarding_initialized: AtomicBool::new(true),
+        hidden_slots: Mutex::new([false; 3]),
+        positions: Mutex::new(HashMap::new()),
+        data_dir: dir.path().to_path_buf(),
+        bridge: Mutex::new(None),
+    };
+    assert_eq!(read_visibility(dir.path()), None, "nothing saved yet: all pets come out");
+    change_slot_visibility(&desktop, 1, false).unwrap();
+    assert_eq!(read_visibility(dir.path()), Some(SavedVisibility { visible: true, hidden: [false, true, false] }), "숨기기 is kept");
+    desktop.visible.store(false, Ordering::Relaxed);
+    save_visibility(&desktop);
+    assert_eq!(read_visibility(dir.path()).unwrap().visible, false, "all hidden from the tray is kept");
+    // A test desktop without a data folder never writes next to the process.
+    save_visibility(&Desktop { data_dir: PathBuf::new(), ..desktop });
+    assert!(!std::path::Path::new("pet-visibility-v1.json").exists());
+}

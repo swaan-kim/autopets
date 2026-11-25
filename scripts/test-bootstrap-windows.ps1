@@ -85,13 +85,17 @@ try {
     $taskReconnect = (& $taskNode $taskStart | ConvertFrom-Json)
     if ($LASTEXITCODE -ne 0 -or -not $taskReconnect.ok) { throw 'Reconnect before uninstall failed.' }
     Stop-TestApp
+    # "컴퓨터를 켤 때 · 펫 띄우기" was on: the startup entry must go with the app.
+    $taskRunKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    New-ItemProperty -Path $taskRunKey -Name 'AutoPets' -Value ('"' + $taskApp + '" --autostart') -PropertyType String -Force | Out-Null
     $taskUninstallers = @(Get-ChildItem -LiteralPath $taskAppDirectory -Filter '*uninstall*.exe' -File)
     if ($taskUninstallers.Count -ne 1) { throw 'Expected one application uninstaller.' }
     $taskUninstall = Start-Process -FilePath $taskUninstallers[0].FullName -ArgumentList @('/S', "_?=$taskAppDirectory") -PassThru -Wait -WindowStyle Hidden
     if ($taskUninstall.ExitCode -ne 0 -or (Test-Path -LiteralPath $taskApp)) { throw 'Application removal failed.' }
+    if ($null -ne (Get-ItemProperty -Path $taskRunKey -Name 'AutoPets' -ErrorAction SilentlyContinue)) { throw 'Uninstall left the startup entry behind.' }
     $taskRemainingHooks = Get-Content -LiteralPath $taskHooksPath -Raw | ConvertFrom-Json
     if (($taskRemainingHooks | ConvertTo-Json -Depth 20 -Compress) -ne (($taskUnrelatedHooks | ConvertFrom-Json) | ConvertTo-Json -Depth 20 -Compress)) { throw 'Uninstall did not remove only the owned AI hooks.' }
     if (Test-Path -LiteralPath (Join-Path $env:CODEX_HOME 'skills/autopets/SKILL.md')) { throw 'Uninstall left the owned skill behind.' }
     if (-not (Test-Path -LiteralPath $env:AUTOPETS_DATA_DIR)) { throw 'Uninstall unexpectedly removed application records.' }
-    '{"nativeInstall":true,"singleExe":true,"bundledRuntime":true,"installerDoesNotConnect":true,"explicitConnect":true,"repeatWithoutReinstall":true,"repair":true,"disconnect":true,"uninstall":true,"liveCodexVerified":false,"windowsPolicyVerified":false,"signedUpdateVerified":false}' | Set-Content -LiteralPath 'work/bootstrap-windows-evidence.json' -Encoding UTF8
+    '{"nativeInstall":true,"singleExe":true,"bundledRuntime":true,"installerDoesNotConnect":true,"explicitConnect":true,"repeatWithoutReinstall":true,"repair":true,"disconnect":true,"uninstall":true,"startupEntryRemoved":true,"liveCodexVerified":false,"windowsPolicyVerified":false,"signedUpdateVerified":false}' | Set-Content -LiteralPath 'work/bootstrap-windows-evidence.json' -Encoding UTF8
 } finally { Stop-TestApp }

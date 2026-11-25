@@ -233,6 +233,12 @@ impl Store {
         self.disconnect_explicit_pets()?;
         self.setup_status()
     }
+    /// The AutoPets skill is set up in Codex on this PC and was not disconnected since.
+    pub(crate) fn codex_connection_configured(&self) -> Result<bool, String> {
+        Ok(self.read_setup()?.is_some_and(|saved| !saved.disconnected
+            && saved.request.connection_mode.as_deref() == Some("explicit-pet")
+            && saved.request.host_id.as_deref().is_none_or(|host| host == crate::domain::connections::CODEX_LOCAL)))
+    }
     /// The chat that started this app with `$autopets` and is still waiting for a pet
     /// ("채팅 연결 대기"). Cleared by disconnect; no other chat is ever returned.
     pub(crate) fn setup_chat(&self) -> Option<crate::domain::pet_link::Target> {

@@ -29,6 +29,7 @@
 .pet-popup-head { display: flex; align-items: flex-start; gap: 9px; }
 .pet-popup-dot { flex-shrink: 0; width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--popup-ok); }
 .pet-popup[data-connection="lost"] .pet-popup-dot { background: var(--popup-lost); }
+.pet-popup[data-connection="resting"] .pet-popup-dot { background: #b8bcc2; }
 .pet-popup-title { min-width: 0; flex: 1; }
 .pet-popup-title strong { display: block; font-size: 15px; font-weight: 700; line-height: 1.45; letter-spacing: -.2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pet-popup-status { font-size: 12px; line-height: 1.5; color: var(--popup-sub); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

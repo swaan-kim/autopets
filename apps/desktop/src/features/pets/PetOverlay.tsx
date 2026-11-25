@@ -18,7 +18,7 @@ import { TaskPetArt } from './TaskPetArt';
 import { catalogFor } from './petCatalog';
 import { PetAppearance } from './PetAppearance';
 import { PetQuickCard } from './PetQuickCard';
-import { explicitPetStatus, explicitPetMotion } from './ExplicitPet';
+import { explicitPetStatus, explicitPetMotion, restingPet } from './ExplicitPet';
 import { PetPopup } from './PetPopup';
 import { companionState, companionRunKey } from './companionMotion';
 import { CompanionPet } from './CompanionPet';
@@ -318,9 +318,10 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     if (dock.handle) {
       return dockHandle(explicit.template.name, badge, <TaskPetArt entry={catalogFor(explicit.template)} state={companionState(explicit, disconnected)} interactive={false} />);
     }
-    const reviewLost = disconnected || !explicit.connected;
+    const reviewResting = restingPet(explicit, disconnected);
+    const reviewLost = (disconnected || !explicit.connected) && !reviewResting;
     const reviewPanel = reviewOpen && (dropMenu
-      ? <ReviewDropMenu link={explicit} chat={reviewChat} lost={reviewLost} onSent={reviewSent} onClose={() => setDropMenu(false)}
+      ? <ReviewDropMenu link={explicit} chat={reviewChat} lost={reviewLost} resting={reviewResting} onSent={reviewSent} onClose={() => setDropMenu(false)}
         onReconnect={() => { void command('open_pet_task', { target: explicit.target, expectedRevision: explicit.revision }).catch(() => setExpanded(true)); }} />
       : <ReviewDueBubble link={explicit} chat={reviewChat} due={review.due} lost={reviewLost} onSent={reviewSent} onClose={() => setDueBubble(false)} />);
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen || reviewOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>

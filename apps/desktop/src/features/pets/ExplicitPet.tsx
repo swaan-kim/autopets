@@ -12,6 +12,11 @@ import { useTaskLabel } from './useTaskLabel';
 import { chatBadge, chatDetail, useCodexChatTitles } from './useCodexChatTitles';
 const profiles = { light: '가볍게', standard: '표준', careful: '꼼꼼하게', plan: '계획만' };
 export const unresolvedPetRun = (link: PetLink) => Boolean(link.run && !link.run.trackingClosed && ['requested', 'working', 'returned', 'unknown'].includes(link.run.state));
+/** Right after the app restarted: the pet's chat is very likely still there, so it rests instead of
+ *  looking broken, and "채팅 열기" resumes it. An unfinished task keeps its own state and its rules
+ *  (nothing moves or changes until it is checked); only the connection is not shown as broken. */
+export const restingPet = (link: PetLink, disconnected = false) => !disconnected && !link.connected && link.resting === true;
+export const RESTING_HINT = '‘채팅 열기’를 누르면 다시 이어져요.';
 export function explicitPetMotion(link: PetLink, disconnected = false): PetMotion {
   if (disconnected || !link.connected || link.run?.trackingClosed) return 'idle';
   const run = link.run;
@@ -23,10 +28,11 @@ export function explicitPetMotion(link: PetLink, disconnected = false): PetMotio
   return 'idle';
 }
 export function explicitPetStatus(link: PetLink, disconnected = false): string {
-  if (disconnected || !link.connected) return '연결 확인 필요';
+  const resting = restingPet(link, disconnected);
+  if (!resting && (disconnected || !link.connected)) return '연결 확인 필요';
   if (link.run?.trackingClosed) return '추적 종료';
   if (!link.enabled && !link.run) return '펫 도움 꺼짐';
-  if (!link.run) return '작업 대기';
+  if (!link.run) return resting ? '쉬는 중' : '작업 대기';
   if (link.run.state === 'requested' || link.run.state === 'working') return link.run.profile === 'plan' ? '계획 중' : '작업 중';
   const labels = { returned: '결과 확인', waiting: '계획 확인 필요', complete: '완료', failed: '작업 확인 실패', unknown: '실행 상태 확인 필요' };
   return labels[link.run.state];
@@ -66,7 +72,8 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
   };
   const actionError = action.error.includes('pet-revision-changed') ? '설정이 바뀌었어요. 현재 상태를 확인한 뒤 다시 선택해 주세요.' : action.error.includes('pet-run-active-or-unresolved') ? '현재 작업을 먼저 확인해 주세요.' : action.error ? '변경하지 못했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요.' : '';
   const status = explicitPetStatus(link, disconnected);
-  const help = !link.connected || disconnected ? '저장된 채팅을 열고 “펫 상태 확인”을 보내주세요.'
+  const help = restingPet(link, disconnected) ? RESTING_HINT
+    : !link.connected || disconnected ? '저장된 채팅을 열고 “펫 상태 확인”을 보내주세요.'
     : link.run?.trackingClosed ? 'Codex에서 기존 작업을 확인한 뒤 다음 작업을 맡겨주세요.'
     : !link.enabled ? '새 펫 작업은 꺼져 있어요. 이미 시작한 작업은 계속 확인해요.'
     : state === 'waiting' ? 'Codex에서 계획을 확인하고 “그대로 구현해줘”라고 보내주세요.'

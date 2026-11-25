@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DEFAULT_PET_SETTINGS, PEEK_SECONDS, PROGRESS_AFTER_MINUTES, requestPetSettingsTry, usePetSettings, type AlertKind, type DockedAlert, type Entrance, type PetSettings } from '../pets/petSettings';
+import { useAutostart } from './autostart';
 import './pet-settings.css';
 
 // 설정 → 펫 설정. Each choice is saved at once on this PC and reaches every floating pet right away.
@@ -27,6 +28,7 @@ function Preview({ mode }: { mode: DockedAlert }) {
 
 export function PetSettingsPanel() {
   const [settings, save] = usePetSettings();
+  const autostart = useAutostart();
   const [notice, setNotice] = useState('');
   const update = (next: PetSettings) => { save(next); setNotice('저장했어요. 펫에 바로 적용돼요.'); };
   const alerts = settings.dockedAlert !== 'badge';
@@ -72,6 +74,14 @@ export function PetSettingsPanel() {
       <fieldset className="mode-fieldset" disabled={!settings.showProgress}><legend>보여주기 시작</legend><div className="pet-settings-segments" role="radiogroup" aria-label="진행 상황 보여주기 시작">
         {PROGRESS_AFTER_MINUTES.map(minutes => <label key={minutes} className={settings.progressAfterMinutes === minutes ? 'selected' : ''}><input type="radio" name="pet-progress-after" checked={settings.progressAfterMinutes === minutes} onChange={() => update({ ...settings, progressAfterMinutes: minutes })} />{minutes}분 지나면</label>)}
       </div></fieldset>
+    </section>
+
+    <section className="assistance-card" aria-labelledby="pet-settings-autostart">
+      <div className="block-heading"><div><h2 id="pet-settings-autostart">컴퓨터를 켤 때</h2></div></div>
+      <label className="assistance-toggle"><span><strong>펫 띄우기</strong><small>컴퓨터를 켜면 마지막에 쓰던 펫이 바로 떠요</small></span>
+        <input type="checkbox" aria-label="펫 띄우기" data-agent-id="settings.autostart" checked={autostart.state?.enabled ?? false} disabled={!autostart.state}
+          onChange={event => { const on = event.target.checked; void autostart.set(on).then(done => { if (done) setNotice(on ? '저장했어요. 다음에 컴퓨터를 켜면 펫이 떠요.' : '저장했어요. 컴퓨터를 켜도 펫이 뜨지 않아요.'); }); }} /></label>
+      {autostart.error && <p className="error" role="alert">{autostart.error}</p>}
     </section>
 
     <div className="pet-settings-footer"><span className="small-note">이 PC에만 저장돼요. 채팅이나 작업 내용은 저장하지 않아요.</span><button type="button" className="text-button" disabled={isDefault} onClick={() => { save(DEFAULT_PET_SETTINGS); setNotice('기본 설정으로 되돌렸어요.'); }}>기본값으로 되돌리기</button></div>

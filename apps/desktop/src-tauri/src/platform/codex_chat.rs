@@ -267,6 +267,13 @@ fn codex_home() -> Option<PathBuf> {
         .or_else(|| std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(|home| PathBuf::from(home).join(".codex")))
 }
 
+/// The chat's own history is still in Codex (`sessions/**/rollout-*-<id>.jsonl`). A deleted or
+/// archived chat, or an unreadable Codex folder, counts as missing.
+pub(crate) fn chat_exists(thread_id: &str) -> bool {
+    uuid::Uuid::parse_str(thread_id).is_ok()
+        && codex_home().is_some_and(|home| find_rollout(&home.join("sessions"), thread_id).is_some())
+}
+
 fn find_rollout(sessions: &Path, thread_id: &str) -> Option<PathBuf> {
     let suffix = format!("-{thread_id}.jsonl");
     let mut stack = vec![(sessions.to_path_buf(), 0)];

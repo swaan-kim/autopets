@@ -8,7 +8,7 @@ import { useRoles } from '../../bridge/useRoles';
 import { TaskPetArt, ResultPreview } from './TaskPetArt';
 import { PetWorkspace, type PetWorkspaceView } from './PetWorkspace';
 import { PetTaskReturn, canStartNewPetTask } from './PetTaskReturn';
-import { unresolvedPetRun } from './ExplicitPet';
+import { restingPet, unresolvedPetRun } from './ExplicitPet';
 import { FavoriteButton } from './PetIntroduction';
 import { PetSkillSource } from './PetSkillSource';
 import { PetPreferencesConnector, runClaudeAction } from '../onboarding/PetPreferencesConnector';
@@ -200,7 +200,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const shortChat = (chat: { threadId: string; cwd: string }) => chatName(chatTitles, chat);
   const otherChatSelected = Boolean(target && setupChat && target.target.threadId !== setupChat.threadId);
   useEffect(() => { setConfirmChat(false); }, [prompt, setupChat?.threadId, selectedTarget]);
-  const targetBlocker = disconnected ?'앱 연결을 확인해 주세요.' : target && !target.connected ? 'Codex에서 “펫 상태 확인”이라고 말해 주세요.'
+  const targetBlocker = disconnected ?'앱 연결을 확인해 주세요.' : target && restingPet(target) ? '펫에서 ‘채팅 열기’를 누르면 다시 이어져요.' : target && !target.connected ? 'Codex에서 “펫 상태 확인”이라고 말해 주세요.'
     : target && !target.enabled ? '펫 도움이 꺼져 있어요. 내 작업에서 켜 주세요.'
     : target && unresolvedPetRun(target) ? '진행 중인 펫 작업을 먼저 확인해 주세요.' : '';
   const invalidateRequest = () => { setPrompt(''); setNotice(''); setCopied(false); setManualCopy(false); setHandoff(null); sent.clear(); };

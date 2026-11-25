@@ -25,6 +25,12 @@
 .pet-settings-segments input { margin: 0; accent-color: #727272; }
 
 .pet-settings-try { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+/* The one-time "컴퓨터를 켜면 펫을 띄울까요?" in the app window's corner. */
+.autostart-prompt { position: fixed; right: 24px; bottom: 24px; z-index: 30; display: grid; gap: 12px; width: min(340px, calc(100vw - 48px)); padding: 16px 18px;
+  border: 1px solid #e3e3e3; border-radius: 14px; background: #ffffff; box-shadow: 0 10px 28px #2b2d3122; }
+.autostart-prompt p { display: grid; gap: 4px; margin: 0; }
+.autostart-prompt small { color: #5c6066; line-height: 1.5; }
+.autostart-prompt > div { display: flex; align-items: center; gap: 10px; }
 .pet-settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
 
 @media (max-width: 720px) {

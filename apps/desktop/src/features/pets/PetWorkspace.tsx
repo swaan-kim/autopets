@@ -5,7 +5,7 @@ import { SkillHub } from './SkillHub';
 import { petCatalog, allPetCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { TaskPetArt, ResultPreview } from './TaskPetArt';
 import { FavoriteButton } from './PetIntroduction';
-import { ExplicitPet } from './ExplicitPet';
+import { ExplicitPet, restingPet } from './ExplicitPet';
 import { PetSkillSource } from './PetSkillSource';
 import { PetCardThumb } from './PetCardThumb';
 import { PetHome } from './PetHome';
@@ -13,6 +13,7 @@ import { PromptIdeaLibrary } from './PromptIdeaLibrary';
 
 export type PetWorkspaceView = 'home' | 'pets' | 'catalog' | 'saved';
 const groupFor = (link: PetLink, disconnected: boolean) => {
+  if (restingPet(link, disconnected) && (!link.run || link.run.state === 'complete')) return link.run ? 'complete' : 'ready';
   if (disconnected || !link.connected || !link.enabled || link.run?.trackingClosed || ['waiting', 'returned', 'failed', 'unknown'].includes(link.run?.state ?? '')) return 'attention';
   if (['requested', 'working'].includes(link.run?.state ?? '')) return 'working';
   if (link.run?.state === 'complete') return 'complete';
@@ -49,7 +50,7 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
   const recent = groups.flatMap(([group]) => links.filter(link => groupFor(link, disconnected) === group)).slice(0, 3);
   const catalogVisible = view === 'catalog' || view === 'saved';
   return <div className="pet-workspace-v2" data-view={view} data-agent-scope={catalogVisible ? 'pet-selection' : undefined}>
-    {view === 'home' && <PetHome active={active} connectedCount={disconnected ? 0 : links.filter(link => link.connected).length} onBrowse={onBrowse}>
+    {view === 'home' && <PetHome active={active} connectedCount={disconnected ? 0 : links.filter(link => link.connected || restingPet(link)).length} onBrowse={onBrowse}>
       {recent.length > 0 && <section className="pet-home-resume" aria-label="이어서 할 일"><h2>이어서 할 일</h2><div className="pet-home-resume-grid">{recent.map(link => liveCard(link, true))}</div></section>}{legacy}
     </PetHome>}
     {view === 'pets' && <>

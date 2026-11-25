@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PetLink, ReviewSummary } from '@autopets/contracts/types';
 import { command } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
-import { explicitPetStatus, unresolvedPetRun } from './ExplicitPet';
+import { explicitPetStatus, restingPet, RESTING_HINT, unresolvedPetRun } from './ExplicitPet';
 import { petTaskReturnLabel, usePetTaskReturn } from './PetTaskReturn';
 import { chatTitle, useCodexChatTitles } from './useCodexChatTitles';
 import { isReviewPet, NO_REVIEW, ReviewMenu } from './ReviewMenu';
@@ -37,19 +37,22 @@ export function PetPopup({ link, disconnected = false, onHide, review = NO_REVIE
   const choiceGroup = useRef<HTMLDivElement>(null);
   const refocus = useRef<'change' | 'quit' | null>(null);
 
-  const lost = disconnected || !link.connected;
+  // Resting after a restart: calm, with "채팅 열기", which checks the chat and resumes it.
+  const resting = restingPet(link, disconnected);
+  const lost = (disconnected || !link.connected) && !resting;
   const unresolved = unresolvedPetRun(link);
-  const active = !lost && !link.run?.trackingClosed && (link.enabled || Boolean(link.run));
+  const active = !lost && !resting && !link.run?.trackingClosed && (link.enabled || Boolean(link.run));
   const state = active ? link.run?.state : undefined;
   const taskFolder = link.target.cwd.split(/[\\/]/).filter(Boolean).pop() || link.target.cwd;
   const heading = chatTitle(titles, link.target.threadId) ?? taskFolder;
   const rawStatus = explicitPetStatus(link, disconnected);
   const status = rawStatus === '연결 확인 필요' ? '연결이 끊겼어요' : rawStatus;
-  const returnLabel = lost ? '다시 연결' : shortReturn[petTaskReturnLabel(link, disconnected)] ?? '채팅 열기';
+  const returnLabel = lost ? '다시 연결' : resting ? '채팅 열기' : shortReturn[petTaskReturnLabel(link, disconnected)] ?? '채팅 열기';
   const profileLocked = action.busy || disconnected || unresolved;
 
   // Only states where the user has something to do get a line; the rest stay quiet.
-  const guide = lost
+  const guide = resting ? (back.missing ? '' : RESTING_HINT)
+    : lost
     ? back.opened ? '채팅에 ‘펫 상태 확인’을 보내면 다시 이어져요.' : '“다시 연결”을 누르면 채팅을 열고 다시 이어요.'
     : link.run?.trackingClosed ? ''
     : !link.enabled ? '새 펫 작업은 꺼져 있어요. 이미 시작한 작업은 계속 확인해요.'
@@ -79,9 +82,9 @@ export function PetPopup({ link, disconnected = false, onHide, review = NO_REVIE
     if (await action.run('set_pet_link_profile', { target: link.target, expectedRevision: link.revision, profile })) setChoosing(false);
   };
 
-  return <section className="pet-popup" aria-label={`${heading} 펫 팝업`} data-connection={lost ? 'lost' : 'connected'}
+  return <section className="pet-popup" aria-label={`${heading} 펫 팝업`} data-connection={lost ? 'lost' : resting ? 'resting' : 'connected'}
     data-agent-scope="task-card" data-agent-id="task-card.root" data-agent-item={`slot-${link.slot}`}>
-    {isReviewPet(link) && <ReviewMenu link={link} review={review} lost={lost} onSent={onReviewSent} />}
+    {isReviewPet(link) && <ReviewMenu link={link} review={review} lost={lost} resting={resting} onSent={onReviewSent} />}
     <header className="pet-popup-head">
       <span className="pet-popup-dot" aria-hidden="true" />
       <div className="pet-popup-title">
@@ -91,7 +94,7 @@ export function PetPopup({ link, disconnected = false, onHide, review = NO_REVIE
     </header>
     {guide && <p className={`pet-popup-guide${lost ? ' lost' : ''}`}>{guide}</p>}
     {returnNotice && <p className="pet-popup-notice" role={back.failed ? 'alert' : 'status'}>{returnNotice}</p>}
-    {(!back.supported || back.failed) && <div className="pet-popup-fallback">
+    {(!back.supported || (back.failed && !back.missing)) && <div className="pet-popup-fallback">
       {!back.supported && <p>지금은 앱에서 바로 열 수 없어요. Codex에서 같은 작업을 찾아주세요.</p>}
       <button className="pet-popup-text" onClick={() => void back.copy()}>작업 ID 복사</button>
       {back.copyNotice && <p role="status">{back.copyNotice}</p>}

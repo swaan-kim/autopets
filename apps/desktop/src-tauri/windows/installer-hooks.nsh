@@ -31,4 +31,9 @@
   Quit
   ; App records are retained independently of connection removal.
 autopets_cleanup_done:
+  ; "컴퓨터를 켤 때 · 펫 띄우기" (platform/autostart.rs): a removed app must not stay in the user's
+  ; startup list. An update keeps it, like the connection above.
+  ${If} $UpdateMode <> 1
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+  ${EndIf}
 !macroend

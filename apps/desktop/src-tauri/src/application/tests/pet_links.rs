@@ -234,3 +234,38 @@ fn summoning_prefers_a_disconnected_pet_then_the_lowest_slot() {
     let (moved,_)=store.summon_pet_link(d).unwrap().unwrap();
     assert_eq!(moved.slot,first.slot.min(second.slot),"all connected: the lowest slot moves");
 }
+
+#[test]
+fn a_restart_rests_each_pet_and_only_chat_open_resumes_that_saved_link() {
+    let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let b=target(dir.path(),B);let mut store=Store::new(dir.path()).unwrap();
+    store.pet_link_request(Request::Connect{target:a.clone()}).unwrap();
+    store.pet_link_request(Request::Connect{target:b.clone()}).unwrap();
+    store.begin_setup(crate::application::setup::SetupRequest{installed_version:env!("CARGO_PKG_VERSION").into(),session_id:Some(A.into()),
+        cwd:Some(a.cwd.clone()),host_id:Some("codex-windows-local".into()),entry_point:Some("ai".into()),connection_mode:Some("explicit-pet".into())}).unwrap();
+    drop(store);let mut store=Store::new(dir.path()).unwrap();
+    // After a restart every pet rests: not connected, not broken.
+    let ra=store.pet_link_request(Request::Read{target:a.clone()}).unwrap().unwrap();
+    assert!(!ra.connected&&ra.resting&&store.is_resting(&a));
+    assert_eq!(serde_json::to_value(&ra).unwrap()["resting"],true,"the screen sees it");
+    let stored:String=store.db.query_row("SELECT value FROM explicit_pet_links_v1 WHERE identity=?1",[a.key()],|r|r.get(0)).unwrap();
+    assert!(!stored.contains("resting"),"never stored");
+    // "채팅 열기": the same saved link, at the revision shown; nothing else changes.
+    assert_eq!(store.resume_pet_link(&a,ra.revision+1).unwrap_err(),"pet-revision-changed");
+    let resumed=store.resume_pet_link(&a,ra.revision).unwrap().unwrap();
+    assert!(resumed.connected&&!resumed.resting);assert_eq!(resumed.revision,ra.revision);assert_eq!(resumed.slot,ra.slot);
+    assert!(store.resume_pet_link(&a,ra.revision).unwrap().is_none(),"already connected");
+    let rb=store.pet_link_request(Request::Read{target:b.clone()}).unwrap().unwrap();
+    assert!(!rb.connected&&rb.resting,"another chat's pet is left alone");
+    let stored:String=store.db.query_row("SELECT value FROM explicit_pet_links_v1 WHERE identity=?1",[a.key()],|r|r.get(0)).unwrap();
+    assert!(!stored.contains("resting"));
+    // Disconnecting the AI is a real disconnect: no longer resting, never resumed by "채팅 열기".
+    store.disconnect_setup("codex-windows-local").unwrap();
+    let rb=store.pet_link_request(Request::Read{target:b.clone()}).unwrap().unwrap();
+    assert!(!rb.resting);assert!(store.resume_pet_link(&b,rb.revision).unwrap().is_none());
+    // ...and after the next restart a resting pet still needs the Codex connection set up.
+    drop(store);let mut store=Store::new(dir.path()).unwrap();
+    let rb=store.pet_link_request(Request::Read{target:b.clone()}).unwrap().unwrap();
+    assert_eq!(store.resume_pet_link(&b,rb.revision).unwrap_err(),"codex-connection-off");
+    let unknown=target(dir.path(),C);
+    assert_eq!(store.resume_pet_link(&unknown,1).unwrap_err(),"pet-not-connected");
+}

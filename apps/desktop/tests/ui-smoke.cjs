@@ -16,6 +16,7 @@ const { runReviewPetChecks } = require('./review-pet-ui.cjs');
 const { runCardCompareChecks } = require('./card-compare-ui.cjs');
 const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
 const { runPetSettingsChecks } = require('./pet-settings-ui.cjs');
+const { runPetAutostartChecks } = require('./pet-autostart-ui.cjs');
 const { runPetProgressChecks } = require('./pet-progress-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
@@ -90,6 +91,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'artifact_snapshot') return structuredClone(artifacts);
         if (name === 'plugin:event|listen') { eventHandlers.set(args.event, [...(eventHandlers.get(args.event) || []), args.handler]); return 1; }
         if (name.startsWith('plugin:event|')) return null;
+        if (name === 'set_autostart' || name === 'dismiss_autostart_prompt') {
+          if (window.__uiTest.autostartError) throw Error(window.__uiTest.autostartError);
+          const current = window.__uiTest.autostart ?? { enabled: false, asked: false };
+          window.__uiTest.autostart = { enabled: name === 'set_autostart' ? args.enabled : current.enabled, asked: true };
+          return structuredClone(window.__uiTest.autostart);
+        }
         if (name === 'set_onboarding_active') {
           window.__uiTest.onboardingCalls.push(structuredClone(args));
           window.__uiTest.onboardingActive = args.active;
@@ -99,6 +106,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         if (name === 'codex_chat_titles') return structuredClone(window.__uiTest.chatTitles ?? {});
         // Polled after a send; not recorded as a call. 'started' unless a test says otherwise.
         if (name === 'codex_send_status') return window.__uiTest.sendStatus ?? 'started';
+        // "컴퓨터를 켤 때 · 펫 띄우기": read on every app window load, not recorded. No fixture: unknown (hidden).
+        if (name === 'autostart_state') return window.__uiTest.autostart ? structuredClone(window.__uiTest.autostart) : null;
         calls.push({ name, args });
         if (name === 'save_pet') {
           if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
@@ -129,6 +138,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           const receipt = { status: 'dispatched', sessionId: window.__uiTest.returnWrongTarget ? 'wrong-task' : args.target.threadId, targetVerified: false };
           if (window.__uiTest.returnError) throw Error(window.__uiTest.returnError);
           if (window.__uiTest.holdPetReturn) await new Promise(resolve => { window.__uiTest.releasePetReturn = resolve; });
+          // A pet resting after a restart is connected again (the app checked its chat exists).
+          if (link.resting && !link.connected) {
+            link.connected = true; delete link.resting;
+            window.__uiTest.emitEvent('autopets://snapshot', { ...structuredClone(state), now: Date.now() });
+            return { ...receipt, resumed: true };
+          }
           return receipt;
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
@@ -385,6 +400,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     if (process.env.AUTOPETS_UI_PET_SETTINGS_ONLY === '1') {
       await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_AUTOSTART_ONLY === '1') {
+      await runPetAutostartChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_AUTOSTART_SHOTS, checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2)); return;
     }
     if (process.env.AUTOPETS_UI_PET_PROGRESS_ONLY === '1') {
@@ -804,6 +823,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
     await closeFixturePages();
     await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+    await closeFixturePages();
+    await runPetAutostartChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_AUTOSTART_SHOTS, checks });
     await closeFixturePages();
     await runPetProgressChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_PROGRESS_SHOTS, checks });
     await closeFixturePages();
