@@ -1,6 +1,7 @@
-/* Result gallery and example on the left; introduction, start and source on the right. */
+/* Wide windows put the example beside the start panel. Narrow windows put the start panel first. */
 .pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 32px; align-items: start; }
-.pet-start-panel { display: flex; flex-direction: column; gap: 24px; }
+.pet-start .workspace-detail-content { display: block; grid-area: 1 / 2; }
+.pet-start .workspace-detail-preview { grid-area: 1 / 1; }
 .pet-start-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .pet-start-identity > .task-pet-art { --pet-size: 68px; flex: 0 0 auto; }
 .pet-start-identity > .task-pet-art .pet-origin-badge { display: none; }
@@ -11,21 +12,22 @@
 .pet-start-identity > .pet-favorite-button { width: 42px; min-width: 42px; min-height: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; border: 0; background: none; }
 .pet-start-identity > .pet-favorite-button > span:first-child { font-size: 23px; }
 .pet-start .workspace-detail-summary { margin: 20px 0 0; font-size: 16px; line-height: 1.7; word-break: keep-all; }
-.pet-start .pet-start-question { margin: 0 0 16px; color: #20262b; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: -.5px; }
 .pet-start-chat { display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%; margin: 0 0 12px; padding: 7px 12px; border-radius: 8px; background: #eef5f0; color: #20262b; }
 .pet-start-chat small { flex: none; color: #3f7a52; font-size: 12px; font-weight: 600; }
 .pet-start-chat strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
 .pet-start-hint { margin: 0 0 12px; color: #5d6870; font-size: 14px; line-height: 1.6; word-break: keep-all; }
-.pet-start .composer-task { display: grid; gap: 8px; color: #606970; font-size: 13px; }
+.pet-start .composer-task { display: grid; gap: 6px; color: #606970; font-size: 13px; }
+.pet-start-task-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0 12px; min-height: 36px; }
+.pet-start-task-label label { color: #252c32; font-size: 15px; font-weight: 650; line-height: 1.5; word-break: keep-all; }
 .pet-start .composer-task textarea { width: 100%; box-sizing: border-box; min-height: 104px; margin: 0; padding: 14px; border: 1px solid #dde1e4; border-radius: 12px; font: inherit; font-size: 14px; line-height: 1.7; resize: vertical; }
 .pet-start .composer-task textarea { font-weight: 400; color: #252c32; }
 .pet-start .composer-task textarea::placeholder { color: #9aa3aa; font-weight: 400; }
-.pet-start-example { align-self: flex-start; margin-top: 10px; min-height: 32px; padding: 4px 12px; border: 1px solid #e0e4e7; border-radius: 999px; background: #fff; color: #4f5961; font-size: 13px; cursor: pointer; }
-.pet-start-example:hover:not(:disabled) { background: #f4f6f7; }
+.pet-start-example { min-height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #4f5961; font-size: 13px; cursor: pointer; }
+.pet-start-example:hover:not(:disabled) { background: #f1f3f4; }
 .pet-start .composer-recommended-request { margin: 0; padding: 14px 16px; border-radius: 12px; background: #f4f6f7; }
 .pet-start .composer-recommended-request small { color: #6f7880; font-size: 12px; }
 .pet-start .composer-recommended-request p { margin: 6px 0 0; color: #252c32; font-size: 15px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
-.pet-start-action { margin-top: 18px; }
+.pet-start-action { margin-top: 14px; }
 .pet-start .pet-start-button { display: flex; width: 100%; min-height: 52px; justify-content: space-between; align-items: center; box-sizing: border-box; border-radius: 13px; background: #242a30; border-color: #242a30; color: #fff; font-size: 15px; }
 .pet-start .pet-start-button:disabled { opacity: .45; }
 .pet-start .composer-applied .explicit-return { width: 100%; min-height: 52px; justify-content: space-between; box-sizing: border-box; }
@@ -41,9 +43,9 @@
 .pet-start .composer-feedback { display: grid; gap: 4px; margin-top: 12px; padding: 12px 14px; border-radius: 12px; }
 .pet-start .composer-feedback :is(p,button) { margin: 0; font-size: 13px; line-height: 1.6; justify-self: start; }
 .pet-start .composer-observed { margin: 10px 0 0; font-size: 13px; color: #2f6b43; }
-.pet-start-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: #5d6870; font-size: 13px; }
+.pet-start-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; color: #5d6870; font-size: 13px; }
 .pet-start-summary > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pet-start-summary .text-button { min-height: 36px; padding: 0 4px; font-size: 13px; }
+.pet-start-summary .text-button { min-height: 40px; padding: 0 4px; color: #45515a; font-size: 13px; white-space: nowrap; }
 .pet-start-change { display: grid; gap: 18px; margin-top: 10px; padding: 18px; border: 1px solid #e6e9ec; border-radius: 16px; background: #fbfcfc; }
 .pet-start-change .composer-profile-choice { margin: 0; padding: 0; border: 0; min-width: 0; }
 .pet-start-change .composer-profile-choice legend { margin-bottom: 8px; font-size: 13px; color: #606970; }
@@ -78,45 +80,28 @@
 .pet-start .composer-chat-status[data-state="failed"] { background: #fbefee; color: #8a3b33; }
 .pet-start .composer-chat-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff7e8; color: #6b4e16; font-size: 12px; line-height: 1.6; }
 .pet-start .composer-chat-confirm p { flex-basis: 100%; margin: 0; }
-/* A narrow desktop window stacks preview and panel; the panel stays one column. */
-@media (max-width: 760px) {
-  .pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1fr); }
-  .pet-start .workspace-detail-content { display: flex; }
-}
 /* From the calling chat the extra request is optional, so its field stays small. */
 .pet-start .pet-start-hint + .composer-task textarea { min-height: 72px; }
-.pet-detail-overview, .pet-detail-note { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: #fff; min-width: 0; }
-.pet-detail-start { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+.pet-detail-overview { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: #fff; min-width: 0; }
+.pet-detail-start { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
 .pet-start-identity .pet-source-line { margin: 8px 0 0; font-size: 12px; }
-.pet-detail-note h2, .pet-detail-example h2, .pet-detail-about h2 { margin: 0; font-size: 16px; line-height: 1.5; letter-spacing: -.3px; }
-.pet-detail-note dl { margin: 20px 0 0; display: grid; gap: 16px; font-size: 13px; }
-.pet-detail-note dl > div { display: grid; gap: 4px; }
-.pet-detail-note dt { color: var(--muted); font-size: 12px; }
-.pet-detail-note dd { margin: 0; line-height: 1.7; overflow-wrap: anywhere; }
-.pet-detail-limit { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.7; color: #606970; word-break: keep-all; }
-.pet-detail-note .pet-skill-source { margin: 18px 0 0; padding: 0; border: 0; }
-.pet-detail-example { margin-top: 32px; border: 1px solid var(--line); border-radius: 22px; overflow: hidden; background: #fff; }
-.pet-detail-example > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--line); }
-.pet-detail-example > header > span { flex: none; color: var(--muted); font-size: 12px; }
-.pet-detail-example-body { padding: 24px; }
-.pet-detail-example-request { max-width: 90%; width: fit-content; margin: 0 0 32px auto; padding: 18px 20px; border-radius: 18px 18px 4px 18px; background: #f4f5f6; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
-.pet-detail-example-result h3 { margin: 0 0 16px; font-size: 15px; line-height: 1.6; }
-.pet-detail-example-result p { margin: 12px 0; line-height: 1.8; font-size: 14px; }
-.pet-detail-about { margin-top: 32px; padding: 0 4px; }
-.pet-detail-about p { margin: 14px 0 0; color: #606970; font-size: 14px; line-height: 1.8; }
+.pet-detail-limit { margin-top: 8px; font-size: 13px; line-height: 1.6; color: #606970; word-break: keep-all; }
+.pet-detail-limit p { margin: 0; }
+.pet-detail-source, .pet-detail-example { border-bottom: 1px solid var(--line); padding: 0 4px; }
+.pet-detail-source .pet-skill-source { margin: 0 0 12px; padding: 0; border: 0; }
+.pet-detail-example { margin-top: 16px; }
+.pet-detail-example-body { padding: 8px 0 16px; }
+.pet-detail-example-request { max-width: 90%; width: fit-content; margin: 0 0 20px auto; padding: 14px 16px; border-radius: 16px 16px 4px 16px; background: #f4f5f6; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pet-detail-example-result h2 { margin: 0; font-size: 15px; line-height: 1.6; }
+.pet-detail-example-result small { margin-left: 4px; color: #606970; font-size: 12px; font-weight: 400; }
+.pet-detail-example-result p { margin: 6px 0 0; line-height: 1.7; font-size: 14px; }
 @media (max-width: 1100px) {
   .pet-start .pet-start-identity h1 { font-size: 26px; }
   .pet-start .workspace-detail-summary { margin-top: 16px; font-size: 15px; }
-  .pet-detail-overview, .pet-detail-note { padding: 20px; }
-  .pet-detail-start { margin-top: 20px; padding-top: 20px; }
+  .pet-detail-overview { padding: 20px; }
 }
 @media (max-width: 760px) {
-  .pet-start .workspace-detail-preview { display: contents; }
-  .pet-start .workspace-detail-preview > .result-preview { grid-row: 1; }
-  .pet-start .workspace-detail-content { grid-row: 2; }
-  .pet-detail-reading { grid-row: 3; }
-  .pet-start-panel { gap: 20px; }
-  .pet-detail-overview, .pet-detail-note { padding: 20px; }
-  .pet-detail-example > header, .pet-detail-example-body { padding: 20px; }
+  .pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .pet-start :is(.workspace-detail-preview, .workspace-detail-content) { grid-area: auto; }
   .pet-detail-example-request { max-width: 100%; }
 }

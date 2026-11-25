@@ -13,10 +13,10 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await page.goto(origin);
   await chooseRole(page, '웹페이지 만들기');
   const composer = page.locator('.pet-start');
-  const change = composer.getByRole('button', { name: '바꾸기', exact: true });
+  const change = composer.getByRole('button', { name: '시작 설정', exact: true });
   assert.equal(await composer.locator('.pet-start-change').count(), 0, 'less common actions stay folded');
   assert.equal(await composer.locator('details[open]').count(), 0);
-  // "펫만 저장" under "바꾸기" creates a pet without a connected host or chat.
+  // "펫만 저장" under "시작 설정" creates a pet without a connected host or chat.
   await openPetSettings(composer);
   const create = composer.getByRole('button', { name: '펫만 저장', exact: true });
   assert.equal(await create.isEnabled(), true, 'creating a pet does not require a connected host or chat');
@@ -41,7 +41,7 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.deepEqual(after.calls, ['save_pet', 'save_pet'], 'saving alone never configures a host, exports a file, or submits AI work');
   await closePetPanel(composer);
 
-  // "바꾸기" folds open in place (no modal); the keyboard toggles it and focus stays on the toggle.
+  // "시작 설정" folds open in place (no modal); focus stays on the toggle.
   await composer.getByLabel('펫에게 맡길 일', { exact: true }).fill('저장만 하고 아직 전송하지 않는 가상 요청');
   await change.focus(); await page.keyboard.press('Enter');
   assert.equal(await change.getAttribute('aria-expanded'), 'true');
@@ -60,7 +60,7 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await closePetPanel(composer);
     if (width === 375) { const file = path.join(screenshotDir, 'pet-quick-use-narrow.png'); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); }
   }
-  // Choosing Claude as the place to start shows its own install/use actions under "바꾸기".
+  // Choosing Claude as the place to start shows its install/use actions under "시작 설정".
   await openPetSettings(composer);
   await composer.getByRole('radio', { name: 'Claude', exact: true }).check();
   await page.evaluate(() => { window.__uiTest.preferenceExportError = true; });

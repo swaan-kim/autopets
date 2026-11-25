@@ -86,7 +86,7 @@ export function ResultPreview({ entry, compact = false, gallery = false }: { ent
   const sections = resultSections[entry.id];
   const format = sections?.format ?? entry.output;
   if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example">
-    <span className="result-card-label"><span>{format}</span><small>결과 예시</small></span>
+    <span className="result-card-label">{format} 예시</span>
     <ResultArtwork entry={entry} />
   </span>;
 

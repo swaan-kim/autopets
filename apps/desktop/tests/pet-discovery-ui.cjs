@@ -8,6 +8,14 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.addInitScript(template=>{window.__uiTest.roles.pets=[{id:'favorite-standard',revision:2,template:{...template,execution:{model:'gpt-6-sol',reasoning:'low'}}}];},template);
  await page.goto(origin); await openCatalog(page);
+ const tools = page.getByRole('region', { name: '함께 쓰는 도구', exact: true });
+ const toolToggle = page.getByText('함께 쓰는 AI 도구', { exact: true });
+ assert.equal(await tools.isVisible(), false);
+ await toolToggle.press('Enter');
+ await tools.getByRole('button', { name: '발표자료 열기', exact: true }).waitFor();
+ await toolToggle.press('Enter');
+ assert.equal(await tools.isVisible(), false);
+ assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name === 'start_hub_entry')), false);
  const daily = page.getByRole('button', { name: '하루 정리 펫 선택', exact: true });
  const art = daily.locator('.task-pet-art');
  const still = art.locator('.companion-pet[data-playing="false"] [data-clip="still"]');

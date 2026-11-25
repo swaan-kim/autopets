@@ -7,24 +7,23 @@
 .visual-result-preview .result-thumbnail-fallback { height: 100%; display: grid; place-items: center; background: #f4f5f6; color: #667078; font-size: 12px; }
 .visual-result-preview.result-preview figcaption { margin: 9px 0 0; color: #626c73; font-size: 11px; }
 .visual-result-preview.result-preview figcaption small { color: #737b81; }
-/* Pet selection cards: [pet art] [name, promise, action] [result thumbnail]. */
+/* A pet's purpose and example are a single selection target. */
 .workspace-role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .workspace-role-card .workspace-role-select { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(238px, 1.65fr); gap: 16px; align-items: center; width: 100%; height: 100%; padding: 18px; border: 0; border-radius: inherit; background: none; text-align: left; color: #363636; }
 .workspace-role-card .workspace-role-select:focus-visible { outline-offset: -4px; }
 .workspace-role-card .workspace-role-select > .task-pet-art { --pet-size: 72px; }
 .workspace-role-card .workspace-role-text { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
-.workspace-role-card .workspace-role-text h3 { margin: 0; font-size: 17px; letter-spacing: -.5px; line-height: 1.35; word-break: keep-all; }
-.workspace-role-card .workspace-role-promise { display: flex; align-items: flex-start; gap: 6px; color: #2f6b4f; font-size: 14px; font-weight: 650; line-height: 1.45; word-break: keep-all; }
-.workspace-role-promise svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
-.workspace-role-promise svg circle { fill: #2f6b4f; }
-.workspace-role-promise svg path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.workspace-role-card .workspace-role-select .workspace-role-action { display: inline-flex; align-items: center; gap: 4px; width: auto; min-height: 0; margin-top: 2px; border-top: 0; font-size: 13px; font-weight: 650; }
-.workspace-role-card .workspace-role-select .workspace-role-action > span { font-size: 15px; font-weight: 400; }
+.workspace-role-text > strong { color: var(--ink); font-size: 17px; letter-spacing: -.4px; line-height: 1.4; word-break: keep-all; }
+.workspace-role-text > strong span { color: var(--muted); font-weight: 400; }
+.workspace-role-text > span { color: #58636b; font-size: 14px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 .workspace-role-card .workspace-role-select .role-result-preview { min-width: 0; margin: 0; }
 .workspace-role-grid .workspace-role-card > .pet-favorite-button { position: absolute; z-index: 1; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; overflow: hidden; border: 0; border-radius: 50%; background: transparent; font-size: 0; gap: 0; }
 .workspace-role-grid .workspace-role-card > .pet-favorite-button > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #ffffffd9; box-shadow: 0 1px 4px #0000001f; color: #888888; font-size: 18px; line-height: 1; }
 .workspace-role-grid .workspace-role-card > .pet-favorite-button[aria-pressed=true] > span { color: #f5b400; }
 .workspace-role-card .pet-origin-badge { display: none; }
+.workspace-resources { margin-top: 24px; border-top: 1px solid var(--line); }
+.workspace-resources > details { border-bottom: 1px solid var(--line); }
+.workspace-resources .skill-hub, .workspace-resources .prompt-ideas { margin: 0 0 20px; }
 /* Keep the catalog pose still, with a small lean on intentional interaction. */
 @media (prefers-reduced-motion: no-preference) {
   .workspace-role-select > .task-pet-art {
