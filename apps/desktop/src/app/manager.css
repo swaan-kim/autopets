@@ -112,7 +112,7 @@
 .app-header .brand-home:hover .brand-logo { opacity: .75; }
 .app-header .brand-home:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .app-header .brand-home:disabled { cursor: default; }
-.app-header .brand-logo { width: 132px; filter: grayscale(1); }
+.app-header .brand-logo { width: 132px; }
 .app-header > nav { display: flex; align-items: center; gap: 8px; margin: 0 0 0 auto; }
 .app-header .nav-item { width: auto; margin: 0; padding: 10px 16px; color: var(--muted); }
 .app-header .nav-item.active { color: var(--ink); background: var(--tint); }
