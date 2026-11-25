@@ -18,7 +18,10 @@ impl Store {
             let mut link: Link = serde_json::from_str(&row).map_err(|_| "invalid-saved-pet-link")?;
             link.target.validate()?; link.template.validate()?;
             if link.version != 1 || link.slot > 2 || self.pet_links.values().any(|l| l.slot == link.slot) { return Err("invalid-saved-pet-link".into()); }
+            // A restart cannot know whether the chat still exists, so the link is not connected
+            // until confirmed again. It rests: "채팅 열기" checks the chat and resumes it.
             link.connected = false;
+            link.resting = true;
             if let Some(run) = &mut link.run {
                 if let Some(template) = &run.template { template.validate()?; }
                 if matches!(run.state, RunState::Requested | RunState::Working)
@@ -30,9 +33,12 @@ impl Store {
         }
         Ok(())
     }
-    fn save_link(&mut self, link: Link) -> Result<Link, String> {
+    fn save_link(&mut self, mut link: Link) -> Result<Link, String> {
+        if link.connected { link.resting = false; }
+        // `resting` is this run's state only; the stored link never carries it.
+        let stored = Link { resting: false, ..link.clone() };
         self.db.execute("INSERT INTO explicit_pet_links_v1(identity,value) VALUES(?1,?2) ON CONFLICT(identity) DO UPDATE SET value=excluded.value",
-            params![link.target.key(), serde_json::to_string(&link).map_err(|e| e.to_string())?]).map_err(super::sqlite::db_err)?;
+            params![link.target.key(), serde_json::to_string(&stored).map_err(|e| e.to_string())?]).map_err(super::sqlite::db_err)?;
         self.pet_links.insert(link.target.key(), link.clone());
         Ok(link)
     }
@@ -45,14 +51,55 @@ impl Store {
         }
         Ok(false)
     }
+    /// "채팅 열기" on a pet that is resting after a restart: the same saved link becomes connected
+    /// again, once the caller has checked that its Codex chat still exists. Nothing is sent to Codex.
+    /// Only a resting link, at the revision the screen showed, while the Codex connection is set up;
+    /// a pet disconnected on purpose (or by "연결 해제") is never resumed here.
+    pub(crate) fn resume_pet_link(&mut self, target: &Target, expected_revision: u64) -> Result<Option<Link>, String> {
+        let Some(link) = self.pet_links.get(&target.key()).cloned() else { return Err("pet-not-connected".into()) };
+        if !link.target.matches(target) { return Err("pet-target-mismatch".into()); }
+        if link.revision != expected_revision { return Err("pet-revision-changed".into()); }
+        if link.connected || !link.resting { return Ok(None); }
+        if !self.codex_connection_configured()? { return Err("codex-connection-off".into()); }
+        self.save_link(Link { connected: true, ..link }).map(Some)
+    }
+    pub(crate) fn is_resting(&self, target: &Target) -> bool {
+        self.pet_links.get(&target.key()).is_some_and(|l| l.resting && !l.connected && l.target.matches(target))
+    }
     pub(crate) fn disconnect_explicit_pets(&mut self) -> Result<(), String> {
         let links:Vec<_>=self.pet_links.values().cloned().collect();
         for mut link in links {
-            link.connected=false; link.revision+=1;
+            link.connected=false; link.resting=false; link.revision+=1;
             if let Some(run)=&mut link.run { if run.unresolved() { run.state=RunState::Unknown; } }
             self.save_link(link)?;
         }
         Ok(())
+    }
+    /// `$autopets` from a chat: the pet is used right there. A chat that already has a pet just
+    /// reconnects. Otherwise one pet moves here and its previous chat loses it: a disconnected pet
+    /// first, then the lowest slot. A pet whose work is still running or unconfirmed never moves.
+    /// With no pet linked yet nothing changes (the first pet request connects one, as before).
+    pub(crate) fn summon_pet_link(&mut self, target: Target) -> Result<Option<(Link, bool)>, String> {
+        target.validate()?;
+        if let Some(mut link) = self.pet_links.get(&target.key()).cloned() {
+            if !link.target.matches(&target) { return Err("pet-target-mismatch".into()); }
+            if link.connected { return Ok(Some((link, false))); }
+            link.connected = true;
+            return self.save_link(link).map(|link| Some((link, false)));
+        }
+        let mut movable: Vec<Link> = self.pet_links.values().filter(|l| !l.run.as_ref().is_some_and(Run::unresolved)).cloned().collect();
+        movable.sort_by_key(|l| (l.connected, l.slot));
+        let Some(mut link) = movable.into_iter().next() else { return Ok(None) };
+        let previous = link.target.key();
+        link.target = target; link.connected = true; link.resting = false; link.revision += 1; link.run = None;
+        let value = serde_json::to_string(&link).map_err(|e| e.to_string())?;
+        let tx = self.db.unchecked_transaction().map_err(super::sqlite::db_err)?;
+        tx.execute("DELETE FROM explicit_pet_links_v1 WHERE identity=?1", [&previous]).map_err(super::sqlite::db_err)?;
+        tx.execute("INSERT INTO explicit_pet_links_v1(identity,value) VALUES(?1,?2)", params![link.target.key(), value]).map_err(super::sqlite::db_err)?;
+        tx.commit().map_err(super::sqlite::db_err)?;
+        self.pet_links.remove(&previous);
+        self.pet_links.insert(link.target.key(), link.clone());
+        Ok(Some((link, true)))
     }
     pub fn pet_link_request(&mut self, request: Request) -> Result<Option<Link>, String> {
         let target = match &request { Request::Read{target} | Request::Connect{target} | Request::Settings{target,..} | Request::ApplyPet{target,..} | Request::Enable{target,..} | Request::Disconnect{target,..} | Request::CloseTracking{target,..} | Request::Prepare{target,..} | Request::Report{target,..} => target };
@@ -63,7 +110,7 @@ impl Store {
         if let Request::Connect{target} = request {
             let mut link = if let Some(link) = previous { link } else {
                 let slot = (0..3).find(|i| self.slots[*i].is_none() && !self.pet_links.values().any(|l| l.slot == *i)).ok_or("slots-full")?;
-                Link { version:1, target, slot, revision:1, enabled:true, connected:false, profile:Profile::Light,
+                Link { version:1, target, slot, revision:1, enabled:true, connected:false, resting:false, profile:Profile::Light,
                     template:crate::domain::roles::templates()?.into_iter().find(|t| t.id == crate::domain::roles::RoleId::BuildImplementation).ok_or("missing-build-pet")?, run:None, saved_pet:None }
             };
             link.connected = true;

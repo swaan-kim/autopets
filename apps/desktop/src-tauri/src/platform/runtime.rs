@@ -10,8 +10,13 @@ use tauri::{Emitter, Manager, PhysicalPosition};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(window) = app.get_webview_window("main") {
-        super::main_window::show_fitted(&window)?;
+    // Started at Windows sign-in ("컴퓨터를 켤 때 · 펫 띄우기"): no manager window, only the pets
+    // that were out last time and the tray icon. Started by hand: the manager opens as before.
+    let at_login = super::autostart::launched_at_login();
+    if !at_login {
+        if let Some(window) = app.get_webview_window("main") {
+            super::main_window::show_fitted(&window)?;
+        }
     }
     let data_dir = match std::env::var_os("AUTOPETS_DATA_DIR") {
         Some(path) => PathBuf::from(path),
@@ -24,15 +29,19 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or_default();
+    // At sign-in: pets hidden last time stay hidden, and with no saved pet nothing comes out.
+    let has_pets = store.lock().map(|state| !state.pet_links.is_empty()).unwrap_or(false);
+    let restored = at_login.then(|| read_visibility(&data_dir)).flatten()
+        .unwrap_or(SavedVisibility { visible: true, hidden: [false; 3] });
     app.manage(store.clone());
     app.manage(super::pet_dock::PetDocks::default());
     app.manage(Desktop {
-        visible: AtomicBool::new(true),
+        visible: AtomicBool::new(restored.visible && (has_pets || !at_login)),
         // Hold overlays until the manager reports whether its first-use guide
         // is open. This is transient and never changes saved display choices.
         onboarding_active: AtomicBool::new(true),
         onboarding_initialized: AtomicBool::new(false),
-        hidden_slots: Mutex::new([false; 3]),
+        hidden_slots: Mutex::new(restored.hidden),
         positions: Mutex::new(positions.clone()),
         data_dir: data_dir.clone(),
         bridge: Mutex::new(None),
@@ -76,6 +85,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         super::pet_dock::restore_docked(&window, &Position { edge: initial.edge, ..pos });
     }
     super::tray::install(app)?;
+    super::review_chat::start_review_clock(app.handle().clone());
     let handle = app.handle().clone();
     let initial_snapshot = store
         .lock()

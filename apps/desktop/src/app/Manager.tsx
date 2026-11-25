@@ -19,6 +19,9 @@ import { TaskList } from '../features/tasks/TaskList';
 import { WORKFLOW_PRESETS } from '../features/workflow/presentation';
 import { RoleStudio } from '../features/roles/RoleStudio';
 import { UiPetStudio } from '../features/pets/UiPetStudio';
+import { ReviewBatches } from '../features/pets/ReviewBatches';
+import { PetSettingsPanel } from '../features/settings/PetSettingsPanel';
+import { AutostartPrompt } from '../features/settings/autostart';
 
 type PetSection = 'home' | 'pets' | 'catalog' | 'saved';
 const isPetSection = (section: ManagerSection): section is PetSection => ['home', 'pets', 'catalog', 'saved'].includes(section);
@@ -27,8 +30,14 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
   const [settings, setSettings] = useState<ManagerSection>('home');
   const [navigationRevision, setNavigationRevision] = useState(0);
   const [connectionReturn, setConnectionReturn] = useState<{ section: PetSection; fromPet: boolean } | null>(null);
+  // 복습 도우미 문제 묶음 pages, shown in place of the pet pages (which stay mounted, so "← 복습 도우미"
+  // returns to the detail screen as it was). `batch` null is the batch list.
+  const [reviewPage, setReviewPage] = useState<{ batch: string | null } | null>(null);
+  // Asks the pet pages to open the 복습 도우미 detail behind the batch list (from the pet's menu).
+  const [reviewDetail, setReviewDetail] = useState(0);
   const navigate = (section: ManagerSection) => {
     if (section === 'connection' && settings === 'connection') return;
+    setReviewPage(null);
     if (section === 'connection' && isPetSection(settings)) {
       setConnectionReturn({ section: settings, fromPet: false });
       setSettings(section);
@@ -45,7 +54,7 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
   // A connection detour keeps the existing composer mounted on its original view.
   // Explicit navigation still increments the revision and closes that composer.
   const studioView = isPetSection(settings) ? settings : settings === 'connection' && connectionReturn ? connectionReturn.section : 'pets';
-  useEffect(() => { window.scrollTo(0, 0); }, [settings, navigationRevision]);
+  useEffect(() => { window.scrollTo(0, 0); }, [settings, navigationRevision, reviewPage?.batch]);
   const [assistanceSession, setAssistanceSession] = useState<string | null>(null);
   const [assistanceIdentity, setAssistanceIdentity] = useState<ChatIdentity | null>(null);
   const [assistanceRequest, setAssistanceRequest] = useState(0);
@@ -70,6 +79,20 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
     }).then(dispose => { if (disposed) dispose(); else unlisten = dispose; }).catch(() => { /* The pet card still shows the recommendation. */ });
     return () => { disposed = true; unlisten?.(); };
   }, []);
+  // 복습 도우미 "문제 묶음 N" on a pet opens the 문제 묶음 page; going back lands on its detail screen.
+  useEffect(() => {
+    if (!isDesktop) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen('autopets://open-review-batches', () => {
+      setConnectionReturn(null);
+      setSettings(current => isPetSection(current) ? current : 'pets');
+      setReviewDetail(value => value + 1);
+      setReviewPage({ batch: null });
+    })
+      .then(dispose => { if (disposed) dispose(); else unlisten = dispose; }).catch(() => undefined);
+    return () => { disposed = true; unlisten?.(); };
+  }, []);
   const [picker, setPicker] = useState<number | null>(null);
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -92,12 +115,16 @@ export function Manager({ snapshot, error, assistance, workflow }: { snapshot: S
 
     {picker !== null && <Modal title={pickedSession ? `${PET_NAMES[picker]}에게 작업 맡기기` : '연결할 작업을 골라주세요'} close={closePicker}>{action.error && <p className="error" role="alert">{action.error}</p>}{pickedSession ? <><button className="text-button" disabled={action.busy} onClick={() => setPickedId(null)}>← 다른 작업 선택</button><ConfigurationForm key={pickedSession.id} session={pickedSession} busy={action.busy} submitLabel="이 작업 연결하기" onSave={async config => { if (await configure(pickedSession.id, config) && await action.run('assign_session', { slot: picker, sessionId: pickedSession.id })) { setPicker(null); setPickedId(null); } }} /></> : <><input className="search-input" aria-label="작업 검색" placeholder="작업 이름, 경로 또는 ID 검색" value={query} onChange={event => setQuery(event.target.value)} /><div className="picker-list">{!sessions.length ? <p className="picker-empty">표시할 작업이 없어요.<br />연결한 Codex에서 활동을 시작해주세요.</p> : sessions.map(session => <button className="picker-row" key={session.id} disabled={assignedIds.includes(session.id)} onClick={() => setPickedId(session.id)}><span><strong>{session.label}</strong><small>{session.cwd}</small><small>{session.id} · {formatTime(session.lastSeen)}</small></span><span>{assignedIds.includes(session.id) ? '연결됨' : '＋'}</span></button>)}</div></>}</Modal>}
     {editSession && <Modal title="작업 설정" close={() => { if (!action.busy) setEditId(null); }}>{action.error && <p className="error" role="alert">{action.error}</p>}<ConfigurationForm key={editSession.id} session={editSession} busy={action.busy} submitLabel="설정 저장" onSave={async config => { if (await configure(editSession.id, config)) setEditId(null); }} /></Modal>}
+    <AutostartPrompt />
     {detailSession && <Modal title={detailSession.label} close={() => setDetailId(null)} wide><p className="overlay-path">{shortPath(detailSession.cwd)}</p><TaskDetails session={detailSession} now={snapshot.now} disconnected={disconnected} /></Modal>}
   </>}>
-      {settings === 'roles' ? <RoleStudio workflow={workflow.snapshot} sessions={snapshot.sessions} refreshWorkflow={workflow.refresh} /> : settings === 'intro' ? <IntroStudio assistance={assistance.snapshot} workflow={workflow.snapshot} sessions={snapshot.sessions} onWorkflow={identity => { setAssistanceIdentity(identity); setAssistanceSession(identity.chatId); setAssistanceRequest(value => value + 1); setSettings('assistance'); }} /> : settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} initialIdentity={assistanceIdentity} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} workflow={workflow} /> : settings === 'connection' ? <ConnectionGuide petLinks={snapshot.petLinks} setup={snapshot.setup} connectionPath={snapshot.connectionPath} defaultLabel={WORKFLOW_PRESETS.find(item => item.id === workflow.snapshot.preferences.preset)?.title} backLabel={connectionReturn?.fromPet ? '펫으로 돌아가기' : connectionReturn ? '돌아가기' : undefined} onBack={returnFromConnection} onPreferences={() => navigate('assistance')} /> : null}
+      {settings === 'petSettings' ? <PetSettingsPanel /> : settings === 'roles' ? <RoleStudio workflow={workflow.snapshot} sessions={snapshot.sessions} refreshWorkflow={workflow.refresh} /> : settings === 'intro' ? <IntroStudio assistance={assistance.snapshot} workflow={workflow.snapshot} sessions={snapshot.sessions} onWorkflow={identity => { setAssistanceIdentity(identity); setAssistanceSession(identity.chatId); setAssistanceRequest(value => value + 1); setSettings('assistance'); }} /> : settings === 'assistance' ? <AssistancePanel key={assistanceRequest} snapshot={assistance.snapshot} sessions={snapshot.sessions} initialSessionId={assistanceSession} initialIdentity={assistanceIdentity} error={assistance.error} loaded={assistance.loaded} refresh={assistance.refresh} workflow={workflow} /> : settings === 'connection' ? <ConnectionGuide petLinks={snapshot.petLinks} setup={snapshot.setup} connectionPath={snapshot.connectionPath} defaultLabel={WORKFLOW_PRESETS.find(item => item.id === workflow.snapshot.preferences.preset)?.title} backLabel={connectionReturn?.fromPet ? '펫으로 돌아가기' : connectionReturn ? '돌아가기' : undefined} onBack={returnFromConnection} onPreferences={() => navigate('assistance')} /> : null}
       {settings === 'connection' && legacy}
-      <div hidden={!['home', 'pets', 'catalog', 'saved'].includes(settings)}>
-        <UiPetStudio navigationRevision={navigationRevision} active={isPetSection(settings)} view={studioView} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} jobs={snapshot.petJobs ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
+      {reviewPage && isPetSection(settings) && <ReviewBatches batchId={reviewPage.batch} revision={JSON.stringify(snapshot.review ?? null)} links={snapshot.petLinks ?? []}
+        onOpen={batch => setReviewPage({ batch })} onBack={() => setReviewPage(null)} />}
+      <div hidden={!['home', 'pets', 'catalog', 'saved'].includes(settings) || Boolean(reviewPage)}>
+        <UiPetStudio navigationRevision={navigationRevision} active={isPetSection(settings) && !reviewPage} view={studioView}
+          review={snapshot.review} reviewDetailOpen={reviewDetail} onReviewBatches={() => setReviewPage({ batch: null })} onBusyChange={setStudioBusy} links={snapshot.petLinks ?? []} jobs={snapshot.petJobs ?? []} recommendations={snapshot.petRecommendations ?? []} recommendationOpen={recommendationOpen} setup={snapshot.setup} disconnected={disconnected} onBrowse={() => setSettings('catalog')} onConnection={openPetConnection}
  />
       </div>
   </AppShell>;

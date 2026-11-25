@@ -29,6 +29,28 @@ pub(crate) fn save_positions(desktop: &Desktop, positions: &HashMap<String, Posi
         }
     }
 }
+/// Which pets were out, kept for the next sign-in start ("컴퓨터를 켤 때 · 펫 띄우기"): the global
+/// show/hide and each pet's own "숨기기". A start by hand shows the pets as before.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub(crate) struct SavedVisibility { pub(crate) visible: bool, pub(crate) hidden: [bool; 3] }
+const VISIBILITY: &str = "pet-visibility-v1.json";
+
+pub(crate) fn read_visibility(data_dir: &std::path::Path) -> Option<SavedVisibility> {
+    std::fs::read(data_dir.join(VISIBILITY)).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok())
+}
+
+pub(crate) fn save_visibility(desktop: &Desktop) {
+    if desktop.data_dir.as_os_str().is_empty() { return; }
+    let saved = SavedVisibility {
+        visible: desktop.visible.load(Ordering::Relaxed),
+        hidden: desktop.hidden_slots.lock().map(|hidden| *hidden).unwrap_or([false; 3]),
+    };
+    if let Ok(json) = serde_json::to_vec(&saved) {
+        let temp = desktop.data_dir.join("pet-visibility.tmp");
+        if std::fs::write(&temp, json).is_ok() { let _ = std::fs::rename(temp, desktop.data_dir.join(VISIBILITY)); }
+    }
+}
+
 pub(crate) struct Desktop {
     pub(crate) visible: AtomicBool,
     pub(crate) onboarding_active: AtomicBool,
@@ -130,6 +152,10 @@ pub(crate) fn show_manager(
         let _ = window.unminimize();
         let _ = window.set_focus();
         refresh_pet_visibility(&app);
+        // 복습 도우미 "문제 묶음": the app's batch page.
+        if section.as_deref() == Some("review") {
+            let _ = window.emit("autopets://open-review-batches", serde_json::json!({}));
+        }
         if section.as_deref() == Some("assistance") {
             let _ = window.emit(
                 "autopets://open-assistance",
@@ -158,6 +184,8 @@ pub(crate) fn reopen(app: &tauri::AppHandle) {
 /// this explicit call; a pet tucked into a screen edge restores itself (its window
 /// listens for `autopets://pet-summoned`). Visible pets are left as they are.
 pub(crate) fn second_launch(app: &tauri::AppHandle, argv: &[String]) {
+    // The sign-in entry while AutoPets already runs: nothing to open.
+    if argv.iter().any(|arg| arg == super::autostart::AUTOSTART_ARG) { return; }
     if !argv.iter().any(|arg| arg == "--show-pets") { return reopen(app); }
     let chat = argv.iter().position(|arg| arg == "--chat").and_then(|i| argv.get(i + 1))
         .filter(|id| uuid::Uuid::parse_str(id).is_ok()).cloned();
@@ -172,6 +200,7 @@ pub(crate) fn summon_pets(app: &tauri::AppHandle, chat: Option<String>) {
         // an explicit call from Codex does not wait for that report. A guide that is open and
         // focused still keeps the pets out of its way (`onboarding_suppressed`).
         desktop.onboarding_initialized.store(true, Ordering::Relaxed);
+        save_visibility(&desktop);
     }
     refresh_pet_visibility(app);
     let _ = app.emit("autopets://pet-summoned", serde_json::json!({"chatId": chat, "at": crate::domain::activity::now_ms()}));
@@ -189,6 +218,7 @@ pub(crate) fn set_pets_visible(
             *hidden = [false; 3];
         }
     }
+    save_visibility(&desktop);
     let _ = crate::application::updates::publish_snapshot(&store, |snapshot| emit(&app, snapshot));
 }
 
@@ -208,6 +238,8 @@ pub(crate) fn change_slot_visibility(
         *hidden = [true; 3];
     }
     hidden[slot] = !visible;
+    drop(hidden);
+    save_visibility(desktop);
     Ok(())
 }
 

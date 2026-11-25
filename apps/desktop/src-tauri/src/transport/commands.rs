@@ -19,16 +19,42 @@ pub(crate) fn open_local_task(
 }
 
 #[tauri::command]
-pub(crate) fn open_pet_task(
-    store: tauri::State<SharedStore>,
+pub(crate) async fn open_pet_task(
+    app: tauri::AppHandle,
+    store: tauri::State<'_, SharedStore>,
     target: crate::domain::pet_link::Target,
     expected_revision: u64,
-) -> Result<crate::platform::task_return::DispatchReceipt, String> {
-    let uri = {
+) -> Result<PetTaskOpened, String> {
+    let (uri, resting) = {
         let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
-        crate::platform::task_return::pet_task_uri(&state, &target, expected_revision)?
+        (crate::platform::task_return::pet_task_uri(&state, &target, expected_revision)?, state.is_resting(&target))
     };
-    crate::platform::task_return::dispatch(&target.thread_id, &uri)
+    // A pet resting after a restart: its own chat must still exist in Codex, then the saved link
+    // is connected again before the chat opens. Nothing is sent to Codex and no other chat is used.
+    let mut resumed = false;
+    if resting {
+        let thread = target.thread_id.clone();
+        let exists = tauri::async_runtime::spawn_blocking(move || crate::platform::codex_chat::chat_exists(&thread))
+            .await.unwrap_or(false);
+        if !exists { return Err("codex-chat-not-found".into()); }
+        let snapshot = {
+            let mut state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
+            resumed = state.resume_pet_link(&target, expected_revision)?.is_some();
+            state.snapshot()
+        };
+        if resumed { crate::platform::windows::emit(&app, snapshot); }
+    }
+    let receipt = crate::platform::task_return::dispatch(&target.thread_id, &uri)?;
+    Ok(PetTaskOpened { receipt, resumed })
+}
+
+/// "채팅 열기": the Windows receipt for opening the chat, and whether a resting pet was connected again.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PetTaskOpened {
+    #[serde(flatten)]
+    receipt: crate::platform::task_return::DispatchReceipt,
+    resumed: bool,
 }
 
 /// "Codex에서 확인하기" on a Codex attention notice: asks Windows to show that exact chat

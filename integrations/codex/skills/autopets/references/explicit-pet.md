@@ -20,7 +20,7 @@ Codex 실행 파일 경로에는 버전이 들어가 Codex가 업데이트될 �
 
 ## 앱에서 시작한 요청 (`recipe=`)
 
-요청이 `AutoPets 스킬로 "<이름>" 시작해줘. petId=<ID>, petRevision=<정수>, recipe=<레시피>.` 형태면 사용자가 앱에서 할 일 하나를 고른 것이다. 요청은 링크에 담기도록 일부러 짧다. 물어볼 것과 작업 규칙은 이 절과 도구가 돌려주는 `recipe`에 있으며, 사용자에게 긴 설명을 다시 붙여넣게 하지 않는다.
+요청이 `AutoPets 스킬로 "<이름>" 시작해줘. petId=<ID>, petRevision=<정수>, recipe=<레시피>.` 형태면 사용자가 앱에서 할 일 하나를 고른 것이다. 요청은 일부러 짧다. 사용자가 앱에서 시작을 누르면 앱이 이 요청을 이 채팅에 바로 보내므로, 사용자가 직접 보낸 메시지와 똑같이 처리한다. 물어볼 것과 작업 규칙은 이 절과 도구가 돌려주는 `recipe`에 있으며, 사용자에게 긴 설명을 다시 붙여넣게 하지 않는다.
 
 1. `connect --pet <ID> --pet-revision <정수> --recipe <레시피>`를 한 번 호출하고 응답의 `recipe`를 사용한다. `unknown-recipe`·`recipe-pet-mismatch`·`invalid-recipe`면 실패 응답의 `message`를 그대로 전하고 멈춘다. 다른 레시피나 펫으로 바꾸지 않는다.
 2. **먼저 묻는다.** `recipe.intakeMessage`를 고치지 않고 한 메시지로 보낸다. 요청의 `할 일:`·`이 페이지를 볼 사람:`·`꼭 알릴 내용:`에 이미 답이 있는 질문은 빼도 된다. `할 일:`이 없으면 `recipe.intakeMessage` 대신 `recipe.intakeMessageWithTask`(무엇을 할지가 1번 질문)를 보낸다. 이 단계에서는 `prepare`를 호출하거나 파일을 만들지 않는다.

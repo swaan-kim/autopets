@@ -32,6 +32,26 @@ mod tests {
         assert_eq!(state["nextAction"],"send-message");assert_eq!(state["chatConnected"],false);
         let after=store.workflow.preferences().unwrap();assert_eq!(before.revision,after.revision);assert_eq!(before.enabled,after.enabled);
     }
+    #[test]
+    fn summoning_from_a_chat_moves_the_pet_into_that_chat() {
+        use crate::domain::pet_link::{Request, Target};
+        let dir=tempfile::tempdir().unwrap();let cwd=dir.path().to_string_lossy().to_string();let mut store=Store::new(dir.path()).unwrap();
+        let (a, b) = ("11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222");
+        let target = |id: &str| Target { source_id: "codex-windows-local".into(), thread_id: id.into(), cwd: cwd.clone() };
+        store.pet_link_request(Request::Connect { target: target(a) }).unwrap();
+        let mut input = request(b, &cwd);
+        input.connection_mode = Some("explicit-pet".into());
+        // The app's own setup screen never moves a pet; only a call from the chat does.
+        input.entry_point = Some("desktop".into());
+        assert!(store.begin_setup(input.clone()).unwrap()["pet"].is_null());
+        assert!(store.pet_link_request(Request::Read { target: target(a) }).unwrap().is_some());
+        input.entry_point = Some("ai".into());
+        let state = store.begin_setup(input).unwrap();
+        assert_eq!(state["pet"]["moved"], true);
+        assert_eq!(state["pet"]["slot"], 0);
+        assert!(store.pet_link_request(Request::Read { target: target(b) }).unwrap().unwrap().connected);
+        assert!(store.pet_link_request(Request::Read { target: target(a) }).unwrap().is_none());
+    }
     fn request(id: &str, cwd: &str) -> SetupRequest {
         SetupRequest {
             installed_version: env!("CARGO_PKG_VERSION").into(),
@@ -213,6 +233,12 @@ impl Store {
         self.disconnect_explicit_pets()?;
         self.setup_status()
     }
+    /// The AutoPets skill is set up in Codex on this PC and was not disconnected since.
+    pub(crate) fn codex_connection_configured(&self) -> Result<bool, String> {
+        Ok(self.read_setup()?.is_some_and(|saved| !saved.disconnected
+            && saved.request.connection_mode.as_deref() == Some("explicit-pet")
+            && saved.request.host_id.as_deref().is_none_or(|host| host == crate::domain::connections::CODEX_LOCAL)))
+    }
     /// The chat that started this app with `$autopets` and is still waiting for a pet
     /// ("채팅 연결 대기"). Cleared by disconnect; no other chat is ever returned.
     pub(crate) fn setup_chat(&self) -> Option<crate::domain::pet_link::Target> {
@@ -289,6 +315,12 @@ impl Store {
             }
         }
         let current = input.session_id.clone();
+        // Called from a chat ($autopets): the pet is used in that chat (see `summon_pet_link`).
+        let summoned = match (input.entry_point.as_deref(), input.connection_mode.as_deref(), &input.session_id, &input.cwd) {
+            (Some("ai"), Some("explicit-pet"), Some(id), Some(cwd)) => Some(crate::domain::pet_link::Target {
+                source_id: crate::domain::connections::CODEX_LOCAL.into(), thread_id: id.clone(), cwd: cwd.clone() }),
+            _ => None,
+        };
         let previous = self.read_setup()?;
         let unchanged = previous.as_ref().is_some_and(|saved| !saved.disconnected
             && saved.request.session_id == input.session_id && saved.request.cwd == input.cwd);
@@ -299,7 +331,12 @@ impl Store {
         if let Some(id) = current {
             self.assign_setup_pet(&id)?;
         }
-        self.setup_status()
+        // A chat id that is not a pet target (or a pet still working elsewhere) only skips the move.
+        let pet = summoned.and_then(|target| self.summon_pet_link(target).ok().flatten());
+        let mut status = self.setup_status()?;
+        status["pet"] = pet.map_or(serde_json::Value::Null, |(link, moved)| serde_json::json!({
+            "slot": link.slot, "name": link.template.name, "revision": link.revision, "moved": moved }));
+        Ok(status)
     }
     pub fn setup_status(&self) -> Result<serde_json::Value, String> {
         let saved = self.read_setup()?;

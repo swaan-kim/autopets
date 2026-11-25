@@ -1,0 +1,41 @@
+/* 설정 → 펫 설정. Builds on the 자동 도움 page (.assistance-page / .assistance-card / .mode-option). */
+.pet-settings-page .preference-choices.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pet-settings-page .mode-fieldset[disabled] { opacity: .55; }
+.pet-settings-choice > span { display: block; min-width: 0; }
+
+/* A tiny drawing of each reaction: the screen edge, the pet, and what it shows. */
+.pet-settings-preview { position: relative; display: block; height: 54px; margin-bottom: 10px; border-radius: 8px; background: #f3f3f3; overflow: hidden; }
+.pet-settings-preview .edge { position: absolute; top: 0; bottom: 0; right: 0; width: 6px; background: #d9d9d9; }
+.pet-settings-preview .pet { position: absolute; right: 22px; bottom: 9px; width: 22px; height: 18px; border-radius: 11px 11px 8px 8px; background: #b9b9b9; }
+.pet-settings-preview .pet::before, .pet-settings-preview .pet::after { content: ''; position: absolute; top: -5px; width: 7px; height: 8px; border-radius: 4px 4px 1px 1px; background: #b9b9b9; }
+.pet-settings-preview .pet::before { left: 2px; }
+.pet-settings-preview .pet::after { right: 2px; }
+.pet-settings-preview .bubble { position: absolute; right: 50px; top: 8px; padding: 3px 7px; font-size: 9px; font-weight: 700; color: #4d4d4d; background: #ffffff; border: 1px solid #dedede; border-radius: 8px 8px 2px 8px; }
+.pet-settings-preview.badge .pet { right: -8px; }
+.pet-settings-preview .badge { position: absolute; right: 9px; top: 12px; width: 13px; height: 13px; display: grid; place-items: center; font-size: 8px; font-weight: 700; color: #5f5f5f; background: #e1e1e1; border: 1.5px solid #ffffff; border-radius: 50%; }
+.pet-settings-preview .back { position: absolute; left: 10px; bottom: 8px; font-size: 13px; color: #8d8d8d; }
+.mode-option.selected .pet-settings-preview { background: #ebebeb; }
+.mode-option.selected .pet-settings-preview.jump .pet,
+.mode-option.selected .pet-settings-preview.peek .pet { animation: pet-settings-hop 1.8s ease-out infinite; }
+@keyframes pet-settings-hop { 0%, 40%, 100% { transform: translateY(0); } 15% { transform: translateY(-8px); } 28% { transform: translateY(-2px); } }
+
+.pet-settings-segments { display: flex; gap: 8px; flex-wrap: wrap; }
+.pet-settings-segments label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px; border: 1px solid #e4e4e4; border-radius: 999px; background: #ffffff; cursor: pointer; }
+.pet-settings-segments label.selected { border-color: #9f9f9f; background: #f4f4f4; font-weight: 600; }
+.pet-settings-segments input { margin: 0; accent-color: #727272; }
+
+.pet-settings-try { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+/* The one-time "컴퓨터를 켜면 펫을 띄울까요?" in the app window's corner. */
+.autostart-prompt { position: fixed; right: 24px; bottom: 24px; z-index: 30; display: grid; gap: 12px; width: min(340px, calc(100vw - 48px)); padding: 16px 18px;
+  border: 1px solid #e3e3e3; border-radius: 14px; background: #ffffff; box-shadow: 0 10px 28px #2b2d3122; }
+.autostart-prompt p { display: grid; gap: 4px; margin: 0; }
+.autostart-prompt small { color: #5c6066; line-height: 1.5; }
+.autostart-prompt > div { display: flex; align-items: center; gap: 10px; }
+.pet-settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+
+@media (max-width: 720px) {
+  .pet-settings-page .preference-choices, .pet-settings-page .preference-choices.two { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mode-option.selected .pet-settings-preview .pet { animation: none; }
+}

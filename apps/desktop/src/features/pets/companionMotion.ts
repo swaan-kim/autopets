@@ -2,6 +2,10 @@ import type { PetLink } from '@autopets/contracts/types';
 
 export type CompanionState = 'idle' | 'receive' | 'planning' | 'working' | 'waiting' | 'complete' | 'error';
 export function companionState(link: PetLink, disconnected: boolean): CompanionState {
+  // Resting after a restart (see ExplicitPet `restingPet`): calm, not an error; an unfinished task waits.
+  if (!disconnected && !link.connected && link.resting && !link.run?.trackingClosed) {
+    return !link.run ? 'idle' : link.run.state === 'complete' ? 'complete' : 'waiting';
+  }
   if (disconnected || !link.connected || link.run?.trackingClosed) return 'error';
   const run = link.run;
   if (!run) return 'idle';

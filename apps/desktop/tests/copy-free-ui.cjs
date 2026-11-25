@@ -92,7 +92,11 @@ exports.runCopyFreeChecks = async ({ newPage, mockBridge, fixture, origin, scree
   const select = composer.getByLabel('UI 펫을 적용할 채팅', { exact: true });
   await openChange(composer);
   assert.equal(await select.inputValue(), '', 'multiple chats require an explicit selection');
-  assert.equal(await mainApply(composer).count(), 0, 'without a chosen chat, start never applies to a chat');
+  // No chat chosen to apply to: start does not apply anywhere and opens no new chat. It sends the request
+  // into the connected chat named on screen (the lowest slot), and only once a job is written.
+  assert.match(await composer.locator('[data-agent-id="pet-selection.composer.chat"]').getAttribute('title'), new RegExp(`${A}$`), 'the chat it would go to is shown before the press');
+  assert.equal(await mainApply(composer).isDisabled(), true, 'nothing to send without a job');
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /apply_pet|send_/.test(call.name))), false, 'without a press nothing is applied or sent');
   await select.selectOption(key(link(A)));
   assert.equal(await composer.getAttribute('data-agent-scope'), 'pet-selection');
   assert.equal(await mainApply(composer).getAttribute('data-agent-id'), 'pet-selection.composer.start');

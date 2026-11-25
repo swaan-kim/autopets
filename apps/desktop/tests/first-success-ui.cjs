@@ -140,26 +140,34 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.equal(await composer.locator('.composer-applied').count(), 0, 'copy is not a confirmed configuration change');
   assert.equal(await composer.locator('.composer-observed').count(), 0, 'a historical completion is not a receipt for the copied request');
   await next.evaluate(() => { window.__uiTest.clipboard = ''; });
-  // "같은 펫으로 새 일" preselects the same chat; choosing a new chat under "바꾸기" makes start open one.
+  // "같은 펫으로 새 일" preselects the same chat. With no chat chosen under "바꾸기", start still goes to
+  // a connected chat (the lowest slot), named on screen, instead of a new chat: Codex cannot send into
+  // a chat it has not created yet. One press sends once; the app builds the words.
   await openMore(composer);
   await composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).selectOption('');
-  await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();
-  await composer.getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
-  const opened = await next.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex').map(call => call.args));
-  assert.equal(opened.length, 1);
-  assert.deepEqual(Object.keys(opened[0]).sort(), ['expectedRevision', 'petId', 'prompt']);
-  assert.ok(opened[0].prompt.includes(`petId=${opened[0].petId}, petRevision=${opened[0].expectedRevision}`));
-  assert.equal(await next.evaluate(() => window.__uiTest.clipboard), '', 'opening Codex does not touch the clipboard');
-  await composer.getByText('펫 저장 ✓ · Codex 연결 ✓ · 새 대화 열림 ✓', { exact: true }).waitFor();
-  assert.equal(await next.evaluate(() => window.__uiTest.calls.some(call => /submit|send|execute_pet/.test(call.name))), false, 'opening Codex never sends; the user presses send');
-  await next.evaluate(() => { window.__uiTest.codexPromptTooLong = true; });
-  await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();
-  await composer.getByText(copyNotice, { exact: true }).waitFor();
-  assert.ok((await next.evaluate(() => window.__uiTest.clipboard)).includes('petId='), 'too-long requests fall back to copying');
-  await next.evaluate(() => { window.__uiTest.codexPromptTooLong = false; });
+  assert.equal(await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).count(), 0, 'no new chat while a chat is connected');
+  await composer.locator('[data-agent-id="pet-selection.composer.chat"]').getByText('first-success · 55555555', { exact: true }).waitFor();
+  assert.equal(await next.evaluate(() => window.__uiTest.calls.some(call => /^send_/.test(call.name))), false, 'nothing is sent before the press');
+  await composer.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
+  const status = composer.locator('[data-agent-id="pet-selection.composer.send-status"]');
+  await status.getByText('「first-success · 55555555」에 보냈어요', { exact: true }).waitFor();
+  await status.getByText('시작됐어요', { exact: true }).waitFor();
+  const sent = await next.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'send_pet_start').map(call => call.args));
+  assert.equal(sent.length, 1, 'one press, one send');
+  assert.deepEqual(sent[0].chat, { threadId: '11111111-2222-4333-8444-555555555555', cwd: 'C:/UI fixture only/first-success' });
+  assert.deepEqual(sent[0].start, { kind: 'detail', task: '가상 사진 동아리의 다음 행사 페이지를 새 폴더에 계획해줘.', audience: '', message: '', newTask: true });
+  assert.equal('prompt' in sent[0], false, 'the screen passes the fields, never the words');
+  assert.equal(await next.evaluate(() => window.__uiTest.clipboard), '', 'sending does not touch the clipboard');
+  await composer.getByText('펫 저장 ✓ · 보내기 ✓', { exact: true }).waitFor();
+  assert.equal(await next.evaluate(() => window.__uiTest.calls.some(call => /open_pet_in_codex|connect_ai|submit|execute_pet/.test(call.name))), false);
+  // Codex could not take it: typed into that chat instead, with one line saying why.
+  await next.evaluate(() => { window.__uiTest.sendFallback = 'codex-queue-unsupported'; });
+  await composer.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
+  await status.getByText('이 Codex 버전은 바로 보내기를 지원하지 않아요. 「first-success · 55555555」 입력칸에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+  await next.evaluate(() => { window.__uiTest.sendFallback = null; });
   const image = path.join(screenshotDir, 'first-success-new-task.png');
   await next.screenshot({ path: image, fullPage: true, animations: 'disabled' }); images.push(image);
-  checks.push('repeat success: completed A creates a blank request with current careful profile and unchanged skill pins, preserves old saved preset and both chats, creates one new config only on copy, never carries task content/approval or claims receipt from historical completion');
+  checks.push('repeat success: completed A creates a blank request with current careful profile and unchanged skill pins, preserves old saved preset and both chats, creates one new config only on copy, never carries task content/approval or claims receipt from historical completion; with no chat chosen, start sends once into the connected chat named on screen (never a new chat), and falls back to typing it in with the reason');
   await next.close();
 
   const presets = ['preset-a', 'preset-b'].map((id, index) => ({ id, revision: 1, updatedAt: 1,

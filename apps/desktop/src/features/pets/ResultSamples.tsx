@@ -64,6 +64,21 @@ export function ResultSample({ kind }: { kind: string }) {
       <circle cx="60" cy="329" r="13" fill="#eaf0fb" /><text x="54" y="334" fill="#5874a4" fontSize="15" fontWeight="650">Q</text>
       <text x="84" y="334" fill="#576b89" fontSize="16">이 선택의 기회비용은 무엇일까요?</text>
       <text x="48" y="359" fill="#a0a9b8" fontSize="11">개념 정리 → 비교 예시 → 확인 문제</text>
+    </g> : kind === 'review-helper' ? <g>
+      <rect width="640" height="400" fill="#eef1f8" />
+      <rect x="24" y="24" width="592" height="352" rx="17" fill="#fff" />
+      <text x="47" y="59" fill="#7f8fb0" fontSize="11" letterSpacing="2">ASK AGAIN, RIGHT BEFORE YOU FORGET.</text>
+      <text x="47" y="96" fill="#8a96ab" fontSize="15">다음 복습</text>
+      <text x="44" y="150" fill="#2c3f7a" fontSize="50" fontWeight="700" letterSpacing="-2">3일 뒤</text>
+      <text x="47" y="180" fill="#7a88a0" fontSize="15">잊을 때쯤 틀린 문제부터 다시 물어봐요.</text>
+      <path d="M66 246h468" stroke="#c9d3f2" strokeWidth="3" />
+      {([[66, '오늘', true], [196, '3일 뒤', true], [356, '7일 뒤', false], [534, '16일 뒤', false]] as const).map(([x, label, done]) => <g key={label}>
+        <circle cx={x} cy="246" r="11" fill={done ? '#5b7bd5' : '#fff'} stroke="#5b7bd5" strokeWidth="3" />
+        <text x={x} y="282" fill={done ? '#2c3f7a' : '#8a96ab'} fontSize="14" fontWeight="650" textAnchor="middle">{label}</text>
+      </g>)}
+      <rect x="44" y="312" width="132" height="34" rx="17" fill="#5b7bd5" /><text x="110" y="334" fill="#fff" fontSize="14" fontWeight="650" textAnchor="middle">틀린 문제 먼저</text>
+      <rect x="188" y="312" width="146" height="34" rx="17" fill="#eef2ff" /><text x="261" y="334" fill="#2c3f7a" fontSize="14" fontWeight="650" textAnchor="middle">문제 묶음 · 10문제</text>
+      <text x="596" y="334" fill="#a0a9b8" fontSize="11" textAnchor="end">풀이와 채점은 Codex 채팅에서</text>
     </g> : kind === 'marketing-copy' ? <g>
       <rect width="640" height="400" fill="#f5efe5" />
       <image href="/assets/prompt-gallery-v1/product.webp" x="322" width="318" height="268" preserveAspectRatio="xMidYMid slice" clipPath={'url(#' + id + 'product)'} />

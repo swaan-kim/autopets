@@ -41,6 +41,8 @@ export function usePetTaskReturn(link: PetLink) {
   const [notice, setNotice] = useState('');
   const [failed, setFailed] = useState(false);
   const [opened, setOpened] = useState(false);
+  // The pet's chat is gone from Codex: nothing is connected and no other chat is used.
+  const [missing, setMissing] = useState(false);
   const [copyNotice, setCopyNotice] = useState('');
   const pending = useRef(false);
   const mounted = useRef(true);
@@ -51,24 +53,30 @@ export function usePetTaskReturn(link: PetLink) {
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
-    setBusy(false); setNotice(''); setFailed(false); setOpened(false); setCopyNotice('');
+    setBusy(false); setNotice(''); setFailed(false); setOpened(false); setMissing(false); setCopyNotice('');
   }, [scope]);
   const live = (at: string) => mounted.current && currentScope.current === at;
   const supported = canReturnToPetTask(link);
   const open = async () => {
     if (!supported || pending.current) return;
     const at = scope;
-    pending.current = true; setBusy(true); setNotice(''); setFailed(false); setOpened(false); setCopyNotice('');
+    pending.current = true; setBusy(true); setNotice(''); setFailed(false); setOpened(false); setMissing(false); setCopyNotice('');
     try {
-      const result = await command<{ status: string; sessionId: string; targetVerified: boolean }>('open_pet_task', {
+      // A pet resting after a restart is connected again here (`resumed`), after the app checked
+      // that its chat still exists. Nothing is sent to Codex.
+      const result = await command<{ status: string; sessionId: string; targetVerified: boolean; resumed?: boolean }>('open_pet_task', {
         target: link.target, expectedRevision: link.revision,
       });
       if (!result || result.status !== 'dispatched' || result.sessionId !== link.target.threadId || result.targetVerified !== false) {
         throw new Error('pet-task-return-unconfirmed');
       }
-      if (live(at)) { setNotice('Codex에 열기를 요청했어요. 열린 채팅이 맞는지 확인해 주세요.'); setOpened(true); }
+      if (live(at)) { setNotice(result.resumed ? '채팅을 열고 다시 이었어요.' : 'Codex에 열기를 요청했어요. 열린 채팅이 맞는지 확인해 주세요.'); setOpened(true); }
     } catch (cause) {
-      if (live(at)) {
+      if (live(at) && String(cause).includes('codex-chat-not-found')) {
+        setNotice('채팅을 찾을 수 없어요. Codex에서 새 채팅을 열고 $autopets를 입력하면 새로 시작해요.'); setFailed(true); setMissing(true);
+      } else if (live(at) && String(cause).includes('codex-connection-off')) {
+        setNotice('Codex 연결이 꺼져 있어요. 앱의 ‘AI 연결’에서 켠 뒤 다시 눌러 주세요.'); setFailed(true); setMissing(true);
+      } else if (live(at)) {
         const changed = String(cause).includes('pet-revision-changed') || String(cause).includes('pet-target-mismatch');
         setNotice(changed ? '연결 정보가 바뀌었어요. 현재 펫을 다시 확인하거나 작업 ID로 찾아주세요.' : 'Codex 작업을 열지 못했어요. 작업 ID로 직접 찾아주세요.');
         setFailed(true);
@@ -82,7 +90,7 @@ export function usePetTaskReturn(link: PetLink) {
     try { await navigator.clipboard.writeText(link.target.threadId); if (mounted.current) setCopyNotice('작업 ID를 복사했어요. Codex에서 같은 작업을 찾아주세요.'); }
     catch { if (mounted.current) setCopyNotice('복사하지 못했어요. 아래 작업 ID를 직접 선택해 주세요.'); }
   };
-  return { supported, busy, notice, failed, opened, copyNotice, open, copy };
+  return { supported, busy, notice, failed, opened, missing, copyNotice, open, copy };
 }
 
 function PetTaskReturnAction({ link, disconnected }: { link: PetLink; disconnected: boolean }) {

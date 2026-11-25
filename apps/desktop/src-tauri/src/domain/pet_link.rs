@@ -120,6 +120,11 @@ pub struct Link {
     pub connected: bool, pub profile: Profile, pub template: Template, pub run: Option<Run>,
     #[serde(default)]
     pub saved_pet: Option<SavedPetReference>,
+    /// Restored by an app restart and not confirmed since: the chat is very likely still there,
+    /// so the pet looks like it is resting, not broken. "채팅 열기" checks the chat and resumes it
+    /// (`Store::resume_pet_link`). Never stored: `save_link` writes it as false (omitted).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub resting: bool,
 }
 #[derive(Deserialize)]
 #[serde(tag = "operation", rename_all = "kebab-case", rename_all_fields = "camelCase", deny_unknown_fields)]

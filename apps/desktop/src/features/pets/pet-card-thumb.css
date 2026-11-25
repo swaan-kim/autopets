@@ -1,2 +1,70 @@
-/* Card and detail share their artwork; only the card frame differs. */
-.workspace-role-card .role-result-preview .result-thumbnail { aspect-ratio: 8 / 5; border-radius: 12px; }
+/* Pet-selection cards: "그냥 시켰을 때 ↔ 펫" comparison thumbnails. The design was drawn 216px wide;
+   every length here is that px value × 100/216 in cqw, so the inside keeps its proportions at the
+   card's thumbnail width. Lines up to 2px stay at least 1px. Cards live inside a <button>, so the
+   reference's divs are spans. Its layers stay inside it (isolation), under the card's ☆ button.
+   The detail screen and the enlarged view keep the shared drawing. */
+.workspace-role-card .pct-wrap { display: block; container-type: inline-size; }
+.workspace-role-card .pct-t { display: block; isolation: isolate; color: #5a6268; font-family: inherit; text-align: left; }
+.workspace-role-card .pct-t :is(span, b, s, u, i, small) { font-style: normal; text-decoration: none; }
+.workspace-role-card .pct-t :is(.pct-h, .pct-big, .pct-qz, .pct-wv, .pct-sl) { display: block; }
+.workspace-role-card .pct-t{position:relative;width:100%;aspect-ratio:216 / 134;border-radius:5.556cqw;overflow:hidden;background:#e4e7ea;font-size:4.167cqw;line-height:1.3;user-select:none}
+.workspace-role-card .pct-t .pct-bf{position:absolute;inset:0;z-index:0;background:#e4e7ea;color:#5a6268;padding:4.167cqw 4.167cqw 0;overflow:hidden}
+.workspace-role-card .pct-t .pct-pn{position:absolute;z-index:1;top:0;bottom:0;left:40%;width:100%;transition:left .38s cubic-bezier(.3,.7,.2,1);box-shadow:min(-1px, -0.926cqw) 0 0 #fff,-3.704cqw 0 7.407cqw rgba(11,31,51,.14)}
+.workspace-role-card .pct-t .pct-af{position:absolute;inset:0;background:#fffdf6;color:#24543d;padding:4.63cqw 4.63cqw 0 6.944cqw;overflow:hidden}
+.workspace-role-card .pct-t .pct-chip{position:absolute;bottom:2.778cqw;font-size:4.398cqw;font-weight:750;border-radius:462.5cqw;padding:max(1px, 0.926cqw) 3.241cqw;z-index:1}
+.workspace-role-card .pct-t .pct-chip.pct-b{left:2.778cqw;background:#5a6268;color:#fff}
+.workspace-role-card .pct-t .pct-chip.pct-a{left:6.944cqw;background:#2f6b4f;color:#fff}
+.workspace-role-card .pct-t .pct-h{font-size:3.935cqw;font-weight:700;margin-bottom:2.315cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-big{font-size:6.019cqw;font-weight:800;letter-spacing:-.03em;line-height:1.25;margin-bottom:3.241cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-pill{display:inline-block;margin-top:2.778cqw;font-size:3.935cqw;font-weight:750;background:#2f6b4f;color:#fff;border-radius:462.5cqw;padding:max(1px, 0.926cqw) 3.241cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-tagb{display:inline-block;margin-top:1.852cqw;font-size:3.935cqw;font-weight:750;background:#5a6268;color:#fff;border-radius:1.852cqw;padding:1.389cqw 2.778cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-cta{display:inline-block;margin-top:max(1px, 0.926cqw);font-size:3.704cqw;font-weight:750;background:#24543d;color:#fff;border-radius:462.5cqw;padding:1.389cqw 3.704cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-need{font-size:3.704cqw;font-weight:750;border-radius:462.5cqw;padding:max(1px, 0.463cqw) 2.778cqw;background:#fdeedd;color:#8a4b12;box-shadow:0 0 0 max(1px, 0.463cqw) #e2b98a}
+.workspace-role-card .pct-t .pct-todo{display:flex;align-items:center;gap:1.852cqw;margin-bottom:1.852cqw}
+.workspace-role-card .pct-t .pct-todo u{flex:none;width:3.241cqw;height:3.241cqw;border-radius:max(1px, 0.926cqw);border:max(1px, 0.556cqw) solid #9aa1a6}
+.workspace-role-card .pct-t .pct-todo s{display:block;height:1.852cqw;border-radius:max(1px, 0.926cqw);background:#aeb5ba;flex:1}
+.workspace-role-card .pct-t .pct-blk{display:flex;gap:1.389cqw}
+.workspace-role-card .pct-t .pct-blk span{flex:none;height:10.185cqw;border-radius:1.852cqw;background:#dfe9dc;font-size:3.472cqw;font-weight:700;padding:1.389cqw 1.852cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-blk span.pct-g{background:repeating-linear-gradient(135deg,#eef0e6 0 1.389cqw,#fffdf6 1.389cqw 2.778cqw);box-shadow:inset 0 0 0 max(1px, 0.463cqw) #d5dccf;width:5.556cqw;padding:0}
+.workspace-role-card .pct-t .pct-rw{display:flex;align-items:center;gap:2.315cqw;margin-bottom:2.315cqw;font-size:4.167cqw;font-weight:650;white-space:nowrap}
+.workspace-role-card .pct-t .pct-rw i{flex:none;width:4.63cqw;height:4.63cqw;border-radius:50%;background:currentColor;display:grid;place-items:center}
+.workspace-role-card .pct-t .pct-rw i svg{width:3.241cqw;height:3.241cqw}
+.workspace-role-card .pct-t .pct-rw s{display:block;height:1.852cqw;border-radius:max(1px, 0.926cqw);background:#aeb5ba}
+.workspace-role-card .pct-t .pct-qz{font-size:4.398cqw;font-weight:750;margin-bottom:2.315cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-op{display:flex;gap:1.852cqw;align-items:center;margin-bottom:1.62cqw}
+.workspace-role-card .pct-t .pct-op u{flex:none;width:4.167cqw;height:4.167cqw;border-radius:50%;border:max(1px, 0.556cqw) solid currentColor;opacity:.7}
+.workspace-role-card .pct-t .pct-op s{display:block;height:1.852cqw;border-radius:max(1px, 0.926cqw);background:currentColor;opacity:.35;flex:1}
+.workspace-role-card .pct-t .pct-op.pct-hit u{background:#5a6268;opacity:1}
+.workspace-role-card .pct-t .pct-lock{margin-top:2.315cqw;font-size:3.935cqw;font-weight:750;background:#eaf3ec;border-radius:1.852cqw;padding:1.852cqw 2.778cqw;white-space:nowrap;display:inline-flex;gap:1.852cqw;align-items:center}
+.workspace-role-card .pct-t .pct-lock svg{width:4.167cqw;height:4.167cqw}
+.workspace-role-card .pct-t .pct-tl{display:flex;align-items:flex-start;margin-top:3.704cqw}
+.workspace-role-card .pct-t .pct-tl > span{flex:none;width:20.37cqw;position:relative;font-size:3.935cqw;font-weight:750;padding-top:6.944cqw;white-space:nowrap}
+.workspace-role-card .pct-t .pct-tl > span::before{content:"";position:absolute;left:0;top:0;width:4.63cqw;height:4.63cqw;border-radius:50%;background:currentColor}
+.workspace-role-card .pct-t .pct-tl > span::after{content:"";position:absolute;left:5.556cqw;top:1.852cqw;width:13.889cqw;height:max(1px, 0.926cqw);background:currentColor;opacity:.4}
+.workspace-role-card .pct-t .pct-tl > span:last-child::after{display:none}
+.workspace-role-card .pct-t .pct-tl.pct-fade > span:nth-child(n+2){opacity:.28}
+.workspace-role-card .pct-t .pct-tl.pct-fade > span:nth-child(n+2)::before{background:none;border:max(1px, 0.694cqw) dashed currentColor}
+.workspace-role-card .pct-t .pct-dev{display:flex;gap:2.778cqw;align-items:flex-end;margin-top:max(1px, 0.926cqw)}
+.workspace-role-card .pct-t .pct-pc{flex:none;width:30.556cqw;height:22.222cqw;border-radius:1.852cqw;background:#fff;box-shadow:0 0 0 max(1px, 0.463cqw) #cfd4d8;padding:2.315cqw}
+.workspace-role-card .pct-t .pct-ph{flex:none;width:12.963cqw;height:25cqw;border-radius:2.315cqw;background:#fff;box-shadow:0 0 0 max(1px, 0.463cqw) #cfd4d8;padding:1.852cqw 1.389cqw;overflow:hidden}
+.workspace-role-card .pct-t .pct-pc b,.workspace-role-card .pct-t .pct-ph b{display:block;height:2.315cqw;border-radius:max(1px, 0.926cqw);background:currentColor;opacity:.75;margin-bottom:1.852cqw;width:70%}
+.workspace-role-card .pct-t .pct-pc s,.workspace-role-card .pct-t .pct-ph s{display:block;height:1.389cqw;border-radius:max(1px, 0.926cqw);background:currentColor;opacity:.3;margin-bottom:1.389cqw}
+.workspace-role-card .pct-t .pct-pc u,.workspace-role-card .pct-t .pct-ph u{display:block;height:6.481cqw;border-radius:max(1px, 0.926cqw);background:currentColor;opacity:.18}
+.workspace-role-card .pct-t .pct-ph.pct-bad b{width:27.778cqw}
+.workspace-role-card .pct-t .pct-ph.pct-bad s{width:24.074cqw}
+.workspace-role-card .pct-t .pct-ph.pct-bad u{width:30.556cqw;height:9.259cqw;opacity:.3}
+.workspace-role-card .pct-t .pct-wv{font-size:5.556cqw;font-weight:800;letter-spacing:-.03em;line-height:1.5;white-space:nowrap}
+.workspace-role-card .pct-t .pct-wv > span{text-decoration:underline wavy #8b9298 max(1px, 0.463cqw);text-underline-offset:max(1px, 0.926cqw)}
+.workspace-role-card .pct-t .pct-sl{background:#fff;border-radius:1.852cqw;padding:2.778cqw;height:38.889cqw;box-shadow:0 0 0 max(1px, 0.463cqw) #cfd4d8}
+.workspace-role-card .pct-t .pct-sl b{display:block;height:2.315cqw;width:60%;background:#8b9298;border-radius:max(1px, 0.926cqw);margin-bottom:2.315cqw}
+.workspace-role-card .pct-t .pct-sl s{display:block;height:1.389cqw;background:#b9bfc4;border-radius:max(1px, 0.926cqw);margin-bottom:1.62cqw}
+.workspace-role-card .pct-t .pct-dk{background:#1f3d2f;color:#fff;border-radius:1.852cqw;height:38.889cqw;padding:4.63cqw 4.167cqw;display:flex;flex-direction:column;justify-content:center}
+.workspace-role-card .pct-t .pct-dk b{font-size:6.019cqw;font-weight:800;line-height:1.25;letter-spacing:-.03em}
+.workspace-role-card .pct-t .pct-dk small{font-size:3.241cqw;letter-spacing:.1em;color:#cfe0d6;margin-bottom:2.315cqw}
+
+/* The pet layer covers the whole thumbnail while the card is pointed at or focused; it does not follow the mouse. */
+.workspace-role-card:hover .pct-t .pct-pn, .workspace-role-card:focus-within .pct-t .pct-pn { left: 0; }
+/* Once after the app starts: a small nudge, card by card (`--i` is the card's place in the list). */
+@keyframes pct-nudge { 0%, 100% { left: 40%; } 45% { left: 30%; } }
+.workspace-role-card .pct-t.pct-nudge .pct-pn { animation: pct-nudge 1s ease 1; animation-delay: calc(.4s + var(--i, 0) * .14s); }
+@media (prefers-reduced-motion: reduce) { .workspace-role-card .pct-t .pct-pn { transition: none; animation: none; } }
