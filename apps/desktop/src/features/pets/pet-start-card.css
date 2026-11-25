@@ -8,3 +8,4 @@
 .pet-start-quick button { height: 28px; padding: 0 10px; border: 1px solid #dfe3e6; border-radius: 999px; background: #fff; color: #3d444a; font: inherit; font-size: 12px; cursor: pointer; }
 .pet-start-quick button:disabled { opacity: .5; cursor: default; }
 .pet-start-card p { margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: #5f676e; }
+.pet-start-card .pet-start-to { margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

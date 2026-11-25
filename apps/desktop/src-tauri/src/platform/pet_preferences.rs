@@ -40,47 +40,8 @@ pub(crate) fn open_pet_in_claude(
         .map_err(|_| "Claude 앱을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.".into())
 }
 
-// Open a new Codex thread with the pet start request in the composer. The user
-// still sends it; long requests fall back to copying in the UI.
-#[tauri::command]
-pub(crate) fn open_pet_in_codex(
-    store: tauri::State<crate::application::store::SharedStore>,
-    pet_id: String,
-    expected_revision: u64,
-    prompt: String,
-) -> Result<(), String> {
-    let pet = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?
-        .saved_pet(&pet_id)?.ok_or("저장한 펫을 찾을 수 없어요.")?;
-    if pet.revision != expected_revision {
-        return Err("saved-pet-revision-changed".into());
-    }
-    let uri = codex_new_thread_uri(&pet.id, pet.revision, &prompt)?;
-    shell_open(&uri).map_err(|_| "Codex 앱을 열지 못했어요. Codex 앱이 설치돼 있는지 확인해 주세요.".into())
-}
-
-// Opens the chat that ran `$autopets` with the start request typed into its composer
-// (Codex Desktop's `codex://threads/<id>?prompt=` fills and focuses it). Nothing is sent:
-// the user presses send. The chat must still be the current setup chat, so a request
-// is never typed into another chat; long requests fall back to copying in the UI.
-#[tauri::command]
-pub(crate) fn open_pet_in_codex_chat(
-    window: tauri::WebviewWindow,
-    store: tauri::State<crate::application::store::SharedStore>,
-    pet_id: String,
-    expected_revision: u64,
-    prompt: String,
-    thread_id: String,
-    cwd: String,
-) -> Result<(), String> {
-    crate::platform::connection_setup::require_manager(window.label())?;
-    {
-        let current = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
-        crate::platform::codex_chat::check_target(&current, &pet_id, expected_revision, &prompt, &thread_id, &cwd)?;
-    }
-    let uri = codex_chat_uri(&thread_id, &cwd, &prompt)?;
-    shell_open(&uri).map_err(|_| "Codex 앱을 열지 못했어요. Codex 앱이 설치돼 있는지 확인해 주세요.".into())
-}
-
+// A chat's composer with the request typed in (`codex://threads/<id>?prompt=`, Codex Desktop fills and
+// focuses it). Used only when a request could not be sent (codex_chat::deliver); the user presses send.
 pub(crate) fn codex_chat_uri(thread_id: &str, cwd: &str, prompt: &str) -> Result<String, String> {
     let uri = format!("{}?prompt={}", crate::platform::task_return::task_uri(thread_id, cwd)?, percent_encode(prompt));
     if uri.len() > MAX_LAUNCH_URI { return Err("prompt-too-long".into()); }
@@ -111,7 +72,7 @@ pub(crate) fn open_pet_in_claude_code(
 
 // Skill hub: open one listed capability. The screen sends only an entry id and a target; the
 // address or the short prompt comes from the bundled list, so no arbitrary link can be opened.
-// A prompt is placed in the AI unsent. `source` opens the entry's official page.
+// A prompt is placed in the AI unsent (no entry shown on screen starts in Codex). `source` opens the entry's official page.
 #[tauri::command]
 pub(crate) fn start_hub_entry(app: tauri::AppHandle, id: String, target: String) -> Result<(), String> {
     let folder = if target == "claude-code" {

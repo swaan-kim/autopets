@@ -25,6 +25,7 @@
 .pet-review-headline { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; }
 .pet-review-headline span { color: #4a64ad; font-size: 13px; font-weight: 700; }
 .pet-review-guide { line-height: 1.5; color: #6b4e00; }
+.pet-review-to { overflow: hidden; color: #5c6066; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .pet-review-pills { display: flex; gap: 6px; }
 .pet-review-pill { flex: 1; min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: #f1f2f4; color: #2b2d31;
   font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
@@ -61,6 +62,7 @@
 .review-page h1 { margin: 4px 0 0; font-size: 24px; line-height: 1.3; outline: none; overflow-wrap: anywhere; }
 .review-page-meta { margin: -6px 0 0; color: #6b6f76; font-size: 14px; }
 .review-page-notice { margin: 0; color: #1f5e3a; font-size: 13px; font-weight: 650; }
+.review-page-chat { margin: 0; color: #5c6066; font-size: 13px; }
 .review-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .review-topics { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .review-topics li { padding: 4px 10px; border-radius: 999px; background: #f1f2f4; color: #2b2d31; font-size: 13px; font-weight: 600; }

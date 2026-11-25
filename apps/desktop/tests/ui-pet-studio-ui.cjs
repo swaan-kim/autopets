@@ -122,7 +122,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.equal(await count('connect_ai'),0,'nothing connects before the user chooses');
   await flow.getByRole('group',{name:'어디서 시작할까요?'}).getByRole('button',{name:'Codex',exact:true}).click();
   await flow.getByRole('alert').filter({hasText:'처리하지 못했어요'}).waitFor(); assert.equal(await count('connect_ai'),1);
-  assert.equal(await count('open_pet_in_codex'),0,'a failed connection stops before opening Codex');
+  assert.equal(await count('send_pet_start'),0,'a failed connection stops before opening Codex');
   assert.equal(await flow.getByText('펫 저장 ✓ · Codex 연결 · 새 대화 열림',{exact:true}).isVisible(),true,'the status line shows where it stopped');
   await page.evaluate(() => { window.__uiTest.connectionError=null; window.__uiTest.holdConnection=true; });
   await flow.getByRole('button',{name:'Codex에서 시작',exact:true}).evaluate(b=>{b.click();b.click();});
@@ -131,7 +131,10 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await flow.getByText('펫 저장 ✓ · Codex 연결 … · 새 대화 열림',{exact:true}).waitFor();
   await page.evaluate(()=>{window.__uiTest.holdConnection=false;window.__uiTest.releaseConnection();});
   await flow.getByText('펫 저장 ✓ · Codex 연결 ✓ · 새 대화 열림 ✓',{exact:true}).waitFor();
-  assert.equal(await count('open_pet_in_codex'),1);
+  assert.equal(await count('send_pet_start'),1);
+  // No chat is connected anywhere: only then a new Codex chat opens with the request typed in, for the user to send.
+  assert.equal((await page.evaluate(()=>window.__uiTest.calls.find(call=>call.name==='send_pet_start').args)).chat,null);
+  await flow.getByText('Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.',{exact:true}).waitFor();
   await showMore(flow);
   await flow.getByRole('radio',{name:'꼼꼼하게',exact:true}).check();
   await flow.getByRole('radio',{name:'표준',exact:true}).check();
@@ -206,9 +209,12 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await page.getByRole('heading',{name:'확인이 필요해요1',exact:true}).waitFor();
   assert.deepEqual(await page.locator('.workspace-activity > h2').allTextContents(),['확인이 필요해요1','최근 결과1']);
   await page.locator('.pet-card-0 .explicit-chat-help > summary').click();
+  // The earlier start in a new chat was a press; copying the implementation request sends nothing more.
+  const sends = () => page.evaluate(()=>window.__uiTest.calls.filter(c=>/submit|send|execute_pet/.test(c.name)).length);
+  const sendsBefore = await sends();
   await page.locator('.pet-card-0').getByRole('button',{name:'구현 요청 복사',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.__uiTest.clipboard),'그대로 구현해줘');
-  assert.equal(await page.evaluate(()=>window.__uiTest.calls.some(c=>/submit|send|execute_pet/.test(c.name))),false);
+  assert.equal(await sends(),sendsBefore,'copying sends nothing');
   await capture('returning');
   checks.push('single-screen composer: per-role drafts, keyboard profiles, failed setup/save, duplicate locking, clipboard fallback, stale revision recovery, exact A apply with unchanged B, home priority, temporary overlay suppression and no auto submission; small viewports approximate DPI, not native DPI evidence');
   await page.getByRole('button',{name:'펫 고르기',exact:true}).click(); await selectWeb();
@@ -250,7 +256,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   checks.push('unsupported routing, unavailable fresh snapshot and revision changed immediately after save never produce a request; closing restores keyboard focus');
   await page.close();
 
-  // `$autopets` from a Codex chat: choosing the pet type is enough; start types the request into that same chat.
+  // `$autopets` from a Codex chat: choosing the pet type is enough; start sends the request into that same chat.
   const CALLING = '22222222-3333-4444-8555-666666666666';
   const chatPage = await newPage({ width: 992, height: 688 });
   const chatState = structuredClone(base);
@@ -259,11 +265,13 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await chatPage.addInitScript(() => {
     const original = window.__TAURI_INTERNALS__.invoke;
     window.__TAURI_INTERNALS__.invoke = async (name, args) => {
-      if (name === 'open_pet_in_codex_chat') {
+      if (name === 'send_pet_start') {
         window.__uiTest.calls.push({ name, args: structuredClone(args) });
         if (window.__uiTest.holdChat) await new Promise(resolve => { window.__uiTest.releaseChat = resolve; });
-        if (window.__uiTest.chatPromptTooLong) throw 'prompt-too-long';
-        return null;
+        // Could not be sent, and too long to type in: the app hands the words back for the clipboard.
+        if (window.__uiTest.chatPromptTooLong) return { outcome: 'copy', threadId: args.chat.threadId, sentAt: Date.now(), chatOpened: false, reason: 'codex-queue-failed', text: '추가 조건 (fixture request)' };
+        if (window.__uiTest.sendFallback) return { outcome: 'filled', threadId: args.chat.threadId, sentAt: Date.now(), chatOpened: true, reason: window.__uiTest.sendFallback };
+        return { outcome: 'queued', id: 'delivery-calling', threadId: args.chat.threadId, sentAt: Date.now(), chatOpened: true };
       }
       return original(name, args);
     };
@@ -280,31 +288,53 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const startHere = chatFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true });
   assert.equal(await startHere.getAttribute('data-agent-id'), 'pet-selection.composer.start');
   assert.equal(await startHere.isEnabled(), true, 'from the calling chat the extra request is optional');
-  assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /continue_pet|save_pet|connect_ai|open_pet/.test(call.name))), false, 'choosing a pet sends nothing');
+  assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /send_|save_pet|connect_ai|open_pet/.test(call.name))), false, 'choosing a pet sends nothing');
+  await chatFlow.getByText('시작을 누르면 이 채팅으로 요청을 바로 보내요. 웹페이지 만들기 펫이 이어받아요.', { exact: true }).waitFor();
   await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === true);
   await chatPage.evaluate(() => { window.__uiTest.holdChat = true; });
   await startHere.evaluate(button => { button.click(); button.click(); });
-  await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 …', { exact: true }).waitFor();
+  await chatFlow.getByText('펫 저장 ✓ · 보내기 …', { exact: true }).waitFor();
   await chatPage.evaluate(() => { window.__uiTest.holdChat = false; window.__uiTest.releaseChat(); });
-  await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 ✓', { exact: true }).waitFor();
-  await chatFlow.getByText('Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+  await chatFlow.getByText('펫 저장 ✓ · 보내기 ✓', { exact: true }).waitFor();
+  const sendStatus = chatFlow.locator('[data-agent-id="pet-selection.composer.send-status"]');
+  await sendStatus.getByText('「학과 행사 페이지」에 보냈어요', { exact: true }).waitFor();
+  // Codex's own history shows the request as a user turn: started.
+  await sendStatus.getByText('시작됐어요', { exact: true }).waitFor();
+  assert.equal(await chatFlow.getByText(/보내기만 누르세요/).count(), 0, 'sent: nothing to press in Codex');
   // The pet now works in Codex: minimizing Codex focuses this screen, which must not hide the working pet.
   await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === false);
-  const typed = await chatPage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex_chat').map(call => call.args));
-  assert.equal(typed.length, 1, 'a double click opens the chat once');
-  assert.equal(typed[0].threadId, CALLING); assert.equal(typed[0].cwd, 'C:/UI fixture only/calling');
-  assert.ok(typed[0].prompt.includes(`petId=${typed[0].petId}, petRevision=${typed[0].expectedRevision}`));
-  assert.ok(typed[0].prompt.includes('이 채팅에서 앞서 요청한 일을 이 펫으로'), 'without extra text the pet takes over the request already in the chat');
-  assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /continue_pet|open_pet_in_codex$|apply_pet|connect_ai|submit|send|execute/.test(call.name))), false,
-    'it only types into the calling chat: never queues or sends, opens another chat, or reconnects (which would forget the calling chat)');
-  // A request too long for the link falls back to copying, as for a new chat.
+  const sentHere = await chatPage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'send_pet_start').map(call => call.args));
+  assert.equal(sentHere.length, 1, 'a double click sends once');
+  assert.deepEqual(sentHere[0].chat, { threadId: CALLING, cwd: 'C:/UI fixture only/calling' }, 'only the chat shown on screen');
+  assert.deepEqual(sentHere[0].start, { kind: 'detail', task: '', audience: '', message: '', newTask: false }, 'without extra text the pet takes over the request already in the chat');
+  assert.deepEqual(Object.keys(sentHere[0]).sort(), ['chat', 'expectedRevision', 'petId', 'start'], 'the screen passes fields, never the words');
+  assert.equal(await chatPage.evaluate(() => window.__uiTest.calls.some(call => /open_pet_in_codex|apply_pet|connect_ai|submit|execute/.test(call.name))), false,
+    'it only sends into the calling chat: never opens another chat or reconnects (which would forget the calling chat)');
+  // Codex could not take it: typed into the same chat instead, with one line saying why.
+  await chatFlow.getByLabel('펫에게 맡길 일', { exact: true }).fill('날짜와 장소 포함');
+  await chatPage.evaluate(() => { window.__uiTest.sendFallback = 'codex-cli-unavailable'; });
+  await startHere.click();
+  await sendStatus.getByText('Codex 앱의 전송 도구를 찾지 못했어요. 「학과 행사 페이지」 입력칸에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+  await chatPage.evaluate(() => { window.__uiTest.sendFallback = null; });
+  // ...and when it is also too long to type in, the words are copied.
   await chatFlow.getByLabel('펫에게 맡길 일', { exact: true }).fill('추가 조건');
   await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === true);
   await chatPage.evaluate(() => { window.__uiTest.chatPromptTooLong = true; });
   await startHere.click();
   await chatFlow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
   assert.ok((await chatPage.evaluate(() => window.__uiTest.clipboard)).includes('추가 조건'));
+  await chatPage.evaluate(() => { window.__uiTest.chatPromptTooLong = false; });
   const callingImage = path.join(screenshotDir, 'ux-v2-calling-chat.png'); await chatPage.screenshot({ path: callingImage, fullPage: true, animations: 'disabled' }); images.push(callingImage);
+  // Not only 복습 도우미 or 웹페이지: 하루 정리 started from the calling chat is sent there too.
+  await leaveComposer(chatFlow); await dismissRoleDetail(chatPage);
+  await chatPage.getByRole('button', { name: '일상', exact: true }).click(); await chooseRole(chatPage, '하루 정리');
+  await chatFlow.getByRole('heading', { name: '하루 정리', exact: true }).waitFor();
+  await chatFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
+  await sendStatus.getByText('시작됐어요', { exact: true }).waitFor();
+  const daily = await chatPage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'send_pet_start').at(-1).args);
+  assert.deepEqual(daily.chat, { threadId: CALLING, cwd: 'C:/UI fixture only/calling' });
+  const dailyPet = await chatPage.evaluate(id => window.__uiTest.roles.pets.find(pet => pet.id === id), daily.petId);
+  assert.equal(dailyPet.template.id, 'daily-plan', 'the saved 하루 정리 pet is the one sent');
   await chatPage.close();
 
   // A pet recommended for a linked chat: the chat's request is shown, and start applies the pet to that chat.
@@ -331,6 +361,6 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   assert.deepEqual(recCalls.filter(call => call.name === 'apply_pet_link_template').map(call => call.args.target.threadId), [R]);
   assert.equal(recCalls.some(call => /continue_pet|open_pet_in_codex|submit|send|execute/.test(call.name)), false, 'applying never sends the request for the user');
   await recPage.close();
-  checks.push('calling chat: pet choice alone types the request into the chat that ran $autopets, once, with a save/type status line, no queue/send, no reconnect and no new chat; too-long requests are copied; a recommended chat shows its request and start applies only to that chat without sending');
+  checks.push('calling chat: choosing a pet sends nothing; start sends the request into the chat that ran $autopets once (double click), with 보냈어요 → 시작됐어요, no reconnect and no new chat, also for 하루 정리; a failed send types it in with the reason, too long is copied; a recommended chat shows its request and start applies only to that chat without sending');
   return images;
 };

@@ -1,10 +1,12 @@
-//! 복습 도우미: the pet types one fixed request into the composer of its own linked Codex chat
-//! (`codex://threads/<id>?prompt=`). Nothing is sent; the user presses send. The chat is always the
-//! pet link's target, never a guess at whichever chat is on screen. Also the app's 문제 묶음 pages
-//! (which fill a 복습 도우미 chat the same way), and the once-a-day "복습할 때예요" notice.
+//! 복습 도우미: the pet sends one fixed request into its own linked Codex chat when the user presses
+//! 문제 내기 / 쉽게 설명 / 복습하기 (`codex queue`, see codex_chat.rs; if that cannot be used the request
+//! is typed into the chat's composer instead). The chat is always the pet link's target, never a guess
+//! at whichever chat is on screen. Also the app's 문제 묶음 pages (which send to a 복습 도우미 chat the
+//! same way), and the once-a-day "복습할 때예요" notice, which never sends anything by itself.
 use crate::application::store::{SharedStore, Store};
 use crate::domain::{pet_link::Link, roles::RoleId};
-use std::{collections::HashMap, sync::Mutex, time::{Duration, Instant}};
+use crate::platform::codex_chat::{deliver, Delivery, REVIEW_REPEAT_MS};
+use std::time::Duration;
 use tauri::Manager;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
@@ -35,14 +37,11 @@ pub(crate) fn batch_prompt(name: &str, id: &str, kind: BatchKind) -> String {
     }
 }
 
-const REPEAT: Duration = Duration::from_secs(3);
-static RECENT: Mutex<Option<HashMap<String, (Kind, Instant)>>> = Mutex::new(None);
-
 fn pet_slot(label: &str) -> Result<usize, String> {
     match label { "pet-0" => Ok(0), "pet-1" => Ok(1), "pet-2" => Ok(2), _ => Err("펫 창에서만 사용할 수 있습니다.".into()) }
 }
 
-/// Which chat this pet window may type into, or why not. Checked in this order so the UI can show
+/// Which chat this pet window may send to, or why not. Checked in this order so the UI can show
 /// the existing "다시 연결" guide for a disconnected pet.
 pub(crate) fn check(store: &Store, slot: usize, kind: Kind, expected_revision: u64, now: u64) -> Result<Link, String> {
     let link = store.pet_links.values().find(|l| l.slot == slot).cloned().ok_or("pet-not-connected")?;
@@ -57,8 +56,8 @@ pub(crate) fn check(store: &Store, slot: usize, kind: Kind, expected_revision: u
     Ok(link)
 }
 
-/// Which chat a batch page fills: a connected 복습 도우미 in the chat that made the batch, else the
-/// connected one in the lowest slot. None connected: nothing is filled ("다시 연결" is shown).
+/// Which chat a batch page sends to: a connected 복습 도우미 in the chat that made the batch, else the
+/// connected one in the lowest slot. None connected: nothing is sent ("다시 연결" is shown).
 pub(crate) fn batch_link(store: &Store, thread_id: &str) -> Result<Link, String> {
     let mut links: Vec<&Link> = store.pet_links.values()
         .filter(|l| l.template.id == RoleId::ReviewHelper && l.target.source_id == crate::domain::connections::CODEX_LOCAL).collect();
@@ -68,48 +67,43 @@ pub(crate) fn batch_link(store: &Store, thread_id: &str) -> Result<Link, String>
     Ok((*link).clone())
 }
 
-fn once(key: String, kind: Kind) -> Result<bool, String> {
-    let mut recent = RECENT.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
-    let recent = recent.get_or_insert_with(HashMap::new);
-    if recent.get(&key).is_some_and(|(previous, at)| *previous == kind && at.elapsed() < REPEAT) { return Ok(false); }
-    recent.insert(key, (kind, Instant::now()));
-    Ok(true)
-}
-
-/// "문제 내기" / "쉽게 설명" / "복습하기": opens this pet's chat with the request in the composer.
+/// "문제 내기" / "쉽게 설명" / "복습하기" (also after a drop on Codex and in "복습할 때예요"): sends the
+/// fixed request into this pet's own chat. Pet windows only, and only when that button was pressed.
 #[tauri::command]
-pub(crate) fn fill_review_request(
+pub(crate) async fn send_review_request(
     window: tauri::WebviewWindow,
-    store: tauri::State<SharedStore>,
+    store: tauri::State<'_, SharedStore>,
     kind: Kind,
     expected_revision: u64,
-) -> Result<(), String> {
+) -> Result<Delivery, String> {
     let slot = pet_slot(window.label())?;
-    let link = {
+    let (data_dir, link) = {
         let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
-        check(&state, slot, kind, expected_revision, crate::domain::activity::now_ms())?
+        (state.data_dir.clone(), check(&state, slot, kind, expected_revision, crate::domain::activity::now_ms())?)
     };
-    if !once(window.label().to_owned(), kind)? { return Ok(()); }
-    open_chat(&link, prompt(kind))
+    deliver(data_dir, link.target, prompt(kind).to_owned(), REVIEW_REPEAT_MS).await
 }
 
-fn open_chat(link: &Link, text: &str) -> Result<(), String> {
-    let uri = super::pet_preferences::codex_chat_uri(&link.target.thread_id, &link.target.cwd, text)?;
-    super::pet_preferences::shell_open(&uri).map_err(|_| "Codex 앱을 열지 못했어요. Codex 앱이 설치돼 있는지 확인해 주세요.".into())
-}
-
-/// "Codex에서 복습 N" / "전체 다시 풀기" on a batch page: fills a 복습 도우미 chat. Manager window only.
+/// "Codex에서 복습 N" / "전체 다시 풀기" on a batch page: sends into the 복습 도우미 chat the page
+/// showed (`thread_id`). If another chat would be chosen now, nothing is sent. Manager window only.
 #[tauri::command]
-pub(crate) fn fill_review_batch(window: tauri::WebviewWindow, store: tauri::State<SharedStore>, batch_id: String, kind: BatchKind) -> Result<(), String> {
+pub(crate) async fn send_review_batch(
+    window: tauri::WebviewWindow,
+    store: tauri::State<'_, SharedStore>,
+    batch_id: String,
+    kind: BatchKind,
+    thread_id: String,
+) -> Result<Delivery, String> {
     super::connection_setup::require_manager(window.label())?;
-    let (link, text) = {
+    let (data_dir, link, text) = {
         let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
         let (batch, due) = state.review_batch_due(&batch_id, crate::domain::activity::now_ms())?;
         if kind == BatchKind::Due && due == 0 { return Err("no-review-due".into()); }
-        (batch_link(&state, &batch.thread_id)?, batch_prompt(&batch.name, &batch.id, kind))
+        let link = batch_link(&state, &batch.thread_id)?;
+        if link.target.thread_id != thread_id { return Err("review-chat-changed".into()); }
+        (state.data_dir.clone(), link, batch_prompt(&batch.name, &batch.id, kind))
     };
-    if !once(format!("{}:{batch_id}:{kind:?}", window.label()), Kind::Review)? { return Ok(()); }
-    open_chat(&link, &text)
+    deliver(data_dir, link.target, text, REVIEW_REPEAT_MS).await
 }
 
 /// The app's 문제 묶음 page. Manager window only.

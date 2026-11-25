@@ -116,7 +116,7 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await confirm.getByRole('button', { name: '연결하고 시작', exact: true }).click();
   await composer.getByRole('alert').filter({ hasText: 'Codex 연결이 아직 준비되지 않았어요.' }).waitFor();
   assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'connect_ai').length), 1);
-  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name === 'open_pet_in_codex')), false, 'an unready connection never opens Codex');
+  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name === 'send_pet_start')), false, 'an unready connection never opens Codex');
   await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();
   await page.waitForFunction(() => window.__uiTest.calls.filter(call => call.name === 'connect_ai').length === 2);
   await composer.getByRole('button', { name: '연결 설정 열기', exact: true }).waitFor();

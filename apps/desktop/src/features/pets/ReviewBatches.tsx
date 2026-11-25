@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PetLink } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
-import { FILLED_TEXT, LOST_TEXT, isReviewPet } from './ReviewMenu';
+import { LOST_TEXT, isReviewPet } from './ReviewMenu';
+import { sendFailure, sendText, useCodexSend, type Delivery } from './codexDelivery';
+import { chatName, useCodexChatTitles } from './useCodexChatTitles';
 import './review.css';
 
 // 복습 도우미 "문제 묶음" pages in the app: the batches (one per 문제 내기) and one batch's questions.
-// Quizzes, grading and reviews stay in the Codex chat: these pages only fill a 복습 도우미 chat's
-// composer ("Codex에서 복습 N", "전체 다시 풀기"); the user presses send. A batch is shown as a whole
+// Quizzes, grading and reviews stay in the Codex chat: "Codex에서 복습 N" and "전체 다시 풀기" send a
+// fixed request into the 복습 도우미 chat the page names (typed in instead when it cannot be sent),
+// only when pressed. A batch is shown as a whole
 // (what it is about, how many, the last score); its questions are not listed.
 export interface ReviewBatchView { id: string; name: string; threadId: string; createdAt: number; topics: string[]; count: number; correct: number; due: number; nextReviewDays: number }
 
@@ -16,8 +19,8 @@ const reviewWhen = (batch: ReviewBatchView) => batch.due > 0 ? `오늘 ${batch.d
 const madeOn = (ms: number) => { const at = new Date(ms); return `${at.getMonth() + 1}월 ${at.getDate()}일`; };
 const score = (batch: ReviewBatchView) => `지난번 ${batch.correct}/${batch.count}`;
 
-/** The 복습 도우미 whose chat a batch page fills: the one in the batch's chat first, then the lowest
- *  slot (the app checks again and fills only a connected one). */
+/** The 복습 도우미 whose chat a batch page sends to: the one in the batch's chat first, then the lowest
+ *  slot. Same order as the app's `batch_link`, which refuses to send if it would now pick another. */
 const reviewLinkFor = (links: PetLink[], threadId: string) => links.filter(isReviewPet)
   .sort((a, b) => Number(b.connected) - Number(a.connected) || Number(b.target.threadId === threadId) - Number(a.target.threadId === threadId) || a.slot - b.slot)[0];
 
@@ -89,28 +92,30 @@ function failure(cause: unknown) {
   if (text.includes('pet-not-connected')) return 'lost';
   if (text.includes('no-review-pet')) return '복습 도우미가 연결된 채팅이 없어요. Codex 채팅에서 $autopets로 불러 주세요.';
   if (text.includes('no-review-due')) return '오늘 복습할 문제가 없어요.';
-  return '채팅을 열지 못했어요.';
+  return sendFailure(cause) ?? '보내지 못했어요.';
 }
 
 function ReviewBatchDetail({ id, revision, links, onBack }: { id: string; revision: string; links: PetLink[]; onBack: () => void }) {
   const heading = useHeading(id);
   const [page, setPage] = useState<ReviewBatchView | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
+  const sent = useCodexSend();
+  const busy = sent.busy;
   const load = async () => {
     try { setPage(await command<ReviewBatchView>('review_batch', { id })); setError(''); }
     catch (cause) { if (String(cause).includes('review-batch-not-found')) onBack(); else setError('문제를 불러오지 못했어요.'); }
   };
   useEffect(() => { void load(); }, [id, revision]);
+  const reconnect = page ? reviewLinkFor(links, page.threadId) : undefined;
+  const titles = useCodexChatTitles([reconnect?.target.threadId]);
+  const chat = reconnect ? chatName(titles, reconnect.target) : '';
   const fill = async (kind: 'due' | 'all') => {
     if (busy) return;
-    setBusy(true); setError(''); setNotice('');
-    try { await command('fill_review_batch', { batchId: id, kind }); setNotice(`Codex 입력칸에 넣었어요. ${FILLED_TEXT}.`); }
+    if (!reconnect) { setError(failure('no-review-pet')); return; }
+    setError('');
+    try { await sent.send(() => command<Delivery>('send_review_batch', { batchId: id, kind, threadId: reconnect.target.threadId }), chat); }
     catch (cause) { setError(failure(cause)); }
-    finally { setBusy(false); }
   };
-  const reconnect = page ? reviewLinkFor(links, page.threadId) : undefined;
   if (!page) return <section className="review-page" data-agent-id="task-card.review-batch" aria-label="문제 묶음">
     <button type="button" className="text-button workspace-detail-back" data-agent-id="task-card.review-batch.back" onClick={onBack}>← 문제 묶음</button>
     {error ? <p className="error" role="alert">{error}</p> : <p className="review-cards-empty">불러오는 중…</p>}
@@ -124,7 +129,8 @@ function ReviewBatchDetail({ id, revision, links, onBack }: { id: string; revisi
       {page.due > 0 && <button type="button" className="button primary" data-agent-id="task-card.review-batch.due" disabled={busy} onClick={() => void fill('due')}>Codex에서 복습 {page.due}</button>}
       <button type="button" className={`button ${page.due > 0 ? 'secondary' : 'primary'}`} data-agent-id="task-card.review-batch.all" disabled={busy} onClick={() => void fill('all')}>전체 다시 풀기</button>
     </div>
-    {notice && <p className="review-page-notice" role="status">{notice}</p>}
+    {reconnect && <p className="review-page-chat" data-agent-id="task-card.review-batch.chat">보낼 채팅: 「{chat}」</p>}
+    {sent.view && <p className="review-page-notice" role="status">{sendText(sent.view)}</p>}
     {error === 'lost'
       ? <div className="composer-feedback" role="alert"><p>{LOST_TEXT}</p>
         {reconnect && <button type="button" className="text-button" data-agent-id="task-card.review-batch.reconnect" onClick={() => void command('open_pet_task', { target: reconnect.target, expectedRevision: reconnect.revision }).catch(() => setError('채팅을 열지 못했어요.'))}>다시 연결</button>}</div>

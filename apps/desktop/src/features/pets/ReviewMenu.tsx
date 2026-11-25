@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { PetLink, ReviewSummary } from '@autopets/contracts/types';
 import { command, isDesktop } from '../../bridge/command';
+import { sendFailure, type Delivery } from './codexDelivery';
 import './review.css';
 
-// 복습 도우미 (review-helper). The pet only types a fixed request into its own linked Codex chat;
-// quizzes, explanations, grading and reviews all happen in that chat, never on the pet.
+// 복습 도우미 (review-helper). A press sends a fixed request into the pet's own linked Codex chat
+// (`send_review_request`; typed into its input box instead when it cannot be sent). Quizzes,
+// explanations, grading and reviews all happen in that chat, never on the pet. Showing a menu or
+// a bubble never sends anything.
 export type ReviewKind = 'quiz' | 'explain' | 'review';
 export const isReviewPet = (link: PetLink | undefined) => link?.template.id === 'review-helper';
 export const NO_REVIEW: ReviewSummary = { due: 0, total: 0, batches: 0, notifiedToday: true };
-export const FILLED_TEXT = '보내기만 누르세요';
 export const LOST_TEXT = '연결이 끊겼어요. “다시 연결”을 눌러 주세요.';
 
 function failure(cause: unknown) {
@@ -17,11 +19,11 @@ function failure(cause: unknown) {
   if (text.includes('pet-run-active-or-unresolved')) return '지금 작업을 먼저 확인해 주세요.';
   if (text.includes('no-review-due')) return '오늘 복습할 문제가 없어요.';
   if (text.includes('pet-revision-changed')) return '설정이 바뀌었어요. 다시 눌러 주세요.';
-  return '채팅을 열지 못했어요.';
+  return sendFailure(cause) ?? '보내지 못했어요.';
 }
 
-/** Fills the pet's own chat composer (`fill_review_request`). A disconnected pet never fills. */
-export function useReviewFill(link: PetLink, lost: boolean, onFilled: () => void) {
+/** Sends into the pet's own chat (`send_review_request`), once per press. A disconnected pet never sends. */
+export function useReviewSend(link: PetLink, lost: boolean, onSent: (delivery: Delivery) => void) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef(false);
@@ -30,8 +32,7 @@ export function useReviewFill(link: PetLink, lost: boolean, onFilled: () => void
     if (lost) { setError(LOST_TEXT); return; }
     pending.current = true; setBusy(true); setError('');
     try {
-      if (isDesktop) await command('fill_review_request', { kind, expectedRevision: link.revision });
-      onFilled();
+      if (isDesktop) onSent(await command<Delivery>('send_review_request', { kind, expectedRevision: link.revision }));
     } catch (cause) { setError(failure(cause)); }
     finally { pending.current = false; setBusy(false); }
   };
@@ -48,8 +49,8 @@ const Icon = ({ name }: { name: keyof typeof icons }) => <svg className="pet-rev
 
 /** The menu at the top of the 복습 도우미 popup: 복습하기 N first when cards are due, then 문제 내기,
  *  쉽게 설명 and 문제 묶음 N (opens the app's 문제 묶음 page). */
-export function ReviewMenu({ link, review, lost, onFilled }: { link: PetLink; review: ReviewSummary; lost: boolean; onFilled: () => void }) {
-  const { busy, error, fill } = useReviewFill(link, lost, onFilled);
+export function ReviewMenu({ link, review, lost, onSent }: { link: PetLink; review: ReviewSummary; lost: boolean; onSent: (delivery: Delivery) => void }) {
+  const { busy, error, fill } = useReviewSend(link, lost, onSent);
   const item = (kind: ReviewKind | 'saved', label: string, onClick: () => void, primary = false, disabled = false) =>
     <button key={kind} type="button" className={`pet-review-item${primary ? ' primary' : ''}`} data-agent-id={`task-card.review-${kind}`}
       aria-label={label} disabled={busy || disabled} onClick={onClick}><Icon name={kind} /><span>{label}</span></button>;
@@ -80,31 +81,33 @@ function useDismiss(ref: RefObject<HTMLElement | null>, onClose: () => void, idl
   }, [ref, idleMs]);
 }
 
-/** Dropped on a Codex window: 문제 내기 / 쉽게 설명 next to the pet. A disconnected pet shows the
- *  existing reconnect guide instead and fills nothing. */
-export function ReviewDropMenu({ link, lost, onFilled, onReconnect, onClose }: { link: PetLink; lost: boolean; onFilled: () => void; onReconnect: () => void; onClose: () => void }) {
+/** Dropped on a Codex window: 문제 내기 / 쉽게 설명 next to the pet, and the chat they go to. The drop
+ *  itself sends nothing. A disconnected pet shows the existing reconnect guide instead. */
+export function ReviewDropMenu({ link, chat, lost, onSent, onReconnect, onClose }: { link: PetLink; chat: string; lost: boolean; onSent: (delivery: Delivery) => void; onReconnect: () => void; onClose: () => void }) {
   const ref = useRef<HTMLElement>(null);
-  const { busy, error, fill } = useReviewFill(link, lost, onFilled);
+  const { busy, error, fill } = useReviewSend(link, lost, onSent);
   useDismiss(ref, onClose, 15000);
   return <section ref={ref} className="pet-review-bubble" data-agent-id="task-card.review-drop" aria-label="복습 도우미 메뉴">
     {lost
       ? <><p className="pet-review-guide">“다시 연결”을 누르면 채팅을 열고 다시 이어요.</p>
         <button type="button" className="pet-review-pill primary" data-agent-id="task-card.review-reconnect" onClick={() => { onReconnect(); onClose(); }}>다시 연결</button></>
-      : <div className="pet-review-pills">
+      : <><p className="pet-review-to" data-agent-id="task-card.review-drop-chat">→ 「{chat}」</p><div className="pet-review-pills">
         <button type="button" className="pet-review-pill primary" data-agent-id="task-card.review-drop-quiz" disabled={busy} onClick={() => void fill('quiz')}>문제 내기</button>
         <button type="button" className="pet-review-pill" data-agent-id="task-card.review-drop-explain" disabled={busy} onClick={() => void fill('explain')}>쉽게 설명</button>
-      </div>}
+      </div></>}
     {error && <p className="pet-review-error" role="alert">{error}</p>}
   </section>;
 }
 
-/** Once a day: "복습할 때예요" with a start button that fills "복습 문제 내줘". */
-export function ReviewDueBubble({ link, due, lost, onFilled, onClose }: { link: PetLink; due: number; lost: boolean; onFilled: () => void; onClose: () => void }) {
+/** Once a day: "복습할 때예요" with a start button that sends "복습 문제 내줘" to the chat it names.
+ *  The bubble itself sends nothing. */
+export function ReviewDueBubble({ link, chat, due, lost, onSent, onClose }: { link: PetLink; chat: string; due: number; lost: boolean; onSent: (delivery: Delivery) => void; onClose: () => void }) {
   const ref = useRef<HTMLElement>(null);
-  const { busy, error, fill } = useReviewFill(link, lost, onFilled);
+  const { busy, error, fill } = useReviewSend(link, lost, onSent);
   useDismiss(ref, onClose, 60000);
   return <section ref={ref} className="pet-review-bubble due" data-agent-id="task-card.review-due" role="status" aria-label={`복습할 때예요 · ${due}개`}>
     <p className="pet-review-headline"><strong>복습할 때예요</strong><span>{due}개</span></p>
+    <p className="pet-review-to" data-agent-id="task-card.review-due-chat">→ 「{chat}」</p>
     <div className="pet-review-pills">
       <button type="button" className="pet-review-pill primary" data-agent-id="task-card.review-due-start" disabled={busy} onClick={() => void fill('review')}>시작</button>
       <button type="button" className="pet-review-pill" data-agent-id="task-card.review-due-later" onClick={onClose}>나중에</button>

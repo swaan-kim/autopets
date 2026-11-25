@@ -124,7 +124,7 @@ test('the review skill keeps its question criteria and saves exactly the fields 
   assert.match(rust, /pub const CARDS_PER_SAVE: usize = 10;/u, 'the app saves a quiz of up to 10 questions');
   assert.equal(typeof example.title, 'string', 'the child names the batch');
   for (const key of ['"batch":{"name"', '"batch":{"id"', 'review-due --batch', '--mode all', '"all":true', '`wrong`']) assert.ok(guide.includes(key), `the chat guide covers ${key}`);
-  // The composer requests stay short; the criteria live only in the skill.
+  // The requests the app sends stay short; the criteria live only in the skill.
   const chat = await fs.readFile(new URL('../../../apps/desktop/src-tauri/src/platform/review_chat.rs', import.meta.url), 'utf8');
   assert.match(chat, /Kind::Quiz => "AutoPets 스킬로 방금 공부한 내용으로 문제 10개 내줘",/u);
   assert.match(chat, /「\{name\}」 복습 문제 내줘 \(묶음 \{id\}\)/u, 'no fixed count');

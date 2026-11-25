@@ -97,6 +97,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         // Read-only: Codex's own chat names for labels. Not an action, so not in `calls`.
         if (name === 'codex_chat_titles') return structuredClone(window.__uiTest.chatTitles ?? {});
+        // Polled after a send; not recorded as a call. 'started' unless a test says otherwise.
+        if (name === 'codex_send_status') return window.__uiTest.sendStatus ?? 'started';
         calls.push({ name, args });
         if (name === 'save_pet') {
           if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
@@ -131,9 +133,20 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
-        if (name === 'open_pet_in_codex') {
-          if (window.__uiTest.codexPromptTooLong) throw 'prompt-too-long';
-          return null;
+        // Sending into a Codex chat (codex_chat.rs `deliver`), stood in for: never reaches Codex.
+        //   sendError: refused (thrown) · sendFallback: could not send, typed in instead (reason)
+        //   sendDelay: ms before answering, for double-press checks · codexPromptTooLong: new chat too long
+        if (name === 'send_pet_start' || name === 'send_review_request' || name === 'send_review_batch') {
+          if (window.__uiTest.sendDelay) await new Promise(resolve => setTimeout(resolve, window.__uiTest.sendDelay));
+          if (name === 'send_review_batch' && window.__uiTest.reviewFillError) throw window.__uiTest.reviewFillError;
+          if (window.__uiTest.sendError) throw window.__uiTest.sendError;
+          const sentAt = Date.now();
+          const threadId = name === 'send_pet_start' ? args.chat?.threadId ?? null : name === 'send_review_batch' ? args.threadId
+            : (state.petLinks || []).find(link => link.slot === 0)?.target.threadId ?? null;
+          if (name === 'send_pet_start' && !args.chat) return window.__uiTest.codexPromptTooLong
+            ? { outcome: 'copy', sentAt, chatOpened: false, text: 'fixture start request (too long for a link)' } : { outcome: 'new-chat', sentAt, chatOpened: true };
+          if (window.__uiTest.sendFallback) return { outcome: 'filled', threadId, sentAt, chatOpened: true, reason: window.__uiTest.sendFallback };
+          return { outcome: 'queued', id: `delivery-${calls.length}`, threadId, sentAt, chatOpened: true };
         }
         if (name === 'connect_claude_code' || name === 'disconnect_claude_code') {
           if (window.__uiTest.claudeCodeError) throw '이 PC에서 Claude Code를 찾지 못했어요.';
@@ -310,7 +323,6 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           window.__uiTest.emitEvent('autopets://snapshot', { ...structuredClone(state), now: Date.now() });
           return name === 'delete_review_card' ? emptied : null;
         }
-        if (name === 'fill_review_batch' && window.__uiTest.reviewFillError) throw window.__uiTest.reviewFillError;
         if (['configure_workflow_task', 'approve_workflow_plan', 'allow_workflow_once'].includes(name)) return structuredClone(workflowTask);
         if (/approval|pause|stop|open_task/.test(name)) throw Error('unsupported operation called');
         return null;

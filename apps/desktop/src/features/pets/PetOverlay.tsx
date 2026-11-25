@@ -29,7 +29,9 @@ import { usePetSettings, usePetSettingsTry, type AlertKind } from './petSettings
 import { TurnProgressCard, progressForSlot, turnView } from './turnProgress';
 import { PetDockHandle } from './PetDockHandle';
 import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention, type MarkControls } from './PetAttention';
-import { FILLED_TEXT, isReviewPet, NO_REVIEW, ReviewDropMenu, ReviewDueBubble } from './ReviewMenu';
+import { isReviewPet, NO_REVIEW, ReviewDropMenu, ReviewDueBubble } from './ReviewMenu';
+import { sendText, useCodexSend, type Delivery } from './codexDelivery';
+import { chatName, useCodexChatTitles } from './useCodexChatTitles';
 import { PetBubble, jobBubble, noticeSeen, sessionBubble } from './PetBubble';
 import { HOST_NAMES, JOB_ACTIVE_MS, PetJobList, activeJob, openJobResult } from './PetJobs';
 import type { CompanionState } from './companionMotion';
@@ -68,14 +70,17 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const bubbled = useRef(new Set<string>());
   // Dragging the pet body moves its window; the open card and the bubble close first.
   // 복습 도우미 only: the panel shown after a drop on a Codex window, today's "복습할 때예요" bubble,
-  // "여기에 놓기" while dragging over Codex, and "보내기만 누르세요" after a request was typed in.
+  // "여기에 놓기" while dragging over Codex, and what happened to a request after a press
+  // (보내는 중… → 「채팅」에 보냈어요 → 시작됐어요, or "보내기만 누르세요" when it was only typed in).
   const reviewLink = snapshot.petLinks?.find(link => link.slot === index);
   const reviewPet = isReviewPet(reviewLink);
   const review = snapshot.review ?? NO_REVIEW;
   const [dragOverCodex, setDragOverCodex] = useState(false);
   const [dropMenu, setDropMenu] = useState(false);
   const [dueBubble, setDueBubble] = useState(false);
-  const [filled, setFilled] = useState(0);
+  const sent = useCodexSend();
+  const reviewChatTitles = useCodexChatTitles([reviewPet ? reviewLink?.target.threadId : null]);
+  const reviewChat = reviewLink ? chatName(reviewChatTitles, reviewLink.target) : '';
   const dueShown = useRef(false);
   const gesture = usePetGesture({ onDragStart: () => { setExpanded(false); closeBubble(); setDropMenu(false); setDueBubble(false); } });
   // Dropped at the left or right screen edge, the pet tucks into a small handle there.
@@ -129,14 +134,18 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     });
     return () => { disposed = true; removers.forEach(remove => remove()); };
   }, [index, reviewPet]);
+  // The status stays while Codex is picking the request up; a final word stays a few seconds.
+  const sentPhase = sent.view?.phase;
   useEffect(() => {
-    if (!filled) return;
-    const timer = setTimeout(() => setFilled(0), 3000);
+    if (!sentPhase || sentPhase === 'sending') return;
+    const final = sentPhase === 'started' || sentPhase === 'filled' || sentPhase === 'new-chat' || sentPhase === 'copy';
+    const timer = setTimeout(sent.clear, final ? 6000 : 150_000);
     return () => clearTimeout(timer);
-  }, [filled]);
-  const reviewFilled = () => { setFilled(Date.now()); setExpanded(false); setDropMenu(false); setDueBubble(false); };
-  const reviewStatusText = !reviewPet ? '' : filled ? FILLED_TEXT : dragOverCodex ? '여기에 놓기' : '';
-  const reviewStatus = reviewStatusText && <span className={`floating-status ${filled ? 'review-filled' : 'review-drop'}`} role="status" title={reviewStatusText}>{reviewStatusText}</span>;
+  }, [sentPhase]);
+  const reviewSent = (delivery: Delivery) => { sent.track(delivery, reviewChat); setExpanded(false); setDropMenu(false); setDueBubble(false); };
+  const sentShown = sent.view && !dragOverCodex ? sent.view : null;
+  const reviewStatusText = !reviewPet ? '' : dragOverCodex ? '여기에 놓기' : sentShown ? sendText(sentShown, true) : '';
+  const reviewStatus = reviewStatusText && <span className={`floating-status ${sentShown ? `review-filled review-${sentShown.phase}` : 'review-drop'}`} role="status" title={sentShown ? sendText(sentShown) : reviewStatusText}>{reviewStatusText}</span>;
   const [petSettings] = usePetSettings();
   useEffect(() => {
     if (!unread || bubbled.current.has(unread.id) || expanded || dock.phase !== 'shown' || !petSettings.bubbleWhenOut) return;
@@ -311,13 +320,13 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     }
     const reviewLost = disconnected || !explicit.connected;
     const reviewPanel = reviewOpen && (dropMenu
-      ? <ReviewDropMenu link={explicit} lost={reviewLost} onFilled={reviewFilled} onClose={() => setDropMenu(false)}
+      ? <ReviewDropMenu link={explicit} chat={reviewChat} lost={reviewLost} onSent={reviewSent} onClose={() => setDropMenu(false)}
         onReconnect={() => { void command('open_pet_task', { target: explicit.target, expectedRevision: explicit.revision }).catch(() => setExpanded(true)); }} />
-      : <ReviewDueBubble link={explicit} due={review.due} lost={reviewLost} onFilled={reviewFilled} onClose={() => setDueBubble(false)} />);
+      : <ReviewDueBubble link={explicit} chat={reviewChat} due={review.due} lost={reviewLost} onSent={reviewSent} onClose={() => setDueBubble(false)} />);
     return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen || reviewOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
       {noticeBubble}
       {reviewPanel}
-      {expanded && <div className="quick-card-stack">{noticeCard}{progressCard}{offered && <PetRecommendationCard item={offered} compact />}<PetJobList jobs={jobs} compact /><PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} review={review} onReviewFilled={reviewFilled} /></div>}
+      {expanded && <div className="quick-card-stack">{noticeCard}{progressCard}{offered && <PetRecommendationCard item={offered} compact />}<PetJobList jobs={jobs} compact /><PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} review={review} onReviewSent={reviewSent} /></div>}
       <div className="floating-pet">
         <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}${reviewPet && review.due > 0 ? ` · 복습 ${review.due}개` : ''}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{mark}{reviewPet && review.due > 0 && <span className="pet-review-badge" aria-hidden="true">{review.due}</span>}</button>
         <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span>{summonStatus || reviewStatus || codexStatus || progressStatus || <PetBubble notice={offered ? null : reportedNotice} onOpen={openReported}><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span></PetBubble>}
@@ -339,7 +348,7 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   }
   return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
     {noticeBubble}
-    {expanded && <div className="quick-card-stack">{noticeCard}{progressCard}{!session && index === 0 && <PetStartCard setup={snapshot.setup} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || (jobLabel ? PET_NAMES[index] : '작업 연결 전')} help={!session && jobLabel ? jobLabel : help} showStep={Boolean(session) || !jobLabel}
+    {expanded && <div className="quick-card-stack">{noticeCard}{progressCard}{!session && index === 0 && <PetStartCard setup={snapshot.setup} links={snapshot.petLinks ?? []} disabled={!isDesktop || disconnected} />}{waitingRecommendation && <PetRecommendationCard item={waitingRecommendation} compact linked={false} />}<PetJobList jobs={jobs} compact /><PetQuickCard aiName={session ? 'Codex' : undefined} title={session?.label || (jobLabel ? PET_NAMES[index] : '작업 연결 전')} help={!session && jobLabel ? jobLabel : help} showStep={Boolean(session) || !jobLabel}
       goal={helpTask?.context.goal} constraints={helpTask?.context.constraints}
       currentStep={session?.planSteps?.find(step => step.status === 'in_progress')?.step}
       task={helpTask} workflowTask={workflowTask} defaultWorkStyle={assistance.snapshot.preferences.workStyle} assistanceEnabled={assistance.snapshot.preferences.enabled}
