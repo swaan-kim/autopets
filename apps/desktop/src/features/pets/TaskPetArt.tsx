@@ -51,27 +51,28 @@ const resultKinds: Record<string, string> = {
 };
 
 // Designed samples demonstrate output formats. They are never execution evidence.
-function ResultArtwork({ entry, mobile = false }: { entry: PetCatalogEntry; mobile?: boolean }) {
+function ResultArtwork({ entry, mobile = false, detail = false }: { entry: PetCatalogEntry; mobile?: boolean; detail?: boolean }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [entry.id, mobile]);
-  if (entry.id === 'ui-webpage') return <span className={`result-thumbnail result-thumbnail-web ${mobile ? 'mobile' : ''}`} role="img" aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${mobile ? '모바일' : '데스크톱'} 디자인 예시`}>
+  if (entry.id === 'ui-webpage') return <span className={`result-thumbnail result-thumbnail-web ${mobile ? 'mobile' : ''} ${detail ? 'detail' : ''}`} role="img" aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${mobile ? '모바일' : detail ? '세부' : '데스크톱'} 디자인 예시`}>
     {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> : <>
       {!mobile && <span className="result-browser-bar" aria-hidden="true"><i /><i /><i /><span>moru / open campus</span></span>}
       <img src={`/assets/design-example-v1/${mobile ? 'mobile' : 'desktop'}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />
     </>}
   </span>;
   return <span className={`result-thumbnail sample-output sample-${entry.id}`} role="img" aria-label={`${resultKinds[entry.id] ?? entry.name} 디자인 예시`}>
-    <ResultSample kind={entry.id} />
+    <ResultSample kind={entry.id} detail={detail} />
   </span>;
 }
 
-export function ResultPreview({ entry, compact = false }: { entry: PetCatalogEntry; compact?: boolean }) {
+export function ResultPreview({ entry, compact = false, gallery = false }: { entry: PetCatalogEntry; compact?: boolean; gallery?: boolean }) {
   const [mobile, setMobile] = useState(false);
+  const [detail, setDetail] = useState(false);
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const close = useRef<HTMLButtonElement>(null);
-  useEffect(() => { setMobile(false); setOpen(false); }, [entry.id]);
+  useEffect(() => { setMobile(false); setDetail(false); setOpen(false); }, [entry.id]);
   useEffect(() => {
     const element = dialog.current;
     if (!open || !element) return;
@@ -79,12 +80,21 @@ export function ResultPreview({ entry, compact = false }: { entry: PetCatalogEnt
     return () => { element.close(); trigger.current?.focus(); };
   }, [open]);
   if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example"><ResultArtwork entry={entry} /><small className="result-thumbnail-label">디자인 예시</small></span>;
-  return <figure className={`result-preview visual-result-preview designed-result result-${entry.id}`} aria-label={`${entry.name} 결과 예시`} data-evidence="design-example">
+  const views = [{ id: 'full', label: '전체' }, { id: 'detail', label: '세부' }, ...(entry.id === 'ui-webpage' ? [{ id: 'mobile', label: '모바일' }] : [])];
+  const selectedView = mobile ? 'mobile' : detail ? 'detail' : 'full';
+  return <figure className={`result-preview visual-result-preview designed-result result-${entry.id}`} aria-label={`${entry.name} 결과 예시`} data-evidence="design-example" data-gallery={gallery}>
     <div className="result-preview-toolbar">
-      {entry.id === 'ui-webpage' ? <div className="result-device-choice" role="group" aria-label="미리보기 화면"><button type="button" aria-pressed={!mobile} onClick={() => setMobile(false)}>데스크톱</button><button type="button" aria-pressed={mobile} onClick={() => setMobile(true)}>모바일</button></div> : <span className="result-preview-caption">결과 미리보기</span>}
+      {entry.id === 'ui-webpage' && !gallery ? <div className="result-device-choice" role="group" aria-label="미리보기 화면"><button type="button" aria-pressed={!mobile} onClick={() => setMobile(false)}>데스크톱</button><button type="button" aria-pressed={mobile} onClick={() => setMobile(true)}>모바일</button></div> : <span className="result-preview-caption">결과 미리보기</span>}
       <button type="button" ref={trigger} className="result-live-open" onClick={() => setOpen(true)}>크게 보기 ↗</button>
     </div>
-    <ResultArtwork entry={entry} mobile={mobile} /><figcaption><span>{resultKinds[entry.id] ?? entry.output}</span><small>디자인 예시</small></figcaption>
-    {open && <dialog ref={dialog} className="result-example-dialog" aria-label={entry.id === 'ui-webpage' ? '가상 학과 행사 디자인 예시' : `${entry.name} 디자인 예시`} onCancel={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false); } }}><div className="result-example-bar"><span>{entry.name} · 디자인 예시</span><button type="button" ref={close} onClick={() => setOpen(false)}>닫기 ×</button></div><div className="result-example-full"><ResultArtwork entry={entry} mobile={mobile} /></div></dialog>}
+    <ResultArtwork entry={entry} mobile={mobile} detail={detail} /><figcaption><span>{resultKinds[entry.id] ?? entry.output}</span><small>디자인 예시</small></figcaption>
+    {gallery && <div className="result-gallery-views" role="group" aria-label="미리보기 화면">
+      {views.map(view => <button type="button" key={view.id} aria-label={view.id === 'full' && entry.id === 'ui-webpage' ? '데스크톱' : view.label} aria-pressed={selectedView === view.id}
+        onClick={() => { setMobile(view.id === 'mobile'); setDetail(view.id === 'detail'); }}>
+        <span aria-hidden="true"><ResultArtwork entry={entry} mobile={view.id === 'mobile'} detail={view.id === 'detail'} /></span>
+        <span>{view.label}</span>
+      </button>)}
+    </div>}
+    {open && <dialog ref={dialog} className="result-example-dialog" aria-label={entry.id === 'ui-webpage' ? '가상 학과 행사 디자인 예시' : `${entry.name} 디자인 예시`} onCancel={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false); } }}><div className="result-example-bar"><span>{entry.name} · 디자인 예시</span><button type="button" ref={close} onClick={() => setOpen(false)}>닫기 ×</button></div><div className="result-example-full"><ResultArtwork entry={entry} mobile={mobile} detail={detail} /></div></dialog>}
   </figure>;
 }

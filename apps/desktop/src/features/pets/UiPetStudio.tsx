@@ -11,6 +11,7 @@ import { PetTaskReturn, canStartNewPetTask } from './PetTaskReturn';
 import { unresolvedPetRun } from './ExplicitPet';
 import { FavoriteButton } from './PetIntroduction';
 import { PetSkillSource } from './PetSkillSource';
+import { PetDetailExample, PetDetailNotes } from './PetDetailContent';
 import { PetPreferencesConnector, runClaudeAction } from '../onboarding/PetPreferencesConnector';
 import { PetRecommendationCard } from './PetRecommendation';
 import { chatDetail, chatName, useCodexChatTitles } from './useCodexChatTitles';
@@ -502,7 +503,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const whereChat = startMode === 'chat' && setupChat ? setupChat : startMode === 'apply' && target ? target.target : null;
   const where = whereChat ? `Codex 채팅 ${shortChat(whereChat)}` : startMode === 'claude' ? 'Claude' : 'Codex';
   const progressLine = progress?.steps.map((name, index) => index < progress.done ? `${name} ✓` : index === progress.done && busy ? `${name} …` : name).join(' · ');
-  const taskField = (label: string, placeholder: string) => <label className="composer-task"><span>{label}</span><textarea aria-label="펫에게 맡길 일" rows={4} maxLength={1200} disabled={busy} value={task} placeholder={placeholder} onChange={event => { setTask(event.target.value); invalidateRequest(); setProgress(null); }} /></label>;
+  const taskField = (label: string, placeholder: string) => <label className="composer-task"><span>{label}</span><textarea aria-label="펫에게 맡길 일" rows={3} maxLength={1200} disabled={busy} value={task} placeholder={placeholder} onChange={event => { setTask(event.target.value); invalidateRequest(); setProgress(null); }} /></label>;
   const exampleChip = <button className="pet-start-example" disabled={busy} onClick={() => { setTask(entry.example); invalidateRequest(); setProgress(null); }}>예시로 채우기</button>;
   const messages = <>
     {notice && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
@@ -515,14 +516,16 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     <PetWorkspace view={view} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} jobs={jobs} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="workspace-role-detail pet-start" data-agent-scope="pet-selection" data-agent-id="pet-selection.detail" data-role={entry.id} aria-label={`${entry.name} 살펴보기`}>
     <button className="text-button workspace-detail-back" data-agent-id="pet-selection.detail.back" disabled={busy} onClick={close}>← 돌아가기</button>
     <div className="workspace-detail-layout">
-      <div className="workspace-detail-preview" data-agent-id="pet-selection.detail.preview"><ResultPreview entry={entry} /></div>
+      <div className="workspace-detail-preview" data-agent-id="pet-selection.detail.preview"><ResultPreview entry={entry} gallery /><PetDetailExample entry={entry} /></div>
       <div className="workspace-detail-content pet-start-panel" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
+        <div className="pet-detail-overview">
         <header className="pet-start-identity composer-identity" data-agent-id="pet-selection.composer.identity">
           <TaskPetArt entry={entry} small paused interactive={false} />
-          <div><span className="composer-eyebrow">{saved ? '내 펫' : '새 펫'}</span><h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
+          <div>{saved && <span className="composer-eyebrow">내 펫</span>}<h1 ref={heading} tabIndex={-1}>{entry.name}</h1><PetSkillSource entry={entry} compact /></div>
           <FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} />
         </header>
         <p className="workspace-detail-summary">{entry.summary}</p>
+        <section className="pet-detail-start" aria-label="이 펫으로 시작">
         <h2 className="pet-start-question">{startMode === 'chat' || startMode === 'apply' ? '이 채팅에서 시작할까요?' : startMode === 'claude' ? 'Claude에서 시작할까요?' : '무엇을 맡길까요?'}</h2>
         {whereChat && <p className="pet-start-chat" data-agent-id="pet-selection.composer.chat" title={chatDetail(whereChat)}><small>Codex 채팅</small><strong>{shortChat(whereChat)}</strong></p>}
         {recommendedHere ? <section className="composer-recommended-request" data-agent-id="pet-selection.composer.recommended-request" aria-label="Codex 채팅에서 온 요청">
@@ -559,7 +562,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
         {newRecords.length > 0 && <p className="composer-observed" role="status">새 작업 기록을 채팅에서 확인해 주세요.</p>}
         {!isDesktop && <p className="workspace-note">설치 앱에서 사용할 수 있어요.</p>}
         {overlayError && <p role="status">{overlayError}</p>}
-        <div className="pet-start-summary"><span title={whereChat ? chatDetail(whereChat) : undefined}><span aria-hidden="true">● </span>{where} · {executionProfile?.label ?? '설정 확인'}</span>
+        <div className="pet-start-summary"><span title={whereChat ? chatDetail(whereChat) : undefined}>{where} · {executionProfile?.label ?? '설정 확인'}</span>
           <button className="text-button" data-agent-id="pet-selection.composer.change" aria-expanded={changeOpen} disabled={busy} onClick={() => setChangeOpen(value => !value)}>바꾸기</button></div>
         {changeOpen && <section className="pet-start-change composer-settings" data-agent-id="pet-selection.composer.details" aria-label="시작 설정 바꾸기">
           {!setupChat && <fieldset className="composer-profile-choice composer-profiles" disabled={busy}><legend>시작할 곳</legend><div>{([['codex', 'Codex'], ['claude', 'Claude']] as const).map(([id, label]) => <label key={id}><input type="radio" name="pet-start-host" aria-label={label} checked={host === id} onChange={() => { updatePrefs({ host: id }); setProgress(null); setPendingChoice(null); }} /><span><strong>{label}</strong></span></label>)}</div></fieldset>}
@@ -591,10 +594,11 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
             </>}
             <label className="ui-pet-select">저장한 구성<select ref={savedSelector} aria-label="저장한 구성" value={stale ? '__stale__' : saved?.id ?? ''} disabled={busy} onChange={event => selectSaved(uiPets.find(pet => pet.id === event.target.value))}>{stale && <option value="__stale__" disabled>최신 구성을 선택해 주세요</option>}<option value="">새 구성</option>{uiPets.map(pet => <option key={pet.id} value={pet.id}>{pet.template.name} · 수정 {pet.revision}</option>)}</select></label>
             {destinations.length > 0 && <section className="composer-destinations" data-next={copied && !stale} aria-label="등록된 Codex 채팅">{destinations.map(link => <div key={targetKey(link)}><small title={chatDetail(link.target)}>{shortChat(link.target)}</small><PetTaskReturn link={link} disconnected={disconnected} /></div>)}</section>}
-            <PetSkillSource entry={entry} />
           </section>
         </section>}
-        <details className="workspace-detail-more"><summary>일하는 방식 자세히</summary><p>{entry.after}</p><p>{entry.limit}</p></details>
+        </section>
+        </div>
+        <PetDetailNotes entry={entry} where={where} />
       </div>
     </div>
   </section>}</>;

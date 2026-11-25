@@ -1,9 +1,14 @@
 import { useId } from 'react';
 
 // Original design examples, not AI execution evidence. Reuse the same artwork at every size.
-export function ResultSample({ kind }: { kind: string }) {
+export function ResultSample({ kind, detail = false }: { kind: string; detail?: boolean }) {
   const id = 'sample' + useId().replace(/:/g, '');
-  return <svg viewBox="0 0 640 400" className="result-sample-art" aria-hidden="true" data-sample-kind={kind}>
+  const crops: Record<string, string> = {
+    'daily-plan': '244 24 372 352', 'travel-plan': '22 232 596 146',
+    'study-helper': '44 80 552 240', 'marketing-copy': '24 286 390 89',
+    presentation: '137 36 481 301',
+  };
+  return <svg viewBox={detail ? crops[kind] ?? '32 32 576 336' : '0 0 640 400'} className="result-sample-art" aria-hidden="true" data-sample-kind={kind}>
     <defs>
       <clipPath id={id + 'product'}><rect x="322" width="318" height="268" /></clipPath>
       <clipPath id={id + 'coast'}><rect width="640" height="264" /></clipPath>

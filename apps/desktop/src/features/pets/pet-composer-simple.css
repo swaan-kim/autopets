@@ -1,24 +1,23 @@
-/* Pet detail with one start button: the result preview on the left; on the right the pet,
-   one question, the request and start. Everything else is folded under "바꾸기". */
-.pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); }
-.pet-start-panel { display: flex; flex-direction: column; gap: 0; }
+/* Result gallery and example on the left; introduction, start and source on the right. */
+.pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 32px; align-items: start; }
+.pet-start-panel { display: flex; flex-direction: column; gap: 24px; }
 .pet-start-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .pet-start-identity > .task-pet-art { --pet-size: 68px; flex: 0 0 auto; }
 .pet-start-identity > .task-pet-art .pet-origin-badge { display: none; }
 .pet-start-identity > div { min-width: 0; flex: 1; }
 .pet-start .composer-eyebrow { display: block; margin-bottom: 3px; color: #7b8187; font-size: 12px; }
-.pet-start .pet-start-identity h1 { margin: 0; color: #20262b; font-size: 23px; line-height: 1.3; letter-spacing: -.6px; }
+.pet-start .pet-start-identity h1 { margin: 0; color: #20262b; font-size: 30px; line-height: 1.3; letter-spacing: -.6px; word-break: keep-all; overflow-wrap: anywhere; }
 .pet-start .pet-start-identity h1:focus { outline: none; }
 .pet-start-identity > .pet-favorite-button { width: 42px; min-width: 42px; min-height: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; border: 0; background: none; }
 .pet-start-identity > .pet-favorite-button > span:first-child { font-size: 23px; }
-.pet-start .workspace-detail-summary { margin: 12px 0 22px; }
-.pet-start .pet-start-question { margin: 0 0 12px; color: #20262b; font-size: 22px; font-weight: 700; line-height: 1.4; letter-spacing: -.5px; }
+.pet-start .workspace-detail-summary { margin: 20px 0 0; font-size: 16px; line-height: 1.7; word-break: keep-all; }
+.pet-start .pet-start-question { margin: 0 0 16px; color: #20262b; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: -.5px; }
 .pet-start-chat { display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%; margin: 0 0 12px; padding: 7px 12px; border-radius: 8px; background: #eef5f0; color: #20262b; }
 .pet-start-chat small { flex: none; color: #3f7a52; font-size: 12px; font-weight: 600; }
 .pet-start-chat strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
 .pet-start-hint { margin: 0 0 12px; color: #5d6870; font-size: 14px; line-height: 1.6; word-break: keep-all; }
 .pet-start .composer-task { display: grid; gap: 8px; color: #606970; font-size: 13px; }
-.pet-start .composer-task textarea { width: 100%; box-sizing: border-box; min-height: 120px; margin: 0; padding: 14px; border: 1px solid #dde1e4; border-radius: 12px; font: inherit; font-size: 15px; line-height: 1.7; resize: vertical; }
+.pet-start .composer-task textarea { width: 100%; box-sizing: border-box; min-height: 104px; margin: 0; padding: 14px; border: 1px solid #dde1e4; border-radius: 12px; font: inherit; font-size: 14px; line-height: 1.7; resize: vertical; }
 .pet-start .composer-task textarea { font-weight: 400; color: #252c32; }
 .pet-start .composer-task textarea::placeholder { color: #9aa3aa; font-weight: 400; }
 .pet-start-example { align-self: flex-start; margin-top: 10px; min-height: 32px; padding: 4px 12px; border: 1px solid #e0e4e7; border-radius: 999px; background: #fff; color: #4f5961; font-size: 13px; cursor: pointer; }
@@ -44,7 +43,6 @@
 .pet-start .composer-observed { margin: 10px 0 0; font-size: 13px; color: #2f6b43; }
 .pet-start-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: #5d6870; font-size: 13px; }
 .pet-start-summary > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pet-start-summary > span > span { color: #3f9a5d; }
 .pet-start-summary .text-button { min-height: 36px; padding: 0 4px; font-size: 13px; }
 .pet-start-change { display: grid; gap: 18px; margin-top: 10px; padding: 18px; border: 1px solid #e6e9ec; border-radius: 16px; background: #fbfcfc; }
 .pet-start-change .composer-profile-choice { margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -87,3 +85,55 @@
 }
 /* From the calling chat the extra request is optional, so its field stays small. */
 .pet-start .pet-start-hint + .composer-task textarea { min-height: 72px; }
+.pet-detail-overview, .pet-detail-note { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: #fff; min-width: 0; }
+.pet-detail-start { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+.pet-start-identity .pet-source-line { margin: 8px 0 0; font-size: 12px; }
+.pet-detail-note h2, .pet-detail-example h2, .pet-detail-about h2 { margin: 0; font-size: 16px; line-height: 1.5; letter-spacing: -.3px; }
+.pet-detail-note dl { margin: 20px 0 0; display: grid; gap: 16px; font-size: 13px; }
+.pet-detail-note dl > div { display: grid; gap: 4px; }
+.pet-detail-note dt { color: var(--muted); font-size: 12px; }
+.pet-detail-note dd { margin: 0; line-height: 1.7; overflow-wrap: anywhere; }
+.pet-detail-limit { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.7; color: #606970; word-break: keep-all; }
+.pet-detail-note .pet-skill-source { margin: 18px 0 0; padding: 0; border: 0; }
+.pet-detail-example { margin-top: 32px; border: 1px solid var(--line); border-radius: 22px; overflow: hidden; background: #fff; }
+.pet-detail-example > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+.pet-detail-example > header > span { flex: none; color: var(--muted); font-size: 12px; }
+.pet-detail-example-body { padding: 24px; }
+.pet-detail-example-request { max-width: 90%; width: fit-content; margin: 0 0 32px auto; padding: 18px 20px; border-radius: 18px 18px 4px 18px; background: #f4f5f6; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pet-detail-example-result h3 { margin: 0 0 16px; font-size: 15px; line-height: 1.6; }
+.pet-detail-example-result p { margin: 12px 0; line-height: 1.8; font-size: 14px; }
+.pet-detail-example-list { list-style: decimal-leading-zero; margin: 0; padding-left: 30px; }
+.pet-detail-example-list li { padding: 12px 0 12px 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.pet-detail-example-list li::marker { color: var(--muted); font-size: 12px; }
+.pet-detail-example-list li span { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.pet-detail-example-rows { margin: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.pet-detail-example-rows > div { display: grid; grid-template-columns: 80px 1fr; gap: 16px; padding: 16px; font-size: 14px; }
+.pet-detail-example-rows > div + div { border-top: 1px solid var(--line); }
+.pet-detail-example-rows dt { color: var(--muted); }
+.pet-detail-example-rows dd { margin: 0; }
+.pet-detail-example-copy > p:first-child strong { font-size: 24px; letter-spacing: -.6px; }
+.pet-detail-example-copy > span { display: inline-block; margin-top: 8px; font-size: 13px; color: #606970; }
+.pet-detail-example-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.pet-detail-example-sections > span { padding: 16px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+.pet-detail-example-slides { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.pet-detail-example-slides li { display: flex; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.pet-detail-example-slides li span { color: var(--muted); font-size: 12px; }
+.pet-detail-example-slides li strong { font-size: 14px; font-weight: 500; }
+.pet-detail-about { margin-top: 32px; padding: 0 4px; }
+.pet-detail-about p { margin: 14px 0 0; color: #606970; font-size: 14px; line-height: 1.8; }
+@media (max-width: 1100px) {
+  .pet-start .pet-start-identity h1 { font-size: 26px; }
+  .pet-start .workspace-detail-summary { margin-top: 16px; font-size: 15px; }
+  .pet-detail-overview, .pet-detail-note { padding: 20px; }
+  .pet-detail-start { margin-top: 20px; padding-top: 20px; }
+}
+@media (max-width: 760px) {
+  .pet-start .workspace-detail-preview { display: contents; }
+  .pet-start .workspace-detail-preview > .result-preview { grid-row: 1; }
+  .pet-start .workspace-detail-content { grid-row: 2; }
+  .pet-detail-reading { grid-row: 3; }
+  .pet-start-panel { gap: 20px; }
+  .pet-detail-overview, .pet-detail-note { padding: 20px; }
+  .pet-detail-example > header, .pet-detail-example-body { padding: 20px; }
+  .pet-detail-example-request { max-width: 100%; }
+}
