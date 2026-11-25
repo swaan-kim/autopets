@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
-import { hookEvent, interpret, deliver, toolKey, readTurn, chatTitle, main, ATTENTION_HOOK_MARKER } from '../hooks/attention-hook.mjs';
+import { hookEvent, interpret, deliver, toolKey, toolKind, planSteps, readTurn, chatTitle, main, ATTENTION_HOOK_MARKER } from '../hooks/attention-hook.mjs';
 import { mergeAttentionHooks, attentionHandler, attentionHookState, configureAttentionHook, ATTENTION_STATUS } from '../bootstrap/attention-hook.mjs';
 import { recommendationHandler, mergeRecommendationHook } from '../bootstrap/recommendation-hook.mjs';
 
@@ -51,6 +51,30 @@ test('the approved tool finishing and the answered question carry the matching k
   assert.deepEqual([ask.notice.reason, ask.notice.source, ask.notice.toolUseId], ['question', 'user-input', 'call_1']);
   assert.deepEqual(await interpret(hookEvent(base('PreToolUse', { tool_name: 'Bash', tool_input: {} }))), {});
   assert.equal((await interpret(hookEvent(base('UserPromptSubmit', { prompt: '그대로 구현해줘' })))).resolve.cause, 'user-message');
+});
+
+test('a finished tool also reports its kind; update_plan carries its steps only to a connected chat', async () => {
+  assert.deepEqual(['Bash', 'apply_patch', 'view_image', 'collaborationspawn_agent', 'collaborationwait_agent', 'clocksleep', 'update_plan', 'web_search', 'mcp__codex_apps__x', undefined].map(toolKind),
+    ['command', 'edit', 'read', 'agent', 'wait', 'wait', 'plan', 'search', 'other', 'other']);
+  const bash = await interpret(hookEvent(base('PostToolUse', { tool_name: 'Bash', tool_input: { command: 'rm -rf secret' } })));
+  assert.deepEqual(bash.progress, { sessionId: session, turnId: turn, tool: 'command' });
+  assert.equal(JSON.stringify(bash.progress).includes('secret'), false, 'never the arguments');
+  assert.deepEqual(planSteps({ plan: [{ step: ' 자료 조사\n', status: 'completed' }, { step: '초안', status: 'in_progress' }, { step: 'x', status: 'weird' }, { step: '  ', status: 'pending' }] }),
+    [{ step: '자료 조사', status: 'completed' }, { step: '초안', status: 'in_progress' }]);
+  assert.equal(planSteps({ plan: [] }), null); assert.equal(planSteps(null), null);
+  assert.equal(planSteps({ plan: Array.from({ length: 30 }, (_, n) => ({ step: 'a'.repeat(300) + n, status: 'pending' })) }).every(item => item.step.length === 160), true);
+  const planned = await interpret(hookEvent(base('PostToolUse', { tool_name: 'update_plan', tool_input: { plan: [{ step: '비밀 단계', status: 'in_progress' }] } })));
+  const outside = fakeBridge(false);
+  const sent = await deliver(planned, outside.request);
+  assert.deepEqual(outside.calls.map(call => call.body.operation), ['resolve', 'check', 'progress']);
+  assert.equal(JSON.stringify(outside.calls).includes('비밀'), false, 'no step text for a chat without a pet');
+  assert.equal(sent.progress, 'skipped');
+  const inside = fakeBridge(true);
+  await deliver(planned, inside.request);
+  assert.deepEqual(inside.calls.find(call => call.body.operation === 'progress').body.plan, [{ step: '비밀 단계', status: 'in_progress' }]);
+  // An app that does not know `progress` refuses only that; the resolution still counts.
+  const old = await deliver(bash, async (url, body) => { if (body.operation === 'progress') throw Object.assign(Error('bad'), { code: 'http', status: 400 }); return { ok: true, resolved: 1 }; });
+  assert.deepEqual(old, { resolved: 1, progress: 'refused' });
 });
 
 test('no notice text is sent for a chat that is not connected; resolutions are ids only', async () => {

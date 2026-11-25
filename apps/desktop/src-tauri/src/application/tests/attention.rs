@@ -1,5 +1,5 @@
 use crate::application::store::Store;
-use crate::domain::attention::{Cause, Evidence, Kind, Reason, Request, Source};
+use crate::domain::attention::{Cause, Evidence, Kind, Reason, Request, Source, Step, StepStatus, ToolKind};
 use crate::domain::pet_link::{Request as Link, Target};
 
 const A: &str = "01a1d04a-16f2-7522-9ce2-b3a7b57e8791";
@@ -150,4 +150,66 @@ fn diagnostics_report_ids_and_states_but_no_notice_text_and_record_where_the_pet
     assert_eq!(status["notices"][0]["displayedOn"], "handle");
     assert_eq!(status["notices"][0]["kind"], "completed");
     assert_eq!(status["links"].as_array().unwrap().len(), 2);
+}
+
+fn progress(session: &str, turn: &str, tool: ToolKind, plan: Option<Vec<Step>>) -> Request {
+    Request::Progress { session_id: session.into(), turn_id: turn.into(), tool, plan }
+}
+fn step(text: &str, status: StepStatus) -> Step { Step { step: text.into(), status } }
+
+#[test]
+fn a_request_is_timed_from_the_users_message_through_its_tools_until_the_turn_ends() {
+    let dir = tempfile::tempdir().unwrap(); let mut store = connected(dir.path());
+    assert!(store.snapshot().codex_progress.is_empty());
+    call(&mut store, resolve(A, T1, Cause::UserMessage, None, None)).unwrap();
+    let started = store.snapshot().codex_progress;
+    assert_eq!(started.len(), 1);
+    assert_eq!((started[0].target.thread_id.as_str(), started[0].turn_id.as_str(), started[0].partial, started[0].tools), (A, T1, false, 0));
+    call(&mut store, resolve(A, T1, Cause::ToolFinished, Some(KEY), None)).unwrap();
+    call(&mut store, progress(A, T1, ToolKind::Command, None)).unwrap();
+    call(&mut store, resolve(A, T1, Cause::ToolFinished, None, Some("call_2"))).unwrap();
+    call(&mut store, progress(A, T1, ToolKind::Plan, Some(vec![step(" 자료 조사 ", StepStatus::Completed), step("초안 작성", StepStatus::InProgress), step("검토", StepStatus::Pending)]))).unwrap();
+    let running = &store.snapshot().codex_progress[0];
+    assert_eq!((running.tools, running.last_tool, running.started_at), (2, Some(ToolKind::Plan), started[0].started_at));
+    assert_eq!(running.plan.iter().map(|item| item.step.as_str()).collect::<Vec<_>>(), ["자료 조사", "초안 작성", "검토"]);
+    assert!(running.ended_at.is_none());
+    call(&mut store, resolve(A, T1, Cause::TurnEnded, None, None)).unwrap();
+    assert!(store.snapshot().codex_progress[0].ended_at.is_some());
+    // A late tool event of the ended turn does not reopen it.
+    call(&mut store, progress(A, T1, ToolKind::Edit, None)).unwrap();
+    assert_eq!(store.snapshot().codex_progress[0].last_tool, Some(ToolKind::Plan));
+    // The next message starts a new clock.
+    call(&mut store, resolve(A, T2, Cause::UserMessage, None, None)).unwrap();
+    let next = &store.snapshot().codex_progress[0];
+    assert_eq!((next.turn_id.as_str(), next.tools, next.plan.len(), next.ended_at), (T2, 0, 0, None));
+}
+
+#[test]
+fn a_turn_first_seen_through_a_tool_is_partial_and_an_older_turn_never_replaces_the_newer_one() {
+    let dir = tempfile::tempdir().unwrap(); let mut store = connected(dir.path());
+    call(&mut store, resolve(B, T2, Cause::ToolFinished, Some(KEY), None)).unwrap();
+    let partial = &store.snapshot().codex_progress[0];
+    assert_eq!((partial.turn_id.as_str(), partial.partial, partial.tools), (T2, true, 1));
+    assert_eq!(call(&mut store, progress(B, T1, ToolKind::Command, None)).unwrap()["stale"], true);
+    call(&mut store, resolve(B, T1, Cause::ToolFinished, Some(KEY), None)).unwrap();
+    assert_eq!(store.snapshot().codex_progress[0].turn_id, T2);
+}
+
+#[test]
+fn progress_is_kept_only_for_connected_chats_and_a_plan_is_checked() {
+    let dir = tempfile::tempdir().unwrap(); let mut store = Store::new(dir.path()).unwrap();
+    call(&mut store, resolve(A, T1, Cause::UserMessage, None, None)).unwrap();
+    assert_eq!(call(&mut store, progress(A, T1, ToolKind::Command, None)).unwrap()["recorded"], false);
+    assert!(store.snapshot().codex_progress.is_empty());
+    let mut store = connected(dir.path());
+    assert!(call(&mut store, progress(A, T1, ToolKind::Command, Some(vec![step("계획", StepStatus::Pending)]))).is_err(), "a plan only comes with update_plan");
+    assert!(call(&mut store, progress(A, T1, ToolKind::Plan, Some(vec![step("", StepStatus::Pending)]))).is_err());
+    assert!(call(&mut store, progress(A, T1, ToolKind::Plan, Some(vec![step(&"가".repeat(161), StepStatus::Pending)]))).is_err());
+    assert!(call(&mut store, progress(A, T1, ToolKind::Plan, Some((0..21).map(|n| step(&format!("단계 {n}"), StepStatus::Pending)).collect()))).is_err());
+    assert!(call(&mut store, progress("not-a-uuid", T1, ToolKind::Command, None)).is_err());
+    // Disconnecting the chat drops its progress with its notices.
+    call(&mut store, resolve(A, T1, Cause::UserMessage, None, None)).unwrap();
+    assert_eq!(store.snapshot().codex_progress.len(), 1);
+    store.pet_link_request(Link::Disconnect { target: target(dir.path(), A), expected_revision: store.snapshot().pet_links.iter().find(|l| l.target.thread_id == A).unwrap().revision }).unwrap();
+    assert!(store.snapshot().codex_progress.is_empty());
 }

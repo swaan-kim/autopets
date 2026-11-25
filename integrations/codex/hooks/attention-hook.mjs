@@ -45,6 +45,33 @@ export function hookEvent(input) {
   };
 }
 
+/**
+ * What the pet says the chat just did ("명령 실행", "파일 수정", …). Tool names only, never arguments.
+ * Names seen from Codex Desktop: Bash, apply_patch, view_image, collaboration{spawn,wait}_agent,
+ * clocksleep, update_plan, web_search, mcp__*.
+ */
+export function toolKind(name) {
+  const value = String(name ?? '').toLowerCase();
+  if (value === 'update_plan') return 'plan';
+  if (/^(bash|shell|local_shell|exec_command|powershell|run_command)$/u.test(value)) return 'command';
+  if (/^(apply_patch|edit|write|multiedit|notebookedit)$/u.test(value)) return 'edit';
+  if (/^(view_image|read|glob|grep|ls)$/u.test(value)) return 'read';
+  if (/web_search|websearch|webfetch|search/u.test(value)) return 'search';
+  if (/wait_agent|sleep|wait$/u.test(value)) return 'wait';
+  if (/agent/u.test(value)) return 'agent';
+  return 'other';
+}
+const PLAN_STATUS = new Set(['pending', 'in_progress', 'completed']);
+/** `update_plan`'s steps, trimmed to what the app accepts (20 steps, 160 chars, no control chars). */
+export function planSteps(input) {
+  const plan = isObject(input) && Array.isArray(input.plan) ? input.plan : null;
+  if (!plan) return null;
+  const steps = plan.filter(item => isObject(item) && typeof item.step === 'string' && PLAN_STATUS.has(item.status))
+    .map(item => ({ step: item.step.replace(/[\u0000-\u001f\u007f]/gu, ' ').trim().slice(0, 160), status: item.status }))
+    .filter(item => item.step).slice(0, 20);
+  return steps.length ? steps : null;
+}
+
 /** The same tool call, as PermissionRequest and PostToolUse both describe it (name + command). */
 export function toolKey(toolName, toolInput) {
   const command = isObject(toolInput) ? (typeof toolInput.command === 'string' ? toolInput.command : Array.isArray(toolInput.command) ? toolInput.command.join('\u0000') : '') : '';
@@ -132,8 +159,12 @@ export async function interpret(event, { env = process.env, read = readTurn } = 
     case 'UserPromptSubmit':
       // The user wrote in this chat: earlier questions are answered and finished work was seen.
       return { resolve: { ...base, cause: 'user-message' } };
-    case 'PostToolUse':
-      return { resolve: { ...base, cause: 'tool-finished', toolKey: toolKey(event.toolName, event.toolInput), ...(event.toolUseId ? { toolUseId: event.toolUseId } : {}) } };
+    case 'PostToolUse': {
+      const kind = toolKind(event.toolName);
+      const plan = kind === 'plan' ? planSteps(event.toolInput) : null;
+      return { resolve: { ...base, cause: 'tool-finished', toolKey: toolKey(event.toolName, event.toolInput), ...(event.toolUseId ? { toolUseId: event.toolUseId } : {}) },
+        progress: { ...base, tool: kind, ...(plan ? { plan } : {}) } };
+    }
     case 'PreToolUse': {
       if (event.toolName !== 'request_user_input') return {};
       const notice = userInputNotice(event.toolInput);
@@ -165,6 +196,19 @@ export async function interpret(event, { env = process.env, read = readTurn } = 
 export async function deliver(outcome, request, { title = async () => null } = {}) {
   const sent = {};
   if (outcome.resolve) { const reply = await request(ENDPOINT, { operation: 'resolve', ...outcome.resolve }); sent.resolved = reply?.ok === true ? reply.resolved ?? 0 : 'refused'; }
+  // Tool kind (and the plan's step text, only for a connected chat). An app without `progress`
+  // refuses just this; the resolution above already went through.
+  if (outcome.progress) {
+    try {
+      let body = outcome.progress;
+      if (body.plan) {
+        const check = await request(ENDPOINT, { operation: 'check', sessionId: body.sessionId });
+        if (check?.eligible !== true) body = { sessionId: body.sessionId, turnId: body.turnId, tool: body.tool };
+      }
+      const reply = await request(ENDPOINT, { operation: 'progress', ...body });
+      sent.progress = reply?.recorded === true ? 'recorded' : reply?.ok === true ? 'skipped' : 'refused';
+    } catch { sent.progress = 'refused'; }
+  }
   if (outcome.notice) {
     const check = await request(ENDPOINT, { operation: 'check', sessionId: outcome.notice.sessionId });
     if (check?.eligible !== true) return { ...sent, notice: typeof check?.reason === 'string' ? check.reason : 'not-eligible' };
@@ -214,6 +258,7 @@ export async function main(args = process.argv.slice(2), stream = process.stdin,
       if (outcome.evidence) record.evidence = outcome.evidence;
       if (['Stop', 'PermissionRequest'].includes(event.name)) record.pathGiven = event.transcriptPath === null ? 'none' : /^\\\\\?\\/u.test(event.transcriptPath) ? 'verbatim' : isAbsolute(event.transcriptPath) ? 'absolute' : 'relative';
       if (outcome.notice) record.kind = `${outcome.notice.kind}:${outcome.notice.reason}`;
+      if (outcome.progress) record.toolKind = outcome.progress.tool;
       if (outcome.resolve || outcome.notice) {
         let cachedTitle;
         const title = async () => (cachedTitle ??= chatTitle(event.sessionId, env));

@@ -17,6 +17,8 @@ pub struct Snapshot {
     pub pet_recommendations: Vec<super::recommendation::Recommendation>,
     /// Codex chats that need the user, or whose requested work finished (see `domain::attention`).
     pub codex_attention: Vec<super::attention::Notice>,
+    /// How long a connected Codex chat's current request has been running, and what it last did.
+    pub codex_progress: Vec<super::attention::Progress>,
     /// 복습 도우미: today's review count, saved cards, and whether today's notice was shown.
     pub review: super::review::Summary,
     pub pet_jobs: Vec<super::pet_job::Job>,

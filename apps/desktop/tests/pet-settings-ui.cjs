@@ -36,7 +36,7 @@ exports.runPetSettingsChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await page.getByText('조용히 미끄러지기', { exact: true }).click();
   await page.getByRole('status').getByText('저장했어요. 펫에 바로 적용돼요.', { exact: true }).waitFor();
   assert.deepEqual(JSON.parse(await manager.evaluate(key => localStorage.getItem(key), KEY)),
-    { dockedAlert: 'peek', peekSeconds: 5, alertOn: { done: true, ask: true, review: false }, entrance: 'slide', bubbleWhenOut: true });
+    { dockedAlert: 'peek', peekSeconds: 5, alertOn: { done: true, ask: true, review: false }, entrance: 'slide', bubbleWhenOut: true, showProgress: true, progressAfterMinutes: 2 });
   if (screenshotDir) await manager.screenshot({ path: path.join(screenshotDir, 'pet-settings-peek.png'), fullPage: true });
   await page.getByText('숨은 채로 표시만', { exact: true }).click();
   assert.equal(await page.getByRole('checkbox', { name: '작업이 끝났을 때', exact: true }).isDisabled(), true, 'badge-only: the notice kinds do not apply');
@@ -89,7 +89,7 @@ exports.runPetSettingsChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await old.close();
 
   // peek 5 s + slide: out without the hop, then back into the same side when left alone.
-  const peek = await tuckedPet({ dockedAlert: 'peek', peekSeconds: 5, alertOn: { done: true, ask: true, review: false }, entrance: 'slide', bubbleWhenOut: true });
+  const peek = await tuckedPet({ dockedAlert: 'peek', peekSeconds: 5, alertOn: { done: true, ask: true, review: false }, entrance: 'slide', bubbleWhenOut: true, showProgress: true, progressAfterMinutes: 2 });
   await arrive(peek, notice('ask-1', 'action_required'));
   await bubble(peek).locator('.pet-codex-headline', { hasText: 'Codex에서 확인이 필요해!' }).waitFor();
   assert.equal(await peek.locator('.pet-overlay.dock-jump').count(), 0, 'slide: no hop');

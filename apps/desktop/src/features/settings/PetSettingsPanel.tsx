@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_PET_SETTINGS, PEEK_SECONDS, requestPetSettingsTry, usePetSettings, type AlertKind, type DockedAlert, type Entrance, type PetSettings } from '../pets/petSettings';
+import { DEFAULT_PET_SETTINGS, PEEK_SECONDS, PROGRESS_AFTER_MINUTES, requestPetSettingsTry, usePetSettings, type AlertKind, type DockedAlert, type Entrance, type PetSettings } from '../pets/petSettings';
 import './pet-settings.css';
 
 // 설정 → 펫 설정. Each choice is saved at once on this PC and reaches every floating pet right away.
@@ -63,6 +63,15 @@ export function PetSettingsPanel() {
       <div className="block-heading"><div><h2 id="pet-settings-out">화면에 나와 있을 때</h2></div></div>
       <label className="assistance-toggle"><span><strong>새 알림 말풍선 자동으로 띄우기</strong><small>끄면 펫 위의 ✓ · ? 표시에 마우스를 올리거나 눌러야 보여요.</small></span>
         <input type="checkbox" aria-label="새 알림 말풍선 자동으로 띄우기" checked={settings.bubbleWhenOut} onChange={event => update({ ...settings, bubbleWhenOut: event.target.checked })} /></label>
+    </section>
+
+    <section className="assistance-card" aria-labelledby="pet-settings-progress">
+      <div className="block-heading"><div><h2 id="pet-settings-progress">Codex가 오래 일할 때</h2><p className="small-note">연결된 채팅이 일하는 동안 펫 아래에 "Codex 작업 중 · 12분째 · 2/3단계"처럼 보여줘요. 숨은 펫은 손잡이에 표시해요.</p></div></div>
+      <label className="assistance-toggle"><span><strong>진행 상황 보여주기</strong><small>지난 시간과 방금 한 일(명령 실행, 파일 수정 등)만 보여줘요. 남은 시간은 짐작하지 않아요.</small></span>
+        <input type="checkbox" aria-label="진행 상황 보여주기" checked={settings.showProgress} onChange={event => update({ ...settings, showProgress: event.target.checked })} /></label>
+      <fieldset className="mode-fieldset" disabled={!settings.showProgress}><legend>보여주기 시작</legend><div className="pet-settings-segments" role="radiogroup" aria-label="진행 상황 보여주기 시작">
+        {PROGRESS_AFTER_MINUTES.map(minutes => <label key={minutes} className={settings.progressAfterMinutes === minutes ? 'selected' : ''}><input type="radio" name="pet-progress-after" checked={settings.progressAfterMinutes === minutes} onChange={() => update({ ...settings, progressAfterMinutes: minutes })} />{minutes}분 지나면</label>)}
+      </div></fieldset>
     </section>
 
     <div className="pet-settings-footer"><span className="small-note">이 PC에만 저장돼요. 채팅이나 작업 내용은 저장하지 않아요.</span><button type="button" className="text-button" disabled={isDefault} onClick={() => { save(DEFAULT_PET_SETTINGS); setNotice('기본 설정으로 되돌렸어요.'); }}>기본값으로 되돌리기</button></div>

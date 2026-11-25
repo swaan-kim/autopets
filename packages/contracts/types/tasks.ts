@@ -42,6 +42,7 @@ export interface Snapshot {
   petLinks?: import('./pet-link').PetLink[];
   petRecommendations?: import('./pet-link').PetRecommendation[];
   codexAttention?: import('./pet-link').CodexAttention[];
+  codexProgress?: import('./pet-link').CodexProgress[];
   /** 복습 도우미: today's review count (at most 10), saved cards and batches, and whether today's notice was shown. */
   review?: ReviewSummary;
   petJobs?: import('./pet-link').PetJob[];

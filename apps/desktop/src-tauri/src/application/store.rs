@@ -69,6 +69,7 @@ impl Store {
         Snapshot {
             pet_recommendations: self.recommendations.snapshot(&self.pet_links, self.setup_chat().as_ref(), now),
             codex_attention: self.attention.snapshot(&self.pet_links, self.setup_chat().as_ref()),
+            codex_progress: self.attention.progress(&self.pet_links, self.setup_chat().as_ref()),
             review: self.review_summary(now),
             pet_jobs: self.pet_jobs.snapshot(now),
             pet_links: { let mut links: Vec<_> = self.pet_links.values().cloned().collect(); links.sort_by_key(|l| l.slot); links },

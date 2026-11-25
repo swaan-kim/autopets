@@ -18,10 +18,15 @@ export interface PetSettings {
   entrance: Entrance;
   /** A pet that is already out opens the bubble by itself for a new Codex notice. */
   bubbleWhenOut: boolean;
+  /** "Codex 작업 중 · 12분째" under the pet once its chat has worked `progressAfterMinutes`. */
+  showProgress: boolean;
+  progressAfterMinutes: number;
 }
 export const PEEK_SECONDS = [5, 10, 30] as const;
+export const PROGRESS_AFTER_MINUTES = [1, 2, 5] as const;
 export const DEFAULT_PET_SETTINGS: PetSettings = {
   dockedAlert: 'jump', peekSeconds: 10, alertOn: { done: true, ask: true, review: false }, entrance: 'bounce', bubbleWhenOut: true,
+  showProgress: true, progressAfterMinutes: 2,
 };
 const KEY = 'autopets.pet-settings.v1';
 const CHANGED = 'autopets:pet-settings-changed';
@@ -40,6 +45,8 @@ export function readPetSettings(): PetSettings {
       alertOn: { done: flag(on.done, base.alertOn.done), ask: flag(on.ask, base.alertOn.ask), review: flag(on.review, base.alertOn.review) },
       entrance: pick(raw.entrance, ['bounce', 'slide'] as const, base.entrance),
       bubbleWhenOut: flag(raw.bubbleWhenOut, base.bubbleWhenOut),
+      showProgress: flag(raw.showProgress, base.showProgress),
+      progressAfterMinutes: pick(raw.progressAfterMinutes, PROGRESS_AFTER_MINUTES, base.progressAfterMinutes as 2),
     };
   } catch { return base; }
 }
