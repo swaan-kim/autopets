@@ -12,7 +12,11 @@ const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
+const { runReviewPetChecks } = require('./review-pet-ui.cjs');
+const { runCardCompareChecks } = require('./card-compare-ui.cjs');
 const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
+const { runPetSettingsChecks } = require('./pet-settings-ui.cjs');
+const { runPetProgressChecks } = require('./pet-progress-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetQuickUseChecks } = require('./pet-quick-use-ui.cjs');
@@ -93,6 +97,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         // Read-only: Codex's own chat names for labels. Not an action, so not in `calls`.
         if (name === 'codex_chat_titles') return structuredClone(window.__uiTest.chatTitles ?? {});
+        // Polled after a send; not recorded as a call. 'started' unless a test says otherwise.
+        if (name === 'codex_send_status') return window.__uiTest.sendStatus ?? 'started';
         calls.push({ name, args });
         if (name === 'save_pet') {
           if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
@@ -127,9 +133,20 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         if (name === 'artifact_image') return window.__uiTest.artifactImages[args.versionId];
         if (name === 'artifact_export') return 'C:/UI fixture only/intro.png';
-        if (name === 'open_pet_in_codex') {
-          if (window.__uiTest.codexPromptTooLong) throw 'prompt-too-long';
-          return null;
+        // Sending into a Codex chat (codex_chat.rs `deliver`), stood in for: never reaches Codex.
+        //   sendError: refused (thrown) · sendFallback: could not send, typed in instead (reason)
+        //   sendDelay: ms before answering, for double-press checks · codexPromptTooLong: new chat too long
+        if (name === 'send_pet_start' || name === 'send_review_request' || name === 'send_review_batch') {
+          if (window.__uiTest.sendDelay) await new Promise(resolve => setTimeout(resolve, window.__uiTest.sendDelay));
+          if (name === 'send_review_batch' && window.__uiTest.reviewFillError) throw window.__uiTest.reviewFillError;
+          if (window.__uiTest.sendError) throw window.__uiTest.sendError;
+          const sentAt = Date.now();
+          const threadId = name === 'send_pet_start' ? args.chat?.threadId ?? null : name === 'send_review_batch' ? args.threadId
+            : (state.petLinks || []).find(link => link.slot === 0)?.target.threadId ?? null;
+          if (name === 'send_pet_start' && !args.chat) return window.__uiTest.codexPromptTooLong
+            ? { outcome: 'copy', sentAt, chatOpened: false, text: 'fixture start request (too long for a link)' } : { outcome: 'new-chat', sentAt, chatOpened: true };
+          if (window.__uiTest.sendFallback) return { outcome: 'filled', threadId, sentAt, chatOpened: true, reason: window.__uiTest.sendFallback };
+          return { outcome: 'queued', id: `delivery-${calls.length}`, threadId, sentAt, chatOpened: true };
         }
         if (name === 'connect_claude_code' || name === 'disconnect_claude_code') {
           if (window.__uiTest.claudeCodeError) throw '이 PC에서 Claude Code를 찾지 못했어요.';
@@ -290,6 +307,22 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           else session.attention.snoozedUntil = Date.now() + args.minutes * 60000;
         }
         if (name === 'acknowledge') session.unread = false;
+        // 복습 도우미 문제 묶음 pages: `window.__uiTest.reviewBatches` holds batches with their cards.
+        if (name === 'review_batches') return structuredClone((window.__uiTest.reviewBatches || []).map(({ cards, ...batch }) => batch));
+        if (name === 'review_batch') {
+          const batch = (window.__uiTest.reviewBatches || []).find(item => item.id === args.id);
+          if (!batch) throw 'review-batch-not-found';
+          return structuredClone(batch);
+        }
+        if (name === 'delete_review_batch' || name === 'delete_review_card') {
+          const batches = window.__uiTest.reviewBatches || [];
+          for (const batch of batches) { batch.cards = batch.cards.filter(card => card.id !== args.id); batch.count = batch.cards.length; }
+          const emptied = name === 'delete_review_card' && batches.some(batch => batch.count === 0);
+          window.__uiTest.reviewBatches = batches.filter(batch => batch.id !== args.id && batch.count > 0);
+          state.review = { ...state.review, batches: window.__uiTest.reviewBatches.length, total: window.__uiTest.reviewBatches.reduce((sum, batch) => sum + batch.count, 0) };
+          window.__uiTest.emitEvent('autopets://snapshot', { ...structuredClone(state), now: Date.now() });
+          return name === 'delete_review_card' ? emptied : null;
+        }
         if (['configure_workflow_task', 'approve_workflow_plan', 'allow_workflow_once'].includes(name)) return structuredClone(workflowTask);
         if (/approval|pause|stop|open_task/.test(name)) throw Error('unsupported operation called');
         return null;
@@ -318,6 +351,18 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
       return;
     }
+    if (process.env.AUTOPETS_UI_CARD_COMPARE_ONLY === '1') {
+      await runCardCompareChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_CARD_SHOTS, checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_REVIEW_ONLY === '1') {
+      await runReviewPetChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_REVIEW_SHOTS, checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_PROMPT_IDEAS_ONLY === '1') {
       const screenshots = await runPromptIdeaChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
@@ -337,6 +382,14 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     if (process.env.AUTOPETS_UI_PET_ATTENTION_ONLY === '1') {
       await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_PET_SETTINGS_ONLY === '1') {
+      await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_PET_PROGRESS_ONLY === '1') {
+      await runPetProgressChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_PROGRESS_SHOTS, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2)); return;
     }
     if (process.env.AUTOPETS_UI_VISUAL_ONLY === '1') {
       const screenshots = await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
@@ -749,6 +802,14 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
+    await closeFixturePages();
+    await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+    await closeFixturePages();
+    await runPetProgressChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_PROGRESS_SHOTS, checks });
+    await closeFixturePages();
+    // Screenshots only when asked (AUTOPETS_UI_REVIEW_SHOTS=<folder>), so the run never rewrites docs/images.
+    await runReviewPetChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_REVIEW_SHOTS, checks });
+    await runCardCompareChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_CARD_SHOTS, checks });
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

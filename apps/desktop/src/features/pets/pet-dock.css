@@ -31,6 +31,24 @@
 @keyframes pet-dock-leave-left { to { transform: translateX(-105%); opacity: 0; } }
 @keyframes pet-dock-enter-right { from { transform: translateX(105%); opacity: .4; } }
 @keyframes pet-dock-enter-left { from { transform: translateX(-105%); opacity: .4; } }
+/* A notice brought the pet out (설정 → 펫 설정 "통통 튀어나오기"): it hops out and lands with a bounce. */
+.pet-overlay.dock-enter.dock-jump { animation-duration: 640ms; animation-timing-function: ease-out; }
+.pet-overlay.dock-enter.dock-jump.dock-right { animation-name: pet-dock-jump-right; }
+.pet-overlay.dock-enter.dock-jump.dock-left { animation-name: pet-dock-jump-left; }
+@keyframes pet-dock-jump-right {
+  0% { transform: translate(105%, 0); opacity: .4; }
+  45% { transform: translate(-6%, -22px) rotate(-4deg); opacity: 1; }
+  68% { transform: translate(0, 0) rotate(0); }
+  82% { transform: translate(0, -8px); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes pet-dock-jump-left {
+  0% { transform: translate(-105%, 0); opacity: .4; }
+  45% { transform: translate(6%, -22px) rotate(4deg); opacity: 1; }
+  68% { transform: translate(0, 0) rotate(0); }
+  82% { transform: translate(0, -8px); }
+  100% { transform: translate(0, 0); }
+}
 @media (prefers-reduced-motion: reduce) {
   .pet-dock-tab, .pet-overlay.dock-leave, .pet-overlay.dock-enter { animation: none; transition: none; }
 }

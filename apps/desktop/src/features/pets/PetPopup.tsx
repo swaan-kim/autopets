@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetLink } from '@autopets/contracts/types';
+import type { PetLink, ReviewSummary } from '@autopets/contracts/types';
 import { command } from '../../bridge/command';
 import { useAction } from '../../bridge/useAction';
 import { explicitPetStatus, unresolvedPetRun } from './ExplicitPet';
 import { petTaskReturnLabel, usePetTaskReturn } from './PetTaskReturn';
 import { chatTitle, useCodexChatTitles } from './useCodexChatTitles';
+import { isReviewPet, NO_REVIEW, ReviewMenu } from './ReviewMenu';
+import type { Delivery } from './codexDelivery';
 import './pet-popup.css';
 
 // The small popup above a desktop pet that is linked to a Codex chat. It only answers
@@ -23,7 +25,7 @@ const icons: Record<'chat' | 'app' | 'hide' | 'quit', ReactNode> = {
 };
 const Icon = ({ name }: { name: keyof typeof icons }) => <svg className="pet-popup-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">{icons[name]}</svg>;
 
-export function PetPopup({ link, disconnected = false, onHide }: { link: PetLink; disconnected?: boolean; onHide: () => void }) {
+export function PetPopup({ link, disconnected = false, onHide, review = NO_REVIEW, onReviewSent = () => undefined }: { link: PetLink; disconnected?: boolean; onHide: () => void; review?: ReviewSummary; onReviewSent?: (delivery: Delivery) => void }) {
   const action = useAction();
   const titles = useCodexChatTitles([link.target.threadId]);
   const back = usePetTaskReturn(link);
@@ -79,6 +81,7 @@ export function PetPopup({ link, disconnected = false, onHide }: { link: PetLink
 
   return <section className="pet-popup" aria-label={`${heading} 펫 팝업`} data-connection={lost ? 'lost' : 'connected'}
     data-agent-scope="task-card" data-agent-id="task-card.root" data-agent-item={`slot-${link.slot}`}>
+    {isReviewPet(link) && <ReviewMenu link={link} review={review} lost={lost} onSent={onReviewSent} />}
     <header className="pet-popup-head">
       <span className="pet-popup-dot" aria-hidden="true" />
       <div className="pet-popup-title">

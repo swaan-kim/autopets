@@ -185,6 +185,23 @@ fn released_edge(window: &tauri::WebviewWindow, body_left: f64, body_right: f64)
     )
 }
 
+/// The pet body's middle on screen (physical px), unless the window is an open card.
+fn body_point(window: &tauri::WebviewWindow, body_left: f64, body_right: f64) -> Option<(i32, i32)> {
+    let position = window.outer_position().ok()?;
+    let size = window.outer_size().ok()?;
+    let scale = window.scale_factor().ok()?;
+    if f64::from(size.width) > PET_W * scale * 1.2 { return None; }
+    Some((position.x + ((body_left + body_right) / 2.0 * scale).round() as i32, position.y + (BODY_CENTER_Y * scale).round() as i32))
+}
+
+/// 복습 도우미 only: whether this pet slot is linked to that pet. Other pets never look for Codex.
+fn review_pet(window: &tauri::WebviewWindow) -> bool {
+    let Some(slot) = window.label().strip_prefix("pet-").and_then(|s| s.parse::<usize>().ok()) else { return false };
+    window.app_handle().try_state::<crate::application::store::SharedStore>()
+        .and_then(|store| store.lock().ok().map(|s| s.pet_links.values().any(|l| l.slot == slot && l.template.id == crate::domain::roles::RoleId::ReviewHelper)))
+        .unwrap_or(false)
+}
+
 /// Called when a pet drag starts. Waits for the button to be released (the OS
 /// move loop gives the webview no pointer-up), then tells the pet whether it
 /// was dropped at an edge. `body_*` is the pet body's span in the window (CSS px).
@@ -198,18 +215,35 @@ pub(crate) fn watch_pet_drag(window: tauri::WebviewWindow, docks: tauri::State<P
     let label = window.label().to_owned();
     if let Ok(mut pending) = docks.pending.lock() { pending.remove(&label); }
     if !docks.watching.lock().map_err(|_| "펫 이동을 확인할 수 없습니다.")?.insert(label.clone()) { return Ok(()); }
+    let review = review_pet(&window);
     std::thread::spawn(move || {
         let started = Instant::now();
-        while primary_button_down() && started.elapsed() < WATCH_LIMIT { std::thread::sleep(Duration::from_millis(16)); }
+        // 복습 도우미: while dragging, tell the pet whether it is over a Codex window ("여기에 놓기").
+        let mut over = false;
+        let mut tick = 0u32;
+        while primary_button_down() && started.elapsed() < WATCH_LIMIT {
+            std::thread::sleep(Duration::from_millis(16));
+            tick += 1;
+            if review && tick % 8 == 0 {
+                let now = body_point(&window, body_left, body_right).is_some_and(|(x, y)| super::codex_window::codex_window_at(x, y));
+                if now != over {
+                    over = now;
+                    let _ = window.app_handle().emit("autopets://pet-drag-over", serde_json::json!({"label": label, "codex": over}));
+                }
+            }
+        }
         // Let the last native move land before reading the window.
         std::thread::sleep(Duration::from_millis(60));
         let found = released_edge(&window, body_left, body_right);
+        // An edge drop docks first; only a drop elsewhere may land on Codex.
+        let codex = review && found.is_none()
+            && body_point(&window, body_left, body_right).is_some_and(|(x, y)| super::codex_window::codex_window_at(x, y));
         let docks = window.app_handle().state::<PetDocks>();
         if let Ok(mut pending) = docks.pending.lock() {
             match found { Some(found) => { pending.insert(label.clone(), found); } None => { pending.remove(&label); } }
         }
         if let Ok(mut watching) = docks.watching.lock() { watching.remove(&label); }
-        let _ = window.app_handle().emit("autopets://pet-drag-end", serde_json::json!({"label": label, "edge": found.map(|f| f.0)}));
+        let _ = window.app_handle().emit("autopets://pet-drag-end", serde_json::json!({"label": label, "edge": found.map(|f| f.0), "codex": codex}));
     });
     Ok(())
 }

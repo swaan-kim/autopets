@@ -76,6 +76,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         super::pet_dock::restore_docked(&window, &Position { edge: initial.edge, ..pos });
     }
     super::tray::install(app)?;
+    super::review_chat::start_review_clock(app.handle().clone());
     let handle = app.handle().clone();
     let initial_snapshot = store
         .lock()

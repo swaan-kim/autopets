@@ -38,6 +38,35 @@ pub enum Cause { UserMessage, ToolFinished, TurnEnded }
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Evidence { pub file_changes: u32, pub work_commands: u32, pub verified: bool }
 
+/// What kind of tool the chat used last (the hook maps Codex tool names; never arguments).
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ToolKind { Command, Edit, Read, Search, Agent, Wait, Plan, Other }
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StepStatus { Pending, InProgress, Completed }
+
+/// One step of the plan Codex published with `update_plan` in this turn.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Step { pub step: String, pub status: StepStatus }
+
+/// The current request of a connected chat, for "Codex 작업 중 · 12분째". Built from the same
+/// hook events that resolve notices (prompt submitted / tool finished / turn ended), plus the
+/// optional `progress` operation that adds the tool kind and plan. In memory only.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Progress {
+    pub target: Target, pub turn_id: String,
+    /// When the user's message started this turn. `partial`: the app first heard of the turn
+    /// from a tool call (started before the app ran), so `started_at` is a lower bound.
+    pub started_at: u64, pub partial: bool,
+    pub last_activity_at: u64, pub tools: u32, pub last_tool: Option<ToolKind>,
+    pub plan: Vec<Step>,
+    pub ended_at: Option<u64>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Notice {
@@ -70,6 +99,12 @@ pub enum Request {
         session_id: String, turn_id: String, cause: Cause,
         #[serde(default)] tool_key: Option<String>,
         #[serde(default)] tool_use_id: Option<String>,
+    },
+    /// A tool finished in this turn: its kind, and the plan when it was `update_plan`.
+    /// Sent after `resolve`; an app without it refuses only this, never the notices.
+    Progress {
+        session_id: String, turn_id: String, tool: ToolKind,
+        #[serde(default)] plan: Option<Vec<Step>>,
     },
     /// Development diagnostics: ids, kinds and states only (no notice text).
     Status {},
@@ -112,6 +147,24 @@ struct Chat {
     finished_tools: VecDeque<String>,
     /// The newest turn the user started by writing in the chat.
     latest_user_turn: Option<String>,
+    progress: Option<Progress>,
+}
+
+const MAX_PLAN_STEPS: usize = 20;
+const MAX_STEP_CHARS: usize = 160;
+
+impl Chat {
+    /// The progress of `turn_id`, started now (as `partial`) when this is the first the app hears of
+    /// it. None for a turn older than the one shown, or one that already ended.
+    fn turn(&mut self, target: &Target, turn_id: &str, now: u64) -> Option<&mut Progress> {
+        let current = self.progress.as_ref().map(|item| item.turn_id.clone());
+        if current.as_deref() != Some(turn_id) {
+            if current.as_deref().is_some_and(|shown| older(turn_id, shown)) || self.ended_turns.iter().any(|ended| ended == turn_id) { return None; }
+            self.progress = Some(Progress { target: target.clone(), turn_id: turn_id.to_owned(), started_at: now, partial: true,
+                last_activity_at: now, tools: 0, last_tool: None, plan: Vec::new(), ended_at: None });
+        }
+        self.progress.as_mut().filter(|item| item.ended_at.is_none())
+    }
 }
 
 #[derive(Default)]
@@ -183,16 +236,24 @@ impl Attention {
                     return Err("invalid-attention".into());
                 }
                 // Ids only; an unconnected chat keeps no state at all.
-                if eligible(links, setup, &session_id).is_err() { return Ok(serde_json::json!({"ok":true,"resolved":0})); }
+                let Ok(target) = eligible(links, setup, &session_id) else { return Ok(serde_json::json!({"ok":true,"resolved":0})); };
                 let chat = self.chats.entry(session_id).or_default();
                 let before = chat.open.len();
                 match cause {
                     // The user wrote in the chat: every earlier ask is answered and earlier results were seen.
                     Cause::UserMessage => {
-                        if chat.latest_user_turn.as_deref().is_none_or(|latest| !older(&turn_id, latest)) { chat.latest_user_turn = Some(turn_id.clone()); }
+                        if chat.latest_user_turn.as_deref().is_none_or(|latest| !older(&turn_id, latest)) {
+                            chat.latest_user_turn = Some(turn_id.clone());
+                            // A new request: its clock starts now.
+                            if chat.progress.as_ref().is_none_or(|item| item.turn_id != turn_id) {
+                                chat.progress = Some(Progress { target, turn_id: turn_id.clone(), started_at: now, partial: false,
+                                    last_activity_at: now, tools: 0, last_tool: None, plan: Vec::new(), ended_at: None });
+                            }
+                        }
                         chat.open.retain(|item| item.turn_id == turn_id);
                     }
                     Cause::ToolFinished => {
+                        if let Some(progress) = chat.turn(&target, &turn_id, now) { progress.tools += 1; progress.last_activity_at = now; }
                         if let Some(key) = &tool_key { push_limited(&mut chat.finished_tools, format!("{turn_id}:{key}"), ENDED_PER_CHAT * 2); }
                         if let Some(id) = &tool_use_id { push_limited(&mut chat.finished_tools, format!("{turn_id}:{id}"), ENDED_PER_CHAT * 2); }
                         chat.open.retain(|item| !(item.turn_id == turn_id && (
@@ -201,13 +262,36 @@ impl Attention {
                     }
                     // A finished turn has no pending approval or question prompt any more.
                     Cause::TurnEnded => {
+                        if let Some(progress) = chat.progress.as_mut().filter(|item| item.turn_id == turn_id && item.ended_at.is_none()) {
+                            progress.ended_at = Some(now); progress.last_activity_at = now;
+                        }
                         push_limited(&mut chat.ended_turns, turn_id.clone(), ENDED_PER_CHAT);
                         chat.open.retain(|item| !(item.turn_id == turn_id && item.source != Source::Stop));
                     }
                 }
                 Ok(serde_json::json!({"ok":true,"resolved":before - chat.open.len()}))
             }
+            Request::Progress { session_id, turn_id, tool, plan } => {
+                if !valid_session(&session_id) || !valid_turn(&turn_id)
+                    || plan.as_ref().is_some_and(|steps| tool != ToolKind::Plan || steps.len() > MAX_PLAN_STEPS || steps.iter().any(|item| !safe_text(&item.step, MAX_STEP_CHARS))) {
+                    return Err("invalid-attention".into());
+                }
+                let Ok(target) = eligible(links, setup, &session_id) else { return Ok(serde_json::json!({"ok":true,"recorded":false})); };
+                let chat = self.chats.entry(session_id).or_default();
+                let Some(progress) = chat.turn(&target, &turn_id, now) else { return Ok(serde_json::json!({"ok":true,"recorded":false,"stale":true})); };
+                progress.last_tool = Some(tool); progress.last_activity_at = now;
+                if let Some(steps) = plan { progress.plan = steps.into_iter().map(|item| Step { step: item.step.trim().to_owned(), status: item.status }).collect(); }
+                Ok(serde_json::json!({"ok":true,"recorded":true}))
+            }
         }
+    }
+
+    /// The current request of each connected chat (ended ones too, so the pet can tell it stopped).
+    pub fn progress(&self, links: &HashMap<String, Link>, setup: Option<&Target>) -> Vec<Progress> {
+        let mut items: Vec<_> = self.chats.iter().filter(|(thread, _)| eligible(links, setup, thread).is_ok())
+            .filter_map(|(_, chat)| chat.progress.clone()).collect();
+        items.sort_by(|a, b| b.started_at.cmp(&a.started_at).then(a.turn_id.cmp(&b.turn_id)));
+        items
     }
 
     /// The user closed the bubble or opened the chat from it. The notice stays until Codex resolves it.

@@ -15,6 +15,11 @@ pub struct Store {
     pub(crate) recommendations: crate::domain::recommendation::Recommendations,
     /// Codex attention notices for the pet; in-memory only, never written to SQLite.
     pub(crate) attention: crate::domain::attention::Attention,
+    /// 복습 도우미 cards (`review_cards_v1`), loaded once and written through.
+    pub(crate) review_cards: Vec<crate::domain::review::Card>,
+    /// 복습 도우미 batches (`review_batches_v1`): one per "문제 내기".
+    pub(crate) review_batches: Vec<crate::domain::review::Batch>,
+    pub(crate) review_notice_day: Option<String>,
     /// Jobs reported by an AI through MCP. In-memory only; never written to SQLite.
     pub(crate) pet_jobs: crate::domain::pet_job::Jobs,
     pub(crate) db: Connection,
@@ -64,6 +69,8 @@ impl Store {
         Snapshot {
             pet_recommendations: self.recommendations.snapshot(&self.pet_links, self.setup_chat().as_ref(), now),
             codex_attention: self.attention.snapshot(&self.pet_links, self.setup_chat().as_ref()),
+            codex_progress: self.attention.progress(&self.pet_links, self.setup_chat().as_ref()),
+            review: self.review_summary(now),
             pet_jobs: self.pet_jobs.snapshot(now),
             pet_links: { let mut links: Vec<_> = self.pet_links.values().cloned().collect(); links.sort_by_key(|l| l.slot); links },
             sessions,
