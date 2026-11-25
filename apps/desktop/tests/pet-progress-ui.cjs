@@ -49,7 +49,7 @@ exports.runPetProgressChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await update(pet, progress({ lastActivityAt: Date.now() - 8 * minute }));
   await pet.locator('.floating-status.turn-progress.quiet').getByText('Codex 작업 중 · 12분째 · 8분째 소식 없음', { exact: true }).waitFor();
   checks.push('pet progress: no word for 8 minutes says so instead of looking busy');
-  if (screenshotDir) { await update(pet, progress()); await status(pet).getByText(/명령 실행 중/).waitFor(); await pet.screenshot({ path: path.join(screenshotDir, 'pet-progress-line.png') }); }
+  if (screenshotDir) { await update(pet, progress()); await status(pet).getByText(/명령 실행 중/).waitFor(); await pet.evaluate(() => document.activeElement?.blur()); await pet.screenshot({ path: path.join(screenshotDir, 'pet-progress-line.png') }); }
   await update(pet, progress({ endedAt: Date.now() }));
   await pet.locator('.floating-status.turn-progress').waitFor({ state: 'detached' });
   await update(pet, progress({ startedAt: Date.now() - 30_000 }));
@@ -74,7 +74,19 @@ exports.runPetProgressChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const off = await open(state(progress()), { settings: { dockedAlert: 'jump', peekSeconds: 10, alertOn: { done: true, ask: true, review: false }, entrance: 'bounce', bubbleWhenOut: true, showProgress: false, progressAfterMinutes: 2 } });
   await off.locator('.floating-pet .pet-hit').waitFor(); await off.waitForTimeout(500);
   assert.equal(await off.locator('.floating-status.turn-progress').count(), 0);
+  // Switched off, the pet looks exactly as before this feature: the "before" picture.
+  if (screenshotDir) await off.screenshot({ path: path.join(screenshotDir, 'pet-progress-before.png') });
   await off.close();
+  if (screenshotDir) {
+    const manager = await newPage({ width: 1120, height: 900 });
+    await mockBridge(manager, state(null)); await manager.goto(origin);
+    await manager.locator('.app-settings summary').click();
+    await manager.getByRole('button', { name: '펫 설정', exact: true }).click();
+    const section = manager.getByRole('region', { name: 'Codex가 오래 일할 때' });
+    await section.waitFor();
+    await section.screenshot({ path: path.join(screenshotDir, 'pet-progress-settings.png') });
+    await manager.close();
+  }
   const later = await open(state(progress({ startedAt: Date.now() - 3 * minute })), { settings: { dockedAlert: 'jump', peekSeconds: 10, alertOn: { done: true, ask: true, review: false }, entrance: 'bounce', bubbleWhenOut: true, showProgress: true, progressAfterMinutes: 5 } });
   await later.locator('.floating-pet .pet-hit').waitFor(); await later.waitForTimeout(500);
   assert.equal(await later.locator('.floating-status.turn-progress').count(), 0, '5 minutes chosen: 3 minutes shows nothing');
