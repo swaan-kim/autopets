@@ -20,6 +20,7 @@ exports.runPetSettingsChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await manager.locator('.app-settings summary').click();
   const items = await manager.locator('.settings-menu .nav-item').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')));
   assert.deepEqual(items.slice(-2), ['역할과 내 펫', '펫 설정'], '펫 설정 sits right below 역할과 내 펫');
+  if (screenshotDir) await manager.screenshot({ path: path.join(screenshotDir, 'pet-settings-menu.png'), clip: { x: 720, y: 0, width: 400, height: 520 } });
   await manager.getByRole('button', { name: '펫 설정', exact: true }).click();
   const page = manager.getByRole('region', { name: '펫 설정', exact: true });
   await page.waitFor();
@@ -82,6 +83,8 @@ exports.runPetSettingsChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await old.waitForTimeout(800);
   assert.equal((await called(old, 'undock_pet')).length, 0, 'notices from before do not bring it out');
   assert.equal(await old.locator('.pet-dock-badge.codex-done').count(), 1);
+  // The native handle window is 36×84; the page keeps the fixture size, so only that corner is shot.
+  if (screenshotDir) await old.screenshot({ path: path.join(screenshotDir, 'pet-docked-badge.png'), clip: { x: 252 - 60, y: 0, width: 60, height: 96 } });
   checks.push('tucked pet: an existing notice at start only shows the badge');
   await old.close();
 
