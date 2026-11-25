@@ -89,8 +89,16 @@ export async function runPet(args,env=process.env,deps={}) {
     if(reread.link?.revision!==saved.link?.revision || reread.link?.savedPet?.id!==o.petId || reread.link?.savedPet?.revision!==o.petRevision) throw Error('saved-pet-unconfirmed');
     return reread;
   };
+  // Presentation pet photos (Issue #104 prototype): the app saves pasted photos as
+  // <data>/design-references/<ref>/1.jpg… and the start request carries only the short ref, so the
+  // link stays short. Every chat runs connect/prepare before it delegates, so the folder and the
+  // rule travel here: an older chat that read the guide before this option existed still opens them.
+  const photosFolder=path.join(path.dirname(connectionPath),'design-references');
+  const hasPhotos=await (deps.isDirectory??(async dir=>(await stat(dir)).isDirectory()))(photosFolder).catch(()=>false);
+  const withPhotos=result=>hasPhotos?{...result,designReferencePhotos:{folder:photosFolder,
+    rule:`요청에 "디자인 참고 사진 있어: ref=<12자리>"가 있으면 사진은 ${photosFolder}\\<ref>\\ 에 1.jpg부터 최대 3장 있다. ref는 소문자 16진수 12자리만 받는다. 첫 질문을 보내거나 하위 작업을 시작하기 전에 부모 채팅이 그 .jpg들을 view_image로 직접 연다(계획 단계여도 연다. 보는 것은 파일 변경이 아니다). 하위 작업에는 ref만 넘기지 말고 디자인 요약(색·글꼴 느낌·배치)과 그 사진 폴더 경로를 지침에 넣는다. 열지 못하면 본 것처럼 말하지 말고 사진을 채팅에 붙여넣어 달라고 한다.`}}:result;
   // The questions for the chosen recipe travel with the applied pet, so the chat needs no second lookup.
-  const withRecipe=result=>o.recipe?{...result,recipe:recipeStart(o.recipe,result.link?.template,{home:env.USERPROFILE??os.homedir(),now:deps.now?.()})}:result;
+  const withRecipe=result=>withPhotos(o.recipe?{...result,recipe:recipeStart(o.recipe,result.link?.template,{home:env.USERPROFILE??os.homedir(),now:deps.now?.()})}:result);
   if(o.operation==='connect') {
     const saved=verify(await call({operation:'connect',target}));
     const reread=verify(await call({operation:'read',target}));
@@ -120,7 +128,7 @@ export async function runPet(args,env=process.env,deps={}) {
     // Existing reservations, even after a lost response, must not cause another spawn.
     const skillReader={executable:process.execPath,script:fileURLToPath(new URL('./read-skill.mjs',import.meta.url)),
       reads:skills.map(({id,version})=>['--id',id,'--version',version])};
-    return {...result,dispatchAllowed:result.dispatchAllowed===true,requestId,taskName:`autopets_${requestId.replaceAll('-','')}`,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skills[0].path,skills,skillReader};
+    return withPhotos({...result,dispatchAllowed:result.dispatchAllowed===true,requestId,taskName:`autopets_${requestId.replaceAll('-','')}`,requestedModel:selected.model,requestedEffort:selected.effort,instruction,skillPath:skills[0].path,skills,skillReader});
   }
   if(['enable','disable','disconnect'].includes(o.operation)) return verify(await call({operation:o.operation==='disconnect'?'disconnect':'enable',target,expectedRevision,...(o.operation==='disconnect'?{}:{enabled:o.operation==='enable'})}));
   const requestId=o.requestId??(o.operation==='recover'?current.link.run?.id:undefined);

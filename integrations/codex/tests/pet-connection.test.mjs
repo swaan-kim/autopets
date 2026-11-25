@@ -58,6 +58,23 @@ test('saved pet identity and revision are applied only to the verified current t
   assert.throws(()=>parsePetArgs(['prepare','--pet','x','--pet-revision','3']),/invalid-saved-pet/);
 });
 
+test('saved design photos: connect and prepare name their folder and the open-first rule, only when the folder exists',async()=>{
+  const photos=path.join(path.dirname(connection),'design-references');
+  const absent=fixture();
+  assert.equal('designReferencePhotos' in await absent.run('connect',['--pet','ui-fixture','--pet-revision','3']),false,'no photos saved, nothing added');
+  const f=fixture(), checked=[];
+  f.deps.isDirectory=async dir=>{checked.push(dir);return true;};
+  const connected=await f.run('connect',['--pet','ui-fixture','--pet-revision','3']);
+  assert.equal(connected.designReferencePhotos.folder,photos,'next to the connection file the chat already uses');
+  assert.match(connected.designReferencePhotos.rule,/view_image/u);
+  assert.ok(connected.designReferencePhotos.rule.includes(`${photos}\\<ref>\\`));
+  assert.match(connected.designReferencePhotos.rule,/ref만 넘기지 말고/u);
+  const prepared=await f.run('prepare');
+  assert.equal(prepared.designReferencePhotos.folder,photos,'the rule is in hand right before delegating');
+  assert.equal(prepared.dispatchAllowed,true);
+  assert.ok(checked.every(dir=>dir===photos),'only that folder is looked at; no photo is read or listed');
+});
+
 test('a recipe start returns the chat questions with the applied pet and never swaps or guesses a recipe',async()=>{
   const catalog=JSON.parse(await fs.readFile(new URL('../../../packages/contracts/data/pet-catalog.json',import.meta.url),'utf8'));
   const slides=catalog.find(entry=>entry.id==='presentation').template, home=path.resolve('fixture-home');
