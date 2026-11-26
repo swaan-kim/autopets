@@ -1,12 +1,9 @@
-/* Reserve the right end of the label row for the card's favorite button. */
 .result-card-label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 40px 8px 2px;
+  display: block;
+  margin: 0 2px 7px;
   color: #3c4542;
   font-size: 12px;
+  line-height: 1.5;
   font-weight: 650;
 }
 .role-result-preview .result-thumbnail { border-radius: 14px; }
@@ -30,6 +27,3 @@
 .role-result-preview .sample-slide-copy { gap: 8px; }
 .role-result-preview .sample-slide-photo { max-height: 130px; }
 .role-result-preview .sample-slide-topics > span { padding: 5px 8px; font-size: 11px; }
-@media (max-width: 740px) {
-  .result-card-label { padding-right: 2px; }
-}

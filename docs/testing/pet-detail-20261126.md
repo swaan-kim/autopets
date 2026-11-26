@@ -101,6 +101,25 @@ Windows에서 기존 Playwright 검사 도구와 가상 연결 데이터를 사�
 
 Base44의 예시 옆 주요 버튼과 Notion의 갤러리 아래 세부 정보 배치를 참고했다. AutoPets에서는 결과 예시 옆에 입력과 시작을 함께 두고, 도구나 출처는 펼쳐서 확인하도록 적용했다. [Base44 화면](https://mobbin.com/screens/99003e47-b929-4a2b-9f3b-c6935042114d?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp) · [Notion 화면](https://mobbin.com/screens/db686263-c5af-44cb-b9db-d1b8727d2616?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp)
 
+## 펫과 카드의 반응 정리 · 2026-11-27
+
+목록에서는 펫과 역할 이름, 짧은 설명을 위에 모으고 그 아래에 결과 예시를 놓았다. 즐겨찾기는 소개 오른쪽에 있다. 상세도 같은 바탕과 소품을 써서 방금 고른 펫과 이어진다. 중간 너비에서는 두 결과를 나란히 볼 수 있고, 820px 이하에서는 한 열로 표시한다. 큰 창에서는 예시의 가로 공간을 넓혀 카드 한 줄이 더 높아진다.
+
+| 이전 | 변경 후 |
+| --- | --- |
+| ![펫과 예시가 멀리 떨어진 목록](../changes/123/before-portrait-catalog.png) | ![펫과 설명 아래 결과 예시를 놓은 목록](../changes/123/after-portrait-catalog.png) |
+| ![목록과 소품이 달랐던 상세](../changes/123/before-portrait-detail.png) | ![같은 펫과 소품이 이어지는 상세](../changes/123/after-portrait-detail.png) |
+
+[펫 동작 이전](../changes/123/before-portrait-reaction.webm) · [펫 동작 변경 후](../changes/123/after-portrait-reaction.webm)
+
+카드를 가리키거나 키보드로 초점을 옮기면 카드 색이 바뀌고 펫은 발 쪽을 중심으로 몸을 기울인다. 마우스나 초점이 떠나면 제자리로 돌아온다. 상세에 들어가면 같은 그림과 소품이 한 번 자리를 잡는다. 동작 줄이기 설정에서는 움직임 없이 카드 색과 초점 표시로 반응을 보여준다.
+
+전후 화면과 영상은 992×688 창, 배율 100%, 가상 연결 상태에서 ‘하루 정리’ 펫으로 비교한 **합성 검사**다. 포인터를 올렸다 떼고 상세를 여는 동안 몸과 소품이 함께 움직이고 같은 그림 칸을 유지하는 것을 확인했다. 상세의 동작은 한 번 재생 뒤 멈췄다. 320·390·992·1280px에서도 가로 넘침과 시작 버튼 위치를 확인했다.
+
+전체 앱 UI 검사 76개를 통과한 뒤 펫 주위 여백을 마지막으로 맞췄다. 최종 소스에서 빌드와 펫 선택·상세 검사 5개를 다시 통과했다. 제품 AI 호출은 0회였다.
+
+캐릭터와 역할 설명을 붙이는 데 Canva 앱 목록과 Wix의 에이전트 소개 화면을 참고했다. 모션은 AutoPets의 기존 그림으로 브라우저에서 재현해 검사했다. [Canva 화면](https://mobbin.com/screens/c4c30fba-d21d-406f-945a-499b332e80e4?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp) · [Wix 화면](https://mobbin.com/screens/0c82e69a-18d7-40bf-b28f-7dab1a4e4b9d?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp)
+
 ## 남은 확인과 인계
 
 설치 앱·실제 AI 호스트 연결·결과 품질·사용자 편익을 통과시킨 검사는 아니다. 설치·배포와 실제 AI 시험은 이번 작업에 포함하지 않았다. 원래 앱 ID·데이터 위치·저장 데이터·공개 API·DB·대상 식별과 개정·재조회·중복 방지 계약은 유지했다.

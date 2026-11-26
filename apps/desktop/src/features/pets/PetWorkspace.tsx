@@ -74,10 +74,14 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
                 <article className="workspace-role-card" key={entry.id} data-role={entry.id} data-agent-id={`pet-selection.role.${entry.id}`}>
                   <FavoriteButton selected={favorites.includes(`template:${entry.id}`)} label={`${entry.name} 즐겨찾기`} onClick={() => onFavorite(`template:${entry.id}`)} />
                   <button className="workspace-role-select" data-agent-id={`pet-selection.role.${entry.id}.choose`} aria-label={`${entry.name} 펫 선택`} onClick={() => choose(entry)}>
-                    <TaskPetArt entry={entry} small interactive={false} />
-                    <span className="workspace-role-text">
-                      <strong>{entry.name} <span aria-hidden="true">→</span></strong>
-                      <span>{entry.summary}</span>
+                    <span className="workspace-role-identity">
+                      <span className="workspace-pet-portrait">
+                        <TaskPetArt entry={entry} interactive={false} />
+                      </span>
+                      <span className="workspace-role-text">
+                        <strong>{entry.name} <span aria-hidden="true">→</span></strong>
+                        <span>{entry.summary}</span>
+                      </span>
                     </span>
                     <PetCardThumb entry={entry} />
                   </button>

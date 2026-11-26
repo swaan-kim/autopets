@@ -33,8 +33,7 @@
 .workspace-library .pet-category-tabs { margin: 0; padding: 4px; border: 0; border-radius: 100px; background: #efefef; display: flex; gap: 2px; }
 .workspace-library .pet-category-tabs button { min-height: 40px; min-width: 68px; border-radius: 100px; border: 0; padding: 8px 15px; background: transparent; color: #7c7c7c; font-size: 13px; }
 .workspace-library .pet-category-tabs button[aria-pressed=true] { color: #4c4c4c; background: #ffffff; box-shadow: 0 2px 6px #37373710; }
-.workspace-role-card { position: relative; border: 1px solid var(--line); border-radius: 22px; background: #fff; transition: background .18s, box-shadow .18s; overflow: hidden; }
-.workspace-role-card:hover { box-shadow: 0 7px 22px #3f3f3f10; }
+.workspace-role-card { position: relative; border: 1px solid var(--line); border-radius: 22px; background: #fff; overflow: hidden; }
 .pet-source-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
 .pet-source-line > span:last-child { color: var(--muted); }
 .pet-skill-source { text-align: left; border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; overflow-wrap: anywhere; }
@@ -167,7 +166,6 @@
   .composer-profiles small { display: none; }
   .composer-path { font-size: 10px; gap: 5px; }
 }
-@media (prefers-reduced-motion: reduce) { .workspace-role-card { transition: none; } }
 @media (max-height: 800px) and (min-width: 701px) {
   .workspace-welcome { min-height: 160px; padding-block: 4px; }
   .workspace-welcome > .task-pet-art { --pet-size: 146px; }

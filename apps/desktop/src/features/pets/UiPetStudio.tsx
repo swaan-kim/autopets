@@ -532,11 +532,17 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     <div className="workspace-detail-layout">
       <div className="workspace-detail-content pet-detail-overview" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
         <header className="pet-start-identity composer-identity" data-agent-id="pet-selection.composer.identity">
-          <TaskPetArt entry={entry} small paused interactive={false} />
-          <div>{saved && <span className="composer-eyebrow">내 펫</span>}<h1 ref={heading} tabIndex={-1}>{entry.name}</h1><PetSkillSource entry={entry} compact /></div>
+          <span className="workspace-pet-portrait">
+            <TaskPetArt entry={entry} interactive={false} />
+          </span>
+          <div>
+            {saved && <span className="composer-eyebrow">내 펫</span>}
+            <h1 ref={heading} tabIndex={-1}>{entry.name}</h1>
+            <p className="workspace-detail-summary">{entry.summary}</p>
+            <PetSkillSource entry={entry} compact />
+          </div>
           <FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} />
         </header>
-        <p className="workspace-detail-summary">{entry.summary}</p>
         <section className="pet-detail-start" aria-label="이 펫으로 시작">
         {whereChat && <p className="pet-start-chat" data-agent-id="pet-selection.composer.chat" title={chatDetail(whereChat)}><small>Codex 채팅</small><strong>{shortChat(whereChat)}</strong></p>}
         {recommendedHere ? <section className="composer-recommended-request" data-agent-id="pet-selection.composer.recommended-request" aria-label="Codex 채팅에서 온 요청">
