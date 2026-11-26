@@ -30,6 +30,16 @@
 .pet-disclosure > summary:focus-visible { outline: 2px solid #536b7a; outline-offset: 3px; border-radius: 4px; }
 .workspace-library-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 22px 0 16px; }
 .workspace-library-heading h2 { margin: 0; }
+.pet-upcoming { margin: 32px 0 24px; }
+.pet-upcoming h2 { margin: 0 0 12px; font-size: 18px; color: var(--ink); }
+.pet-upcoming ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 0; }
+.pet-upcoming li { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: #faf9f7; }
+.pet-upcoming svg { width: clamp(54px, 6vw, 80px); flex: none; color: #8b8178; }
+.pet-upcoming svg text { fill: #fff; font: 700 64px system-ui, sans-serif; }
+.pet-upcoming strong, .pet-upcoming small { display: block; }
+.pet-upcoming strong { font-size: 15px; color: var(--ink); }
+.pet-upcoming small { margin-top: 4px; color: var(--muted); font-size: 12px; }
+@media (max-width: 650px) { .pet-upcoming ul { grid-template-columns: 1fr; } }
 .workspace-library .pet-category-tabs { margin: 0; padding: 4px; border: 0; border-radius: 100px; background: #efefef; display: flex; gap: 2px; }
 .workspace-library .pet-category-tabs button { min-height: 40px; min-width: 68px; border-radius: 100px; border: 0; padding: 8px 15px; background: transparent; color: #7c7c7c; font-size: 13px; }
 .workspace-library .pet-category-tabs button[aria-pressed=true] { color: #4c4c4c; background: #ffffff; box-shadow: 0 2px 6px #37373710; }
