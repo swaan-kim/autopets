@@ -130,6 +130,10 @@ exports.runCompanionChecks = async ({newPage,mockBridge,fixture,origin,screensho
  assert.equal(await aPet.locator('[data-clip="complete"]').count(),0,'restored result does not celebrate');
  await update('unknown');await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="still"]').waitFor();
  assert.equal(await aPet.getAttribute('data-state'),'error');
+ // Trouble must not reuse the planning still (the book) (#108); keep a picture of it for review.
+ await aPet.screenshot({path:path.join(screenshotDir,'companion-error.png')});
+ assert.match(await aPet.locator('.companion-sprite:not(.companion-previous-pose)').evaluate(el=>el.style.backgroundImage),/social/,'trouble shows the narrowed-eyes cell, not the planning book');
+ assert.equal(await aPet.locator('.companion-sprite[role="img"]').getAttribute('aria-label'),'문제가 생긴 펫');
  await update('working');await live.waitForFunction(()=>document.querySelector('.pet-card-0 .companion-pet')?.dataset.state==='working');
  await aPet.scrollIntoViewIfNeeded();await aPet.locator('[data-clip="working"]').waitFor();
  await live.emulateMedia({reducedMotion:'reduce'});

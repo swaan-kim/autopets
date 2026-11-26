@@ -8,6 +8,12 @@
 .companion-previous-pose { position: absolute; inset: 0; opacity: 0; }
 .companion-cell-blend { position: absolute; inset: 0; display: block; opacity: 0; background-repeat: no-repeat; transform-origin: 50% 90%; pointer-events: none; }
 .companion-pet[data-playing="true"]:not([data-state="error"]) .companion-body { animation: companion-presence 4.8s ease-in-out infinite; }
+/* Trouble (#108): narrowed eyes (social 1), sunk a little, a small head shake now and then, and a "!" mark.
+   It must never look like the planning still (the book), so a broken pet is not read as a thinking one. */
+.companion-pet[data-state="error"] .companion-body { transform: translateY(4%); }
+.companion-pet[data-playing="true"][data-state="error"] .companion-body { animation: companion-trouble 6s ease-in-out infinite; }
+@keyframes companion-trouble { 0%, 84%, 100% { transform: translateY(4%) rotate(0); } 88% { transform: translateY(4%) rotate(-2deg); } 92% { transform: translateY(4%) rotate(2deg); } 96% { transform: translateY(4%) rotate(-1deg); } }
+.companion-pet[data-state="error"]::after { content: "!"; position: absolute; top: 6%; right: 10%; display: grid; place-items: center; width: 22%; aspect-ratio: 1; border-radius: 50%; background: #c2410c; color: #fff; font-weight: 800; font-size: calc(var(--frame) * 0.14); line-height: 1; box-shadow: 0 1px 3px rgb(0 0 0 / 0.2); }
 @keyframes companion-presence { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1px) scale(1.006, 1.012); } }
 .companion-pet > .pet-art { --frame: var(--pet-size, 160px); }
 .task-pet-art[data-companion="true"] .task-pet-prop { display: none; }
