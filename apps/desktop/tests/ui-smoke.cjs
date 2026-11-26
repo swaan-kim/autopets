@@ -12,7 +12,10 @@ const { runTaskReturnChecks } = require('./task-return-ui.cjs');
 const { runToolActivityChecks } = require('./tool-activity-ui.cjs');
 const { runTaskGraphChecks } = require('./task-graph-ui.cjs');
 const { runPetLinkChecks } = require('./pet-link-ui.cjs');
+const { runReviewPetChecks } = require('./review-pet-ui.cjs');
+const { runCardCompareChecks } = require('./card-compare-ui.cjs');
 const { runPetAttentionChecks } = require('./pet-attention-ui.cjs');
+const { runPetSettingsChecks } = require('./pet-settings-ui.cjs');
 const { runUiPetStudioChecks } = require('./ui-pet-studio-ui.cjs');
 const { runCopyFreeChecks } = require('./copy-free-ui.cjs');
 const { runPetQuickUseChecks } = require('./pet-quick-use-ui.cjs');
@@ -290,6 +293,23 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
           else session.attention.snoozedUntil = Date.now() + args.minutes * 60000;
         }
         if (name === 'acknowledge') session.unread = false;
+        // 복습 도우미 문제 묶음 pages: `window.__uiTest.reviewBatches` holds batches with their cards.
+        if (name === 'review_batches') return structuredClone((window.__uiTest.reviewBatches || []).map(({ cards, ...batch }) => batch));
+        if (name === 'review_batch') {
+          const batch = (window.__uiTest.reviewBatches || []).find(item => item.id === args.id);
+          if (!batch) throw 'review-batch-not-found';
+          return structuredClone(batch);
+        }
+        if (name === 'delete_review_batch' || name === 'delete_review_card') {
+          const batches = window.__uiTest.reviewBatches || [];
+          for (const batch of batches) { batch.cards = batch.cards.filter(card => card.id !== args.id); batch.count = batch.cards.length; }
+          const emptied = name === 'delete_review_card' && batches.some(batch => batch.count === 0);
+          window.__uiTest.reviewBatches = batches.filter(batch => batch.id !== args.id && batch.count > 0);
+          state.review = { ...state.review, batches: window.__uiTest.reviewBatches.length, total: window.__uiTest.reviewBatches.reduce((sum, batch) => sum + batch.count, 0) };
+          window.__uiTest.emitEvent('autopets://snapshot', { ...structuredClone(state), now: Date.now() });
+          return name === 'delete_review_card' ? emptied : null;
+        }
+        if (name === 'fill_review_batch' && window.__uiTest.reviewFillError) throw window.__uiTest.reviewFillError;
         if (['configure_workflow_task', 'approve_workflow_plan', 'allow_workflow_once'].includes(name)) return structuredClone(workflowTask);
         if (/approval|pause|stop|open_task/.test(name)) throw Error('unsupported operation called');
         return null;
@@ -318,6 +338,18 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
       console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
       return;
     }
+    if (process.env.AUTOPETS_UI_CARD_COMPARE_ONLY === '1') {
+      await runCardCompareChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_CARD_SHOTS, checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_REVIEW_ONLY === '1') {
+      await runReviewPetChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_REVIEW_SHOTS, checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2));
+      return;
+    }
     if (process.env.AUTOPETS_UI_PROMPT_IDEAS_ONLY === '1') {
       const screenshots = await runPromptIdeaChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
@@ -337,6 +369,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     if (process.env.AUTOPETS_UI_PET_ATTENTION_ONLY === '1') {
       await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
       assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, checks, pageErrors: errors }, null, 2)); return;
+    }
+    if (process.env.AUTOPETS_UI_PET_SETTINGS_ONLY === '1') {
+      await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, checks, pageErrors: errors }, null, 2)); return;
     }
     if (process.env.AUTOPETS_UI_VISUAL_ONLY === '1') {
       const screenshots = await runVisualSimplicityChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
@@ -749,6 +785,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });
+    await closeFixturePages();
+    await runPetSettingsChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_PET_SETTINGS_SHOTS, checks });
+    await closeFixturePages();
+    // Screenshots only when asked (AUTOPETS_UI_REVIEW_SHOTS=<folder>), so the run never rewrites docs/images.
+    await runReviewPetChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_REVIEW_SHOTS, checks });
+    await runCardCompareChecks({ newPage, mockBridge, fixture, origin, screenshotDir: process.env.AUTOPETS_UI_CARD_SHOTS, checks });
     await closeFixturePages();
     graphScreenshots.push(...await runUiPetStudioChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

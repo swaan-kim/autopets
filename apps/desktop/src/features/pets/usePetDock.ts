@@ -8,17 +8,24 @@ export type DockEdge = 'left' | 'right';
 // task, chat link, recommendations and questions keep running underneath.
 export type DockPhase = 'shown' | 'hiding' | 'hidden' | 'restoring' | 'entering';
 // `codex-*`: a Codex chat needs the user / its requested work finished (orange / green).
-export type DockBadge = 'ask' | 'done' | 'codex-ask' | 'codex-done' | null;
+// `review`: 복습 도우미 has cards to review today (blue).
+export type DockBadge = 'ask' | 'done' | 'codex-ask' | 'codex-done' | 'review' | null;
 
 const HIDE_MS = 240;
 const ENTER_MS = 280;
+// Coming out by itself for a notice with "통통 튀어나오기" (설정 → 펫 설정): a longer hop.
+const JUMP_MS = 640;
 // Keeps a docked handle on a screen edge after monitor or resolution changes.
 const REANCHOR_MS = 4000;
 const reducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 export function usePetDock(index: number) {
   const label = `pet-${index}`;
-  const [dock, setDock] = useState<{ phase: DockPhase; edge: DockEdge | null }>({ phase: 'shown', edge: null });
+  // `jump`: a notice brought the pet out and it hops instead of sliding.
+  const [dock, setDock] = useState<{ phase: DockPhase; edge: DockEdge | null; jump?: boolean }>({ phase: 'shown', edge: null });
+  // The side the pet last sat in, so a pet that came out for a notice can go back there.
+  const lastEdge = useRef<DockEdge | null>(null);
+  if (dock.edge) lastEdge.current = dock.edge;
   const [error, setError] = useState('');
   const current = useRef(dock);
   current.current = dock;
@@ -50,7 +57,7 @@ export function usePetDock(index: number) {
       return () => { live = false; clearTimeout(timer); };
     }
     if (phase === 'entering') {
-      const timer = setTimeout(() => setDock({ phase: 'shown', edge: null }), reducedMotion() ? 0 : ENTER_MS);
+      const timer = setTimeout(() => setDock({ phase: 'shown', edge: null }), reducedMotion() ? 0 : dock.jump ? JUMP_MS : ENTER_MS);
       return () => clearTimeout(timer);
     }
     if (phase === 'hidden' && isDesktop) {
@@ -59,14 +66,26 @@ export function usePetDock(index: number) {
     }
   }, [dock]);
 
-  const restore = useCallback(() => {
+  const comeOut = useCallback((jump: boolean) => {
     const { phase, edge } = current.current;
-    if (phase !== 'hidden' || !edge) return;
-    setDock({ phase: 'restoring', edge });
+    if (phase !== 'hidden' || !edge) return false;
+    setDock({ phase: 'restoring', edge, jump });
     // The pet is drawn again only once its window is back to full size.
     command('undock_pet')
-      .then(() => { setError(''); setDock({ phase: 'entering', edge }); })
+      .then(() => { setError(''); setDock({ phase: 'entering', edge, jump }); })
       .catch(cause => { setError(String(cause)); setDock({ phase: 'hidden', edge }); });
+    return true;
+  }, []);
+  // A click on the handle, or Codex calling AutoPets: the usual slide out.
+  const restore = useCallback(() => { comeOut(false); }, [comeOut]);
+  // A notice arrived while tucked in (펫 설정): hops out with `jump`, otherwise slides like a click.
+  const alertOut = comeOut;
+  // "잠깐 나왔다가 다시 숨기": back into the side the pet came out of.
+  const redock = useCallback(() => {
+    const edge = lastEdge.current;
+    if (current.current.phase !== 'shown' || !edge) return false;
+    setDock({ phase: 'hiding', edge });
+    return true;
   }, []);
 
   // "숨기기" on the pet popup: the pet slides into the closer side of its screen, exactly as if
@@ -94,6 +113,6 @@ export function usePetDock(index: number) {
   }, [restore]);
 
   const handle = dock.phase === 'hidden' || dock.phase === 'restoring';
-  const overlayClass = dock.phase === 'hiding' ? ` dock-leave dock-${dock.edge}` : dock.phase === 'entering' ? ` dock-enter dock-${dock.edge}` : '';
-  return { ...dock, handle, overlayClass, error, restore, tuck };
+  const overlayClass = dock.phase === 'hiding' ? ` dock-leave dock-${dock.edge}` : dock.phase === 'entering' ? ` dock-enter dock-${dock.edge}${dock.jump ? ' dock-jump' : ''}` : '';
+  return { ...dock, handle, overlayClass, error, restore, tuck, alertOut, redock };
 }

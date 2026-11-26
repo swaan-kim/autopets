@@ -9,3 +9,5 @@ pub(crate) mod pet_preferences;
 pub(crate) mod claude_code;
 pub(crate) mod codex_chat;
 pub(crate) mod pet_dock;
+pub(crate) mod codex_window;
+pub(crate) mod review_chat;
