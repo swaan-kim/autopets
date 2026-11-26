@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { PetJob, PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
+import type { PetJob, PetLink, PetRecommendation, PetRoleSnapshot, PetRoleTemplate, ReviewSummary, SavedPet, SetupState, Snapshot, WorkflowModel, WorkflowReasoning } from '@autopets/contracts/types';
 import template from '../../../../../packages/contracts/data/ui-pet.json';
 import routing from '../../../../../packages/contracts/data/routing-profiles.json';
 import { petCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
@@ -79,7 +79,7 @@ export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: Ta
   ...(task.trim() === EXAMPLE_TASK ? ['이 예시에는 실제 개인정보 대신 가상 내용을 사용하고, 구현할 때는 새 autopets-demo 폴더를 사용하되 기존 파일이 있으면 먼저 알려줘.'] : []),
 ].join('\n');
 
-export function UiPetStudio({ links, jobs = [], recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange }: { links: PetLink[]; jobs?: PetJob[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void }) {
+export function UiPetStudio({ links, jobs = [], recommendations = [], recommendationOpen = null, setup, onConnection, active = true, view = 'home', navigationRevision = 0, onBrowse, legacy, disconnected = false, onBusyChange, review, reviewDetailOpen = 0, onReviewBatches }: { links: PetLink[]; jobs?: PetJob[]; recommendations?: PetRecommendation[]; recommendationOpen?: { id: string; petId: string | null; nonce: number } | null; setup?: SetupState | null; onConnection: () => void; active?: boolean; view?: PetWorkspaceView; navigationRevision?: number; onBrowse: () => void; legacy?: ReactNode; disconnected?: boolean; onBusyChange: (busy: boolean) => void; review?: ReviewSummary; reviewDetailOpen?: number; onReviewBatches?: () => void }) {
   const library = useRoles();
   const favorites = usePetFavorites();
   const [open, setOpen] = useState(false);
@@ -410,6 +410,14 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     if (next) openRecommended(item, next);
   }, [recommendationOpen?.nonce]);
   useEffect(() => { if (browsing && !recommendations.some(item => item.id === browsing.id)) setBrowsing(null); }, [browsing, recommendations]);
+  // 복습 도우미 "문제 묶음" from a pet's menu: its detail screen opens behind the batch page, so going
+  // back lands there. A saved 복습 도우미 is preferred over the catalog one.
+  useEffect(() => {
+    if (!reviewDetailOpen || (open && entry.id === 'review-helper')) return;
+    const savedReview = uiPets.find(pet => catalogFor(pet.template)?.id === 'review-helper');
+    const next = petCatalog.find(item => item.id === 'review-helper');
+    if (savedReview) openSaved(savedReview); else if (next) selectEntry(next);
+  }, [reviewDetailOpen]);
   // The app only keeps recommendations for linked chats and the chat waiting after `$autopets`.
   const shownRecommendations = recommendations.filter(item => item.state === 'shown');
   const openSaved = (item: SavedPet) => {
@@ -515,7 +523,9 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     <PetWorkspace view={view} navigationRevision={navigationRevision} active={active && !open} category={category} onCategory={setCategory} links={links} disconnected={disconnected} legacy={legacy} jobs={jobs} pets={uiPets} favorites={favorites.ids} onFavorite={favorites.toggle} onSelect={chooseEntry} onSaved={openSaved} onNewTask={startAnother} onBrowse={onBrowse} error={favorites.error || library.error} /></div>{open && <section className="workspace-role-detail pet-start" data-agent-scope="pet-selection" data-agent-id="pet-selection.detail" data-role={entry.id} aria-label={`${entry.name} 살펴보기`}>
     <button className="text-button workspace-detail-back" data-agent-id="pet-selection.detail.back" disabled={busy} onClick={close}>← 돌아가기</button>
     <div className="workspace-detail-layout">
-      <div className="workspace-detail-preview" data-agent-id="pet-selection.detail.preview"><ResultPreview entry={entry} /></div>
+      <div className="workspace-detail-preview" data-agent-id="pet-selection.detail.preview"><ResultPreview entry={entry} />
+        {entry.id === 'review-helper' && (review?.batches ?? 0) > 0 && onReviewBatches && <button type="button" className="review-batches-entry" data-agent-id="pet-selection.detail.review-batches" onClick={onReviewBatches}>
+          <span>문제 묶음 {review!.batches}</span>{review!.due > 0 && <small>오늘 복습 {review!.due}</small>}<span aria-hidden="true">→</span></button>}</div>
       <div className="workspace-detail-content pet-start-panel" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
         <header className="pet-start-identity composer-identity" data-agent-id="pet-selection.composer.identity">
           <TaskPetArt entry={entry} small paused interactive={false} />

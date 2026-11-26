@@ -62,6 +62,9 @@ impl Store {
             pet_links: HashMap::new(),
             recommendations: Default::default(),
             attention: Default::default(),
+            review_cards: Vec::new(),
+            review_batches: Vec::new(),
+            review_notice_day: None,
             pet_jobs: Default::default(),
             assistance: crate::application::assistance::AssistanceStore::new(&data_dir)?,
             workflow: crate::application::workflow::WorkflowStore::new(&data_dir)?,
@@ -167,6 +170,7 @@ impl Store {
         store.init_roles()?;
         store.init_task_graph()?;
         store.init_pet_links()?;
+        store.init_review()?;
         Ok(store)
     }
 

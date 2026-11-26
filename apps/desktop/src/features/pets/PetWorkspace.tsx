@@ -24,6 +24,7 @@ const rolePromises: Partial<Record<string, string>> = {
   'daily-plan': '무리하게 다 넣지 않아요',
   'travel-plan': '확인 못 한 건 확정하지 않아요',
   'study-helper': '정답은 풀고 나서 보여줘요',
+  'review-helper': '잊을 때쯤 다시 물어봐요',
   'ui-webpage': '모바일 화면까지 확인해요',
   'marketing-copy': '없는 사실은 지어내지 않아요',
   presentation: '한 장에 한 메시지만 담아요',

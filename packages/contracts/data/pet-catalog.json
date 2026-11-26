@@ -126,6 +126,48 @@
     }
   },
   {
+    "id": "review-helper",
+    "category": "daily",
+    "name": "복습 도우미",
+    "summary": "잊을 때쯤 다시 물어봐요",
+    "inputLabel": "방금 공부한 Codex 채팅",
+    "optionalLabel": "복습할 주제",
+    "example": "방금 공부한 내용으로 문제 10개 내줘",
+    "output": "객관식 10문제 · 한 번에 채점 · 문제 묶음",
+    "before": "공부한 내용이 며칠 지나면 흐려져요.",
+    "after": "잊을 때쯤 틀린 문제부터 다시 풀어요.",
+    "limit": "문제는 채팅에서 다룬 내용만큼만 정확해요.",
+    "symbol": "↻",
+    "publisher": "AutoPets 자체 제작",
+    "source": null,
+    "template": {
+      "id": "review-helper",
+      "version": 1,
+      "name": "복습 도우미 펫",
+      "instruction": "부모 채팅이 전달한 학습 내용 요약에만 근거하세요. 문제 내기 요청이면 객관식 4지선다 문제(기본 10개, 내용이 적으면 줄이되 최소 3개)와 짧은 묶음 이름을 선택 스킬의 JSON 형식으로만 반환하고 정답을 따로 풀어 쓰지 마세요. 쉬운 설명 요청이면 일상 예시와 세 줄 이내 요약으로 설명하세요. 자료에 없는 내용을 지어내지 마세요.",
+      "planFirst": false,
+      "planning": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "execution": {
+        "model": "gpt-6-luna",
+        "reasoning": "low"
+      },
+      "skills": [
+        {
+          "id": "autopets-review-helper",
+          "version": "1.0.0"
+        }
+      ],
+      "features": {
+        "figmaDesign": false
+      },
+      "prop": "none",
+      "background": "none"
+    }
+  },
+  {
     "id": "ui-webpage",
     "category": "work",
     "name": "웹페이지 만들기",

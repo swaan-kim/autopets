@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum RoleId { ResearchDocument, BuildImplementation, DailyPlan, TravelPlan, StudyHelper, MarketingCopy, Presentation }
+pub enum RoleId { ResearchDocument, BuildImplementation, DailyPlan, TravelPlan, StudyHelper, ReviewHelper, MarketingCopy, Presentation }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Prop { None, Notebook }
@@ -44,6 +44,7 @@ impl Template {
             RoleId::DailyPlan => "autopets-daily-plan",
             RoleId::TravelPlan => "autopets-travel-plan",
             RoleId::StudyHelper => "autopets-study-helper",
+            RoleId::ReviewHelper => "autopets-review-helper",
             RoleId::MarketingCopy => "autopets-marketing-copy",
             RoleId::Presentation => "autopets-presentation",
         };

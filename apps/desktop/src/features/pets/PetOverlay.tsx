@@ -27,6 +27,7 @@ import { usePetGesture } from './usePetGesture';
 import { usePetDock, type DockBadge } from './usePetDock';
 import { PetDockHandle } from './PetDockHandle';
 import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention, type MarkControls } from './PetAttention';
+import { FILLED_TEXT, isReviewPet, NO_REVIEW, ReviewDropMenu, ReviewDueBubble } from './ReviewMenu';
 import { PetBubble, jobBubble, noticeSeen, sessionBubble } from './PetBubble';
 import { HOST_NAMES, JOB_ACTIVE_MS, PetJobList, activeJob, openJobResult } from './PetJobs';
 import type { CompanionState } from './companionMotion';
@@ -64,7 +65,17 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const closeBubble = () => { clearTimeout(peekTimer.current); setPeek(false); setBubbleId(null); };
   const bubbled = useRef(new Set<string>());
   // Dragging the pet body moves its window; the open card and the bubble close first.
-  const gesture = usePetGesture({ onDragStart: () => { setExpanded(false); closeBubble(); } });
+  // 복습 도우미 only: the panel shown after a drop on a Codex window, today's "복습할 때예요" bubble,
+  // "여기에 놓기" while dragging over Codex, and "보내기만 누르세요" after a request was typed in.
+  const reviewLink = snapshot.petLinks?.find(link => link.slot === index);
+  const reviewPet = isReviewPet(reviewLink);
+  const review = snapshot.review ?? NO_REVIEW;
+  const [dragOverCodex, setDragOverCodex] = useState(false);
+  const [dropMenu, setDropMenu] = useState(false);
+  const [dueBubble, setDueBubble] = useState(false);
+  const [filled, setFilled] = useState(0);
+  const dueShown = useRef(false);
+  const gesture = usePetGesture({ onDragStart: () => { setExpanded(false); closeBubble(); setDropMenu(false); setDueBubble(false); } });
   // Dropped at the left or right screen edge, the pet tucks into a small handle there.
   const dock = usePetDock(index);
   const dockHandle = (name: string, badge: DockBadge, peek: ReactElement) => dock.edge &&
@@ -91,6 +102,38 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const shownId = bubbleId ?? (peek ? marked?.id : undefined);
   const bubble = notices.find(item => item.id === shownId);
   const noticeOpen = Boolean(bubble) && !expanded && dock.phase === 'shown';
+  const reviewOpen = reviewPet && (dropMenu || dueBubble) && !expanded && dock.phase === 'shown' && !noticeOpen;
+  const firstReviewSlot = Math.min(...(snapshot.petLinks ?? []).filter(isReviewPet).map(link => link.slot));
+  const dueEligible = reviewPet && index === firstReviewSlot && review.due > 0 && !review.notifiedToday && !expanded && dock.phase === 'shown'
+    && !bubble && !dropMenu && !(Boolean(error) || (isDesktop && !snapshot.connectionPath));
+  // "복습할 때예요" once a day: the app records that it was shown, so it does not come back today.
+  useEffect(() => {
+    if (!dueEligible || dueShown.current) return;
+    dueShown.current = true; setDueBubble(true);
+    if (isDesktop) void command('mark_review_notice').catch(() => undefined);
+  }, [dueEligible]);
+  useEffect(() => {
+    if (!isDesktop || !reviewPet) return;
+    let disposed = false; const removers: (() => void)[] = [];
+    const label = `pet-${index}`;
+    const add = <T,>(name: string, fn: (payload: T) => void) => { void listen<T>(name, event => fn(event.payload)).then(remove => { if (disposed) remove(); else removers.push(remove); }).catch(() => undefined); };
+    add<{ label: string; codex: boolean }>('autopets://pet-drag-over', payload => { if (payload.label === label) setDragOverCodex(payload.codex === true); });
+    // An edge drop docks; only a drop on a Codex window elsewhere opens the menu.
+    add<{ label: string; edge: string | null; codex?: boolean }>('autopets://pet-drag-end', payload => {
+      if (payload.label !== label) return;
+      setDragOverCodex(false);
+      if (payload.codex === true && !payload.edge) setDropMenu(true);
+    });
+    return () => { disposed = true; removers.forEach(remove => remove()); };
+  }, [index, reviewPet]);
+  useEffect(() => {
+    if (!filled) return;
+    const timer = setTimeout(() => setFilled(0), 3000);
+    return () => clearTimeout(timer);
+  }, [filled]);
+  const reviewFilled = () => { setFilled(Date.now()); setExpanded(false); setDropMenu(false); setDueBubble(false); };
+  const reviewStatusText = !reviewPet ? '' : filled ? FILLED_TEXT : dragOverCodex ? '여기에 놓기' : '';
+  const reviewStatus = reviewStatusText && <span className={`floating-status ${filled ? 'review-filled' : 'review-drop'}`} role="status" title={reviewStatusText}>{reviewStatusText}</span>;
   useEffect(() => {
     if (!unread || bubbled.current.has(unread.id) || expanded || dock.phase !== 'shown') return;
     bubbled.current.add(unread.id); setBubbleId(unread.id);
@@ -164,8 +207,8 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const jobState: CompanionState = !latest ? 'idle' : latest.state === 'working' ? 'working' : latest.state === 'asking' ? 'waiting' : latest.state === 'failed' ? 'error' : 'complete';
   useEffect(() => { setExpanded(false); setNotice(''); }, [session?.id]);
   useEffect(() => {
-    if (isDesktop) resizeQueue.current = resizeQueue.current.catch(() => undefined).then(() => command('set_pet_expanded', { expanded, notice: noticeOpen })).catch(cause => setWindowError(String(cause)));
-  }, [expanded, noticeOpen]);
+    if (isDesktop) resizeQueue.current = resizeQueue.current.catch(() => undefined).then(() => command('set_pet_expanded', { expanded, notice: noticeOpen || reviewOpen })).catch(cause => setWindowError(String(cause)));
+  }, [expanded, noticeOpen, reviewOpen]);
   useEffect(() => {
     if (!expanded) return;
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { setExpanded(false); overlay.current?.querySelector<HTMLButtonElement>('.pet-hit')?.focus(); } };
@@ -202,15 +245,21 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
     const offered = recommendation && recommendation.state !== 'running' ? recommendation : undefined;
     const floatingStatus = offered ? recommendationStatus(offered) : explicitPetStatus(explicit, disconnected);
     if (dock.handle) {
-      const badge: DockBadge = codexBadge ?? (offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : null);
+      const badge: DockBadge = codexBadge ?? (offered?.state === 'shown' || state === 'waiting' || state === 'returned' || state === 'failed' || state === 'unknown' ? 'ask' : state === 'complete' ? 'done' : reviewPet && review.due > 0 ? 'review' : null);
       return dockHandle(explicit.template.name, badge, <TaskPetArt entry={catalogFor(explicit.template)} state={companionState(explicit, disconnected)} interactive={false} />);
     }
-    return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
+    const reviewLost = disconnected || !explicit.connected;
+    const reviewPanel = reviewOpen && (dropMenu
+      ? <ReviewDropMenu link={explicit} lost={reviewLost} onFilled={reviewFilled} onClose={() => setDropMenu(false)}
+        onReconnect={() => { void command('open_pet_task', { target: explicit.target, expectedRevision: explicit.revision }).catch(() => setExpanded(true)); }} />
+      : <ReviewDueBubble link={explicit} due={review.due} lost={reviewLost} onFilled={reviewFilled} onClose={() => setDueBubble(false)} />);
+    return <div ref={overlay} className={`pet-overlay ${expanded ? 'expanded' : ''}${noticeOpen || reviewOpen ? ' codex-notice' : ''}${dock.overlayClass}`}>
       {noticeBubble}
-      {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<PetJobList jobs={jobs} compact /><PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} /></div>}
+      {reviewPanel}
+      {expanded && <div className="quick-card-stack">{noticeCard}{offered && <PetRecommendationCard item={offered} compact />}<PetJobList jobs={jobs} compact /><PetPopup link={explicit} disconnected={disconnected} onHide={tuckAway} review={review} onReviewFilled={reviewFilled} /></div>}
       <div className="floating-pet">
-        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{mark}</button>
-        <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span>{summonStatus || codexStatus || <PetBubble notice={offered ? null : reportedNotice} onOpen={openReported}><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span></PetBubble>}
+        <button className="pet-hit" aria-label={`${explicit.template.name} 메뉴${offered?.state === 'shown' ? ' · 펫 추천 있음' : ''}${markLabel}${reviewPet && review.due > 0 ? ` · 복습 ${review.due}개` : ''}`} aria-expanded={expanded} title={moveHint} onClick={() => setExpanded(!expanded)} {...gesture.handlers}><TaskPetArt entry={catalogFor(explicit.template)} paused={!active} motion={explicitPetMotion(explicit, disconnected)} state={companionState(explicit, disconnected)} runKey={companionRunKey(explicit)} interactive={active} motionInput={gesture.motion} />{offered?.state === 'shown' && <span className="pet-recommendation-dot" aria-hidden="true">추천</span>}{mark}{reviewPet && review.due > 0 && <span className="pet-review-badge" aria-hidden="true">{review.due}</span>}</button>
+        <span className="floating-label" title={`${explicit.template.name} · Codex`}>{explicit.template.name}</span>{summonStatus || reviewStatus || codexStatus || <PetBubble notice={offered ? null : reportedNotice} onOpen={openReported}><span className={`floating-status ${offered ? 'recommend' : ''}`} title={floatingStatus}>{floatingStatus}</span></PetBubble>}
       </div></div>;
   }
   const motion = disconnected || session?.connection !== 'observed' ? 'idle'

@@ -58,6 +58,13 @@
       "sha256": "bd4a9f05a54267c3293bb74360dfa683e38a9419ad60c63165e5d30edaa2a104"
     },
     {
+      "id": "autopets-review-helper",
+      "version": "1.0.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "316da2f230ca4495aa008db3f9b5f2e2cadc26009408d9a7b985006f09e3e28d"
+    },
+    {
       "id": "autopets-marketing-copy",
       "version": "1.0.0",
       "publisher": "AutoPets",
