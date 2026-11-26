@@ -63,11 +63,20 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
       assert.match(await programImage.getAttribute('src'), /program\.webp$/);
       await programImage.evaluate(image => image.decode());
     }
+    if (entry.id === 'study-helper') {
+      const question = preview.getByText('책을 읽고 영화를 포기했다면?', { exact: true });
+      const answer = preview.getByText('영화에서 얻었을 즐거움이 기회비용이에요.', { exact: true });
+      assert.equal(await answer.isVisible(), false, 'the practice answer stays hidden until asked for');
+      await question.press('Enter');
+      assert.equal(await answer.isVisible(), true);
+      await question.press('Enter');
+    }
     await enlarge.focus(); await page.keyboard.press('Enter'); await enlarged.waitFor();
     assert.equal(await enlarged.evaluate(artwork), sectionArtwork, 'enlarging keeps the selected example section');
+    await enlarged.getByRole('group', { name: '미리보기 화면', exact: true }).getByRole('button').first().click();
+    assert.equal(await enlarged.evaluate(artwork), cardArtwork, 'the enlarged view can switch parts without closing');
     await page.keyboard.press('Escape'); await enlarged.waitFor({ state: 'detached' });
-    await full.click();
-    assert.equal(await full.getAttribute('aria-pressed'), 'true');
+    assert.equal(await full.getAttribute('aria-pressed'), 'true', 'the page keeps the part chosen in the enlarged view');
     await flow.locator('summary').getByText('스킬 출처', { exact: true }).click();
     const source = flow.getByRole('region', { name: '이 펫의 스킬 출처' });
     await source.waitFor();
@@ -80,12 +89,15 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
     assert.equal(await input.inputValue(), '', 'the request starts empty');
     assert.equal(await flow.getByRole('button', { name: 'Codex에서 시작', exact: true }).isDisabled(), true, 'an empty request cannot start');
-    await flow.getByRole('button', { name: '예시 넣기', exact: true }).click();
+    await exampleToggle.press('Enter');
+    await example.getByRole('button', { name: '이 요청 써보기', exact: true }).click();
     assert.equal(await input.inputValue(), entry.example);
     assert.equal(await input.evaluate(node => node === document.activeElement), true, 'the filled example is ready to edit');
+    assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(call => /open_pet|save_pet|connect_ai/.test(call.name))), [], 'using the example only fills the draft');
     await openCopy(flow);
     assert.equal(await flow.locator('input[aria-label="Figma 시안 활용"]').count(), entry.id === 'ui-webpage' ? 1 : 0);
     await input.fill(`${entry.example}\n한글 추가 조건`);
+    assert.equal(await example.getByRole('button', { name: '이 요청 써보기', exact: true }).count(), 0, 'the example cannot replace a draft');
     await leaveComposer(flow); await dismissRoleDetail(page);
     await chooseRole(page, entry.name);
     await openCopy(flow);

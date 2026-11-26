@@ -24,6 +24,7 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  assert.equal(await tools.isVisible(), false);
  assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name === 'start_hub_entry')), false);
  const daily = page.getByRole('button', { name: '하루 정리 펫 선택', exact: true });
+ const portrait = daily.locator('.workspace-pet-portrait');
  const art = daily.locator('.task-pet-art');
  const still = art.locator('.companion-pet[data-playing="false"] [data-clip="still"]');
  const settleTransform = () => art.evaluate(async element => {
@@ -32,9 +33,16 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
    return getComputedStyle(element).transform;
  });
  await still.waitFor();
+ await daily.scrollIntoViewIfNeeded();
+ assert.ok(await art.evaluate(element => element.offsetWidth < element.parentElement.clientWidth), 'the pet has room inside its portrait');
+ const portraitBox = await portrait.boundingBox();
+ const cardSurface = () => daily.evaluate(element => getComputedStyle(element).backgroundColor);
+ const restingSurface = await cardSurface();
  await daily.hover();
  assert.notEqual(await settleTransform(), 'none', 'the pet leans gently while the pointer is over the card');
  assert.equal(await still.count(), 1, 'hover does not start a pose clip');
+ assert.deepEqual(await portrait.boundingBox(), portraitBox, 'the portrait stays in place while the pet leans');
+ assert.notEqual(await cardSurface(), restingSurface, 'the card surface responds with the pet');
  await page.mouse.move(1, 1);
  assert.equal(await settleTransform(), 'none', 'leaving the card restores the resting pose');
  await page.getByRole('button', { name: '하루 정리 즐겨찾기', exact: true }).focus();
@@ -44,6 +52,14 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await page.emulateMedia({ reducedMotion: 'reduce' });
  await daily.hover();
  assert.equal(await settleTransform(), 'none', 'reduced motion keeps the pet still even with focus and hover');
+ await daily.press('Enter');
+ const detail = page.locator('.pet-start');
+ const selectedArt = detail.locator('.workspace-pet-portrait .task-pet-art');
+ await selectedArt.locator('.companion-pet[data-assets="ready"]').waitFor();
+ assert.equal(await selectedArt.getAttribute('data-role'), 'daily-plan');
+ assert.ok(await selectedArt.locator('.task-pet-prop').isVisible(), 'the detail portrait keeps the same role prop');
+ assert.equal(await selectedArt.evaluate(element => element.getAnimations().length), 0);
+ await leaveComposer(detail);
  await page.emulateMedia({ reducedMotion: 'no-preference' });
  const favorite=page.locator('.workspace-role-card').getByRole('button',{name:'웹페이지 만들기 즐겨찾기',exact:true});
  await favorite.click(); assert.equal(await favorite.getAttribute('aria-pressed'),'true');

@@ -1,46 +1,54 @@
-/* Visual output previews are examples; live progress stays in ExplicitPet. */
-.visual-result-preview.role-result-preview { display: block; width: 100%; margin: 0 0 10px; padding: 0; background: transparent; border-radius: 0; }
-.visual-result-preview .result-thumbnail { display: block; width: 100%; aspect-ratio: 280 / 164; overflow: hidden; border: 1px solid #e9ecee; border-radius: 12px; background: #f5f6f7; }
-.visual-result-preview .result-thumbnail svg { display: block; width: 100%; height: 100%; fill: #424a50; font-family: inherit; }
-.visual-result-preview .result-thumbnail-web { background: #081c28; }
-.visual-result-preview .result-thumbnail img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center top; }
-.visual-result-preview .result-thumbnail-fallback { height: 100%; display: grid; place-items: center; background: #f4f5f6; color: #667078; font-size: 12px; }
-.visual-result-preview.result-preview figcaption { margin: 9px 0 0; color: #626c73; font-size: 11px; }
-.visual-result-preview.result-preview figcaption small { color: #737b81; }
-/* A pet's purpose and example are a single selection target. */
-.workspace-role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.workspace-role-card .workspace-role-select { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(238px, 1.65fr); gap: 16px; align-items: center; width: 100%; height: 100%; padding: 18px; border: 0; border-radius: inherit; background: none; text-align: left; color: #363636; }
+/* Keep each pet and its purpose together above the result. */
+.workspace-role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.workspace-role-card .workspace-role-select { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 14px; width: 100%; height: 100%; padding: 16px; border: 0; border-radius: inherit; background: #fff; text-align: left; color: var(--ink); }
 .workspace-role-card .workspace-role-select:focus-visible { outline-offset: -4px; }
-.workspace-role-card .workspace-role-select > .task-pet-art { --pet-size: 72px; }
-.workspace-role-card .workspace-role-text { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.workspace-role-select:is(:hover, :focus-visible) { --portrait-surface: #eee7de; }
+.workspace-role-card .workspace-role-select:is(:hover, :focus-visible) { background-color: #fcfaf8; }
+.workspace-role-identity { display: flex; align-items: center; gap: 14px; min-width: 0; padding-inline-end: 40px; }
+.workspace-role-text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
 .workspace-role-text > strong { color: var(--ink); font-size: 17px; letter-spacing: -.4px; line-height: 1.4; word-break: keep-all; }
 .workspace-role-text > strong span { color: var(--muted); font-weight: 400; }
 .workspace-role-text > span { color: #58636b; font-size: 14px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
 .workspace-role-card .workspace-role-select .role-result-preview { min-width: 0; margin: 0; }
-.workspace-role-grid .workspace-role-card > .pet-favorite-button { position: absolute; z-index: 1; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; overflow: hidden; border: 0; border-radius: 50%; background: transparent; font-size: 0; gap: 0; }
-.workspace-role-grid .workspace-role-card > .pet-favorite-button > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #ffffffd9; box-shadow: 0 1px 4px #0000001f; color: #888888; font-size: 18px; line-height: 1; }
+.workspace-role-grid .workspace-role-card > .pet-favorite-button { position: absolute; z-index: 1; top: 28px; right: 12px; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; overflow: hidden; border: 0; border-radius: 50%; background: transparent; font-size: 0; gap: 0; }
+.workspace-role-grid .workspace-role-card > .pet-favorite-button > span { color: var(--muted); font-size: 22px; line-height: 1; }
 .workspace-role-grid .workspace-role-card > .pet-favorite-button[aria-pressed=true] > span { color: #f5b400; }
-.workspace-role-card .pet-origin-badge { display: none; }
+.workspace-pet-portrait {
+  --portrait-size: 68px;
+  --portrait-lean: rotate(3deg) scale(1.018, 1.045);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--portrait-size);
+  height: var(--portrait-size);
+  border-radius: 16px;
+  background: var(--portrait-surface, #f6f2ed);
+}
+.workspace-pet-portrait > .task-pet-art { --pet-size: calc(var(--portrait-size) - 10px); }
+.workspace-pet-portrait .pet-origin-badge { display: none; }
+.workspace-pet-portrait .task-pet-art[data-companion-state="idle"] .task-pet-prop { display: block; }
 .workspace-resources { margin-top: 24px; border-top: 1px solid var(--line); }
 .workspace-resources > details { border-bottom: 1px solid var(--line); }
 .workspace-resources .skill-hub, .workspace-resources .prompt-ideas { margin: 0 0 20px; }
-/* Keep the catalog pose still, with a small lean on intentional interaction. */
+/* Interpolate the same pose around the paws, including the role's prop. */
 @media (prefers-reduced-motion: no-preference) {
-  .workspace-role-select > .task-pet-art {
-    transform-origin: 50% 88%;
-    transition: transform 280ms ease-out;
-  }
-  .workspace-role-select:focus-visible > .task-pet-art { transform: translateY(-2px) rotate(-2deg); }
+  .workspace-role-card .workspace-role-select,
+  .workspace-role-select .workspace-pet-portrait { transition: background-color 240ms ease; }
+  .workspace-pet-portrait > .task-pet-art { transform-origin: 50% 91%; }
+  .workspace-role-select .workspace-pet-portrait > .task-pet-art { transition: transform 420ms cubic-bezier(.23, .67, .28, 1); }
+  .workspace-role-select:focus-visible .workspace-pet-portrait > .task-pet-art { transform: var(--portrait-lean); }
   @media (hover: hover) {
-    .workspace-role-select:hover > .task-pet-art { transform: translateY(-2px) rotate(-2deg); }
+    .workspace-role-select:hover .workspace-pet-portrait > .task-pet-art { transform: var(--portrait-lean); }
+  }
+  .pet-start-identity .workspace-pet-portrait > .task-pet-art:has(.companion-pet[data-assets="ready"]) {
+    animation: workspace-portrait-settle 620ms cubic-bezier(.25, .62, .35, 1);
+  }
+  @keyframes workspace-portrait-settle {
+    from { transform: var(--portrait-lean); }
+    76% { transform: rotate(-.55deg) scale(1, .996); }
+    to { transform: none; }
   }
 }
-@media (max-width: 1180px) {
+@media (max-width: 820px) {
   .workspace-role-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 740px) {
-  .workspace-role-card .workspace-role-select { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 18px; }
-  .workspace-role-card .workspace-role-select > .task-pet-art { --pet-size: 56px; }
-  .workspace-role-card .workspace-role-text { padding-right: 36px; }
-  .workspace-role-card .workspace-role-select .role-result-preview { grid-column: 1 / -1; width: 100%; }
 }

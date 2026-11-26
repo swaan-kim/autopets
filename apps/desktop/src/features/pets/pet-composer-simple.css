@@ -2,16 +2,15 @@
 .pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 32px; align-items: start; }
 .pet-start .workspace-detail-content { display: block; grid-area: 1 / 2; }
 .pet-start .workspace-detail-preview { grid-area: 1 / 1; }
-.pet-start-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.pet-start-identity > .task-pet-art { --pet-size: 68px; flex: 0 0 auto; }
-.pet-start-identity > .task-pet-art .pet-origin-badge { display: none; }
+.pet-start-identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.pet-start-identity .workspace-pet-portrait { --portrait-size: 76px; }
 .pet-start-identity > div { min-width: 0; flex: 1; }
 .pet-start .composer-eyebrow { display: block; margin-bottom: 3px; color: #7b8187; font-size: 12px; }
 .pet-start .pet-start-identity h1 { margin: 0; color: #20262b; font-size: 30px; line-height: 1.3; letter-spacing: -.6px; word-break: keep-all; overflow-wrap: anywhere; }
 .pet-start .pet-start-identity h1:focus { outline: none; }
 .pet-start-identity > .pet-favorite-button { width: 42px; min-width: 42px; min-height: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; border: 0; background: none; }
 .pet-start-identity > .pet-favorite-button > span:first-child { font-size: 23px; }
-.pet-start .workspace-detail-summary { margin: 20px 0 0; font-size: 16px; line-height: 1.7; word-break: keep-all; }
+.pet-start .workspace-detail-summary { margin: 4px 0 0; color: #58636b; font-size: 14px; line-height: 1.6; word-break: keep-all; }
 .pet-start-chat { display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%; margin: 0 0 12px; padding: 7px 12px; border-radius: 8px; background: #eef5f0; color: #20262b; }
 .pet-start-chat small { flex: none; color: #3f7a52; font-size: 12px; font-weight: 600; }
 .pet-start-chat strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
@@ -84,7 +83,7 @@
 .pet-start .pet-start-hint + .composer-task textarea { min-height: 72px; }
 .pet-detail-overview { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: #fff; min-width: 0; }
 .pet-detail-start { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
-.pet-start-identity .pet-source-line { margin: 8px 0 0; font-size: 12px; }
+.pet-start-identity .pet-source-line { margin: 4px 0 0; font-size: 12px; }
 .pet-detail-limit { margin-top: 8px; font-size: 13px; line-height: 1.6; color: #606970; word-break: keep-all; }
 .pet-detail-limit p { margin: 0; }
 .pet-detail-source, .pet-detail-example { border-bottom: 1px solid var(--line); padding: 0 4px; }
@@ -92,12 +91,10 @@
 .pet-detail-example { margin-top: 16px; }
 .pet-detail-example-body { padding: 8px 0 16px; }
 .pet-detail-example-request { max-width: 90%; width: fit-content; margin: 0 0 20px auto; padding: 14px 16px; border-radius: 16px 16px 4px 16px; background: #f4f5f6; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-.pet-detail-example-result h2 { margin: 0; font-size: 15px; line-height: 1.6; }
-.pet-detail-example-result small { margin-left: 4px; color: #606970; font-size: 12px; font-weight: 400; }
-.pet-detail-example-result p { margin: 6px 0 0; line-height: 1.7; font-size: 14px; }
+.pet-detail-example-result { margin: 0; color: #49564f; line-height: 1.7; font-size: 14px; }
+.pet-detail-example-body > .button { min-height: 40px; margin-top: 12px; font-size: 13px; }
 @media (max-width: 1100px) {
   .pet-start .pet-start-identity h1 { font-size: 26px; }
-  .pet-start .workspace-detail-summary { margin-top: 16px; font-size: 15px; }
   .pet-detail-overview { padding: 20px; }
 }
 @media (max-width: 760px) {
