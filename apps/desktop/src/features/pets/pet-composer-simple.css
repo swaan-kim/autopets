@@ -91,9 +91,8 @@
 .pet-detail-example { margin-top: 16px; }
 .pet-detail-example-body { padding: 8px 0 16px; }
 .pet-detail-example-request { max-width: 90%; width: fit-content; margin: 0 0 20px auto; padding: 14px 16px; border-radius: 16px 16px 4px 16px; background: #f4f5f6; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-.pet-detail-example-result h2 { margin: 0; font-size: 15px; line-height: 1.6; }
-.pet-detail-example-result small { margin-left: 4px; color: #606970; font-size: 12px; font-weight: 400; }
-.pet-detail-example-result p { margin: 6px 0 0; line-height: 1.7; font-size: 14px; }
+.pet-detail-example-result { margin: 0; color: #49564f; line-height: 1.7; font-size: 14px; }
+.pet-detail-example-body > .button { min-height: 40px; margin-top: 12px; font-size: 13px; }
 @media (max-width: 1100px) {
   .pet-start .pet-start-identity h1 { font-size: 26px; }
   .pet-detail-overview { padding: 20px; }

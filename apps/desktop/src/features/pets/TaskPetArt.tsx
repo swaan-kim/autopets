@@ -56,19 +56,18 @@ function ResultArtwork({ entry, view = 'full' }: { entry: PetCatalogEntry; view?
     const label = { full: '데스크톱', detail: '프로그램', mobile: '모바일' }[view];
     return <span className={`result-thumbnail result-thumbnail-web ${view === 'full' ? '' : view}`} role="img"
       aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${label} 예시`}>
-      {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> : <>
-        {view === 'full' && <span className="result-browser-bar" aria-hidden="true"><i /><i /><i /><span>moru / open campus</span></span>}
-        <img src={`/assets/design-example-v1/${file}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />
-      </>}
+      {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> :
+        <img src={`/assets/design-example-v1/${file}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />}
     </span>;
   }
 
-  return <span className={`result-thumbnail sample-output sample-${entry.id}`}>
+  const Surface = view === 'detail' ? 'div' : 'span';
+  return <Surface className={`result-thumbnail sample-output sample-${entry.id}`}>
     {resultSections[entry.id] ? <ResultSample kind={entry.id} detail={view === 'detail'} /> : <span className="result-thumbnail-fallback">{entry.output}</span>}
-  </span>;
+  </Surface>;
 }
 
-export function ResultPreview({ entry, compact = false, gallery = false }: { entry: PetCatalogEntry; compact?: boolean; gallery?: boolean }) {
+export function ResultPreview({ entry, compact = false }: { entry: PetCatalogEntry; compact?: boolean }) {
   const [view, setView] = useState<ResultView>('full');
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -86,33 +85,24 @@ export function ResultPreview({ entry, compact = false, gallery = false }: { ent
   const sections = resultSections[entry.id];
   const format = sections?.format ?? entry.output;
   if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example">
-    <span className="result-card-label">{format} 예시</span>
     <ResultArtwork entry={entry} />
+    <span className="result-card-label"><span>{format}</span><small>예시</small></span>
   </span>;
 
   const views: { id: ResultView; label: string }[] = [{ id: 'full', label: sections?.first ?? '전체' }];
   if (sections) views.push({ id: 'detail', label: sections.second });
   if (entry.id === 'ui-webpage') views.push({ id: 'mobile', label: '모바일' });
-  const selectedLabel = views.find(item => item.id === view)?.label;
-  return <figure className={`result-preview visual-result-preview designed-result result-${entry.id}`}
-    aria-label={`${entry.name} 결과 예시`} data-evidence="design-example" data-gallery={gallery}>
+  const viewPicker = views.length > 1 && <div className="result-gallery-views" role="group" aria-label="미리보기 화면">
+    {views.map(item => <button type="button" key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
+  </div>;
+  return <figure className="result-preview visual-result-preview designed-result"
+    aria-label={`${entry.name} 결과 예시`} data-evidence="design-example">
     <div className="result-preview-toolbar">
-      {entry.id === 'ui-webpage' && !gallery
-        ? <div className="result-device-choice" role="group" aria-label="미리보기 화면">
-          <button type="button" aria-pressed={view === 'full'} onClick={() => setView('full')}>데스크톱</button>
-          <button type="button" aria-pressed={view === 'mobile'} onClick={() => setView('mobile')}>모바일</button>
-        </div>
-        : <span className="result-preview-caption">결과 미리보기</span>}
+      {viewPicker || <span className="result-preview-caption">결과 미리보기</span>}
       <button type="button" ref={trigger} className="result-live-open" onClick={() => setOpen(true)}>크게 보기 ↗</button>
     </div>
     <ResultArtwork entry={entry} view={view} />
     <figcaption><span>{format}</span><small>디자인 예시</small></figcaption>
-    {gallery && views.length > 1 && <div className="result-gallery-views" role="group" aria-label="미리보기 화면">
-      {views.map(item => <button type="button" key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>
-        <span aria-hidden="true"><ResultArtwork entry={entry} view={item.id} /></span>
-        <span>{item.label}</span>
-      </button>)}
-    </div>}
     {open && <dialog ref={dialog} className="result-example-dialog"
       aria-label={entry.id === 'ui-webpage' ? '가상 학과 행사 디자인 예시' : `${entry.name} 디자인 예시`}
       onCancel={() => setOpen(false)}
@@ -122,9 +112,10 @@ export function ResultPreview({ entry, compact = false, gallery = false }: { ent
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false);
       }}>
       <div className="result-example-bar">
-        <span>{entry.name} · {selectedLabel || '디자인 예시'}</span>
+        <strong>{entry.name} · 디자인 예시</strong>
         <button type="button" ref={close} onClick={() => setOpen(false)}>닫기 ×</button>
       </div>
+      {viewPicker && <div className="result-example-nav">{viewPicker}</div>}
       <div className="result-example-full"><ResultArtwork entry={entry} view={view} /></div>
     </dialog>}
   </figure>;

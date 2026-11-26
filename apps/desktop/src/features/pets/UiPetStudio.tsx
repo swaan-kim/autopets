@@ -505,16 +505,19 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const whereChat = startMode === 'chat' && setupChat ? setupChat : startMode === 'apply' && target ? target.target : null;
   const where = whereChat ? `Codex 채팅 ${shortChat(whereChat)}` : startMode === 'claude' ? 'Claude' : 'Codex';
   const progressLine = progress?.steps.map((name, index) => index < progress.done ? `${name} ✓` : index === progress.done && busy ? `${name} …` : name).join(' · ');
+  const canUseExample = startMode === 'codex' && !recommendedHere && !task.trim();
+  const fillExample = () => {
+    if (busy || !canUseExample) return;
+    setTask(entry.example);
+    invalidateRequest();
+    setProgress(null);
+    taskInput.current?.focus();
+  };
   const taskField = (label: string, placeholder?: string, withExample = false) => (
     <div className="composer-task">
       <div className="pet-start-task-label">
         <label htmlFor={taskInputId}>{label}</label>
-        {withExample && <button type="button" className="pet-start-example" disabled={busy} onClick={() => {
-          setTask(entry.example);
-          invalidateRequest();
-          setProgress(null);
-          taskInput.current?.focus();
-        }}>예시 넣기</button>}
+        {withExample && canUseExample && <button type="button" className="pet-start-example" disabled={busy} onClick={fillExample}>예시 넣기</button>}
       </div>
       <textarea ref={taskInput} id={taskInputId} aria-label="펫에게 맡길 일" rows={3} maxLength={1200} disabled={busy} value={task} placeholder={placeholder} onChange={event => { setTask(event.target.value); invalidateRequest(); setProgress(null); }} />
     </div>
@@ -619,8 +622,8 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
         </section>
       </div>
       <div className="workspace-detail-preview" data-agent-id="pet-selection.detail.preview">
-        <ResultPreview entry={entry} gallery />
-        <PetDetailExample entry={entry} />
+        <ResultPreview entry={entry} />
+        <PetDetailExample entry={entry} onUseExample={canUseExample ? fillExample : undefined} busy={busy} />
         <PetDetailSource entry={entry} />
       </div>
     </div>

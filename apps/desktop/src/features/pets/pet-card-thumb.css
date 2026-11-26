@@ -1,29 +1,21 @@
+.role-result-preview { display: block; width: 100%; }
 .result-card-label {
-  display: block;
-  margin: 0 2px 7px;
-  color: #3c4542;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 2px 0;
+  color: #56615f;
   font-size: 12px;
   line-height: 1.5;
-  font-weight: 650;
 }
-.role-result-preview .result-thumbnail { border-radius: 14px; }
-.role-result-preview .result-thumbnail-web:not(.mobile) { height: 179px; aspect-ratio: auto; }
-.role-result-preview .result-browser-bar { display: none; }
-.role-result-preview .result-thumbnail-web img { object-position: center 28%; }
-.role-result-preview .result-sample-art { min-height: 179px; padding: 13px 14px; gap: 10px; }
-.role-result-preview .sample-title { font-size: 20px; }
+.result-card-label small { color: #63706d; font-size: 11px; }
+.role-result-preview .result-thumbnail-web { aspect-ratio: 2 / 1; min-height: 190px; max-height: 242px; }
+.role-result-preview .result-thumbnail-web img { object-fit: cover; object-position: center top; }
+.role-result-preview .result-sample-art { min-height: 210px; gap: 13px; padding: clamp(13px, 4.2cqi, 20px); font-size: 13px; }
+.role-result-preview .sample-title { font-size: clamp(20px, 5.1cqi, 26px); }
 .role-result-preview .sample-meta { font-size: 11px; }
-.role-result-preview .sample-schedule-row { min-height: 34px; padding: 6px 8px; gap: 8px; grid-template-columns: 40px minmax(0, 1fr) auto; font-size: 13px; }
-.role-result-preview .sample-schedule-row .sample-time { font-size: 12px; }
-.role-result-preview .sample-row-text { display: block; }
-.role-result-preview .sample-row-text small { display: none; }
-.role-result-preview .sample-definition, .role-result-preview .sample-copy, .role-result-preview .sample-slide-takeaway { font-size: 13px; line-height: 1.5; }
-.role-result-preview .sample-study-pair > span { padding: 8px; }
-.role-result-preview .sample-study-pair strong { font-size: 13px; }
-.role-result-preview .sample-study-pair small { font-size: 11px; }
 .role-result-preview .sample-note { display: none; }
-.role-result-preview .sample-cta { font-size: 12px; padding: 7px 10px; }
-.role-result-preview .sample-slide-content { min-height: 100px; gap: 10px; }
-.role-result-preview .sample-slide-copy { gap: 8px; }
-.role-result-preview .sample-slide-photo { max-height: 130px; }
-.role-result-preview .sample-slide-topics > span { padding: 5px 8px; font-size: 11px; }
+.role-result-preview .sample-slide-cover { min-height: 210px; max-height: 242px; }
+.role-result-preview .sample-slide-content { padding: clamp(12px, 4.2cqi, 20px); }
+.role-result-preview .sample-slide-content strong { font-size: clamp(19px, 5.1cqi, 28px); }

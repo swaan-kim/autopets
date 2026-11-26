@@ -6,7 +6,7 @@
 
 1. ‘펫 고르기’의 ‘둘러보기’에서 맡길 일과 대표 예시를 살펴본다.
 2. 카드를 누르면 큰 예시가 열린다. 시간 배치, 둘째 날, 복습 문제 등 원하는 부분을 골라 확대할 수 있다.
-3. 맡길 일을 적고 시작한다. ‘예시 넣기’로 입력을 채울 수 있고, 요청 예시와 스킬 출처는 갤러리 아래에서 펼쳐 본다.
+3. 맡길 일을 적고 시작한다. 결과 아래의 ‘예시 요청 보기’에서 입력을 채워 편집할 수 있고, 스킬 출처는 따로 펼쳐 본다.
 
 요청·결과 예시는 가상 상황으로 미리 작성한 **디자인 예시**다. 예시를 살펴보는 동안 앱은 연결과 실행을 요청하지 않는다.
 
@@ -119,6 +119,23 @@ Base44의 예시 옆 주요 버튼과 Notion의 갤러리 아래 세부 정보 �
 전체 앱 UI 검사 76개를 통과한 뒤 펫 주위 여백을 마지막으로 맞췄다. 최종 소스에서 빌드와 펫 선택·상세 검사 5개를 다시 통과했다. 제품 AI 호출은 0회였다.
 
 캐릭터와 역할 설명을 붙이는 데 Canva 앱 목록과 Wix의 에이전트 소개 화면을 참고했다. 모션은 AutoPets의 기존 그림으로 브라우저에서 재현해 검사했다. [Canva 화면](https://mobbin.com/screens/c4c30fba-d21d-406f-945a-499b332e80e4?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp) · [Wix 화면](https://mobbin.com/screens/0c82e69a-18d7-40bf-b28f-7dab1a4e4b9d?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp)
+
+## 결과를 보고 예시 요청 써 보기 · 2026-11-27
+
+목록의 여섯 카드에서 맡길 일에 따라 다른 결과물을 보여준다. 하루 정리는 먼저 할 일과 여유 시간, 여행은 날짜별 동선, 공부는 개념과 적용 사례를 먼저 보여준다. 업무 펫에서는 행사 페이지, 홍보 제목·본문·버튼 문구, 발표 표지와 다섯 장의 흐름을 볼 수 있다. 예시는 동봉된 스킬의 출력 범위에 맞춰 작성했다.
+
+| 이전 | 변경 후 |
+| --- | --- |
+| ![이전 여섯 펫의 결과 예시](../changes/123/before-deliverables-catalog.png) | ![역할별 결과가 보이는 카드 예시](../changes/123/after-deliverables-catalog.png) |
+| ![시간표와 작은 반복 미리보기](../changes/123/before-deliverables-detail.png) | ![먼저 할 일과 여유 시간, 결과 화면 선택](../changes/123/after-deliverables-detail.png) |
+
+상세에서는 크게 보기 안에서도 다른 결과 화면을 고를 수 있다. 공부 예시의 복습 문제를 누르면 해설이 펼쳐진다. 빈 Codex 요청에서 ‘이 요청 써보기’를 누르면 예시 문장이 입력칸에 들어가고 바로 수정할 수 있다. 작성 중인 요청이 있으면 그 문장을 보존한다. [해설과 예시 요청 화면](../changes/123/after-deliverables-use.png)
+
+1280×970 창과 배율 100%, 같은 가상 연결 상태에서 카드와 ‘하루 정리’ 상세를 비교했다. 320·390·661·992·1280px에서 가로 넘침과 발표 표지의 글자 잘림을 확인했다. 크게 보기에서 고른 화면이 상세에도 이어지고, 예시를 넣을 때 저장·연결·실행 요청이 발생하지 않는 것도 합성 검사로 확인했다. [복습 예시를 보고 요청에 넣는 영상](../changes/123/deliverables-example-to-request.webm)
+
+최종 소스의 빌드와 전체 앱 UI 검사 76개가 통과했고 페이지 오류는 0개였다. 제품 AI 호출은 0회였다.
+
+Canva에서 결과를 크게 보여주는 배치와 ChatGPT의 Figma 앱에서 실제로 적을 요청을 결과와 짝지어 보여주는 구성을 참고했다. AutoPets 예시는 역할별 가상 내용으로 구성했다. [Canva 화면](https://mobbin.com/screens/2629dc7b-2f25-41da-a5e4-0ec5a88d52b6?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp) · [ChatGPT 화면](https://mobbin.com/screens/d9831938-eb61-4a95-b56f-9c0bde421cfc?utm_source=chatgpt&utm_medium=ai-assistant&utm_source_platform=mcp)
 
 ## 남은 확인과 인계
 
