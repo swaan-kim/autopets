@@ -5,6 +5,24 @@
   "kinds": { "feature": "기본 기능", "skill": "공식 스킬", "plugin": "플러그인", "connector": "연결 도구" },
   "entries": [
     {
+      "id": "research-literature-review", "kind": "skill", "name": "선행연구 비교하기", "publisher": "K-Dense", "worksIn": ["codex", "claude-code"],
+      "summary": "논문별 방법과 한계를 비교하고 서로 다른 결론을 짚어요.", "when": "연구 질문을 좁히거나 선행연구의 빈틈을 찾을 때",
+      "needs": "연구 질문과 읽을 논문, 포함·제외 기준", "note": "논문별 비교표와 추가 연구 질문",
+      "source": "https://github.com/K-Dense-AI/scientific-agent-skills/blob/c21d13b3cc2894680229ba9959a53281acb9200e/skills/literature-review/SKILL.md", "starts": []
+    },
+    {
+      "id": "research-ml-paper", "kind": "skill", "name": "실험 결과로 ML 논문 초안 쓰기", "publisher": "Orchestra Research", "worksIn": ["codex", "claude-code"],
+      "summary": "실험 결과를 학회 양식에 맞추고 주장의 수치와 인용을 점검해요.", "when": "머신러닝 실험을 마치고 학회 제출용 원고를 쓸 때",
+      "needs": "실험표·코드·핵심 기여점·목표 학회", "note": "학회 양식 초안과 근거·인용 점검 목록",
+      "source": "https://github.com/Orchestra-Research/AI-Research-SKILLs/blob/773a52944ba4747a18bd4ae9ade53fff041adcbc/20-ml-paper-writing/ml-paper-writing/SKILL.md", "starts": []
+    },
+    {
+      "id": "research-interviews", "kind": "skill", "name": "고객 인터뷰로 개선 순서 정하기", "publisher": "Anthropic", "worksIn": ["codex"],
+      "summary": "반복되는 문제와 반대 의견을 원문에서 찾아 먼저 고칠 일을 정해요.", "when": "고객 의견을 바탕으로 제품의 다음 변경을 결정할 때",
+      "needs": "참여자를 구분한 인터뷰 기록과 결정할 질문", "note": "개선 우선순위와 참여자별 근거 발언",
+      "source": "https://github.com/anthropics/knowledge-work-plugins/blob/5e504ae11498f2b8daa30d86b7dab97b2ecd8092/product-management/skills/synthesize-research/SKILL.md", "starts": []
+    },
+    {
       "id": "chatgpt-study-mode", "kind": "feature", "name": "ChatGPT 스터디 모드", "publisher": "OpenAI", "worksIn": ["chatgpt"],
       "summary": "답을 바로 알려주지 않고, 질문을 주고받으며 단계별로 이해시켜 줘요.",
       "when": "시험 공부를 하거나 새 개념을 스스로 풀어 보며 익히고 싶을 때",

@@ -43,7 +43,7 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   // Navigate through app tabs and another role. Drafts and the handoff receipt belong to the role.
   await openSaved(page);
   await page.locator('nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
-  await page.getByRole('button', { name: '둘러보기', exact: true }).click();
+  await page.getByRole('button', { name: '펫 둘러보기', exact: true }).click();
   await page.getByRole('button', { name: '일상', exact: true }).click();
   await chooseRole(page, '하루 정리');
   await openCopy(flow);

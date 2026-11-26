@@ -3,6 +3,7 @@
 *.ico -text
 *.zip -text
 packages/guidance/vendor/baoyu-infographic/** -text
+packages/guidance/vendor/anthropic-product-management/** -text
 integrations/codex/skills/frontend-design/** -text
 integrations/codex/skills/versions/** -text
 integrations/codex/skills/autopets-figma-design/SKILL.md text eol=lf

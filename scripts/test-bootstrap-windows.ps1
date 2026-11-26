@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$Installer)
+param([Parameter(Mandatory=$true)][string]$Installer, [switch]$CheckCatalog)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or -not $env:RUNNER_TEMP) { throw 'This native install check runs only on the disposable CI runner.' }
 $taskRoot = Join-Path $env:RUNNER_TEMP ('autopets-설치 test-' + [Guid]::NewGuid().ToString('N'))
@@ -34,8 +34,25 @@ try {
     # Exercise actual registry discovery with a Korean/spaced install directory.
     # A fresh installed runner must open onboarding without installing any hooks.
     $taskWatch = [Diagnostics.Stopwatch]::StartNew()
-    $taskOpened = (& $taskNode $taskStart | ConvertFrom-Json)
-    $taskOpenExit = $LASTEXITCODE
+    if ($CheckCatalog) {
+        $taskPortProbe = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        $taskPortProbe.Start()
+        $taskCatalogPort = $taskPortProbe.LocalEndpoint.Port
+        $taskPortProbe.Stop()
+        $taskPreviousArgs = $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
+        $taskPreviousProfile = $env:WEBVIEW2_USER_DATA_FOLDER
+        $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-address=127.0.0.1 --remote-debugging-port=$taskCatalogPort"
+        $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $taskRoot 'catalog-webview'
+    }
+    try {
+        $taskOpened = (& $taskNode $taskStart | ConvertFrom-Json)
+        $taskOpenExit = $LASTEXITCODE
+    } finally {
+        if ($CheckCatalog) {
+            $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = $taskPreviousArgs
+            $env:WEBVIEW2_USER_DATA_FOLDER = $taskPreviousProfile
+        }
+    }
     $taskWatch.Stop()
     # Only public setup status fields: never log connection.json or bearer tokens.
     $taskDiagnostic = [ordered]@{ exitCode = $taskOpenExit; elapsedMs = $taskWatch.ElapsedMilliseconds; result = ($taskOpened | Select-Object ok, code, phase, appReady, chatConnected, nextAction, discovery) }
@@ -57,6 +74,10 @@ try {
     }
     if (-not $taskInitial -or -not $taskInitial.appReady -or $taskInitial.chatConnected -or $taskInitial.guidanceDelivered) { throw 'Installed app did not reach honest app-ready state.' }
     if (Test-Path -LiteralPath $env:CODEX_HOME) { throw 'App launch connected AI without an explicit action.' }
+    if ($CheckCatalog) {
+        node scripts/check-installed-catalog.cjs $taskCatalogPort
+        if ($LASTEXITCODE -ne 0) { throw 'Could not verify the installed AutoPets catalog.' }
+    }
     New-Item -ItemType Directory -Path $env:CODEX_HOME -Force | Out-Null
     $taskUnrelatedHooks = '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"unrelated-fixture-command"}]}]}}'
     $taskHooksPath = Join-Path $env:CODEX_HOME 'hooks.json'

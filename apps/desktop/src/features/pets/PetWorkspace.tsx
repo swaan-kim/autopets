@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { PetJob, PetLink, SavedPet } from '@autopets/contracts/types';
 import { PetJobList } from './PetJobs';
-import { SkillHub } from './SkillHub';
+import { ResearchSkills } from './ResearchSkills';
 import { petCatalog, allPetCatalog, catalogFor, type PetCatalogEntry } from './petCatalog';
 import { TaskPetArt } from './TaskPetArt';
 import { FavoriteButton } from './PetIntroduction';
@@ -46,7 +46,7 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
   onFavorite: (id: string) => void; onSelect: (entry: PetCatalogEntry, request?: string) => void; onSaved: (pet: SavedPet) => void; onNewTask: (link: PetLink) => void; onBrowse: () => void; error: string;
   navigationRevision?: number; jobs?: PetJob[];
 }) {
-  const [shelfTab, setShelfTab] = useState<'all' | 'saved'>(view === 'saved' ? 'saved' : 'all');
+  const [shelfTab, setShelfTab] = useState<'all' | 'skills' | 'saved'>(view === 'saved' ? 'saved' : 'all');
   const [ideasOpen, setIdeasOpen] = useState(false);
   useEffect(() => { if (view === 'saved') setShelfTab('saved'); }, [view, navigationRevision]);
   const favoriteEntries = favorites.map(id => ({ id, entry: allPetCatalog.find(entry => id === `template:${entry.id}`), pet: pets.find(pet => id === `saved:${pet.id}`) }));
@@ -75,11 +75,12 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
         <header className="workspace-heading">
           <h1>펫 고르기</h1>
           <div className="workspace-shelf-tabs" data-agent-id="pet-selection.shelf" role="group" aria-label="펫 보관함">
-            <button aria-pressed={shelfTab === 'all'} onClick={() => setShelfTab('all')}>둘러보기</button>
+            <button aria-pressed={shelfTab === 'all'} onClick={() => setShelfTab('all')}>펫 둘러보기</button>
+            <button aria-pressed={shelfTab === 'skills'} onClick={() => setShelfTab('skills')}>스킬·도구</button>
             <button aria-pressed={shelfTab === 'saved'} onClick={() => setShelfTab('saved')}>내 펫</button>
           </div>
         </header>
-        {shelfTab === 'saved' ? <>
+        {shelfTab === 'skills' ? <ResearchSkills links={disconnected ? [] : links} /> : shelfTab === 'saved' ? <>
           <section className="pet-favorites workspace-favorites" aria-label="즐겨찾는 펫"><h2>즐겨찾기</h2>{favoriteEntries.length ? shelf(favoriteEntries, 'favorites') : <div className="workspace-empty"><p>마음에 드는 펫에 ☆를 눌러보세요.</p><button className="text-button" onClick={() => setShelfTab('all')}>펫 둘러보기 →</button></div>}</section>
           <section className="workspace-saved"><h2>저장한 구성</h2>{pets.length ? shelf(pets.map(pet => ({ id: `saved:${pet.id}`, pet, entry: undefined })), 'saved') : <p className="workspace-note">저장한 펫이 여기에 보여요.</p>}</section>
         </> : <>
@@ -107,10 +108,6 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
           </section>
           {category === 'all' && <UpcomingPetFeatures />}
           <section className="workspace-resources" aria-label="더 둘러보기">
-            <details className="pet-disclosure">
-              <summary>함께 쓰는 AI 도구</summary>
-              <SkillHub />
-            </details>
             <details className="pet-disclosure" open={ideasOpen} onToggle={event => setIdeasOpen(event.currentTarget.open)}>
               <summary>이미지·영상 아이디어</summary>
               {ideasOpen && <PromptIdeaLibrary active={active} onSelect={onSelect} />}

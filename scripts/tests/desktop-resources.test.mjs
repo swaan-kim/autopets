@@ -46,6 +46,10 @@ test('installer resources work detached from checkout and contain no installer o
   assert.ok(manifest.files.some(file => file.path === 'runtime/LICENSE'));
   assert.ok(manifest.files.some(file => file.path === 'LICENSE'));
   assert.ok(manifest.files.some(file => file.path === 'packages/guidance/vendor/baoyu-infographic/LICENSE'));
+  const interviews = 'packages/guidance/vendor/anthropic-product-management/';
+  assert.ok(manifest.files.some(file => file.path === interviews + 'skills/synthesize-research/SKILL.md' &&
+    file.sha256 === 'ae98c11102545c911a1ea5d8527be0e08a3db8e53327f2865f0db19bbb2d7e9c'));
+  for (const name of ['LICENSE', 'CONNECTORS.md']) assert.ok(manifest.files.some(file => file.path === interviews + name));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/assistance/artifact.mjs'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/autopets-intro/SKILL.md'));
   assert.ok(manifest.files.some(file => file.path === 'integrations/codex/skills/frontend-design/LICENSE.txt'));
