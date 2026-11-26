@@ -22,6 +22,8 @@ export interface PetQuickCardProps {
   error?: string;
   notice?: string;
   returnLabel?: string;
+  /** The second button: the chat's settings, or just the app when no chat is linked. */
+  detailsLabel?: string;
   onReturn?: Action;
   onWorkStyle: (style: WorkStyle | null) => void | Promise<void>;
   onDetails: Action;
@@ -32,20 +34,20 @@ export interface PetQuickCardProps {
 }
 
 const styles: [WorkStyle, string][] = [['auto', '자동'], ['fast', '빠르게'], ['thorough', '꼼꼼하게']];
-export function PetQuickCard({ aiName, title, help, showStep = true, goal, constraints = [], currentStep, task, workflowTask, defaultWorkStyle, assistanceEnabled, busy = false, disabled = false, error, notice, returnLabel = '작업으로 돌아가기', onReturn, onWorkStyle, onDetails, onToggleAssistance, onHide, onQuit, onClose }: PetQuickCardProps) {
+export function PetQuickCard({ aiName, title, help, showStep = true, goal, constraints = [], currentStep, task, workflowTask, defaultWorkStyle, assistanceEnabled, busy = false, disabled = false, error, notice, returnLabel, detailsLabel = '상세 설정 열기 →', onReturn, onWorkStyle, onDetails, onToggleAssistance, onHide, onQuit, onClose }: PetQuickCardProps) {
   const [more, setMore] = useState(false);
   const taskKey = task ? identityKey(task.identity) : workflowTask ? identityKey(workflowTask.identity) : '';
   useEffect(() => { setMore(false); }, [taskKey]);
   const effectiveStyle = task?.workStyleOverride ?? defaultWorkStyle;
-  return <section className="pet-quick-card" aria-label={`${title} 빠른 설정`}>
+  return <section className="pet-quick-card" aria-label={`${title} 펫 카드`}>
     {aiName && <span className="quick-ai-name">{aiName} · 선택한 작업</span>}
     <header className="quick-card-header"><h2 title={title}>{title}</h2><button className="icon-button" aria-label="펫 카드 메뉴" aria-expanded={more} onClick={() => setMore(!more)}>⋯</button><button className="icon-button" aria-label="카드 접기" onClick={onClose}>×</button></header>
     <p className="quick-help" title={help}>{help}</p>
-    {task?.enabled && assistanceEnabled && task.assistance.status === 'unavailable' && <p className="quick-connection" role="status">자동 도움 연결을 확인해주세요.</p>}
+    {task?.enabled && assistanceEnabled && task.assistance.status === 'unavailable' && <p className="quick-connection" role="status">자동 도움 연결을 확인해 주세요.</p>}
     {more && <div className="quick-more-actions" aria-label="펫 카드 메뉴 항목">{(task || workflowTask) && onToggleAssistance && <button disabled={disabled || busy} onClick={() => void onToggleAssistance()}>{task?.enabled || workflowTask?.enabled ? '이번 채팅 도움 끄기' : '이번 채팅 도움 켜기'}</button>}<button disabled={disabled || busy} onClick={() => void onHide()}>이 펫 숨기기</button><button className="danger-text" disabled={disabled || busy} onClick={() => void onQuit()}>AutoPets 종료</button></div>}
     {(goal || constraints.length > 0) && <div className="quick-context">{goal && <p className="quick-goal" title={goal}><span>목표</span>{goal}</p>}{constraints.length > 0 && <ul aria-label="기억한 조건">{constraints.slice(0, 3).map((condition, index) => <li key={index} title={condition}>{condition}</li>)}</ul>}{constraints.length > 3 && <span className="quick-overflow">나머지 {constraints.length - 3}개는 상세 설정에서</span>}</div>}
-    {showStep && <p className="quick-step"><span>현재 단계</span><strong title={currentStep || undefined}>{currentStep || '전달된 단계 없음'}</strong></p>}
-    <div className={`quick-primary-actions ${onReturn ? 'has-return' : ''}`}>{onReturn && <button className="button primary quick-return" disabled={disabled || busy} onClick={() => void onReturn()}>{returnLabel} ↗</button>}<button className="button secondary quick-details" disabled={disabled || busy} onClick={() => void onDetails()}>상세 설정 열기 →</button></div>
+    {showStep && <p className="quick-step"><span>현재 단계</span><strong title={currentStep || undefined}>{currentStep || '아직 없어요'}</strong></p>}
+    <div className={`quick-primary-actions ${onReturn ? 'has-return' : ''}`}>{onReturn && <button className="button primary quick-return" disabled={disabled || busy} onClick={() => void onReturn()}>{returnLabel}</button>}<button className="button secondary quick-details" disabled={disabled || busy} onClick={() => void onDetails()}>{detailsLabel}</button></div>
     {task && <fieldset className="quick-style-field"><legend>이번 작업 방식</legend><div className="quick-style-choices" role="radiogroup" aria-label="이번 작업 방식">{styles.map(([value, label]) => <button key={value} role="radio" aria-checked={effectiveStyle === value} disabled={disabled || busy || !assistanceEnabled || !task.enabled} onClick={() => void onWorkStyle(value)}>{label}</button>)}</div><div className="quick-style-note"><span>다음 메시지부터 적용 요청</span>{task.workStyleOverride != null && <button className="text-button" disabled={disabled || busy} onClick={() => void onWorkStyle(null)}>기본 설정 사용</button>}</div></fieldset>}
     {error && <p className="error" role="alert">{error}</p>}{notice && <p className="quick-notice" role="status">{notice}</p>}
   </section>;

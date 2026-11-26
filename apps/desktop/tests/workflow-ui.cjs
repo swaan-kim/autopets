@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { openSettingsPage, openDisclosure, labelStatusPill } = require('./entry-navigation.cjs');
 
 const presets = {
   light: { planning: { model: 'gpt-5.6-sol', reasoning: 'medium' }, execution: { model: 'gpt-5.6-luna', reasoning: 'low' } },
@@ -19,7 +20,7 @@ const taskFixture = (identity, overrides = {}) => ({
 });
 
 async function labelFixture(page) {
-  await page.evaluate(() => { const label = document.querySelector('.connection-pill'); if (label) label.textContent = 'UI 검수용 · 합성 시나리오 · 실제 연결 미검증'; });
+  await labelStatusPill(page, 'UI 검수용 · 합성 시나리오 · 실제 연결 미검증');
 }
 async function noOverflow(page, width) {
   assert.ok(await page.evaluate(width => document.documentElement.scrollWidth <= width && document.body.scrollWidth <= width, width), `horizontal overflow at ${width}px`);
@@ -35,9 +36,12 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   const originalTask = structuredClone(workflow.tasks[0]);
   await mockBridge(defaults, fixture, assistanceFixture, workflow);
   await defaults.goto(origin);
-  await defaults.locator('.app-settings > summary').click();
-  await defaults.getByRole('button', { name: '자동 도움', exact: true }).click();
+  await openSettingsPage(defaults, '자동 도움');
+  await defaults.getByRole('heading', { name: '자동 도움', exact: true, level: 1 }).waitFor();
+  assert.equal(await defaults.locator('.workflow-preset').first().isVisible(), false, 'experimental model combinations stay folded until asked for');
+  await openDisclosure(defaults, '모델·계획 조합 (실험)');
   assert.equal(await defaults.getByLabel('계획·실행 도움 켜기', { exact: true }).isChecked(), false);
+  await defaults.getByText('스위치가 꺼져 있어 지금은 쓰지 않아요.', { exact: false }).waitFor();
   assert.equal(await defaults.getByRole('radio', { name: '균형 있게', exact: true }).getAttribute('aria-checked'), 'true');
   assert.equal(await defaults.locator('.workflow-preset').count(), 3);
   await defaults.getByRole('radio', { name: '어려운 일 풀기', exact: true }).click();
@@ -75,9 +79,9 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   const preview = await newPage();
   await preview.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__previewCopy = text; } } }));
   await preview.goto(origin);
-  await preview.locator('.app-settings > summary').click();
-  await preview.getByRole('button', { name: '자동 도움', exact: true }).click();
-  await preview.getByText('연결 없이 시작하기', { exact: true }).click();
+  await openSettingsPage(preview, '자동 도움');
+  await openDisclosure(preview, '모델·계획 조합 (실험)');
+  await openDisclosure(preview, '연결 없이 시작하기');
   await preview.getByRole('button', { name: '요청 문구 복사', exact: true }).click();
   assert.match(await preview.evaluate(() => window.__previewCopy), /실행하지 마세요/);
   assert.equal(await preview.getByRole('button', { name: '새 작업 기본값 저장', exact: true }).isEnabled(), false);
@@ -89,16 +93,20 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   standalone.tasks = [taskFixture(standaloneIdentity, { observation: { model: 'gpt-6-astra', reasoning: 'high', mode: 'plan', source: 'hook', submissionId: 'unverified', observedAt: Date.now() } }), taskFixture({ ...standaloneIdentity, accountId: 'another-account' })];
   await mockBridge(current, { ...fixture, sessions: [], slots: [] }, { ...assistanceFixture, tasks: [] }, standalone);
   await current.goto(origin);
-  await current.locator('.app-settings > summary').click();
-  await current.getByRole('button', { name: '자동 도움', exact: true }).click();
+  await openSettingsPage(current, '자동 도움');
   await current.getByRole('tab', { name: '현재 작업', exact: true }).click();
+  // Two accounts share one chat name here, so each option also names its account.
+  await current.getByLabel('채팅 선택', { exact: true }).locator('option').nth(2).waitFor({ state: 'attached' });
+  assert.deepEqual(await current.getByLabel('채팅 선택', { exact: true }).locator('option').allTextContents(), ['채팅을 선택하세요', `Codex · ${standaloneIdentity.chatId} · ${standaloneIdentity.accountId}`, `Codex · ${standaloneIdentity.chatId} · another-account`]);
   await current.getByLabel('채팅 선택', { exact: true }).selectOption(JSON.stringify([standaloneIdentity.provider, standaloneIdentity.accountId, standaloneIdentity.chatId]));
-  await current.getByText('채팅에서 계획을 확인하세요.', { exact: false }).waitFor();
+  await current.getByText('아직 전달된 계획이 없어요.', { exact: false }).waitFor();
   assert.equal(await current.getByTestId('workflow-plan-summary').count(), 0);
-  assert.equal(await current.getByTestId('workflow-model').textContent(), '모델 · 미확인');
-  assert.equal(await current.getByTestId('workflow-reasoning').textContent(), '추론 · 미확인');
-  assert.equal(await current.getByTestId('workflow-mode').textContent(), 'Plan 모드 · 미확인');
-  await current.getByTestId('workflow-guard').filter({ hasText: '전송 전 확인 미지원' }).waitFor();
+  assert.equal(await current.getByTestId('workflow-model').textContent(), '모델 · 확인 못 함');
+  assert.equal(await current.getByTestId('workflow-reasoning').textContent(), '추론 · 확인 못 함');
+  assert.equal(await current.getByTestId('workflow-mode').textContent(), 'Plan 모드 · 확인 못 함');
+  assert.equal(await current.getByTestId('workflow-guard').isVisible(), false, 'the send guard stays folded while nothing is held');
+  await openDisclosure(current, '고급: 전송 전 확인');
+  await current.getByTestId('workflow-guard').filter({ hasText: '전송 전 확인은 지원하지 않아요' }).waitFor();
   assert.equal(await current.getByRole('button', { name: '이번 전송만 예외 허용', exact: true }).count(), 0);
   await current.getByRole('button', { name: '채팅의 계획대로 진행', exact: true }).click();
   await current.getByTestId('workflow-task-status').filter({ hasText: '계획 확인 저장됨' }).waitFor();
@@ -117,15 +125,15 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
     task.guard = { status: 'held', reason: '합성 시나리오: 관측 모델이 설정한 후보와 달라요.', submissionId: 'fixture-held-submission', requestFingerprint: 'fixture-request-only', checkedAt: Date.now() };
     task.observation = { model: 'gpt-6-astra', reasoning: 'high', mode: 'plan', source: 'verified-adapter', submissionId: 'fixture-held-submission', observedAt: Date.now() - 7200000 };
   });
-  await current.getByText('계획이나 설정이 바뀌었어요. 다시 확인해주세요.', { exact: true }).waitFor();
+  await current.getByText('계획이나 설정이 바뀌었어요. 다시 확인해 주세요.', { exact: true }).waitFor();
   await current.getByTestId('workflow-model').filter({ hasText: 'Astra' }).waitFor();
-  await current.getByTestId('workflow-observed-at').filter({ hasText: '최근 제출 확인' }).waitFor();
+  await current.getByTestId('workflow-observed-at').filter({ hasText: '최근 전송 확인' }).waitFor();
   assert.ok(await current.evaluate(() => window.__uiTest.workflow.tasks[0].observation.observedAt < Date.now() - 3600000));
-  assert.equal(await current.getByTestId('workflow-reasoning').textContent(), '추론 · 미확인');
-  assert.equal(await current.getByTestId('workflow-mode').textContent(), 'Plan 모드 · 미확인');
+  assert.equal(await current.getByTestId('workflow-reasoning').textContent(), '추론 · 확인 못 함');
+  assert.equal(await current.getByTestId('workflow-mode').textContent(), 'Plan 모드 · 확인 못 함');
   assert.equal(await current.getByRole('button', { name: '이대로 진행', exact: true }).isEnabled(), true);
   assert.equal(await current.getByRole('button', { name: '이번 전송만 예외 허용', exact: true }).count(), 0);
-  assert.equal(await current.getByText('계획 확인을 저장했어요. 채팅의 실제 설정을 확인한 뒤 진행해주세요.', { exact: true }).count(), 0);
+  assert.equal(await current.getByText('계획 확인을 저장했어요. 채팅의 실제 설정을 확인한 뒤 진행해 주세요.', { exact: true }).count(), 0);
   await current.getByRole('button', { name: '이대로 진행', exact: true }).click();
   await current.getByTestId('workflow-task-status').filter({ hasText: '계획 확인 저장됨' }).waitFor();
   await current.evaluate(() => {
@@ -133,6 +141,7 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
     task.guard = { status: 'held', reason: '합성 시나리오: 관측 모델이 설정한 실행 후보와 달라요.', submissionId: 'fixture-held-submission', requestFingerprint: 'fixture-request-only', checkedAt: Date.now() };
     task.observation = { model: 'gpt-6-astra', reasoning: 'high', mode: 'plan', source: 'verified-adapter', submissionId: 'fixture-held-submission', observedAt: Date.now() - 7200000 };
   });
+  // A held submission needs the user, so the folded guard opens by itself.
   await current.getByRole('button', { name: '이번 전송만 예외 허용', exact: true }).waitFor();
   await labelFixture(current);
   const taskScreenshot = path.join(screenshotDir, 'native-ui-workflow-task.png');
@@ -144,10 +153,15 @@ async function runWorkflowChecks({ newPage, mockBridge, fixture, assistanceFixtu
   assert.deepEqual(await current.evaluate(() => window.__uiTest.calls.find(call => call.name === 'allow_workflow_once').args), { identity: standaloneIdentity, submissionId: 'fixture-held-submission', expectedPlanRevision: 1, expectedSettingsRevision: 0 });
   assert.equal(await current.evaluate(() => window.__uiTest.workflow.tasks[1].onceAvailable), false);
   await current.evaluate(() => { const task = window.__uiTest.workflow.tasks[0]; task.onceAvailable = false; task.guard.status = 'exception'; task.guard.submissionId = 'fixture-consumed-next-submission'; });
+  // Once nothing is held the guard folds again; it is reopened to read the new state.
+  await current.getByTestId('workflow-guard').filter({ hasText: '이번 요청에만 현재 설정을 허용했어요' }).waitFor({ state: 'attached' });
+  await openDisclosure(current, '고급: 전송 전 확인');
   await current.getByTestId('workflow-guard').filter({ hasText: '이번 요청에만 현재 설정을 허용했어요' }).waitFor();
-  assert.equal(await current.getByText('같은 요청을 다시 보내주세요.', { exact: false }).count(), 0);
+  assert.equal(await current.getByText('같은 요청을 다시 보내 주세요.', { exact: false }).count(), 0);
   await current.evaluate(() => { const task = window.__uiTest.workflow.tasks[0]; task.guard.status = 'unavailable'; task.guard.reason = '모델은 일치해요. 추론 수준은 직접 확인해주세요.'; task.observation.model = 'gpt-5.6-terra'; });
-  await current.getByTestId('workflow-guard').filter({ hasText: '전송 전 설정 확인 불가' }).waitFor();
+  await current.getByTestId('workflow-guard').filter({ hasText: '전송 전에 설정을 확인 못 했어요' }).waitFor({ state: 'attached' });
+  await openDisclosure(current, '고급: 전송 전 확인');
+  await current.getByTestId('workflow-guard').filter({ hasText: '전송 전에 설정을 확인 못 했어요' }).waitFor();
   await current.getByText('모델은 일치해요. 추론 수준은 직접 확인해주세요.', { exact: true }).waitFor();
   checks.push('observed model is independent of missing reasoning and Plan evidence; changed plan invalidates approval; one-shot permission binds one held submission');
 

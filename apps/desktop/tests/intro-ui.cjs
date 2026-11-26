@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { openSettingsPage, openDisclosure, labelStatusPill } = require('./entry-navigation.cjs');
 
 const emptyArtifacts = { observedChats: [], projects: [], styles: [], capabilities: { automaticGeneration: false, modelSwitch: false, liveConnectionVerified: false } };
 const identityKey = identity => JSON.stringify([identity.provider, identity.accountId, identity.chatId]);
@@ -21,13 +22,15 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   const screenshots = [];
   const preview = await newPage({ width: 1120, height: 950 });
   await preview.goto(origin);
-  await preview.locator('.app-settings > summary').click();
-  await preview.getByRole('button', { name: '소개 자료', exact: true }).click();
-  await preview.getByRole('heading', { name: '한 장 소개 자료 만들기' }).waitFor();
+  await openSettingsPage(preview, '소개 자료');
+  await preview.getByRole('heading', { name: '소개 자료', exact: true, level: 1 }).waitFor();
   assert.equal(await preview.locator('.intro-template').count(), 3);
   assert.equal(await preview.getByLabel('이 자료를 만들 Codex 채팅', { exact: true }).isEnabled(), false);
   assert.equal(await preview.getByTestId('intro-editor').count(), 0);
-  await preview.getByText('브라우저에서는 읽기 전용 미리보기예요.', { exact: false }).waitFor();
+  await preview.getByText('미리보기 화면이에요. 저장과 연결은 Windows 앱에서만 돼요.', { exact: true }).waitFor();
+  assert.equal(await preview.locator('.intro-provenance').isVisible(), false, 'the reference source stays folded until asked for');
+  await openDisclosure(preview, '출처');
+  await preview.locator('.intro-provenance').getByRole('link', { name: /baoyu-infographic/ }).waitFor();
   await noOverflow(preview, 1120);
   const landing = path.join(screenshotDir, 'native-ui-intro-templates.png'); await preview.screenshot({ path: landing, fullPage: true }); screenshots.push(landing);
   checks.push('Intro Studio preview has three deterministic labeled templates, empty observed chat list and no fabricated generation');
@@ -36,8 +39,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   const observedIdentity = { provider: 'codex', accountId: 'observed-local-fixture', chatId: 'fixture-native-only' };
   await mockBridge(observedPage, { ...fixture, sessions: [], slots: [] }, { ...assistanceFixture, tasks: [] }, undefined, { ...emptyArtifacts, observedChats: [observedIdentity] });
   await observedPage.goto(origin);
-  await observedPage.locator('.app-settings > summary').click();
-  await observedPage.getByRole('button', { name: '소개 자료', exact: true }).click();
+  await openSettingsPage(observedPage, '소개 자료');
   await observedPage.getByLabel('이 자료를 만들 Codex 채팅', { exact: true }).selectOption(identityKey(observedIdentity));
   await observedPage.getByTestId('intro-editor').waitFor();
   assert.equal(await observedPage.getByLabel('가장 중요한 한 문장', { exact: true }).inputValue(), '');
@@ -49,10 +51,12 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   assistance.tasks.push(sameChatOtherAccount);
   await mockBridge(page, fixture, assistance);
   await page.goto(origin);
-  await page.locator('.app-settings > summary').click();
-  await page.getByRole('button', { name: '소개 자료', exact: true }).click();
+  await openSettingsPage(page, '소개 자료');
   const picker = page.getByLabel('이 자료를 만들 Codex 채팅', { exact: true });
   await picker.selectOption(identityKey(assistance.tasks[0].identity));
+  const pickerOptions = await picker.locator('option').allTextContents();
+  assert.equal(new Set(pickerOptions).size, pickerOptions.length, 'the same chat under two accounts stays distinguishable: only those options name the account');
+  assert.equal(pickerOptions.filter(text => text.includes('second-account-same-chat')).length, 1);
   await page.getByTestId('intro-editor').waitFor();
   assert.equal(await page.getByRole('button', { name: '소개 자료 요청 복사', exact: true }).isEnabled(), false);
   await page.getByLabel('누구에게 전하나요?', { exact: true }).fill('처음 보는 팀원');
@@ -77,7 +81,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
 
   const png = await fixturePng(page);
   await page.getByLabel('생성 결과 PNG', { exact: true }).setInputFiles({ name: 'fake.png', mimeType: 'image/png', buffer: Buffer.from('not a PNG') });
-  await page.getByText('실제 PNG 형식의 이미지가 필요해요.', { exact: false }).waitFor();
+  await page.getByText('실제 PNG 형식의 이미지가 필요해요.', { exact: true }).waitFor(); // the message alone, without an "Error: " prefix
   assert.equal(await page.getByRole('button', { name: '새 버전 가져오기', exact: true }).isEnabled(), false);
   await page.getByLabel('생성 결과 PNG', { exact: true }).setInputFiles(png);
   await page.getByLabel('이미지에 담긴 문구', { exact: true }).fill('회의 준비를 한곳에서\n자료 모으기\n안건 정리\n결정 기록');
@@ -109,7 +113,7 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   await page.getByRole('img', { name: '비교할 소개 자료 버전 1', exact: true }).waitFor();
   assert.ok(await page.evaluate(() => window.__uiTest.artifacts.projects[0].versions[0].acceptedAt));
   assert.equal(await page.evaluate(() => window.__uiTest.artifacts.projects[0].versions[1].acceptedAt), null);
-  await page.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 합성 데이터 · 실제 연결 미검증'; });
+  await labelStatusPill(page, 'UI 검수용 · 합성 데이터 · 실제 연결 미검증');
   const comparison = path.join(screenshotDir, 'native-ui-intro-versions.png'); await page.screenshot({ path: comparison, fullPage: true }); screenshots.push(comparison);
   checks.push('PNG signature validation, user-supplied text, three human checks, immutable accepted version, native export bridge and revision compare work with clearly labeled synthetic images');
 
@@ -162,7 +166,9 @@ async function runIntroChecks({ newPage, mockBridge, fixture, assistanceFixture,
   await page.evaluate(() => { window.__uiTest.artifactConflictNext = true; });
   await page.getByLabel('가장 중요한 한 문장', { exact: true }).fill('충돌할 편집');
   await page.getByRole('button', { name: '내용 저장', exact: true }).click();
-  await page.getByText('artifact revision conflict', { exact: false }).waitFor();
+  // The internal reason is not shown as-is; the user gets a plain message and the next step.
+  await page.getByText('저장하지 못했어요. 최신 상태를 확인한 뒤 다시 시도해 주세요.', { exact: false }).waitFor();
+  assert.equal(await page.getByText('artifact revision conflict', { exact: false }).count(), 0);
   assert.equal(await page.getByRole('button', { name: '내용 저장', exact: true }).isEnabled(), false);
   assert.equal(await page.evaluate(() => window.__uiTest.artifacts.projects[1].brief.message), '다른 창에서 저장한 내용');
   await page.getByRole('button', { name: '최신 저장 내용 불러오기', exact: true }).click();

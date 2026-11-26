@@ -48,8 +48,8 @@ export function PetRecommendationCard({ item, compact = false, linked = true }: 
     </>}
     {item.state === 'accepted' && <>
       <p className="pet-recommendation-note" role="status">{linked
-        ? <>앱에서 펫 설정을 이어가세요. 적용한 뒤 같은 Codex 채팅에 “{recommendedEntry(item.acceptedPetId ?? '')?.name ?? '이'} 펫으로 진행해줘”라고 보내면 시작해요.</>
-        : <>앱에서 펫 설정을 이어가세요. ‘직접 요청’에서 시작 요청을 복사해 같은 Codex 채팅에 보내면 펫이 연결되고 이 요청을 진행해요.</>}</p>
+        ? <>앱에서 펫을 정한 뒤 같은 Codex 채팅에 “{recommendedEntry(item.acceptedPetId ?? '')?.name ?? '이'} 펫으로 진행해줘”라고 보내 주세요.</>
+        : <>앱에서 펫을 정하면 Codex에 보낼 문장을 준비해 드려요. 그 문장을 같은 채팅에 보내 주세요.</>}</p>
       <div className="pet-recommendation-actions"><button className="text-button" disabled={action.busy} onClick={() => accept(item.acceptedPetId ?? '', true)}>설정 화면 열기</button><button className="text-button" disabled={action.busy} onClick={dismiss}>추천 닫기</button></div>
     </>}
     {item.state === 'running' && <p className="pet-recommendation-note" role="status">추천한 펫이 이 채팅에서 일하고 있어요.</p>}

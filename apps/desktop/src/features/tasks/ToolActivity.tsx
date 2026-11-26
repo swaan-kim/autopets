@@ -32,7 +32,7 @@ export function ToolActivity({ session, disconnected }: { session: Session; disc
 export function McpProp({ session, disconnected }: { session: Session; disconnected: boolean }) {
   const calls = toolCalls(session, disconnected, true);
   if (!calls.length) return null;
-  const label = `MCP · ${toolSummary(calls)}`;
+  const label = toolSummary(calls);
   const state = calls.some(call => call.state === 'running') ? 'running'
     : [...calls].sort((a, b) => b.observedAt - a.observedAt || a.id.localeCompare(b.id))[0].state;
   const mark = { running: '…', completed: '✓', failed: '!', unknown: '?' }[state];

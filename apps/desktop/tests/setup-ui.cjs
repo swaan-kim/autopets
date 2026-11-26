@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const hosts = require('../../../packages/contracts/data/connections.json');
+const { openSettingsPage, openDisclosure, labelStatusPill } = require('./entry-navigation.cjs');
 
 async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) {
   fs.mkdirSync(screenshotDir, { recursive: true });
@@ -14,13 +15,14 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   const page = await newPage();
   await mockBridge(page, { ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })), setup });
   await page.goto(origin);
-  await page.locator('.app-settings > summary').click(); await page.getByRole('button', { name: '연결 설정', exact: true }).click();
-  await page.getByRole('heading', { name: '연결 설정', exact: true }).waitFor();
+  await openSettingsPage(page, 'AI 연결');
+  await page.getByRole('heading', { name: 'AI 연결', exact: true }).waitFor();
   assert.equal(await page.getByLabel('사용할 AI', { exact: true }).isVisible(), false);
   assert.equal(await page.locator('.connection-manage-card input').count(), 0);
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), []);
   await page.waitForFunction(() => !window.__uiTest.onboardingActive);
-  await page.evaluate(() => { document.querySelector('.connection-pill').textContent = 'UI 검수용 · 실제 연결 미검증'; });
+  assert.equal(await page.locator('.connection-pill').count(), 0, 'a healthy desktop app shows no status pill');
+  await labelStatusPill(page, 'UI 검수용 · 실제 연결 미검증');
   const initial = path.join(screenshotDir, 'native-ui-setup.png');
   await page.screenshot({ path: initial, fullPage: true, animations: 'disabled' });
 
@@ -43,14 +45,14 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   checks.push('settings exit remains reachable without scrolling on short and narrow screens');
 
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
-  await page.getByText('호출 준비됨', { exact: true }).waitFor();
-  await page.getByText('이제 쓰던 Codex 채팅에서 불러주세요.', { exact: true }).waitFor();
-  assert.equal(await page.locator('.setup-progress li[data-done="true"]').count(), 2, 'app and skill preparation do not claim a connected conversation');
-  assert.equal(await page.locator('.setup-next-step').innerText().then(text => text.includes('붙여넣을 필요가 없어요')), true);
+  await page.locator('.setup-status').filter({ hasText: /^준비됨$/ }).waitFor();
+  await page.getByText('이제 펫을 골라 시작해 보세요.', { exact: true }).waitFor();
+  assert.equal(await page.locator('.setup-progress li[data-done="true"]').count(), 2, 'app and Codex preparation do not claim a started first task');
+  assert.equal(await page.locator('.setup-next-step').innerText().then(text => text.includes('보내기만 눌러 주세요') && !/붙여넣/.test(text)), true, 'the next step is the start button and send, never a paste');
   assert.equal(await page.evaluate(() => window.__uiTest.clipboard), '', 'connection preparation does not copy a prompt');
   await page.getByText('펫이 연결되지 않나요?', { exact: true }).click();
-  await page.getByText(/펫 호출에는 새 훅 허용이 필요하지 않아요/).waitFor();
-  assert.equal(await page.getByText('펫 연결됨', { exact: true }).count(), 0);
+  await page.getByText(/Codex에 이미 있던 설정은 그대로 둬요/).waitFor();
+  assert.equal(await page.getByText('사용 중', { exact: true }).count(), 0);
   await page.getByRole('button', { name: '연결 복구', exact: true }).waitFor();
   assert.deepEqual(await page.evaluate(() => window.__uiTest.calls), [{ name: 'connect_ai', args: { hostId: 'codex-windows-local' } }]);
   const pending = path.join(screenshotDir, 'native-ui-unified-pending.png');
@@ -58,20 +60,20 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   checks.push('connection management does not mutate on entry; configured calling skill is distinct from a linked pet; other hosts and technical details are collapsed');
 
   await page.evaluate(() => { const connection = window.__uiTest.state.setup.connections[0]; connection.status = 'connected'; connection.firstTask = { sessionId: 'fixture-first-task', lastEventAt: Date.now() }; window.__uiTest.state.now = Date.now(); window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state)); });
-  await page.getByText('다른 환경과 연결 상세', { exact: true }).click();
-  await page.getByText('수신 확인', { exact: true }).waitFor();
-  assert.equal(await page.locator('.connection-detail-list div').filter({ hasText: '자동 도움 전달' }).locator('dd').textContent(), '미확인');
-  assert.equal(await page.getByText('펫 연결됨', { exact: true }).count(), 0);
+  await openDisclosure(page, '문제 해결용 상세 정보');
+  await page.getByText('받는 중', { exact: true }).waitFor();
+  assert.equal(await page.locator('.connection-detail-list div').filter({ hasText: '자동 도움 전달' }).locator('dd').textContent(), '확인 못 함');
+  assert.equal(await page.getByText('사용 중', { exact: true }).count(), 0);
   assert.equal(await page.locator('.setup-default strong').textContent(), '균형 있게');
-  await page.getByText('실제 설정 확인', { exact: true }).click();
-  await page.getByText('모델 미검증 · 추론 미검증 · 제출 보호 미검증', { exact: true }).waitFor();
+  await openDisclosure(page, '실제 설정 확인');
+  await page.getByText('모델 확인 못 함 · 추론 확인 못 함 · 전송 보호 확인 못 함', { exact: true }).waitFor();
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('work-local');
-  await page.getByText('호환성 확인 전', { exact: true }).waitFor();
+  await page.locator('.setup-host-stage').filter({ hasText: /^아직 확인 못 함$/ }).waitFor();
   assert.equal(await page.locator('.setup-progress').count(), 0, 'an unsupported host never inherits Codex preparation steps');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).count(), 0);
-  assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
+  assert.equal(await page.locator('.setup-status').textContent(), '준비 전');
   await page.getByLabel('사용할 AI', { exact: true }).selectOption('chatgpt-web');
-  await page.getByText(/이 웹·클라우드 환경은 아직 펫과 연결되지 않아요/).waitFor();
+  await page.getByText(/이 환경에서는 펫 연결을 아직 확인하지 못했어요/).waitFor();
   assert.equal(await page.evaluate(() => window.__uiTest.calls.length), 1);
   await page.setViewportSize({ width: 430, height: 1000 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 430), JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > 430).map(element => ({ tag: element.tagName, class: element.className, right: element.getBoundingClientRect().right })))));
@@ -85,13 +87,15 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).waitFor();
   await page.evaluate(() => { window.__uiTest.connectionError = '검수용 연결 실패'; });
   await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: '연결 설정을 바꾸지 못했어요' }).waitFor();
-  assert.equal(await page.locator('.setup-status').textContent(), '연결 전');
+  await page.getByRole('alert').filter({ hasText: 'AI 연결을 바꾸지 못했어요' }).waitFor();
+  assert.equal(await page.locator('.setup-status').textContent(), '준비 전');
   assert.equal(await page.getByRole('button', { name: '이 AI 연결하기', exact: true }).isEnabled(), true);
   checks.push('disconnect and failed setup leave a retryable connection and never fabricate a first task');
 
   const beforeDownload = await page.evaluate(() => window.__uiTest.calls.length);
-  await page.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
+  await openDisclosure(page, 'Claude · Claude Code에서 쓰기');
+  await page.getByRole('heading', { name: 'Claude', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Claude Code', exact: true }).waitFor();
   await page.evaluate(() => { window.__uiTest.holdPreferenceExport = true; });
   await page.getByRole('button', { name: 'Claude에 설치', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: '여는 중…', exact: true }).isDisabled(), true);
@@ -106,7 +110,7 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   assert.equal(await page.getByRole('button', { name: 'Claude에 설치', exact: true }).isEnabled(), true);
   const claudeCode = page.getByRole('region', { name: 'Claude Code 연결' });
   await claudeCode.getByRole('button', { name: 'Claude Code에 연결', exact: true }).click();
-  await claudeCode.getByText('연결했어요. 새로 여는 Claude Code 세션부터 펫이 움직여요.', { exact: true }).waitFor();
+  await claudeCode.getByText('연결했어요. 다음에 새로 시작하는 Claude Code 작업부터 펫이 움직여요.', { exact: true }).waitFor();
   await page.evaluate(() => { window.__uiTest.claudeCodeError = true; });
   await claudeCode.getByRole('button', { name: 'Claude Code 연결 해제', exact: true }).click();
   await claudeCode.getByRole('alert').filter({ hasText: 'Claude Code를 찾지 못했어요' }).waitFor();
@@ -117,11 +121,11 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
 
   const browserPage = await newPage();
   await browserPage.goto(origin);
-  await browserPage.locator('.app-settings > summary').click();
-  await browserPage.getByRole('button', { name: '연결 설정', exact: true }).click();
-  await browserPage.getByText('다른 AI에서도 펫 설정 쓰기', { exact: true }).click();
+  await openSettingsPage(browserPage, 'AI 연결');
+  assert.equal(await browserPage.locator('.connection-pill').textContent(), '미리보기 화면이에요', 'the browser preview keeps its status pill');
+  await openDisclosure(browserPage, 'Claude · Claude Code에서 쓰기');
   const download = browserPage.waitForEvent('download');
-  await browserPage.getByRole('link', { name: 'Claude 연결 파일', exact: true }).click();
+  await browserPage.getByRole('link', { name: 'Claude 연결 파일 받기', exact: true }).click();
   const bundle = await download;
   assert.equal(bundle.suggestedFilename(), 'AutoPets-pet-preferences.mcpb');
   assert.equal(await bundle.failure(), null);
@@ -132,9 +136,9 @@ async function runSetupChecks({ newPage, mockBridge, fixture, origin, screenshot
   checks.push('browser preview downloads an actual local extension ZIP; file download is distinct from native export and host installation');
 
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => call.name.includes('app_update'))), false);
-  await page.getByText('앱 업데이트', { exact: true }).click();
+  await openDisclosure(page, '앱 업데이트 확인');
   await page.getByRole('button', { name: '업데이트 확인', exact: true }).click();
-  await page.getByText('이 빌드에서는 공개 업데이트를 제공하지 않아요.', { exact: true }).waitFor();
+  await page.getByText('이 버전은 자동 업데이트를 지원하지 않아요.', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: /설치하기$/ }).count(), 0);
   await page.evaluate(() => { window.__uiTest.update = { status: 'available', version: '0.2.0-fixture' }; });
   await page.getByRole('button', { name: '업데이트 확인', exact: true }).click();

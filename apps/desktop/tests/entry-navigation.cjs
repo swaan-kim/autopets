@@ -10,10 +10,39 @@ const openCatalog = async page => {
   const close = page.locator('.pet-start').getByRole('button', { name: '← 돌아가기', exact: true });
   if (await close.isVisible()) await close.click();
   // Home hides the header shortcut because its own '펫 고르기' button is on the page.
-  const header = page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true });
+  const header = headerNav(page, '펫 고르기');
   await (await header.isVisible() ? header : page.locator('.pet-home-find')).click();
   await page.locator('.workspace-shelf-tabs').waitFor();
 };
+// Header buttons are looked up inside the header: home repeats '펫 고르기' as its own button.
+const headerNav = (page, name) => page.locator('.app-header nav').getByRole('button', { name, exact: true });
+// 설정 menu: 'AI 연결' is at the top level; the experimental pages sit under '고급 · 실험 기능'.
+const ADVANCED_SETTINGS = ['자동 도움', '소개 자료', '내 펫 만들기'];
+const openSettingsMenu = async page => {
+  const menu = page.locator('.app-settings');
+  if (await menu.getAttribute('open') === null) await menu.locator('> summary').click();
+};
+const openAdvancedSettings = async page => {
+  await openSettingsMenu(page);
+  const group = page.locator('.settings-advanced');
+  if (await group.getAttribute('open') === null) await group.locator('> summary').click();
+};
+const openSettingsPage = async (page, name) => {
+  await (ADVANCED_SETTINGS.includes(name) ? openAdvancedSettings(page) : openSettingsMenu(page));
+  await page.locator('.settings-menu').getByRole('button', { name, exact: true }).click();
+};
+// The slot-based task list from the older flow lives in a disclosure under 'AI 연결'.
+const openLegacyTasks = async page => {
+  await openSettingsPage(page, 'AI 연결');
+  await openDisclosure(page, '예전 방식으로 연결한 작업');
+};
+// Opens a <details> by its exact summary text; does nothing when it is already open.
+const openDisclosure = async (scope, name) => {
+  const summary = scope.locator('summary').filter({ hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) });
+  if (!await summary.evaluate(node => node.parentElement.open)) await summary.click();
+};
+// Screenshots carry a synthetic-data label on the status pill, which only exists in preview or when disconnected.
+const labelStatusPill = (page, text) => page.evaluate(text => { const label = document.querySelector('.connection-pill'); if (label) label.textContent = text; }, text);
 // Choosing a pet card opens its detail screen, which is where work starts.
 const chooseRole = async (page, name) => {
   const card = page.getByRole('button', { name: `${name} 펫 선택`, exact: true });
@@ -33,7 +62,7 @@ const openSaved = async page => {
 };
 const openTasks = async page => {
   await closePetPanel(page.locator('.pet-start'));
-  await page.locator('.app-header nav').getByRole('button', { name: '내 작업', exact: true }).click();
+  await headerNav(page, '내 작업').click();
 };
 // Copying the request, settings and the chat choice are secondary paths under "바꾸기".
 // Tests that exercise them disclose it explicitly instead of changing the default flow.
@@ -41,6 +70,13 @@ const openChange = async composer => {
   const toggle = changeToggle(composer);
   if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
   await composer.locator('.pet-start-change').waitFor();
+  await openStartDetails(composer);
+};
+// Inside "바꾸기", the request preview, saving, the saved-pet list, the chosen chat's id and the
+// source of the pet's method are folded once more under "자세한 정보" (.pet-start-info).
+const openStartDetails = async composer => {
+  const info = composer.locator('.pet-start-info');
+  if (await info.count() && !await info.evaluate(element => element.open)) await info.locator(':scope > summary').click();
 };
 const openCopy = openChange;
 const openPetSettings = openChange;
@@ -52,4 +88,4 @@ const leaveComposer = async composer => {
   await closePetPanel(composer);
   await composer.getByRole('button', { name: '← 돌아가기', exact: true }).click();
 };
-module.exports = { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy, openPetSettings, openChange, closePetPanel, leaveComposer };
+module.exports = { openCatalog, chooseRole, openSaved, openTasks, dismissRoleDetail, openCopy, openPetSettings, openChange, openStartDetails, closePetPanel, leaveComposer, headerNav, openSettingsMenu, openAdvancedSettings, openSettingsPage, openLegacyTasks, openDisclosure, labelStatusPill };

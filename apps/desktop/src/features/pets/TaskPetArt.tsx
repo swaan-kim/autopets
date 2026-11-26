@@ -42,7 +42,7 @@ export function TaskPetArt({ entry, motion = 'idle', paused = true, small = fals
       : role === 'presentation' ? <g><path d="M46 56 26 80m22-24 22 24" stroke="#a5b2a0" strokeWidth="5" strokeLinecap="round" /><rect x="10" y="13" width="76" height="51" rx="6" fill={`url(#${id}-body)`} /><rect x="15" y="18" width="66" height="40" rx="3" fill={`url(#${id}-paper)`} /><path d="M23 28h39" stroke="#789482" strokeWidth="4" strokeLinecap="round" /><rect x="23" y="40" width="11" height="10" rx="2" fill="#ccaa68" /><rect x="39" y="35" width="11" height="15" rx="2" fill="#a7bba1" /><rect x="55" y="31" width="11" height="19" rx="2" fill="#618a75" /></g>
       : <g><rect x="15" y="13" width="68" height="48" rx="6" fill={`url(#${id}-body)`} /><rect x="20" y="18" width="58" height="37" rx="3" fill="#e8efe0" /><rect x="27" y="25" width="26" height="5" rx="2" fill="#799b87" /><rect x="27" y="35" width="22" height="12" rx="3" fill="#b1c6ae" /><rect x="55" y="25" width="16" height="22" rx="3" fill="#d3b47b" /><path d="M15 61h68l10 11q0 5-8 5H13q-8 0-8-5z" fill="#b5c2b2" /><path d="M39 63h20l4 5H35z" fill="#839a87" /></g>}
     </svg>
-    {entry && <span className="pet-origin-badge" title={skillSourceFor(entry).source ? 'GitHub에 공개된 스킬 기반' : 'AutoPets 자체 제작'}><SourceLogo external={!!skillSourceFor(entry).source} /></span>}
+    {entry && <span className="pet-origin-badge" title={skillSourceFor(entry).source ? 'GitHub에 공개된 방법을 바탕으로 만들었어요' : 'AutoPets가 직접 만들었어요'}><SourceLogo external={!!skillSourceFor(entry).source} /></span>}
   </span>;
 }
 const resultKinds: Record<string, string> = {
@@ -54,13 +54,13 @@ const resultKinds: Record<string, string> = {
 function ResultArtwork({ entry, mobile = false }: { entry: PetCatalogEntry; mobile?: boolean }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [entry.id, mobile]);
-  if (entry.id === 'ui-webpage') return <span className={`result-thumbnail result-thumbnail-web ${mobile ? 'mobile' : ''}`} role="img" aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${mobile ? '모바일' : '데스크톱'} 디자인 예시`}>
+  if (entry.id === 'ui-webpage') return <span className={`result-thumbnail result-thumbnail-web ${mobile ? 'mobile' : ''}`} role="img" aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${mobile ? '모바일' : '데스크톱'} 예시`}>
     {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> : <>
       {!mobile && <span className="result-browser-bar" aria-hidden="true"><i /><i /><i /><span>moru / open campus</span></span>}
       <img src={`/assets/design-example-v1/${mobile ? 'mobile' : 'desktop'}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />
     </>}
   </span>;
-  return <span className={`result-thumbnail sample-output sample-${entry.id}`} role="img" aria-label={`${resultKinds[entry.id] ?? entry.name} 디자인 예시`}>
+  return <span className={`result-thumbnail sample-output sample-${entry.id}`} role="img" aria-label={`${resultKinds[entry.id] ?? entry.name} 예시`}>
     <ResultSample kind={entry.id} />
   </span>;
 }
@@ -78,13 +78,13 @@ export function ResultPreview({ entry, compact = false }: { entry: PetCatalogEnt
     element.showModal(); close.current?.focus();
     return () => { element.close(); trigger.current?.focus(); };
   }, [open]);
-  if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example"><ResultArtwork entry={entry} /><small className="result-thumbnail-label">디자인 예시</small></span>;
+  if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example"><ResultArtwork entry={entry} /><small className="result-thumbnail-label">예시</small></span>;
   return <figure className={`result-preview visual-result-preview designed-result result-${entry.id}`} aria-label={`${entry.name} 결과 예시`} data-evidence="design-example">
     <div className="result-preview-toolbar">
-      {entry.id === 'ui-webpage' ? <div className="result-device-choice" role="group" aria-label="미리보기 화면"><button type="button" aria-pressed={!mobile} onClick={() => setMobile(false)}>데스크톱</button><button type="button" aria-pressed={mobile} onClick={() => setMobile(true)}>모바일</button></div> : <span className="result-preview-caption">결과 미리보기</span>}
-      <button type="button" ref={trigger} className="result-live-open" onClick={() => setOpen(true)}>크게 보기 ↗</button>
+      {entry.id === 'ui-webpage' ? <div className="result-device-choice" role="group" aria-label="미리보기 화면"><button type="button" aria-pressed={!mobile} onClick={() => setMobile(false)}>데스크톱</button><button type="button" aria-pressed={mobile} onClick={() => setMobile(true)}>모바일</button></div> : <span className="result-preview-caption">결과 예시</span>}
+      <button type="button" ref={trigger} className="result-live-open" onClick={() => setOpen(true)}>크게 보기</button>
     </div>
-    <ResultArtwork entry={entry} mobile={mobile} /><figcaption><span>{resultKinds[entry.id] ?? entry.output}</span><small>디자인 예시</small></figcaption>
-    {open && <dialog ref={dialog} className="result-example-dialog" aria-label={entry.id === 'ui-webpage' ? '가상 학과 행사 디자인 예시' : `${entry.name} 디자인 예시`} onCancel={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false); } }}><div className="result-example-bar"><span>{entry.name} · 디자인 예시</span><button type="button" ref={close} onClick={() => setOpen(false)}>닫기 ×</button></div><div className="result-example-full"><ResultArtwork entry={entry} mobile={mobile} /></div></dialog>}
+    <ResultArtwork entry={entry} mobile={mobile} /><figcaption><span>{resultKinds[entry.id] ?? entry.output}</span><small>예시 화면 · 실제 결과는 달라요</small></figcaption>
+    {open && <dialog ref={dialog} className="result-example-dialog" aria-label={entry.id === 'ui-webpage' ? '가상 학과 행사 예시' : `${entry.name} 예시`} onCancel={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setOpen(false); } }}><div className="result-example-bar"><span>{entry.name} · 예시</span><button type="button" ref={close} onClick={() => setOpen(false)}>닫기 ×</button></div><div className="result-example-full"><ResultArtwork entry={entry} mobile={mobile} /></div></dialog>}
   </figure>;
 }

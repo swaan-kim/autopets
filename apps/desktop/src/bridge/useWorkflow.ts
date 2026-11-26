@@ -14,7 +14,7 @@ export function useWorkflow() {
     active.current = true;
     try {
       const next = await command<WorkflowSnapshot>('workflow_snapshot');
-      if (!next?.preferences || !Array.isArray(next.tasks) || !next.capabilities) throw new Error('계획 설정 연결을 확인해주세요.');
+      if (!next?.preferences || !Array.isArray(next.tasks) || !next.capabilities) throw new Error('계획 설정 연결을 확인해 주세요.');
       if (alive.current) { setSnapshot(next); setError(''); setLoaded(true); }
     } catch { if (alive.current) setError('계획 설정을 불러오지 못했어요. 기존 채팅은 계속 사용할 수 있어요.'); }
     finally { active.current = false; }

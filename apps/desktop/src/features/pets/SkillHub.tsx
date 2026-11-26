@@ -11,16 +11,16 @@ const hub = hubData as unknown as { verifiedAt: string; entries: HubEntry[] };
 // Presentation only. Keep the shared catalog and its allowlisted launch targets intact.
 // Prefer concrete jobs; plugin setup and duplicate project features do not need a place here.
 const tools: Tool[] = [
-  { id: 'anthropic-pptx', group: 'documents', name: '발표자료', summary: '편집할 수 있는 PowerPoint 파일.', host: 'Claude', icon: 'slides' },
-  { id: 'anthropic-docx', group: 'documents', name: '문서 작성', summary: '보고서와 초안을 Word 파일로.', host: 'Claude', icon: 'document' },
-  { id: 'anthropic-xlsx', group: 'documents', name: '표·계산', summary: '수식이 있는 Excel 표 만들기.', host: 'Claude', icon: 'table' },
-  { id: 'anthropic-pdf', group: 'documents', name: 'PDF 정리', summary: '글과 표를 꺼내거나 PDF 만들기.', host: 'Claude', icon: 'pdf' },
+  { id: 'anthropic-pptx', group: 'documents', name: 'PowerPoint 파일', summary: '편집할 수 있는 PowerPoint 파일을 만들어요.', host: 'Claude', icon: 'slides' },
+  { id: 'anthropic-docx', group: 'documents', name: '문서 작성', summary: '보고서와 초안을 Word 파일로 만들어요.', host: 'Claude', icon: 'document' },
+  { id: 'anthropic-xlsx', group: 'documents', name: '표·계산', summary: '수식이 있는 Excel 표를 만들어요.', host: 'Claude', icon: 'table' },
+  { id: 'anthropic-pdf', group: 'documents', name: 'PDF 정리', summary: 'PDF에서 글과 표를 꺼내거나 새로 만들어요.', host: 'Claude', icon: 'pdf' },
   { id: 'chatgpt-deep-research', group: 'learning', name: '자료 조사', summary: '여러 자료를 출처와 함께 조사해요.', host: 'ChatGPT', icon: 'search' },
   { id: 'chatgpt-study-mode', group: 'learning', name: '개념 공부', summary: '질문을 주고받으며 이해해요.', host: 'ChatGPT', icon: 'study' },
-  { id: 'connector-google-workspace', group: 'connected', name: '메일·일정·파일', summary: 'Google에 있는 내 자료 찾기.', host: 'Claude · Google', icon: 'mail' },
+  { id: 'connector-google-workspace', group: 'connected', name: '메일·일정·파일', summary: 'Google에 있는 내 자료를 찾아요.', host: 'Claude · Google', icon: 'mail' },
   { id: 'connector-notion', group: 'connected', name: 'Notion 문서', summary: '페이지를 찾아 읽고 정리해요.', host: 'Claude · Notion', icon: 'notebook' },
 ];
-const groups: [Group, string][] = [['all', '추천'], ['documents', '문서·표'], ['learning', '조사·학습'], ['connected', '내 자료']];
+const groups: [Group, string][] = [['all', '전체'], ['documents', '문서·표'], ['learning', '조사·학습'], ['connected', '내 자료']];
 
 function ToolIcon({ kind }: { kind: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -51,7 +51,7 @@ export function SkillHub() {
       if (isDesktop) {
         // Only the id and target cross the bridge. The app owns the URL and prompt.
         await command('start_hub_entry', { id: entry.id, target });
-        setNotice({ id: entry.id, text: address ? '브라우저 열기를 요청했어요.' : 'AI에서 보내기를 눌러주세요.' });
+        setNotice({ id: entry.id, text: address ? '브라우저에서 열려요.' : `${target === 'claude' ? 'Claude' : 'AI 채팅'}에 요청을 넣었어요. 보내기만 눌러 주세요.` });
       } else if (address) {
         window.open(address, '_blank', 'noopener,noreferrer');
       } else setNotice({ id: entry.id, text: '설치 앱에서 열 수 있어요.' });
@@ -63,20 +63,21 @@ export function SkillHub() {
     }
   };
   return <section className="skill-hub" aria-label="함께 쓰는 도구" data-agent-id="pet-selection.hub">
-    <header><h2>함께 쓰는 도구</h2><p>문서, 조사, 내 자료를 더 쉽게.</p></header>
+    <header><h2>함께 쓰는 도구</h2><p>펫 없이 AI에서 바로 쓰는 기능이에요. 여기서 열면 펫 알림은 오지 않아요.</p></header>
     <div className="skill-hub-kinds" role="group" aria-label="도구 용도">
       {groups.map(([id, label]) => <button key={id} aria-pressed={group === id} onClick={() => { setGroup(id); setNotice(null); }}>{label}</button>)}
     </div>
-    <ul className="skill-hub-list">{entries.map(({ entry, name, summary, host, icon, group: purpose }) => {
+    <ul className="skill-hub-list">{entries.map(({ entry, name, summary, host, icon }) => {
       const action = entry.starts[0];
-      const actionLabel = purpose === 'connected' ? '연결 설정' : action ? '열기' : '사용법';
+      // The catalog's own label names where the button goes.
+      const actionLabel = action?.label ?? '공식 안내 보기';
       return <li key={entry.id} data-hub-entry={entry.id}>
         <span className={`skill-hub-icon icon-${icon}`}><ToolIcon kind={icon} /></span>
         <div className="skill-hub-description"><h3>{name}</h3><p>{summary}</p><small>{host}</small></div>
-        <button type="button" className="skill-hub-open" aria-label={`${name} ${actionLabel === '사용법' ? '사용법 보기' : actionLabel}`} disabled={Boolean(busy)} onClick={() => void start(entry, action?.target ?? 'source', action ? action.url : entry.source)}>
+        <button type="button" className="skill-hub-open" aria-label={`${name} ${actionLabel}`} disabled={Boolean(busy)} onClick={() => void start(entry, action?.target ?? 'source', action ? action.url : entry.source)}>
           {busy === entry.id ? '여는 중…' : actionLabel} <span aria-hidden="true">↗</span>
         </button>
-        <details className="skill-hub-detail"><summary aria-label={`${name} 이용 조건`}>이용 조건</summary>
+        <details className="skill-hub-detail"><summary aria-label={`${name} 필요한 것`}>필요한 것</summary>
           <div><p>{entry.needs}</p>{entry.note && <p>{entry.note}</p>}
             <button type="button" className="text-button" disabled={Boolean(busy)} onClick={() => void start(entry, 'source', entry.source)}>{entry.publisher} 공식 안내 ↗</button>
             <small>{hub.verifiedAt} 공식 정보 확인</small>

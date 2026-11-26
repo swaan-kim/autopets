@@ -48,9 +48,14 @@ type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
 
-const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
+const CODEX_OPENED = 'Codex 새 채팅에 요청을 넣었어요. 보내기만 눌러 주세요.';
 // "현재 채팅에서 계속하기": the chat that ran `$autopets` opens with the request typed in; the user sends it.
-const CHAT_FILLED = 'Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요.';
+const CHAT_FILLED = 'Codex 채팅 입력창에 요청을 넣었어요. 보내기만 눌러 주세요.';
+// A short hint, so the placeholder cannot be mistaken for typed text.
+const shortExample = (example: string) => `예: ${example.split('. ')[0].replace(/\.$/, '')}`;
+// The catalog name replaces only the built-in template name; a name the user gave stays.
+const savedName = (pet: SavedPet) => { const entry = catalogFor(pet.template); return entry && entry.template.name === pet.template.name ? entry.name : pet.template.name; };
+const sentence = (text: string) => /[.!?]$/.test(text) ? text : `${text}.`;
 // Start choices the viewer made last time. UI-only: never chat contents or requests.
 type StartHost = 'codex' | 'claude';
 type StartPrefs = { version: 1; host?: StartHost; profile?: 'light' | 'standard' | 'careful'; codexConnectOk?: boolean; claudeInstallOpened?: boolean };
@@ -85,6 +90,8 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const [open, setOpen] = useState(false);
   // "바꾸기": where to start, help style, chat and the less common actions, folded under the start button.
   const [changeOpen, setChangeOpen] = useState(false);
+  // Less common actions and source details stay folded inside "바꾸기".
+  const [infoOpen, setInfoOpen] = useState(false);
   const [prefs, setPrefs] = useState(readStartPrefs);
   const updatePrefs = (patch: Partial<StartPrefs>) => setPrefs(current => { const next = { ...current, ...patch }; writeStartPrefs(next); return next; });
   // One line in place of the start button: each finished step gets a check mark.
@@ -215,7 +222,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
       const changed = /revision|stale|conflict/.test(value);
       const savedChanged = /saved[- ]pet.*(?:revision|stale|changed|not-found)/i.test(value);
       if (savedChanged) setStaleSaved(true);
-      setError(savedChanged ? '저장한 펫이 다른 곳에서 바뀌었어요. 최신 구성을 다시 선택해 주세요.' : changed ? '채팅 설정이 바뀌었어요. 대상을 다시 확인해 주세요.' : '처리하지 못했어요. 연결 설정을 확인하고 다시 시도해 주세요.');
+      setError(savedChanged ? '저장한 펫이 다른 곳에서 바뀌었어요. 저장한 펫을 다시 골라 주세요.' : changed ? '채팅이 바뀌었어요. 쓸 채팅을 다시 골라 주세요.' : '처리하지 못했어요. AI 연결을 확인하고 다시 시도해 주세요.');
       await library.refresh();
     } finally { working.current = false; if (mounted.current) setBusy(false); }
   };
@@ -237,15 +244,15 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const copy = async (value: string, pet: SavedPet) => {
     setPrompt(value); setManualCopy(false);
     setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
-    try { await navigator.clipboard.writeText(value); setCopied(true); setNotice('쓸 Codex 채팅에 붙여넣고 보내세요.'); }
-    catch { setManualCopy(true); setChangeOpen(true); setNotice('자동 복사가 되지 않았어요. 아래 요청을 직접 선택해 복사해 주세요.'); }
+    try { await navigator.clipboard.writeText(value); setCopied(true); setNotice('쓸 Codex 채팅에 붙여 넣고 보내 주세요.'); }
+    catch { setManualCopy(true); setChangeOpen(true); setInfoOpen(true); setNotice('자동 복사가 되지 않았어요. 아래 요청을 직접 선택해 복사해 주세요.'); }
   };
   // The former "Codex에 펫 준비": Codex's own connector runs once, then reports readiness.
   const connectCodex = async () => {
     const result = await command<SetupState>('connect_ai', { hostId: 'codex-windows-local' });
     setLocalSetup(result);
     const ready = explicitSetupReady(result);
-    setNotice([ready ? 'Codex 연결 준비됨' : '연결 설정을 확인해 주세요.', ...(result.warnings ?? [])].join(' '));
+    setNotice([ready ? 'Codex 연결이 준비됐어요.' : 'AI 연결을 확인해 주세요.', ...(result.warnings ?? [])].join(' '));
     return ready;
   };
   // '확인' saves and verifies the pet as copying used to, then only shows the request below.
@@ -255,7 +262,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const copyRequest = () => run(async () => {
     if (!prompt || !task.trim()) throw Error('request not confirmed');
     const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
-    if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
+    if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 요청 미리 보기를 다시 눌러 주세요.'); return; }
     await copy(value, pet);
   }, undefined, true);
   // A new Codex thread opens with the start request in its composer; the user
@@ -277,7 +284,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   // Start in a new Codex chat: save → connect once → open the chat holding the request. Nothing is sent.
   const startInCodex = () => run(async () => {
     if (!task.trim()) throw Error('empty task');
-    setProgress({ steps: ['펫 저장', 'Codex 연결', '새 대화 열림'], done: 0 });
+    setProgress({ steps: ['펫 저장', 'Codex 연결', '새 채팅 열림'], done: 0 });
     const pet = await save(); step(1);
     if (!await connectIfNeeded()) return;
     step(2);
@@ -297,7 +304,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     try { await command('open_pet_in_codex_chat', { petId: pet.id, expectedRevision: pet.revision, prompt: value, threadId: chat.threadId, cwd: chat.cwd }); }
     catch (cause) {
       if (/prompt-too-long/.test(String(cause))) { await copy(value, pet); setProgress(null); return; }
-      if (/setup-chat-(?:changed|unavailable)/.test(String(cause))) { setError('펫을 부른 Codex 채팅이 바뀌었어요. 이어서 할 채팅에서 /오토펫을 다시 불러 주세요.'); return; }
+      if (/setup-chat-(?:changed|unavailable)/.test(String(cause))) { setError('펫을 부른 Codex 채팅이 바뀌었어요. 이어서 할 채팅에서 “펫 상태 확인”이라고 말해 주세요.'); return; }
       throw cause;
     }
     setPrompt(value); setManualCopy(false); setCopied(false);
@@ -308,13 +315,13 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   // Start in Claude: the connector's own actions. Until its install window was opened once, install first.
   const startInClaude = () => run(async () => {
     const action = prefs.claudeInstallOpened ? 'use' : 'install';
-    setProgress({ steps: ['펫 저장', action === 'install' ? 'Claude 설치 창 열림' : 'Claude 새 대화 열림'], done: 0 });
+    setProgress({ steps: ['펫 저장', action === 'install' ? 'Claude 설치 창 열림' : 'Claude 새 채팅 열림'], done: 0 });
     const pet = await save(); step(1);
     let text: string;
     try { text = await runClaudeAction(action, pet); }
     catch (cause) { setError((cause as Error).message); return; }
     if (action === 'install') updatePrefs({ claudeInstallOpened: true });
-    setNotice(action === 'install' ? `${text} 설치한 뒤 다시 시작을 누르면 새 대화가 열려요.` : text);
+    setNotice(action === 'install' ? `${text} 설치한 뒤 다시 시작을 누르면 새 채팅이 열려요.` : text);
     step(2);
   });
   const saveToLibrary = () => {
@@ -471,7 +478,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     }, stillHere);
   };
   const focusSavedConfiguration = () => {
-    setChangeOpen(true);
+    setChangeOpen(true); setInfoOpen(true);
     requestAnimationFrame(() => savedSelector.current?.focus({ preventScroll: true }));
   };
   const savedReady = Boolean(saved && !dirty && !stale);
@@ -483,7 +490,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const startDisabled = disabled || !routingSupported || (startMode === 'codex' && !task.trim())
     || (startMode === 'apply' && Boolean(targetBlocker))
     || (startMode === 'chat' && disconnected);
-  const startLabel = startMode === 'chat' || startMode === 'apply' ? '이 채팅에서 시작' : startMode === 'claude' ? 'Claude에서 시작' : 'Codex에서 시작';
+  const startLabel = startMode === 'chat' ? '이 채팅에서 시작' : startMode === 'apply' ? '이 채팅에 펫 적용' : startMode === 'claude' ? 'Claude에서 시작' : 'Codex에서 시작';
   const runStart = () => startMode === 'chat' ? startInChat() : startMode === 'apply' ? apply() : startMode === 'claude' ? startInClaude() : startInCodex();
   // Connecting changes Codex's own settings, so it is confirmed once (the first-time question counts).
   const start = () => {
@@ -506,8 +513,8 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const exampleChip = <button className="pet-start-example" disabled={busy} onClick={() => { setTask(entry.example); invalidateRequest(); setProgress(null); }}>예시로 채우기</button>;
   const messages = <>
     {notice && !stale && (notice !== '펫 설정을 적용했어요.' || confirmedTarget) && <p className="composer-notice" role="status">{notice}</p>}
-    {!routingSupported && <p className="error" role="alert">사용할 수 없는 작업 설정이에요. ‘바꾸기’에서 도움 방식을 바꿔 주세요.</p>}
-    {(savedChanged || error || library.error || favorites.error) && <div ref={feedback} className="composer-feedback error" role="alert"><p>{error || library.error || favorites.error || '저장한 펫이 바뀌었어요. 최신 구성을 선택해 주세요.'}</p>{stale && <button className="text-button" onClick={focusSavedConfiguration}>구성 다시 선택</button>}</div>}
+    {!routingSupported && <p className="error" role="alert">지금 쓸 수 없는 설정이에요. ‘바꾸기’에서 꼼꼼함을 바꿔 주세요.</p>}
+    {(savedChanged || error || library.error || favorites.error) && <div ref={feedback} className="composer-feedback error" role="alert"><p>{error || library.error || favorites.error || '저장한 펫이 바뀌었어요. 저장한 펫을 다시 골라 주세요.'}</p>{stale && <button className="text-button" onClick={focusSavedConfiguration}>저장한 펫 다시 고르기</button>}</div>}
   </>;
   return <><div hidden={open}>
     {browsing && (view === 'catalog' || view === 'saved') && <div className="pet-recommendation-banner" role="status" data-agent-id="pet-selection.recommendation-banner"><p>Codex 요청 “{browsing.request && browsing.request.length > 60 ? `${browsing.request.slice(0, 60)}…` : browsing.request}”에 쓸 펫을 골라 주세요.</p><button className="text-button" onClick={() => setBrowsing(null)}>요청 없이 둘러보기</button></div>}
@@ -519,82 +526,86 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
       <div className="workspace-detail-content pet-start-panel" data-agent-id="pet-selection.composer" aria-label="펫에게 맡기기">
         <header className="pet-start-identity composer-identity" data-agent-id="pet-selection.composer.identity">
           <TaskPetArt entry={entry} small paused interactive={false} />
-          <div><span className="composer-eyebrow">{saved ? '내 펫' : '새 펫'}</span><h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
+          <div>{saved && <span className="composer-eyebrow">저장한 펫</span>}<h1 ref={heading} tabIndex={-1}>{entry.name}</h1></div>
           <FavoriteButton label={`${entry.name} 즐겨찾기`} selected={favorites.ids.includes(favoriteId)} disabled={busy || staleSaved} onClick={() => favorites.toggle(favoriteId)} />
         </header>
-        <p className="workspace-detail-summary">{entry.summary}</p>
-        <h2 className="pet-start-question">{startMode === 'chat' || startMode === 'apply' ? '이 채팅에서 시작할까요?' : startMode === 'claude' ? 'Claude에서 시작할까요?' : '무엇을 맡길까요?'}</h2>
+        <p className="workspace-detail-summary">{sentence(entry.summary)}</p>
+        <p className="workspace-note pet-start-limit">{entry.limit}</p>
+        <h2 className="pet-start-question">{startMode === 'chat' ? '이 채팅에서 시작할까요?' : startMode === 'apply' ? '이 채팅에 펫을 적용할까요?' : '무엇을 맡길까요?'}</h2>
         {whereChat && <p className="pet-start-chat" data-agent-id="pet-selection.composer.chat" title={chatDetail(whereChat)}><small>Codex 채팅</small><strong>{shortChat(whereChat)}</strong></p>}
         {recommendedHere ? <section className="composer-recommended-request" data-agent-id="pet-selection.composer.recommended-request" aria-label="Codex 채팅에서 온 요청">
           <small>Codex 채팅에서 온 요청</small><p>{task}</p>
         </section>
           : startMode === 'chat' ? <>
-            <p className="pet-start-hint">시작을 누르면 이 채팅 입력창에 요청이 들어가요. 보내기만 누르면 {entry.name} 펫이 이어받아요.</p>
+            <p className="pet-start-hint">시작을 누르면 이 채팅 입력창에 요청이 들어가요. 보내기만 눌러 주세요. {entry.name} 펫이 이어받아요.</p>
             {taskField('더 알려 줄 내용 (선택)', `${entry.inputLabel} (선택)`)}
           </>
-          : startMode === 'apply' ? <p className="pet-start-hint">이 채팅에 {entry.name} 펫을 적용해요. 적용한 뒤 그 채팅에서 할 일을 말하면 펫이 함께해요.</p>
-          : startMode === 'claude' ? <p className="pet-start-hint">Claude에는 펫 설정이 넘어가요. 맡길 일은 Claude 새 대화에서 적어 주세요.</p>
-          : <>{taskField(entry.inputLabel, entry.example)}{exampleChip}</>}
+          : startMode === 'apply' ? <p className="pet-start-hint">적용한 뒤 이 채팅에서 할 일을 말하면 {entry.name} 펫이 함께해요.</p>
+          : startMode === 'claude' ? <p className="pet-start-hint">Claude 새 채팅이 열리면 맡길 일을 적고 보내 주세요.</p>
+          : <>{taskField(entry.inputLabel, shortExample(entry.example))}{exampleChip}</>}
         <div className="composer-action pet-start-action" data-agent-id="pet-selection.composer.action" data-next={startMode}>
           {startMode === 'apply' && confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
             : busy && progress ? <p className="pet-start-progress" role="status">{progressLine}</p>
-            : <button className="button primary pet-start-button" data-agent-id="pet-selection.composer.start" disabled={startDisabled} onClick={start}>{startLabel}<span aria-hidden="true">{startMode === 'chat' ? '→' : '↗'}</span></button>}
+            : <button className="button primary pet-start-button" data-agent-id="pet-selection.composer.start" disabled={startDisabled} onClick={start}>{startLabel}{startMode !== 'apply' && <span aria-hidden="true">↗</span>}</button>}
         </div>
+        {isDesktop && !busy && startMode === 'codex' && !task.trim() && <p className="workspace-note pet-start-need">맡길 일을 적으면 시작할 수 있어요.</p>}
         {!busy && progress && <p className="pet-start-progress" data-complete={progress.done === progress.steps.length}>{progressLine}</p>}
         {pendingChoice === 'host' && <div className="pet-start-choice" role="group" aria-label="어디서 시작할까요?">
           <p><strong>어디서 시작할까요?</strong> 고르면 기억하고 다음부터는 묻지 않아요.</p>
           <div><button className="button secondary" disabled={busy} onClick={() => chooseHost('codex')}>Codex</button><button className="button secondary" disabled={busy} onClick={() => chooseHost('claude')}>Claude</button></div>
-          <small>Codex를 고르면 AutoPets 스킬과 읽기 전용 펫 설정을 Codex에 연결해요.</small>
+          <small>Codex를 고르면 처음 한 번 AutoPets를 연결해요. Codex 설정에 AutoPets 항목이 추가돼요.</small>
         </div>}
         {pendingChoice === 'connect' && <div className="pet-start-choice" role="alert">
-          <p>Codex와 연결할게요. AutoPets 스킬과 읽기 전용 펫 설정을 Codex에 추가해요.</p>
+          <p>처음 한 번, Codex에 AutoPets를 연결해요. Codex 설정에 AutoPets 항목이 추가돼요.</p>
           <div><button className="button secondary" disabled={busy} onClick={confirmConnect}>연결하고 시작</button><button className="text-button" disabled={busy} onClick={() => setPendingChoice(null)}>취소</button></div>
         </div>}
-        {connectBlocked && <div className="composer-feedback" role="alert"><p>Codex 연결이 아직 준비되지 않았어요.</p><button className="text-button" onClick={onConnection}>연결 설정 열기</button></div>}
+        {connectBlocked && <div className="composer-feedback" role="alert"><p>Codex 연결이 아직 준비되지 않았어요.</p><button className="text-button" onClick={onConnection}>AI 연결 열기 →</button></div>}
         {isDesktop && setupChat && confirmChat && target && <section className="composer-chat-continue" data-agent-id="pet-selection.composer.continue-chat.status" aria-label="현재 채팅에서 계속하기">
-          <div className="composer-chat-confirm" role="alert"><p>선택한 채팅({shortChat(target.target)})이 아니라 Pet을 호출한 채팅({shortChat(setupChat)})에 넣어요. 이 채팅으로 할까요?</p>
+          <div className="composer-chat-confirm" role="alert"><p>고른 채팅({shortChat(target.target)})이 아니라 펫을 부른 채팅({shortChat(setupChat)})에 요청을 넣어요. 괜찮을까요?</p>
             <button className="button secondary" disabled={busy} onClick={() => void startInChat(true)}>이 채팅에 넣기</button><button className="text-button" disabled={busy} onClick={() => setConfirmChat(false)}>취소</button></div>
         </section>}
         {messages}
-        {newRecords.length > 0 && <p className="composer-observed" role="status">새 작업 기록을 채팅에서 확인해 주세요.</p>}
+        {newRecords.length > 0 && <p className="composer-observed" role="status">채팅에서 펫이 시작했는지 확인해 주세요.</p>}
         {!isDesktop && <p className="workspace-note">설치 앱에서 사용할 수 있어요.</p>}
         {overlayError && <p role="status">{overlayError}</p>}
-        <div className="pet-start-summary"><span title={whereChat ? chatDetail(whereChat) : undefined}><span aria-hidden="true">● </span>{where} · {executionProfile?.label ?? '설정 확인'}</span>
+        <div className="pet-start-summary"><span title={whereChat ? chatDetail(whereChat) : undefined}>{where}에서 · {executionProfile ? `${executionProfile.label} · ${executionProfile.description}` : '설정 확인'}</span>
           <button className="text-button" data-agent-id="pet-selection.composer.change" aria-expanded={changeOpen} disabled={busy} onClick={() => setChangeOpen(value => !value)}>바꾸기</button></div>
         {changeOpen && <section className="pet-start-change composer-settings" data-agent-id="pet-selection.composer.details" aria-label="시작 설정 바꾸기">
           {!setupChat && <fieldset className="composer-profile-choice composer-profiles" disabled={busy}><legend>시작할 곳</legend><div>{([['codex', 'Codex'], ['claude', 'Claude']] as const).map(([id, label]) => <label key={id}><input type="radio" name="pet-start-host" aria-label={label} checked={host === id} onChange={() => { updatePrefs({ host: id }); setProgress(null); setPendingChoice(null); }} /><span><strong>{label}</strong></span></label>)}</div></fieldset>}
           {startMode === 'claude' && <PetPreferencesConnector compact pet={savedReady ? saved : null} />}
-          <fieldset className="composer-profile-choice composer-profiles" disabled={busy} data-agent-id="pet-selection.composer.profile"><legend>도움 방식</legend><div>{executionProfiles.map(profile => <label key={profile.id}><input type="radio" name="ui-pet-execution-profile" aria-label={profile.label} checked={executionProfile?.id === profile.id} onChange={() => { editDraft({ ...draft, execution: { model: profile.model, reasoning: profile.reasoning } }); updatePrefs({ profile: profile.id }); setProgress(null); }} /><span><strong>{profile.label}</strong></span></label>)}</div></fieldset>
+          <fieldset className="composer-profile-choice composer-profiles" disabled={busy} data-agent-id="pet-selection.composer.profile"><legend>꼼꼼함</legend><div>{executionProfiles.map(profile => <label key={profile.id}><input type="radio" name="ui-pet-execution-profile" aria-label={profile.label} checked={executionProfile?.id === profile.id} onChange={() => { editDraft({ ...draft, execution: { model: profile.model, reasoning: profile.reasoning } }); updatePrefs({ profile: profile.id }); setProgress(null); }} /><span><strong>{profile.label}</strong><small>{profile.description}</small></span></label>)}</div></fieldset>
           {links.length > 0 && startMode !== 'claude' && <section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
-            <label className="ui-pet-select">Codex 채팅<select data-agent-id="pet-selection.composer.target.select" aria-label="UI 펫을 적용할 채팅" value={selectedTarget} disabled={disabled} onChange={event => { setSelectedTarget(event.target.value); setApplied(null); setNotice(''); setError(''); setProgress(null); }}>
-              <option value="">{setupChat ? '채팅 선택' : '새 대화로 시작'}</option>{links.map(link => <option key={targetKey(link)} value={targetKey(link)} title={chatDetail(link.target)}>{shortChat(link.target)}{!link.connected ? ' · 연결 확인 필요' : !link.enabled ? ' · 도움 꺼짐' : unresolvedPetRun(link) ? ' · 작업 확인 필요' : ''}</option>)}
+            <label className="ui-pet-select">Codex 채팅<select data-agent-id="pet-selection.composer.target.select" aria-label="펫을 쓸 채팅" value={selectedTarget} disabled={disabled} onChange={event => { setSelectedTarget(event.target.value); setApplied(null); setNotice(''); setError(''); setProgress(null); }}>
+              <option value="">{setupChat ? '채팅 선택' : '새 채팅으로 시작'}</option>{links.map(link => <option key={targetKey(link)} value={targetKey(link)} title={chatDetail(link.target)}>{shortChat(link.target)}{!link.connected ? ' · 연결 확인 필요' : !link.enabled ? ' · 도움 꺼짐' : unresolvedPetRun(link) ? ' · 작업 확인 필요' : ''}</option>)}
             </select></label>
             {targetBlocker && <p className="composer-target-blocker" role="status">{targetBlocker}</p>}
           </section>}
           {/* Where the main screen shows no request field, it is here for "요청만 복사". */}
-          {(recommendedHere || startMode === 'apply') && <div className="composer-copy-fallback">{taskField(recommendedHere ? '요청 고치기' : '복사할 요청', entry.example)}</div>}
+          {(recommendedHere || startMode === 'apply') && <div className="composer-copy-fallback">{taskField(recommendedHere ? '요청 고치기' : '복사할 요청', shortExample(entry.example))}</div>}
           {entry.id === 'ui-webpage' && <section className="composer-brief"><label>보는 사람<input aria-label="페이지를 볼 사람" value={audience} maxLength={160} disabled={busy} onChange={event => { setAudience(event.target.value); invalidateRequest(); setProgress(null); }} /></label><label>꼭 알릴 내용<input aria-label="꼭 알릴 내용" value={message} maxLength={160} disabled={busy} onChange={event => { setMessage(event.target.value); invalidateRequest(); setProgress(null); }} /></label></section>}
           {entry.id === 'ui-webpage' && <label className="composer-figma"><span>Figma 시안 활용</span><input type="checkbox" aria-label="Figma 시안 활용" checked={figma} disabled={busy} onChange={event => editDraft({ ...draft, features: { figmaDesign: event.target.checked } })} /></label>}
           {figma && <a href={FIGMA_GUIDE} target="_blank" rel="noreferrer">Figma 연결 안내 ↗</a>}
+          <details className="pet-start-info" open={infoOpen} onToggle={event => setInfoOpen(event.currentTarget.open)}><summary>자세한 정보</summary>
           {target && <div className="composer-target-details" data-agent-id="pet-selection.composer.target.details"><h2>선택한 채팅</h2><p className="composer-target-id">{target.target.cwd}<br />{target.target.threadId}</p></div>}
           <section className="pet-start-more" data-agent-id="pet-selection.composer.optional-request" aria-label="다른 방법">
             <div className="pet-start-more-actions">
-              <button className="text-button" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '요청만 복사'}</button>
-              <button className="text-button composer-save-only" disabled={disabled || !routingSupported || savedReady} onClick={() => void saveToLibrary()}>{savedReady ? '저장됨' : saved ? '변경 저장' : '펫만 저장'}</button>
+              <button className="text-button" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void confirmRequest()}>{busy && !prompt ? '확인하는 중…' : '요청 미리 보기'}</button>
+              <button className="text-button composer-save-only" disabled={disabled || !routingSupported || savedReady} onClick={() => void saveToLibrary()}>{savedReady ? '저장됨' : saved ? '변경 저장' : '시작 없이 저장'}</button>
             </div>
             {prompt && !stale && <>
               {/* Opens on every new confirmation (key); the user may still fold it. */}
               <details key={`${prompt}:${manualCopy}`} className="composer-detail composer-request-check" open><summary>Codex에 보낼 요청 확인</summary>
                 <label className="composer-request-result">시작 요청<textarea ref={promptField} aria-label="Codex에 보낼 시작 요청" readOnly rows={6} value={prompt} onFocus={event => event.currentTarget.select()} /></label>
               </details>
-              <div className="composer-action composer-copy-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void copyRequest()}>{busy ? '복사하는 중…' : copied ? '시작 요청 다시 복사' : '시작 요청 복사'}<span aria-hidden="true">{copied ? '✓' : '↗'}</span></button></div>
+              <div className="composer-action composer-copy-action"><button className="button secondary" disabled={disabled || !routingSupported || !prepared || !task.trim()} onClick={() => void copyRequest()}>{busy ? '복사하는 중…' : copied ? '요청 다시 복사' : '요청 복사'}{copied && <span aria-hidden="true">✓</span>}</button></div>
             </>}
-            <label className="ui-pet-select">저장한 구성<select ref={savedSelector} aria-label="저장한 구성" value={stale ? '__stale__' : saved?.id ?? ''} disabled={busy} onChange={event => selectSaved(uiPets.find(pet => pet.id === event.target.value))}>{stale && <option value="__stale__" disabled>최신 구성을 선택해 주세요</option>}<option value="">새 구성</option>{uiPets.map(pet => <option key={pet.id} value={pet.id}>{pet.template.name} · 수정 {pet.revision}</option>)}</select></label>
+            <label className="ui-pet-select">저장한 펫<select ref={savedSelector} aria-label="저장한 펫" value={stale ? '__stale__' : saved?.id ?? ''} disabled={busy} onChange={event => selectSaved(uiPets.find(pet => pet.id === event.target.value))}>{stale && <option value="__stale__" disabled>저장한 펫을 다시 골라 주세요</option>}<option value="">새로 시작</option>{uiPets.map(pet => <option key={pet.id} value={pet.id}>{savedName(pet)} · 수정 {pet.revision}</option>)}</select></label>
             {destinations.length > 0 && <section className="composer-destinations" data-next={copied && !stale} aria-label="등록된 Codex 채팅">{destinations.map(link => <div key={targetKey(link)}><small title={chatDetail(link.target)}>{shortChat(link.target)}</small><PetTaskReturn link={link} disconnected={disconnected} /></div>)}</section>}
             <PetSkillSource entry={entry} />
           </section>
+          </details>
         </section>}
-        <details className="workspace-detail-more"><summary>일하는 방식 자세히</summary><p>{entry.after}</p><p>{entry.limit}</p></details>
+        <details className="workspace-detail-more"><summary>일하는 방법 자세히</summary><p>{entry.after}</p></details>
       </div>
     </div>
   </section>}</>;

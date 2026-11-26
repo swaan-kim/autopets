@@ -12,7 +12,7 @@ export async function returnToTask(session: Session) {
     sessionId: session.id, expectedCwd: session.cwd,
   });
   if (result.status !== 'dispatched' || result.sessionId !== session.id || result.targetVerified !== false) {
-    throw new Error('열기 요청 결과를 확인하지 못했어요. 작업 ID로 직접 찾아주세요.');
+    throw new Error('열기 요청 결과를 확인하지 못했어요. Codex에서 채팅을 직접 찾아 주세요.');
   }
-  return '작업 앱에 열기를 요청했어요. 열린 작업명과 ID가 같은지 확인해주세요.';
+  return 'Codex에 열기를 요청했어요. 열린 채팅이 맞는지 확인해 주세요.';
 }
