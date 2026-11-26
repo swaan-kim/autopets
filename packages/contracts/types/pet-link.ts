@@ -47,3 +47,14 @@ export interface CodexAttention {
   evidence: { fileChanges: number; workCommands: number; verified: boolean } | null;
   read: boolean; createdAt: number; updatedAt: number;
 }
+/** A connected Codex chat's current request: how long it has run and what it last did (in memory only). */
+export interface CodexProgress {
+  target: PetLink['target']; turnId: string;
+  /** `partial`: first heard of from a tool call, so `startedAt` is a lower bound. */
+  startedAt: number; partial: boolean;
+  lastActivityAt: number; tools: number;
+  lastTool: 'command' | 'edit' | 'read' | 'search' | 'agent' | 'wait' | 'plan' | 'other' | null;
+  /** Only when Codex published a plan with update_plan in this turn. */
+  plan: { step: string; status: 'pending' | 'in_progress' | 'completed' }[];
+  endedAt: number | null;
+}
