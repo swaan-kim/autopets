@@ -9,13 +9,20 @@ export const MAX_LAUNCH_URI = 2000;
 const CODEX_NEW_THREAD = 'codex://threads/new?prompt=';
 
 const line = value => (typeof value === 'string' ? value.trim() : '');
+const FORMATS = { recommend: '추천받기', html: 'HTML', figma: 'Figma', pptx: 'PPTX' };
+export function presentationRequest(options = {}) {
+  if (!Object.hasOwn(FORMATS, options.format ?? 'recommend')) throw Error('invalid-presentation-format');
+  return [`발표 형식: ${FORMATS[options.format ?? 'recommend']}.`,
+    line(options.design) && `디자인 요청: ${line(options.design).replace(/[\r\n]+/gu, ' ').slice(0, 80)}`,
+    options.reference === true && '참고 사진은 채팅에 첨부할게요 (선택).'].filter(Boolean);
+}
 
 /**
  * @param {{ name: string, petId: string, petRevision: number, recipe?: string | null, task?: string,
  *   audience?: string, message?: string, newTask?: boolean, figma?: boolean, via?: 'skill' | 'tool' }} input
  *   `via: 'skill'` (Codex) calls the AutoPets skill; `via: 'tool'` (Claude) names the AutoPets read tool.
  */
-export function petStartRequest({ name, petId, petRevision, recipe = null, task = '', audience = '', message = '', newTask = false, figma = false, via = 'skill' }) {
+export function petStartRequest({ name, petId, petRevision, recipe = null, task = '', audience = '', message = '', newTask = false, figma = false, presentation, via = 'skill' }) {
   const identity = `petId=${petId}, petRevision=${petRevision}${recipe ? `, recipe=${recipe}` : ''}.`;
   return [
     via === 'tool' ? `AutoPets 도구(autopets_read_pet)로 "${name}" 펫을 불러와 시작해줘. ${identity}` : `AutoPets 스킬로 "${name}" 시작해줘. ${identity}`,
@@ -24,6 +31,7 @@ export function petStartRequest({ name, petId, petRevision, recipe = null, task 
     line(message) && `꼭 알릴 내용: ${line(message)}`,
     newTask && '새 작업이야. 이전 작업의 계획이나 승인을 재사용하지 마.',
     figma && 'Figma 시안을 쓸 거야. 프레임 링크부터 나에게 확인해줘.',
+    ...(recipe === 'presentation' && presentation ? presentationRequest(presentation) : []),
   ].filter(Boolean).join('\n');
 }
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { RECIPES, RECIPE_ID, validateRecipes, intakeMessage, saveFolder, recipeStart, baseRecipeStart, START_RULES } from '../recipes.mjs';
+import { RECIPES, RECIPE_ID, validateRecipes, intakeMessage, saveFolder, recipeStart, baseRecipeStart, START_RULES, PRESENTATION_START_RULES } from '../recipes.mjs';
 import { petStartRequest, codexLinkLength, fitsCodexLink, MAX_LAUNCH_URI } from '../../guidance/start-request.mjs';
 
 const read = name => JSON.parse(fs.readFileSync(new URL(`../data/${name}`, import.meta.url), 'utf8'));
@@ -42,11 +42,12 @@ test('a request without a job asks for the job in the same message, so there is 
     assert.ok(message.length <= 760, `${recipe.id} stays a short message`);
     assert.equal(intakeMessage(recipe).includes(recipe.subject), false, 'a request that names the job is not asked again');
   }
-  const template = { id: 'presentation', skills: [{ id: 'autopets-presentation', version: '1.0.0' }] };
-  const start = baseRecipeStart(template);
+  const legacyTemplate = { id: 'presentation', skills: [{ id: 'autopets-presentation', version: '1.0.0' }] };
+  const start = baseRecipeStart(legacyTemplate);
   assert.match(start.askFirstWithTask, /1\. 무엇에 대한 발표인가요\?/u);
-  assert.equal(start.rules, START_RULES);
-  assert.equal(recipeStart('presentation', template).intakeMessageWithTask, start.askFirstWithTask);
+  assert.equal(start.rules, PRESENTATION_START_RULES);
+  assert.equal(baseRecipeStart(template('daily-plan')).rules, START_RULES, 'other pets retain their original start flow');
+  assert.equal(recipeStart('presentation', legacyTemplate).intakeMessageWithTask, start.askFirstWithTask);
   // The rules name the three breaks seen in a real run: which message, no second approval, when to report.
   assert.equal(START_RULES.length, 3);
   assert.match(START_RULES[0], /askFirstWithTask/u); assert.match(START_RULES[1], /계획을 다시 승인받지 말고/u); assert.match(START_RULES[2], /asking/u);
@@ -60,7 +61,9 @@ test('starting a recipe returns only that pet\'s questions; unknown or foreign r
   assert.equal(slides.saveFolder.preferred, path.join(home, 'Documents', 'AutoPets', '1112-presentation'));
   assert.equal(slides.saveFolder.fallback, path.join('AutoPets', '1112-presentation'));
   assert.equal(slides.defaults.length, '5장');
-  assert.match(slides.format, /PowerPoint 파일 아님/u);
+  assert.equal(slides.defaults.format, '추천받기');
+  assert.equal(slides.rules, PRESENTATION_START_RULES);
+  assert.deepEqual(RECIPES.find(item => item.id === 'presentation').intake.find(item => item.key === 'format').options, ['추천받기', 'HTML', 'Figma', 'PPTX']);
   const study = recipeStart('study-helper', template('study-helper'), { home, now });
   assert.equal(study.output, 'chat'); assert.equal(study.saveFolder, undefined);
   assert.throws(() => recipeStart('presentation', template('ui-webpage'), { home }), /recipe-pet-mismatch/);

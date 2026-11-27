@@ -77,7 +77,7 @@ export function createLibraryClient({ environment = process.env, connect = readC
       try { named = recipeStart(wanted, pet.template); }
       catch (error) { throw new PetLibraryError(error?.message === 'recipe-pet-mismatch' ? 'recipe-pet-mismatch' : 'unknown-recipe'); }
       start = { recipe: named.id, format: named.format, output: named.output, askFirst: named.intakeMessage,
-        askFirstWithTask: named.intakeMessageWithTask, rules: START_RULES, defaults: named.defaults };
+        askFirstWithTask: named.intakeMessageWithTask, rules: named.rules ?? START_RULES, defaults: named.defaults };
     } else {
       try { start = baseRecipeStart(pet.template); } catch { start = null; }
     }

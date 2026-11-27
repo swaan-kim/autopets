@@ -14,7 +14,8 @@ test('the bundled skill texts are the pinned skill files, unchanged', () => {
   assert.deepEqual(data, buildSkillGuides(), 'run `node scripts/build-skill-guides.mjs` after a skill pin changes');
   validateSkillGuides(data);
   const registry = read('integrations/codex/skills/skill-sources.json').skills;
-  assert.deepEqual(data.guides.map(guide => `${guide.id}@${guide.version}`), registry.map(entry => `${entry.id}@${entry.version}`));
+  const current = new Set(registry.map(entry => `${entry.id}@${entry.version}`));
+  assert.deepEqual(data.guides.filter(guide => current.has(`${guide.id}@${guide.version}`)).map(guide => `${guide.id}@${guide.version}`), [...current]);
 });
 
 test('every catalog pet gets the text of each skill it points to, within one answer', () => {
@@ -24,6 +25,14 @@ test('every catalog pet gets the text of each skill it points to, within one ans
     assert.ok(guides.every(guide => guide.text.includes(`name: ${guide.id}`)), id);
     assert.ok(guides.reduce((total, guide) => total + Buffer.byteLength(guide.text), 0) <= GUIDE_TOTAL, id);
   }
+});
+
+test('the read tool preserves the HTML-era skill for a saved presentation pet', () => {
+  const [old] = skillGuides([{ id: 'autopets-presentation', version: '1.0.0' }]);
+  const [current] = skillGuides([{ id: 'autopets-presentation', version: '1.1.0' }]);
+  assert.equal(old.version, '1.0.0'); assert.equal(current.version, '1.1.0');
+  assert.notEqual(old.text, current.text);
+  assert.equal(data.guides.find(guide => guide.id === old.id && guide.version === old.version).sha256, 'c0ce4396ec4f4c2c375100e6b1ee56415492897b8c51d1320eec240ca459acb0');
 });
 
 test('a text from someone else keeps its source and license in the bundle; only the label is sent', () => {

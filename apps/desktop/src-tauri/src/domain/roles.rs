@@ -50,7 +50,8 @@ impl Template {
         };
         let ui_skill = self.id == RoleId::BuildImplementation
             && self.skills == vec![Skill { id: "frontend-design".into(), version: FRONTEND_DESIGN_VERSION.into() }];
-        if !ui_skill && self.skills != vec![Skill { id: expected.into(), version: "1.0.0".into() }] {
+        let presentation_skill = self.id == RoleId::Presentation && self.skills == vec![Skill { id: expected.into(), version: "1.1.0".into() }];
+        if !ui_skill && !presentation_skill && self.skills != vec![Skill { id: expected.into(), version: "1.0.0".into() }] {
             return Err("Unknown role skill or version".into());
         }
         if self.features.figma_design && !ui_skill { return Err("Figma requires the UI pet skill".into()); }

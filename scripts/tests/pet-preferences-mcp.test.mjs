@@ -168,6 +168,18 @@ test('read pet returns a host-neutral routing hint from the shared table and nev
   assert.equal(/Documents|saveFolder|[A-Z]:/u.test(JSON.stringify(pet.start)), false, 'no folder path leaves the tool');
 });
 
+test('read pet uses presentation planning rules for both named and inferred recipes', async () => {
+  const catalog = JSON.parse(await fs.readFile(new URL('../../packages/contracts/data/pet-catalog.json', import.meta.url), 'utf8'));
+  const { template } = catalog.find(entry => entry.id === 'presentation');
+  const library = createLibraryClient({ environment: { AUTOPETS_CONNECTION_FILE: 'synthetic' }, connect: async () => ({}),
+    request: async () => ({ version: 1, pet: { id: 'pet-slides', revision: 1, template } }) });
+  const query = { operation: 'read', petId: 'pet-slides', expectedRevision: 1 };
+  const named = await library({ ...query, recipe: 'presentation' });
+  const inferred = await library(query);
+  assert.deepEqual(named.pet.start.rules, inferred.pet.start.rules);
+  assert.match(named.pet.start.rules.join(' '), /계획을 수정·확정한 뒤 제작/u);
+});
+
 test('read pet hands over the pinned skill text and follows the recipe named by the start request', async () => {
   const uiPet = JSON.parse(await fs.readFile(new URL('../../packages/contracts/data/ui-pet.json', import.meta.url), 'utf8'));
   const sent = [];
