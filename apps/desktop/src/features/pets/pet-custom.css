@@ -17,8 +17,13 @@
 .pet-dressed-item { position: absolute; transform: translate(-50%, -50%); display: block; aspect-ratio: 1; pointer-events: none; }
 .pet-dressed-item svg { display: block; width: 100%; height: 100%; }
 
-/* ① Entrance */
-.pet-custom-entry { margin-block: 20px 8px; }
+/* Opener on 내 펫 */
+.pet-custom-open { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 6px 18px 6px 6px; border: 0; border-radius: 16px; background: #f5f5f5; color: inherit; font-size: 14px; }
+.pet-custom-open:hover { background: #efefef; }
+.pet-custom-open .pet-dressed { background: #f6f3ec; border-radius: 12px; }
+
+/* ① 펫 커스텀 */
+.pet-custom-entry { margin-block: 4px 8px; }
 .pet-custom-identity { display: flex; align-items: center; gap: 14px; }
 .pet-custom-identity .pet-dressed { background: var(--custom-pet-bg); border-radius: 18px; }
 .pet-custom-entry .pet-custom-identity h2 { margin: 0 0 2px; font-size: 17px; line-height: 1.3; }

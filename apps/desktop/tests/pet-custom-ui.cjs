@@ -17,7 +17,15 @@ exports.runPetCustomChecks = async ({ newPage, mockBridge, fixture, origin, scre
   await page.goto(origin);
   await openSaved(page);
 
-  // ① Entrance
+  // 내 펫 shows only the 펫 커스텀 button; ① opens from it.
+  const opener = page.locator('[data-agent-id="pet-selection.custom.open"]');
+  await opener.getByText('펫 커스텀 →', { exact: true }).waitFor();
+  assert.equal(await page.locator('[data-agent-id="pet-selection.custom"]').count(), 0, 'the cards are not on 내 펫 itself');
+  await page.getByRole('heading', { name: '즐겨찾기', exact: true }).waitFor();
+  await shot(page, 'pet-custom-0-button.png');
+  const openCustom = async () => { await page.locator('[data-agent-id="pet-selection.custom.open"]').click(); };
+  await openCustom();
+  // ① 펫 커스텀
   const entry = page.locator('[data-agent-id="pet-selection.custom"]');
   await entry.waitFor();
   await entry.getByText('작업 12번을 함께했어요', { exact: true }).waitFor();
@@ -28,9 +36,8 @@ exports.runPetCustomChecks = async ({ newPage, mockBridge, fixture, origin, scre
   const decorateCard = page.locator('[data-agent-id="pet-selection.custom.decorate"]');
   await decorateCard.getByText('내 아이템 1개', { exact: true }).waitFor();
   assert.equal(await entry.locator('.pet-custom-identity [data-item="ribbon"]').count(), 1, 'the pet on 내 펫 wears its ribbon');
-  await page.getByRole('heading', { name: '즐겨찾기', exact: true }).waitFor();
   await shot(page, 'pet-custom-1-entry.png');
-  checks.push('내 펫 shows coins, the evolution card and the decorate card above favourites');
+  checks.push('내 펫 has one 펫 커스텀 button; it opens coins, the evolution card and the decorate card');
 
   // ② Evolution
   await evolutionCard.click();
@@ -45,7 +52,7 @@ exports.runPetCustomChecks = async ({ newPage, mockBridge, fixture, origin, scre
   const silhouette = await stage(2).locator('.pet-dressed.is-silhouette .pet-dressed-body').evaluate(element => getComputedStyle(element).opacity);
   assert.equal(Number(silhouette).toFixed(2), '0.14');
   await shot(page, 'pet-custom-2-evolution.png');
-  await evolution.getByRole('button', { name: '← 내 펫', exact: true }).click();
+  await evolution.getByRole('button', { name: '← 펫 커스텀', exact: true }).click();
   await entry.waitFor();
   checks.push('evolution shows the 8-stage collection with silhouettes for unfound stages');
 
@@ -104,8 +111,12 @@ exports.runPetCustomChecks = async ({ newPage, mockBridge, fixture, origin, scre
   assert.equal(await item('ribbon').getAttribute('aria-pressed'), 'false', 'one head item at a time');
   await decorate.locator('[data-agent-id="pet-selection.custom.slot.face"]').click();
   assert.equal(await decorate.locator('.pet-custom-items .pet-custom-item:not(.is-shop)').count(), 1, 'slot chips filter items');
+  await decorate.getByRole('button', { name: '← 펫 커스텀', exact: true }).click();
+  await page.locator('.pet-custom-page[data-screen="hub"]').getByRole('button', { name: '← 내 펫', exact: true }).click();
+  await opener.waitFor();
   await page.reload();
   await openSaved(page);
+  await openCustom();
   await page.locator('[data-agent-id="pet-selection.custom.decorate"]').click();
   assert.equal(await item('sprout').getAttribute('aria-pressed'), 'true');
   assert.equal(await item('glasses').getAttribute('aria-pressed'), 'true');

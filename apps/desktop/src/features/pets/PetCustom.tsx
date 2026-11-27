@@ -6,7 +6,7 @@ import { PET_NAMES } from './constants';
 import { ItemIcon, PetDressed } from './petCustomArt';
 import './pet-custom.css';
 
-export type PetCustomScreen = 'evolution' | 'decorate';
+export type PetCustomScreen = 'hub' | 'evolution' | 'decorate';
 type Item = (typeof config.items)[number];
 type Stage = (typeof config.stages)[number];
 const petName = PET_NAMES[0];
@@ -52,7 +52,15 @@ function Progress({ completed }: { completed: number }) {
 }
 const found = (view: PetCustomView) => config.stages.filter(stage => view.unlocked.includes(stage.no)).length;
 
-/** ① The entrance at the top of 내 펫. */
+/** The one button on 내 펫 that opens 펫 커스텀. */
+export function PetCustomButton({ custom, onOpen }: { custom: Custom; onOpen: () => void }) {
+  if (!custom.view) return null;
+  return <button className="pet-custom-open" data-agent-id="pet-selection.custom.open" onClick={onOpen}>
+    <PetDressed worn={custom.view.worn} slots={items} size={44} /><strong>펫 커스텀 →</strong>
+  </button>;
+}
+
+/** ① 펫 커스텀: coins and the two cards, opened from 내 펫. */
 export function PetCustomEntry({ custom, onOpen }: { custom: Custom; onOpen: (screen: PetCustomScreen) => void }) {
   const { view } = custom;
   if (!view) return null;
@@ -173,11 +181,12 @@ function Decorate({ custom }: { custom: Custom }) {
   </div>;
 }
 
-/** ② and ③④ with the shared "← 내 펫" header. */
-export function PetCustomPage({ screen, custom, onBack }: { screen: PetCustomScreen; custom: Custom; onBack: () => void }) {
+/** 펫 커스텀 (①) and its two screens (②, ③④). Each screen goes back one step. */
+export function PetCustomPage({ screen, custom, onNavigate }: { screen: PetCustomScreen; custom: Custom; onNavigate: (screen: PetCustomScreen | null) => void }) {
   if (!custom.view) return null;
-  return <section className="pet-custom-page" data-screen={screen} aria-label={screen === 'evolution' ? '진화' : '꾸미기'} data-agent-id={`pet-selection.custom.${screen}-page`}>
-    <button className="text-button workspace-detail-back" data-agent-id="pet-selection.custom.back" onClick={onBack}>← 내 펫</button>
-    {screen === 'evolution' ? <Evolution view={custom.view} /> : <Decorate custom={custom} />}
+  const label = { hub: '펫 커스텀', evolution: '진화', decorate: '꾸미기' }[screen];
+  return <section className="pet-custom-page" data-screen={screen} aria-label={label} data-agent-id={`pet-selection.custom.${screen}-page`}>
+    <button className="text-button workspace-detail-back" data-agent-id="pet-selection.custom.back" onClick={() => onNavigate(screen === 'hub' ? null : 'hub')}>{screen === 'hub' ? '← 내 펫' : '← 펫 커스텀'}</button>
+    {screen === 'hub' ? <PetCustomEntry custom={custom} onOpen={onNavigate} /> : screen === 'evolution' ? <Evolution view={custom.view} /> : <Decorate custom={custom} />}
   </section>;
 }
