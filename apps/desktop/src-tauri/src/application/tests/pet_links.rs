@@ -199,38 +199,3 @@ fn service_disconnect_blocks_reports_and_keeps_pet_preferences() {
     assert!(!saved.connected);assert_eq!(saved.profile,Profile::Careful);assert_eq!(saved.run.unwrap().state,RunState::Unknown);
     assert!(store.pet_link_request(Request::Report{target:a,expected_revision:3,request_id:C.into(),receipt:Receipt::Returned}).is_err());
 }
-#[test]
-fn summoning_in_a_chat_moves_the_pet_there_and_the_previous_chat_loses_it() {
-    let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let b=target(dir.path(),B);let c=target(dir.path(),C);
-    let mut store=Store::new(dir.path()).unwrap();
-    assert!(store.summon_pet_link(a.clone()).unwrap().is_none(),"no pet yet: nothing to move");
-    let first=store.pet_link_request(Request::Connect{target:a.clone()}).unwrap().unwrap();
-    let (moved,was_moved)=store.summon_pet_link(b.clone()).unwrap().unwrap();
-    assert!(was_moved);assert_eq!(moved.slot,first.slot);assert_eq!(moved.template,first.template);
-    assert!(moved.connected);assert_eq!(moved.revision,first.revision+1);assert!(moved.run.is_none());
-    assert!(store.pet_link_request(Request::Read{target:a.clone()}).unwrap().is_none(),"the previous chat lost the pet");
-    // After a restart every pet is disconnected; summoning in its own chat just reconnects it.
-    drop(store);let mut store=Store::new(dir.path()).unwrap();
-    assert!(!store.pet_link_request(Request::Read{target:b.clone()}).unwrap().unwrap().connected);
-    let (again,was_moved)=store.summon_pet_link(b.clone()).unwrap().unwrap();
-    assert!(!was_moved);assert!(again.connected);assert_eq!(again.revision,moved.revision);
-    // A pet still working in its chat never moves.
-    store.pet_link_request(Request::Prepare{target:b.clone(),expected_revision:again.revision,request_id:"44444444-4444-4444-8444-444444444444".into(),profile:Profile::Light}).unwrap();
-    assert!(store.summon_pet_link(c.clone()).unwrap().is_none());
-    assert!(store.pet_link_request(Request::Read{target:b.clone()}).unwrap().unwrap().run.is_some());
-    assert!(store.summon_pet_link(Target{cwd:"relative".into(),..c}).is_err());
-}
-#[test]
-fn summoning_prefers_a_disconnected_pet_then_the_lowest_slot() {
-    let dir=tempfile::tempdir().unwrap();let a=target(dir.path(),A);let b=target(dir.path(),B);let c=target(dir.path(),C);
-    let mut store=Store::new(dir.path()).unwrap();
-    let first=store.pet_link_request(Request::Connect{target:a.clone()}).unwrap().unwrap();
-    let second=store.pet_link_request(Request::Connect{target:b.clone()}).unwrap().unwrap();
-    store.pet_links.get_mut(&b.key()).unwrap().connected=false;
-    let (moved,_)=store.summon_pet_link(c.clone()).unwrap().unwrap();
-    assert_eq!(moved.slot,second.slot,"the disconnected pet moves");
-    assert!(store.pet_link_request(Request::Read{target:a.clone()}).unwrap().unwrap().connected,"the connected pet stays");
-    let d=target(dir.path(),"55555555-5555-4555-8555-555555555555");
-    let (moved,_)=store.summon_pet_link(d).unwrap().unwrap();
-    assert_eq!(moved.slot,first.slot.min(second.slot),"all connected: the lowest slot moves");
-}

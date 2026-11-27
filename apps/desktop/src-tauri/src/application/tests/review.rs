@@ -24,6 +24,29 @@ fn card(question: &str, correct: bool) -> NewCard {
 const DAY: u64 = 86_400_000;
 
 #[test]
+fn review_chats_cannot_read_grade_or_extend_each_others_batches() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = (target(dir.path(), A), target(dir.path(), B));
+    let mut store = Store::new(dir.path()).unwrap();
+    review_chat(&mut store, &a); review_chat(&mut store, &b);
+    let now = crate::domain::activity::now_ms();
+    let saved = store.save_review_cards(&a, SaveTo::New("채팅 A".into()), vec![card("A의 문제", false)], now).unwrap();
+    let batch = saved["batch"]["id"].as_str().unwrap();
+    let id = store.review_cards[0].id.clone();
+    let tomorrow = now + DAY;
+    assert!(store.review_due(&b, None, false, tomorrow).unwrap()["cards"].as_array().unwrap().is_empty());
+    assert_eq!(store.review_due(&b, Some(batch), true, tomorrow).unwrap_err(), "review-batch-not-found");
+    assert_eq!(store.save_review_cards(&b, SaveTo::Batch(batch.into()), vec![card("B의 문제", true)], tomorrow).unwrap_err(), "review-batch-not-found");
+    assert_eq!(store.record_review_results(&b, vec![ReviewResult { id: id.clone(), correct: true }], None, false, tomorrow).unwrap_err(), "review-card-not-due");
+    let due = store.review_summary(tomorrow);
+    assert_eq!(due.due_by_thread.get(A), Some(&1));
+    assert!(!due.due_by_thread.contains_key(B));
+    assert_eq!(store.review_cards.len(), 1); assert_eq!(store.review_batches.len(), 1);
+    assert!(!store.review_cards[0].last_correct);
+    assert_eq!(store.review_due(&a, Some(batch), true, tomorrow).unwrap()["cards"][0]["id"], id);
+}
+
+#[test]
 fn only_a_review_pet_chat_saves_cards_and_they_survive_a_restart() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = (target(dir.path(), A), target(dir.path(), B));
@@ -46,7 +69,7 @@ fn only_a_review_pet_chat_saves_cards_and_they_survive_a_restart() {
     assert!(store.review_cards.iter().all(|c| c.thread_id == A && c.batch_id == saved["batch"]["id"]));
     assert_eq!(store.review_batches.len(), 1);
     assert_eq!(store.review_batches[0].thread_id, A);
-    assert_eq!(store.snapshot().review, Summary { due: 0, total: 3, batches: 1, notified_today: false });
+    assert_eq!(store.snapshot().review, Summary { due: 0, total: 3, batches: 1, notified_today: false, due_by_thread: Default::default() });
 
     drop(store);
     let reopened = Store::new(dir.path()).unwrap();

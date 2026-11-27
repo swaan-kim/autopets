@@ -3,7 +3,7 @@
 //! pet link's target, never a guess at whichever chat is on screen. Also the app's 문제 묶음 pages
 //! (which fill a 복습 도우미 chat the same way), and the once-a-day "복습할 때예요" notice.
 use crate::application::store::{SharedStore, Store};
-use crate::domain::{pet_link::Link, roles::RoleId};
+use crate::domain::{pet_link::{Link, Target}, roles::RoleId};
 use std::{collections::HashMap, sync::Mutex, time::{Duration, Instant}};
 use tauri::Manager;
 
@@ -50,21 +50,21 @@ pub(crate) fn check(store: &Store, slot: usize, kind: Kind, expected_revision: u
     if link.target.source_id != crate::domain::connections::CODEX_LOCAL { return Err("pet-target-mismatch".into()); }
     if link.revision != expected_revision { return Err("pet-revision-changed".into()); }
     if !link.connected { return Err("pet-not-connected".into()); }
-    if kind != Kind::Review && link.run.as_ref().is_some_and(crate::domain::pet_link::Run::unresolved) {
+    if !link.enabled || link.run.as_ref().is_some_and(crate::domain::pet_link::Run::unresolved) {
         return Err("pet-run-active-or-unresolved".into());
     }
-    if kind == Kind::Review && store.review_summary(now).due == 0 { return Err("no-review-due".into()); }
+    if kind == Kind::Review && store.review_summary(now).due_by_thread.get(&link.target.thread_id).copied().unwrap_or(0) == 0 { return Err("no-review-due".into()); }
     Ok(link)
 }
 
-/// Which chat a batch page fills: a connected 복습 도우미 in the chat that made the batch, else the
-/// connected one in the lowest slot. None connected: nothing is filled ("다시 연결" is shown).
+/// A batch returns only to its original chat. Missing or ambiguous targets never fall back to another pet.
 pub(crate) fn batch_link(store: &Store, thread_id: &str) -> Result<Link, String> {
-    let mut links: Vec<&Link> = store.pet_links.values()
-        .filter(|l| l.template.id == RoleId::ReviewHelper && l.target.source_id == crate::domain::connections::CODEX_LOCAL).collect();
-    links.sort_by_key(|l| (!l.connected, l.target.thread_id != thread_id, l.slot));
-    let link = links.first().ok_or("no-review-pet")?;
+    let links: Vec<&Link> = store.pet_links.values().filter(|l| l.template.id == RoleId::ReviewHelper
+        && l.target.source_id == crate::domain::connections::CODEX_LOCAL && l.target.thread_id == thread_id).collect();
+    if links.len() != 1 { return Err("review-target-unavailable".into()); }
+    let link = links[0];
     if !link.connected { return Err("pet-not-connected".into()); }
+    if !link.enabled || link.run.as_ref().is_some_and(crate::domain::pet_link::Run::unresolved) { return Err("pet-run-active-or-unresolved".into()); }
     Ok((*link).clone())
 }
 
@@ -100,13 +100,17 @@ fn open_chat(link: &Link, text: &str) -> Result<(), String> {
 
 /// "Codex에서 복습 N" / "전체 다시 풀기" on a batch page: fills a 복습 도우미 chat. Manager window only.
 #[tauri::command]
-pub(crate) fn fill_review_batch(window: tauri::WebviewWindow, store: tauri::State<SharedStore>, batch_id: String, kind: BatchKind) -> Result<(), String> {
+pub(crate) fn fill_review_batch(window: tauri::WebviewWindow, store: tauri::State<SharedStore>, batch_id: String, kind: BatchKind, target: Target, expected_revision: u64) -> Result<(), String> {
     super::connection_setup::require_manager(window.label())?;
     let (link, text) = {
         let state = store.lock().map_err(|_| "상태를 읽을 수 없습니다.")?;
         let (batch, due) = state.review_batch_due(&batch_id, crate::domain::activity::now_ms())?;
         if kind == BatchKind::Due && due == 0 { return Err("no-review-due".into()); }
-        (batch_link(&state, &batch.thread_id)?, batch_prompt(&batch.name, &batch.id, kind))
+        let link = batch_link(&state, &batch.thread_id)?;
+        target.validate()?;
+        if !link.target.matches(&target) { return Err("pet-target-mismatch".into()); }
+        if link.revision != expected_revision { return Err("pet-revision-changed".into()); }
+        (link, batch_prompt(&batch.name, &batch.id, kind))
     };
     if !once(format!("{}:{batch_id}:{kind:?}", window.label()), Kind::Review)? { return Ok(()); }
     open_chat(&link, &text)
@@ -166,8 +170,9 @@ pub(crate) fn mark_review_notice(app: tauri::AppHandle, window: tauri::WebviewWi
 }
 
 /// Pet slots linked to a 복습 도우미 pet.
-fn review_slots(store: &Store) -> Vec<usize> {
-    store.pet_links.values().filter(|l| l.template.id == RoleId::ReviewHelper).map(|l| l.slot).collect()
+fn review_slots(store: &Store, summary: &crate::domain::review::Summary) -> Vec<usize> {
+    store.pet_links.values().filter(|l| l.template.id == RoleId::ReviewHelper && l.connected && l.enabled
+        && summary.due_by_thread.get(&l.target.thread_id).copied().unwrap_or(0) > 0).map(|l| l.slot).collect()
 }
 
 /// Every 10 minutes: refresh the pets when the review count changes (a new day starts), and show a
@@ -181,7 +186,7 @@ pub(crate) fn start_review_clock(app: tauri::AppHandle) {
             let Some(store) = app.try_state::<SharedStore>() else { continue };
             let now = crate::domain::activity::now_ms();
             let (summary, slots) = match store.lock() {
-                Ok(state) => (state.review_summary(now), review_slots(&state)),
+                Ok(state) => { let summary = state.review_summary(now); let slots = review_slots(&state, &summary); (summary, slots) },
                 Err(_) => continue,
             };
             if last_due != Some(summary.due) {
@@ -225,23 +230,23 @@ mod tests {
     }
 
     #[test]
-    fn a_batch_page_fills_a_connected_review_pet_chat_preferring_the_one_that_made_it() {
+    fn a_batch_page_requires_its_original_connected_chat_without_fallback() {
         use crate::domain::pet_link::{Request, Target};
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::new(dir.path()).unwrap();
         let chat = |id: &str| Target { source_id: "codex-windows-local".into(), thread_id: id.into(), cwd: dir.path().to_string_lossy().into() };
         let (a, b) = (chat("11111111-1111-4111-8111-111111111111"), chat("22222222-2222-4222-8222-222222222222"));
-        assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "no-review-pet");
+        assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "review-target-unavailable");
         store.pet_link_request(Request::Connect { target: a.clone() }).unwrap();
-        assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "no-review-pet", "another pet is never used");
+        assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "review-target-unavailable", "another pet is never used");
         store.pet_links.get_mut(&a.key()).unwrap().template = review_template();
-        assert_eq!(batch_link(&store, &b.thread_id).unwrap().target, a, "the batch's chat has no review pet: the connected one");
+        assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "review-target-unavailable", "another connected review chat is never used");
         store.pet_link_request(Request::Connect { target: b.clone() }).unwrap();
         store.pet_links.get_mut(&b.key()).unwrap().template = review_template();
         assert_eq!(batch_link(&store, &b.thread_id).unwrap().target, b, "the chat that made the batch");
-        assert_eq!(batch_link(&store, "33333333-3333-4333-8333-333333333333").unwrap().target, a, "else the lowest slot");
+        assert_eq!(batch_link(&store, "33333333-3333-4333-8333-333333333333").unwrap_err(), "review-target-unavailable");
         store.pet_links.get_mut(&b.key()).unwrap().connected = false;
-        assert_eq!(batch_link(&store, &b.thread_id).unwrap().target, a, "a disconnected one is skipped");
+        assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "pet-not-connected", "a disconnected original is not replaced");
         store.pet_links.get_mut(&a.key()).unwrap().connected = false;
         assert_eq!(batch_link(&store, &b.thread_id).unwrap_err(), "pet-not-connected", "the UI shows 다시 연결");
     }
@@ -274,6 +279,8 @@ mod tests {
         // A running pet task must be checked first; a review needs no new pet task.
         store.pet_link_request(Request::Prepare { target: a.clone(), expected_revision: 1, request_id: "33333333-3333-4333-8333-333333333333".into(), profile: Profile::Light }).unwrap();
         assert_eq!(check(&store, first.slot, Kind::Explain, 1, now).unwrap_err(), "pet-run-active-or-unresolved");
+        assert_eq!(check(&store, first.slot, Kind::Review, 1, now).unwrap_err(), "pet-run-active-or-unresolved");
+        assert_eq!(batch_link(&store, &a.thread_id).unwrap_err(), "pet-run-active-or-unresolved");
         store.pet_links.get_mut(&a.key()).unwrap().connected = false;
         assert_eq!(check(&store, first.slot, Kind::Quiz, 1, now).unwrap_err(), "pet-not-connected", "disconnected: the UI shows 다시 연결");
     }

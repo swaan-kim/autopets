@@ -16,10 +16,11 @@ const reviewWhen = (batch: ReviewBatchView) => batch.due > 0 ? `오늘 ${batch.d
 const madeOn = (ms: number) => { const at = new Date(ms); return `${at.getMonth() + 1}월 ${at.getDate()}일`; };
 const score = (batch: ReviewBatchView) => `지난번 ${batch.correct}/${batch.count}`;
 
-/** The 복습 도우미 whose chat a batch page fills: the one in the batch's chat first, then the lowest
- *  slot (the app checks again and fills only a connected one). */
-const reviewLinkFor = (links: PetLink[], threadId: string) => links.filter(isReviewPet)
-  .sort((a, b) => Number(b.connected) - Number(a.connected) || Number(b.target.threadId === threadId) - Number(a.target.threadId === threadId) || a.slot - b.slot)[0];
+/** Return only to the chat that made the batch, with its exact folder and revision. */
+const reviewLinkFor = (links: PetLink[], threadId: string) => {
+  const matches = links.filter(link => isReviewPet(link) && link.target.sourceId === 'codex-windows-local' && link.target.threadId === threadId);
+  return matches.length === 1 ? matches[0] : undefined;
+};
 
 function useHeading(key: string) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -87,7 +88,9 @@ function ReviewBatchList({ revision, onOpen, onBack }: { revision: string; onOpe
 function failure(cause: unknown) {
   const text = String(cause);
   if (text.includes('pet-not-connected')) return 'lost';
-  if (text.includes('no-review-pet')) return '복습 도우미가 연결된 채팅이 없어요. Codex 채팅에서 $autopets로 불러 주세요.';
+  if (/no-review-pet|review-target-unavailable|pet-target-mismatch/.test(text)) return '이 문제를 푼 채팅에 복습 도우미를 연결해 주세요.';
+  if (text.includes('pet-revision-changed')) return '설정이 바뀌었어요. 다시 눌러 주세요.';
+  if (text.includes('pet-run-active-or-unresolved')) return '지금 작업을 먼저 확인해 주세요.';
   if (text.includes('no-review-due')) return '오늘 복습할 문제가 없어요.';
   return '채팅을 열지 못했어요.';
 }
@@ -105,8 +108,11 @@ function ReviewBatchDetail({ id, revision, links, onBack }: { id: string; revisi
   useEffect(() => { void load(); }, [id, revision]);
   const fill = async (kind: 'due' | 'all') => {
     if (busy) return;
+    const link = page ? reviewLinkFor(links, page.threadId) : undefined;
+    if (!link) { setError('이 문제를 푼 채팅에 복습 도우미를 연결해 주세요.'); return; }
+    if (!link.connected) { setError('lost'); return; }
     setBusy(true); setError(''); setNotice('');
-    try { await command('fill_review_batch', { batchId: id, kind }); setNotice(`Codex 입력칸에 넣었어요. ${FILLED_TEXT}.`); }
+    try { await command('fill_review_batch', { batchId: id, kind, target: link.target, expectedRevision: link.revision }); setNotice(`Codex 입력칸에 넣었어요. ${FILLED_TEXT}.`); }
     catch (cause) { setError(failure(cause)); }
     finally { setBusy(false); }
   };

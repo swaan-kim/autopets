@@ -16,7 +16,7 @@ exports.runReviewPetChecks = async ({ newPage, mockBridge, fixture, origin, scre
   });
   const state = (template, review, connected = true) => ({
     ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })),
-    petLinks: [link(template, connected)], review,
+    petLinks: [link(template, connected)], review: { ...review, dueByThread: review.dueByThread ?? { [link(template).target.threadId]: review.due } },
   });
   const calls = (page, name) => page.evaluate(name => window.__uiTest.calls.filter(call => call.name === name).map(call => call.args), name);
   const status = page => page.locator('.floating-pet .floating-status').first();
@@ -30,6 +30,8 @@ exports.runReviewPetChecks = async ({ newPage, mockBridge, fixture, origin, scre
   assert.equal((await calls(pet, 'mark_review_notice')).length, 1);
   assert.equal(await pet.locator('.pet-review-badge').innerText(), '2');
   assert.equal(await pet.locator('.pet-hit').getAttribute('aria-label'), `${reviewTemplate.name} 메뉴 · 복습 2개`);
+  assert.deepEqual(await due.evaluate(el => { const css = getComputedStyle(el); return [css.borderTopWidth, css.borderTopColor, css.boxShadow]; }),
+    ['1px', 'rgb(227, 227, 227)', 'rgba(41, 44, 49, 0.04) 0px 2px 6px 0px']);
   assert.ok((await calls(pet, 'set_pet_expanded')).some(args => args.notice === true && args.expanded === false), 'the bubble uses the small notice window');
   if (screenshotDir) { await pet.waitForTimeout(400); await pet.screenshot({ path: path.join(screenshotDir, 'review-pet-due.png') }); }
   await due.getByRole('button', { name: '시작', exact: true }).click();
@@ -176,7 +178,7 @@ exports.runReviewPetChecks = async ({ newPage, mockBridge, fixture, origin, scre
   if (screenshotDir) await app.screenshot({ path: path.join(screenshotDir, 'review-app-batch.png') });
   await page.getByRole('button', { name: 'Codex에서 복습 1', exact: true }).click();
   await page.getByText('Codex 입력칸에 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
-  assert.deepEqual(await appCalls('fill_review_batch'), [{ batchId: 'bbbb2222', kind: 'due' }]);
+  assert.deepEqual(await appCalls('fill_review_batch'), [{ batchId: 'bbbb2222', kind: 'due', target: link(reviewTemplate).target, expectedRevision: 1 }]);
   // A disconnected 복습 도우미: nothing is filled, the reconnect guide shows.
   await app.evaluate(() => { window.__uiTest.reviewFillError = 'pet-not-connected'; });
   await page.getByRole('button', { name: '전체 다시 풀기', exact: true }).click();
@@ -186,7 +188,15 @@ exports.runReviewPetChecks = async ({ newPage, mockBridge, fixture, origin, scre
   assert.deepEqual((await appCalls('open_pet_task')).at(-1), { target: link(reviewTemplate).target, expectedRevision: 1 });
   await app.evaluate(() => { window.__uiTest.reviewFillError = 'no-review-pet'; });
   await page.getByRole('button', { name: '전체 다시 풀기', exact: true }).click();
-  await page.getByText('복습 도우미가 연결된 채팅이 없어요. Codex 채팅에서 $autopets로 불러 주세요.', { exact: true }).waitFor();
+  await page.getByText('이 문제를 푼 채팅에 복습 도우미를 연결해 주세요.', { exact: true }).waitFor();
+  await app.evaluate(() => { window.__uiTest.reviewFillError = null; window.__uiTest.state.petLinks[0].target.threadId = '66666666-2222-4333-8444-555555555555';
+    window.__uiTest.emitEvent('autopets://snapshot', { ...structuredClone(window.__uiTest.state), now: Date.now() }); });
+  const beforeWrongTarget = (await appCalls('fill_review_batch')).length;
+  await page.getByRole('button', { name: '전체 다시 풀기', exact: true }).click();
+  await page.getByText('이 문제를 푼 채팅에 복습 도우미를 연결해 주세요.', { exact: true }).waitFor();
+  assert.equal((await appCalls('fill_review_batch')).length, beforeWrongTarget, 'no fallback to another connected review chat');
+  await app.evaluate(thread => { window.__uiTest.state.petLinks[0].target.threadId = thread;
+    window.__uiTest.emitEvent('autopets://snapshot', { ...structuredClone(window.__uiTest.state), now: Date.now() }); }, thread);
   await page.getByRole('button', { name: '← 문제 묶음', exact: true }).click();
   await list.waitFor();
   assert.equal(await rows.count(), 2);
@@ -207,6 +217,22 @@ exports.runReviewPetChecks = async ({ newPage, mockBridge, fixture, origin, scre
   await entryButton.waitFor();
   await chooseRole(app, catalog.find(entry => entry.id === 'study-helper').name);
   assert.equal(await entryButton.count(), 0, 'only 복습 도우미');
+  await app.setViewportSize({ width: 390, height: 844 });
+  await chooseRole(app, '복습 도우미'); await entryButton.click();
+  assert.equal(await app.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await list.getByRole('button', { name: '← 복습 도우미', exact: true }).click();
+  await detail.getByRole('heading', { name: '복습 도우미', exact: true }).waitFor();
+  if (screenshotDir) await app.screenshot({ path: path.join(screenshotDir, 'review-narrow.png'), fullPage: true });
   await app.close();
+
+  // A second review chat's questions never appear on the first pet's reminder or badge.
+  const otherThread = '66666666-2222-4333-8444-555555555555';
+  const separated = state(reviewTemplate, { due: 3, total: 3, batches: 1, notifiedToday: false, dueByThread: { [otherThread]: 3 } });
+  separated.petLinks.push({ ...link(reviewTemplate), slot: 1, target: { ...link(reviewTemplate).target, threadId: otherThread } });
+  const first = await newPage({ width: 252, height: 404 }); await mockBridge(first, separated); await first.goto(`${origin}/?pet=0`);
+  await first.locator('.pet-hit').waitFor();
+  assert.equal(await first.locator('.pet-review-bubble, .pet-review-badge').count(), 0);
+  assert.equal((await calls(first, 'mark_review_notice')).length, 0);
+  await first.close();
   checks.push('복습 도우미 app: detail button → 문제 묶음 page → batch page (topics, no question list) and back, delete asks once, Codex에서 복습 / 전체 다시 풀기 only fill a chat (reconnect guide when disconnected), no popup, other pets unchanged');
 };

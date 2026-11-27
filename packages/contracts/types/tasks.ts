@@ -37,7 +37,7 @@ export interface Session {
   canOpenTask?: boolean;
 }
 export interface Slot { index: number; sessionId: string | null }
-export interface ReviewSummary { due: number; total: number; batches: number; notifiedToday: boolean }
+export interface ReviewSummary { due: number; total: number; batches: number; notifiedToday: boolean; dueByThread?: Record<string, number> }
 export interface Snapshot {
   petLinks?: import('./pet-link').PetLink[];
   petRecommendations?: import('./pet-link').PetRecommendation[];

@@ -117,7 +117,10 @@ pub fn legacy_batch_name(topics: &[String]) -> String {
 /// whether today's "복습할 때예요" notice was already shown.
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Summary { pub due: usize, pub total: usize, pub batches: usize, pub notified_today: bool }
+pub struct Summary {
+    pub due: usize, pub total: usize, pub batches: usize, pub notified_today: bool,
+    pub due_by_thread: std::collections::BTreeMap<String, usize>,
+}
 
 fn text(value: &str, max: usize) -> Result<String, String> {
     let value = value.trim();

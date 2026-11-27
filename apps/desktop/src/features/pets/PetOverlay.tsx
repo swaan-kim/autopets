@@ -27,7 +27,7 @@ import { usePetGesture } from './usePetGesture';
 import { usePetDock, type DockBadge } from './usePetDock';
 import { PetDockHandle } from './PetDockHandle';
 import { AttentionBubble, AttentionMark, attentionForSlot, attentionStatus, isAsk, markedAttention, type MarkControls } from './PetAttention';
-import { FILLED_TEXT, isReviewPet, NO_REVIEW, ReviewDropMenu, ReviewDueBubble } from './ReviewMenu';
+import { FILLED_TEXT, isReviewPet, NO_REVIEW, reviewForLink, ReviewDropMenu, ReviewDueBubble } from './ReviewMenu';
 import { PetBubble, jobBubble, noticeSeen, sessionBubble } from './PetBubble';
 import { HOST_NAMES, JOB_ACTIVE_MS, PetJobList, activeJob, openJobResult } from './PetJobs';
 import type { CompanionState } from './companionMotion';
@@ -69,12 +69,13 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   // "여기에 놓기" while dragging over Codex, and "보내기만 누르세요" after a request was typed in.
   const reviewLink = snapshot.petLinks?.find(link => link.slot === index);
   const reviewPet = isReviewPet(reviewLink);
-  const review = snapshot.review ?? NO_REVIEW;
+  const review = reviewForLink(snapshot.review ?? NO_REVIEW, reviewLink);
   const [dragOverCodex, setDragOverCodex] = useState(false);
   const [dropMenu, setDropMenu] = useState(false);
   const [dueBubble, setDueBubble] = useState(false);
   const [filled, setFilled] = useState(0);
-  const dueShown = useRef(false);
+  const dueShown = useRef<string | null>(null);
+  const noticeDay = new Date(snapshot.now).toDateString();
   const gesture = usePetGesture({ onDragStart: () => { setExpanded(false); closeBubble(); setDropMenu(false); setDueBubble(false); } });
   // Dropped at the left or right screen edge, the pet tucks into a small handle there.
   const dock = usePetDock(index);
@@ -103,15 +104,16 @@ export function PetOverlay({ snapshot, index, error, assistance, workflow }: { s
   const bubble = notices.find(item => item.id === shownId);
   const noticeOpen = Boolean(bubble) && !expanded && dock.phase === 'shown';
   const reviewOpen = reviewPet && (dropMenu || dueBubble) && !expanded && dock.phase === 'shown' && !noticeOpen;
-  const firstReviewSlot = Math.min(...(snapshot.petLinks ?? []).filter(isReviewPet).map(link => link.slot));
+  const firstReviewSlot = Math.min(...(snapshot.petLinks ?? []).filter(link => reviewForLink(snapshot.review ?? NO_REVIEW, link).due > 0).map(link => link.slot));
   const dueEligible = reviewPet && index === firstReviewSlot && review.due > 0 && !review.notifiedToday && !expanded && dock.phase === 'shown'
     && !bubble && !dropMenu && !(Boolean(error) || (isDesktop && !snapshot.connectionPath));
   // "복습할 때예요" once a day: the app records that it was shown, so it does not come back today.
   useEffect(() => {
-    if (!dueEligible || dueShown.current) return;
-    dueShown.current = true; setDueBubble(true);
+    if (review.notifiedToday) { dueShown.current = noticeDay; return; }
+    if (!dueEligible || dueShown.current === noticeDay) return;
+    dueShown.current = noticeDay; setDueBubble(true);
     if (isDesktop) void command('mark_review_notice').catch(() => undefined);
-  }, [dueEligible]);
+  }, [dueEligible, review.notifiedToday, noticeDay]);
   useEffect(() => {
     if (!isDesktop || !reviewPet) return;
     let disposed = false; const removers: (() => void)[] = [];

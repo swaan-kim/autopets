@@ -73,11 +73,15 @@ impl Store {
 
     pub(crate) fn review_summary(&self, now: u64) -> Summary {
         let offset = local_offset();
+        let due = due_today(&self.review_cards, now, offset);
+        let mut due_by_thread = BTreeMap::new();
+        for card in &due { *due_by_thread.entry(card.thread_id.clone()).or_insert(0) += 1; }
         Summary {
-            due: due_today(&self.review_cards, now, offset).len(),
+            due: due.len(),
             total: self.review_cards.len(),
             batches: self.review_batches.len(),
             notified_today: self.review_notice_day.as_deref() == Some(&day(now, offset).to_string()),
+            due_by_thread,
         }
     }
 
@@ -87,6 +91,7 @@ impl Store {
         let link = self.pet_links.get(&target.key()).ok_or("pet-not-connected")?;
         if !link.target.matches(target) { return Err("pet-target-mismatch".into()); }
         if link.template.id != RoleId::ReviewHelper { return Err("not-review-pet".into()); }
+        if !link.connected || !link.enabled { return Err("pet-not-connected".into()); }
         Ok(link.clone())
     }
 
@@ -116,7 +121,11 @@ impl Store {
         let link = self.review_link(target)?;
         let (batch, new) = match to {
             SaveTo::New(name) => (Batch { version: BATCH_VERSION, id: unique_batch_id(&self.review_batches), name: batch_name(&name)?, thread_id: link.target.thread_id.clone(), created_at: now }, true),
-            SaveTo::Batch(id) => (self.review_batch(&id)?.clone(), false),
+            SaveTo::Batch(id) => {
+                let batch = self.review_batch(&id)?;
+                if batch.thread_id != target.thread_id { return Err("review-batch-not-found".into()); }
+                (batch.clone(), false)
+            },
         };
         if cards.is_empty() || cards.len() > CARDS_PER_SAVE { return Err("invalid-review-card".into()); }
         for card in &cards { card.validate()?; }
@@ -140,11 +149,13 @@ impl Store {
     pub(crate) fn review_due(&self, target: &Target, batch: Option<&str>, all: bool, now: u64) -> Result<serde_json::Value, String> {
         self.review_link(target)?;
         let batch = match batch { Some(id) => Some(self.review_batch(id)?), None if all => return Err("review-batch-not-found".into()), None => None };
+        if batch.is_some_and(|b| b.thread_id != target.thread_id) { return Err("review-batch-not-found".into()); }
         let mut cards: Vec<&Card> = match (batch, all) {
             (Some(b), true) => self.batch_cards(&b.id).collect(),
             (Some(b), false) => due_today(&self.review_cards, now, local_offset()).into_iter().filter(|c| c.batch_id == b.id).collect(),
             (None, _) => due_today(&self.review_cards, now, local_offset()),
         };
+        cards.retain(|card| card.thread_id == target.thread_id);
         if all { cards.sort_by(|a, b| a.last_correct.cmp(&b.last_correct).then(a.created_at.cmp(&b.created_at)).then(a.id.cmp(&b.id))); }
         let cards: Vec<_> = cards.into_iter().map(|c| json!({
             "id": c.id, "question": c.question, "choices": c.choices, "answer": c.answer,
@@ -158,13 +169,15 @@ impl Store {
     pub(crate) fn record_review_results(&mut self, target: &Target, results: Vec<ReviewResult>, batch: Option<&str>, all: bool, now: u64) -> Result<serde_json::Value, String> {
         self.review_link(target)?;
         let batch = match batch { Some(id) => Some(self.review_batch(id)?.id.clone()), None if all => return Err("review-batch-not-found".into()), None => None };
+        if batch.as_ref().is_some_and(|id| self.review_batches.iter().any(|b| &b.id == id && b.thread_id != target.thread_id)) { return Err("review-batch-not-found".into()); }
         let offset = local_offset();
         let today: HashSet<String> = due_today(&self.review_cards, now, offset).into_iter().map(|c| c.id.clone()).collect();
-        let allowed: HashSet<String> = match (&batch, all) {
+        let mut allowed: HashSet<String> = match (&batch, all) {
             (Some(b), true) => self.batch_cards(b).map(|c| c.id.clone()).collect(),
             (Some(b), false) => self.batch_cards(b).map(|c| c.id.clone()).filter(|id| today.contains(id)).collect(),
             (None, _) => today.clone(),
         };
+        allowed.retain(|id| self.review_cards.iter().any(|c| &c.id == id && c.thread_id == target.thread_id));
         let mut seen = HashSet::new();
         if results.is_empty() || results.len() > DAILY_LIMIT.max(CARDS_PER_SAVE)
             || results.iter().any(|r| !allowed.contains(&r.id) || !seen.insert(r.id.clone())) {

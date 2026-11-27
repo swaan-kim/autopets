@@ -8,6 +8,8 @@ import './review.css';
 export type ReviewKind = 'quiz' | 'explain' | 'review';
 export const isReviewPet = (link: PetLink | undefined) => link?.template.id === 'review-helper';
 export const NO_REVIEW: ReviewSummary = { due: 0, total: 0, batches: 0, notifiedToday: true };
+export const reviewForLink = (review: ReviewSummary, link: PetLink | undefined): ReviewSummary => ({ ...review,
+  due: isReviewPet(link) && link?.connected && link.enabled ? review.dueByThread?.[link.target.threadId] ?? 0 : 0 });
 export const FILLED_TEXT = '보내기만 누르세요';
 export const LOST_TEXT = '연결이 끊겼어요. “다시 연결”을 눌러 주세요.';
 
@@ -17,6 +19,7 @@ function failure(cause: unknown) {
   if (text.includes('pet-run-active-or-unresolved')) return '지금 작업을 먼저 확인해 주세요.';
   if (text.includes('no-review-due')) return '오늘 복습할 문제가 없어요.';
   if (text.includes('pet-revision-changed')) return '설정이 바뀌었어요. 다시 눌러 주세요.';
+  if (text.includes('review-target-unavailable')) return '문제를 푼 채팅에 복습 도우미를 연결해 주세요.';
   return '채팅을 열지 못했어요.';
 }
 
@@ -86,7 +89,7 @@ export function ReviewDropMenu({ link, lost, onFilled, onReconnect, onClose }: {
   const ref = useRef<HTMLElement>(null);
   const { busy, error, fill } = useReviewFill(link, lost, onFilled);
   useDismiss(ref, onClose, 15000);
-  return <section ref={ref} className="pet-review-bubble" data-agent-id="task-card.review-drop" aria-label="복습 도우미 메뉴">
+  return <section ref={ref} className="pet-review-bubble" data-agent-scope="task-card" data-agent-id="task-card.review-drop" aria-label="복습 도우미 메뉴">
     {lost
       ? <><p className="pet-review-guide">“다시 연결”을 누르면 채팅을 열고 다시 이어요.</p>
         <button type="button" className="pet-review-pill primary" data-agent-id="task-card.review-reconnect" onClick={() => { onReconnect(); onClose(); }}>다시 연결</button></>
@@ -103,7 +106,7 @@ export function ReviewDueBubble({ link, due, lost, onFilled, onClose }: { link: 
   const ref = useRef<HTMLElement>(null);
   const { busy, error, fill } = useReviewFill(link, lost, onFilled);
   useDismiss(ref, onClose, 60000);
-  return <section ref={ref} className="pet-review-bubble due" data-agent-id="task-card.review-due" role="status" aria-label={`복습할 때예요 · ${due}개`}>
+  return <section ref={ref} className="pet-review-bubble due" data-agent-scope="task-card" data-agent-id="task-card.review-due" role="status" aria-label={`복습할 때예요 · ${due}개`}>
     <p className="pet-review-headline"><strong>복습할 때예요</strong><span>{due}개</span></p>
     <div className="pet-review-pills">
       <button type="button" className="pet-review-pill primary" data-agent-id="task-card.review-due-start" disabled={busy} onClick={() => void fill('review')}>시작</button>

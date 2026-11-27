@@ -9,21 +9,20 @@
 .pet-review-item.primary { background: #2f3236; color: #ffffff; }
 .pet-review-item.primary:hover:not(:disabled) { background: #1f2124; }
 .pet-review-item:disabled { cursor: default; opacity: .45; }
-.pet-review-item:focus-visible { outline: 2px solid #2f6b4f; outline-offset: 2px; }
+.pet-review-item:focus-visible { outline: 2px solid #292c31; outline-offset: 2px; }
 .pet-review-item span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pet-review-icon { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .pet-review-error { margin: 8px 2px 0; font-size: 12px; line-height: 1.5; color: #c2412d; }
 
 /* The panel above the pet (same window size as the Codex notice bubble). */
 .pet-review-bubble { position: relative; width: 240px; box-sizing: border-box; display: grid; gap: 8px; padding: 12px; margin: 0 4px 2px 0;
-  background: #ffffff; border: 1px solid #e3e3e3; border-radius: 16px; box-shadow: 0 4px 14px #3636362a; color: #2b2d31; font-size: 12px;
+  background: #ffffff; border: 1px solid #e3e3e3; border-radius: 16px; box-shadow: 0 2px 6px #292c310a; color: #2b2d31; font-size: 12px;
   animation: pet-review-pop 180ms ease-out both; }
 .pet-review-bubble::after { content: ''; position: absolute; right: 70px; bottom: -7px; width: 12px; height: 12px; background: #ffffff;
   border-right: 1px solid #e3e3e3; border-bottom: 1px solid #e3e3e3; transform: rotate(45deg); }
-.pet-review-bubble.due { border-top: 3px solid #5b7bd5; }
 .pet-review-bubble p { margin: 0; }
 .pet-review-headline { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; }
-.pet-review-headline span { color: #4a64ad; font-size: 13px; font-weight: 700; }
+.pet-review-headline span { color: #656b74; font-size: 13px; font-weight: 600; }
 .pet-review-guide { line-height: 1.5; color: #6b4e00; }
 .pet-review-pills { display: flex; gap: 6px; }
 .pet-review-pill { flex: 1; min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: #f1f2f4; color: #2b2d31;
@@ -32,17 +31,17 @@
 .pet-review-pill.primary { background: #2f3236; color: #ffffff; }
 .pet-review-pill.primary:hover:not(:disabled) { background: #1f2124; }
 .pet-review-pill:disabled { cursor: default; opacity: .45; }
-.pet-review-pill:focus-visible { outline: 2px solid #2f6b4f; outline-offset: 2px; }
+.pet-review-pill:focus-visible { outline: 2px solid #292c31; outline-offset: 2px; }
 .pet-review-bubble > .pet-review-pill { flex: none; }
 @keyframes pet-review-pop { from { opacity: 0; transform: translateY(6px) scale(.97); } }
 
 /* Today's review count on the pet (bottom right; the top corners hold the ? mark and 추천). */
 .pet-review-badge { position: absolute; right: 8px; bottom: 10px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center;
-  border: 2px solid #ffffff; border-radius: 999px; background: #5b7bd5; color: #ffffff; font-size: 12px; font-weight: 800; line-height: 1;
-  box-shadow: 0 1px 4px #00000026; pointer-events: none; }
-.floating-status.review-drop { background: #eef2ff; color: #2c3f7a; border-color: #c9d3f2; font-weight: 700; }
+  border: 2px solid #ffffff; border-radius: 999px; background: #2f3236; color: #ffffff; font-size: 12px; font-weight: 700; line-height: 1;
+  pointer-events: none; }
+.floating-status.review-drop { background: #f3f4f5; color: #292c31; border-color: #e8eaed; font-weight: 600; }
 .floating-status.review-filled { background: #e6f6ec; color: #1f5e3a; border-color: #a9dcbc; font-weight: 700; }
-.pet-dock-badge.review { color: #ffffff; background: #5b7bd5; }
+.pet-dock-badge.review { color: #ffffff; background: #2f3236; }
 @media (prefers-reduced-motion: reduce) { .pet-review-bubble { animation: none; } }
 
 /* The 문제 묶음 rows (one batch per row). */
@@ -52,7 +51,7 @@
 .review-card-question { margin: 0; font-size: 14px; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
 .review-card-answer { margin: 4px 0 0; color: #6b6f76; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .review-card-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 4px; }
-.review-card-when { padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #2c3f7a; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.review-card-when { padding: 2px 8px; border-radius: 999px; background: #f3f4f5; color: #292c31; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .review-card-when.wrong { background: #fff1e0; color: #7a4100; }
 .review-cards-empty { margin: 0; color: #6b6f76; font-size: 14px; line-height: 1.6; }
 
@@ -73,10 +72,10 @@ ul.review-batch-list { display: grid; gap: 8px; margin: 0; padding: 0; list-styl
 .review-batch-confirm { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
 .review-batch-confirm p { margin: 0; overflow-wrap: anywhere; }
 .review-batch-confirm div { display: flex; flex: none; gap: 8px; }
-.review-card-when.today { background: #5b7bd5; color: #ffffff; }
+.review-card-when.today { background: #2f3236; color: #ffffff; }
 .review-batches-entry { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; margin-top: 12px; min-height: 52px; padding: 0 16px;
   border: 1px solid #e3e5e8; border-radius: 14px; background: #ffffff; color: #2b2d31; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; text-align: left; }
 .review-batches-entry:hover { background: #f6f7f9; }
 .review-batches-entry:focus-visible { outline: 2px solid #2f6b4f; outline-offset: 2px; }
-.review-batches-entry small { padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #2c3f7a; font-size: 12px; font-weight: 700; }
+.review-batches-entry small { padding: 2px 8px; border-radius: 999px; background: #f3f4f5; color: #292c31; font-size: 12px; font-weight: 600; }
 .review-batches-entry > span:last-child { margin-left: auto; color: #6b6f76; }
