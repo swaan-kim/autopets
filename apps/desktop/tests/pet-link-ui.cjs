@@ -134,11 +134,12 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   const popup = overlay.locator('.pet-popup');
   await overlay.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '채팅 열기');
   // The native window expands asynchronously, after the popup receives keyboard focus.
-  await overlay.setViewportSize({ width: 328, height: 600 });
+  await overlay.setViewportSize({ width: 328, height: 500 });
   const opened = await overlay.evaluate(() => ({
     headingTop: document.querySelector('.pet-popup-head').getBoundingClientRect().top,
     scrollTop: document.querySelector('.quick-card-stack').scrollTop,
     width: Math.round(document.querySelector('.pet-popup').getBoundingClientRect().width),
+    petGap: document.querySelector('.floating-pet').getBoundingClientRect().top - document.querySelector('.pet-popup').getBoundingClientRect().bottom,
     radius: getComputedStyle(document.querySelector('.pet-popup')).borderTopLeftRadius,
     dot: getComputedStyle(document.querySelector('.pet-popup-dot')).backgroundColor,
     buttons: [...document.querySelectorAll('.pet-popup button')].map(button => {
@@ -149,7 +150,8 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   assert.ok(opened.headingTop >= 0, 'opening a compact pet keeps its chat heading visible');
   assert.equal(opened.scrollTop, 0, 'opening a pet does not scroll away its identity');
   assert.equal(opened.width, 300);
-  assert.equal(opened.radius, '22px');
+  assert.ok(opened.petGap >= 4 && opened.petGap <= 18, 'the popup sits directly above the pet without empty space');
+  assert.equal(opened.radius, '16px');
   assert.equal(opened.dot, 'rgb(47, 107, 79)', 'a connected pet shows the green dot');
   for (const button of opened.buttons) {
     assert.ok(button.label, 'every popup button is named');
@@ -170,7 +172,30 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   for (const name of ['채팅 열기', '앱 열기', '펫 숨기기', 'AutoPets 종료', '작업 방식 바꾸기']) await popup.getByRole('button', { name, exact: true }).waitFor();
   for (const text of ['실행 설정·스킬 확인', '채팅 요청 예시', '도움 끄기', '연결 해제', '추적 정리', '닫기']) assert.equal(await popup.getByText(text, { exact: true }).count(), 0, `${text} stays in the app card`);
   assert.equal(await popup.getByRole('textbox').count(), 0, 'the task name is edited in the app card');
-  if (shots) await popup.screenshot({ path: path.join(shots, 'pet-popup-connected.png') });
+  if (shots) {
+    await popup.screenshot({ path: path.join(shots, 'pet-popup-connected.png') });
+    await overlay.screenshot({ path: path.join(shots, 'pet-window-connected.png'), animations: 'disabled' });
+  }
+  await overlay.setViewportSize({ width: 300, height: 330 });
+  const shortWindow = await overlay.evaluate(() => {
+    const card = document.querySelector('.quick-card-stack');
+    const pet = document.querySelector('.floating-pet').getBoundingClientRect();
+    return { petBottom: pet.bottom, cardBottom: card.getBoundingClientRect().bottom, cardWidth: card.clientWidth, scrollWidth: card.scrollWidth };
+  });
+  assert.ok(shortWindow.petBottom <= 330 && shortWindow.cardBottom > 0, 'both menu and pet remain in the shorter window');
+  assert.equal(shortWindow.scrollWidth, shortWindow.cardWidth, 'short window has no horizontal menu scrollbar');
+  const shortHeading = await popup.locator('.pet-popup-head').boundingBox();
+  assert.ok(shortHeading && shortHeading.y >= 0, 'the shorter window opens with the chat name in view');
+  if (shots) await overlay.screenshot({ path: path.join(shots, 'pet-window-short.png'), animations: 'disabled' });
+  for (let index = 0; index < 4; index += 1) await overlay.keyboard.press('Tab');
+  const shortFocus = await overlay.evaluate(() => {
+    const button = document.activeElement;
+    const panel = document.querySelector('.quick-card-stack').getBoundingClientRect();
+    const buttonBox = button.getBoundingClientRect();
+    return { label: button.getAttribute('aria-label'), visible: buttonBox.top >= panel.top - 1 && buttonBox.bottom <= panel.bottom + 1 };
+  });
+  assert.deepEqual(shortFocus, { label: '작업 방식 바꾸기', visible: true }, 'the last action can be reached with Tab and stays in view');
+  await overlay.setViewportSize({ width: 328, height: 500 });
 
   // "바꾸기" turns the line into the three choices; choosing one saves it and folds the line again.
   await popup.locator('.pet-popup-profile strong').getByText('가볍게', { exact: true }).waitFor();
@@ -204,7 +229,7 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
     window.__uiTest.state.petLinks[0].run.state = 'waiting';
     window.__uiTest.emitEvent('autopets://snapshot', structuredClone(window.__uiTest.state));
   });
-  await popup.getByText('Codex에서 계획을 확인하고 “그대로 구현해줘”라고 보내주세요.', { exact: true }).waitFor();
+  await popup.getByText('계획을 보고, 괜찮으면 ‘그대로 구현해줘’라고 보내세요.', { exact: true }).waitFor();
   await popup.getByRole('button', { name: '계획 보기', exact: true }).waitFor();
   await popup.getByRole('button', { name: '작업 방식 바꾸기', exact: true }).click();
   assert.deepEqual(await choices.getByRole('radio').allTextContents(), ['가볍게', '표준', '꼼꼼하게'], '"계획만" is never offered');
@@ -249,10 +274,10 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   });
   await popup.locator('.pet-popup-status').getByText(`${templates[1].name} · 연결이 끊겼어요`, { exact: true }).waitFor();
   assert.equal(await popup.locator('.pet-popup-dot').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(201, 138, 0)');
-  await popup.locator('.pet-popup-guide.lost').getByText('“다시 연결”을 누르면 채팅을 열고 다시 이어요.', { exact: true }).waitFor();
+  await popup.locator('.pet-popup-guide.lost').getByText('채팅을 열어 펫 상태를 다시 확인해요.', { exact: true }).waitFor();
   if (shots) await popup.screenshot({ path: path.join(shots, 'pet-popup-lost.png') });
   await popup.getByRole('button', { name: '다시 연결', exact: true }).click();
-  await popup.getByText('채팅에 ‘펫 상태 확인’을 보내면 다시 이어져요.', { exact: true }).waitFor();
+  await popup.getByText('채팅에 ‘펫 상태 확인’을 보내 주세요.', { exact: true }).waitFor();
   assert.deepEqual(await overlay.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_task').map(call => call.args)), [
     { target: value.petLinks[0].target, expectedRevision: await overlay.evaluate(() => window.__uiTest.state.petLinks[0].revision) },
   ]);
@@ -303,6 +328,6 @@ exports.runPetLinkChecks = async ({ newPage, mockBridge, fixture, origin, screen
   await unavailableLabels.getByRole('button', { name: 'Codex 작업 열기', exact: true }).waitFor();
   assert.equal(await unavailableLabels.getByRole('textbox', { name: '작업 이름', exact: true }).isDisabled(), true, 'optional label storage failure never disables task return');
   await unavailableLabels.close();
-  checks.push('explicit pet: stable Agentation task-card targets; healthy compact status/action with collapsed evidence and optional copy helpers; local display-name reload/A-B isolation/blank fallback without host rename; requested settings never imply observed execution; recovery help for unknown/failed/off/disconnected; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings/disconnect lock; disabled assistance keeps observing; deliberate tracking closure; desktop pet popup: 300px/22px, chat name with folder fallback, status line, four named 44px actions with task-card ids, focus on open, work-style change in place with revision check and plan/unresolved locks, quit asks once, Escape/outside click close, "숨기기" tucks into the closer side as the arrow handle (falls back to hiding when no side is found), lost connection shows amber state and "다시 연결" only opens the chat (no send, no connect), management stays in the app card');
+  checks.push('explicit pet: stable Agentation task-card targets; healthy compact status/action with collapsed evidence and optional copy helpers; local display-name reload/A-B isolation/blank fallback without host rename; requested settings never imply observed execution; recovery help for unknown/failed/off/disconnected; settings update; planning/confirmation/production/result/completion order; unknown/failed never imply completion; follow-up copy never submits; unresolved settings/disconnect lock; disabled assistance keeps observing; deliberate tracking closure; desktop pet popup: 300px/16px, anchored next to its pet, short window title and Tab access, chat name with folder fallback, status line, four named 44px actions with task-card ids, focus on open, work-style change in place with revision check and plan/unresolved locks, quit asks once, Escape/outside click close, "숨기기" tucks into the closer side as the arrow handle (falls back to hiding when no side is found), lost connection shows amber state and "다시 연결" only opens the chat (no send, no connect), management stays in the app card');
   return [image];
 };

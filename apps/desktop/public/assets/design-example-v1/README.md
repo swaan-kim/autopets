@@ -6,6 +6,7 @@
 - `campus-day.webp`: 제작 시 이미지 생성 도구로 만든 가상 행사 이미지. 실제 인물·행사·학교를 표현하지 않음.
 - `desktop.webp`: HTML의 1440×900 Chromium 렌더.
 - `mobile.webp`: 동일 HTML의 390×844 Chromium 렌더.
+- `program.webp`: 같은 페이지를 1160px 창에서 열고 프로그램 구역의 일정표를 캡처한 이미지. 상세의 ‘프로그램’ 미리보기에서 사용합니다.
 - 글꼴: 로컬 Pretendard Variable v1.3.9. 라이선스는 `../fonts/pretendard/LICENSE`.
 
 제작일: 2026-10-17. 내장 이미지 생성 도구 1회 사용(허용된 최대 2회 이내). 생성 원본을 WebP로 인코딩하고, HTML 렌더를 미리보기로 저장했습니다. 원본 이미지 파일은 제작 환경에 보존됩니다.

@@ -1,7 +1,4 @@
-.skill-hub { margin: 40px 0 0; }
-.skill-hub > header h2 { margin: 0; color: #24292e; font-size: 20px; font-weight: 700; }
-.skill-hub > header p { margin: 6px 0 0; color: #6a7178; font-size: 13px; }
-.skill-hub-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+.skill-hub-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
 .skill-hub-kinds button { min-height: 36px; padding: 0 14px; border: 1px solid #e5e7e9; border-radius: 999px; background: #fff; color: #62696f; font: inherit; font-size: 13px; cursor: pointer; }
 .skill-hub-kinds button[aria-pressed='true'] { border-color: #2d3439; background: #2d3439; color: #fff; font-weight: 600; }
 .skill-hub-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; margin: 0; padding: 0; list-style: none; }

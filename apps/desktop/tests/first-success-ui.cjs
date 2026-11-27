@@ -43,7 +43,7 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   // Navigate through app tabs and another role. Drafts and the handoff receipt belong to the role.
   await openSaved(page);
   await page.locator('nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
-  await page.getByRole('button', { name: '전체 펫', exact: true }).click();
+  await page.getByRole('button', { name: '둘러보기', exact: true }).click();
   await page.getByRole('button', { name: '일상', exact: true }).click();
   await chooseRole(page, '하루 정리');
   await openCopy(flow);
@@ -85,7 +85,7 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.equal(await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'save_pet').length), 1);
   await page.setViewportSize({ width: 661, height: 459 });
   assert.equal(await flow.locator('.pet-start-change').count(), 0);
-  await openMore(flow);
+  await flow.locator('summary').getByText('스킬 출처', { exact: true }).click();
   const source = flow.getByRole('region', { name: '이 펫의 스킬 출처' });
   assert.equal(await source.isVisible(), true);
   assert.equal(await source.getByRole('link', { name: 'GitHub 원본 보기 ↗', exact: true }).count(), 1);
@@ -140,7 +140,7 @@ exports.runFirstSuccessChecks = async ({ newPage, mockBridge, fixture, origin, s
   assert.equal(await composer.locator('.composer-applied').count(), 0, 'copy is not a confirmed configuration change');
   assert.equal(await composer.locator('.composer-observed').count(), 0, 'a historical completion is not a receipt for the copied request');
   await next.evaluate(() => { window.__uiTest.clipboard = ''; });
-  // "같은 펫으로 새 일" preselects the same chat; choosing a new chat under "바꾸기" makes start open one.
+  // "같은 펫으로 새 일" preselects the same chat; choosing a new chat under "시작 설정" makes start open one.
   await openMore(composer);
   await composer.getByLabel('UI 펫을 적용할 채팅', { exact: true }).selectOption('');
   await composer.getByRole('button', { name: 'Codex에서 시작', exact: true }).click();

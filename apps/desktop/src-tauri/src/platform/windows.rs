@@ -379,7 +379,13 @@ pub(crate) fn clamp_position(window: &tauri::WebviewWindow, position: Position) 
 
 /// Logical size of a pet window: the card, the notice bubble, or the pet alone.
 pub(crate) fn pet_layout(expanded: bool, notice: bool) -> (f64, f64) {
-    if expanded { (328.0, 600.0) } else if notice { (PET_NOTICE_W, PET_NOTICE_H) } else { (180.0, 230.0) }
+    if expanded {
+        (328.0, 500.0)
+    } else if notice {
+        (PET_NOTICE_W, PET_NOTICE_H)
+    } else {
+        (180.0, 230.0)
+    }
 }
 pub(crate) const PET_NOTICE_W: f64 = 252.0;
 pub(crate) const PET_NOTICE_H: f64 = 404.0;

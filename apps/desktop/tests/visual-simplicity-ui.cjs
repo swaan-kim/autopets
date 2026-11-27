@@ -62,7 +62,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await capture('selection');
   await detail.getByRole('button', { name: '모바일', exact: true }).click();
   await detail.locator('.result-preview img').first().evaluate(img => img.decode());
-  assert.match(await detail.locator('.result-preview img').getAttribute('src'), /mobile\.webp$/);
+  assert.match(await detail.locator('.result-preview > .result-thumbnail img').getAttribute('src'), /mobile\.webp$/);
   const openExample = detail.getByRole('button', { name: '크게 보기 ↗', exact: true });
   await openExample.focus(); await page.keyboard.press('Enter');
   const example = page.getByRole('dialog', { name: '가상 학과 행사 디자인 예시', exact: true });
@@ -99,7 +99,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await fallback.route('**/assets/design-example-v1/*.webp', route => route.abort());
   await fallback.goto(origin); await openCatalog(fallback);
   await fallback.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
-  await fallback.locator('.workspace-role-detail .result-thumbnail-fallback').waitFor();
+  await fallback.locator('.workspace-role-detail .result-preview > .result-thumbnail .result-thumbnail-fallback').waitFor();
   assert.equal(await fallback.getByLabel('펫에게 맡길 일', { exact: true }).isEditable(), true, 'missing example does not block choosing a role');
   await fallback.close();
   const A = '11111111-2222-4333-8444-555555555555';
