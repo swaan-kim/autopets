@@ -5,3 +5,4 @@ pub mod http;
 pub mod setup_commands;
 pub mod role_commands;
 pub mod task_graph_commands;
+pub mod pet_custom_commands;
