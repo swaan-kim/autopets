@@ -63,7 +63,6 @@ export function SkillHub() {
     }
   };
   return <section className="skill-hub" aria-label="함께 쓰는 도구" data-agent-id="pet-selection.hub">
-    <header><h2>함께 쓰는 도구</h2><p>문서, 조사, 내 자료를 더 쉽게.</p></header>
     <div className="skill-hub-kinds" role="group" aria-label="도구 용도">
       {groups.map(([id, label]) => <button key={id} aria-pressed={group === id} onClick={() => { setGroup(id); setNotice(null); }}>{label}</button>)}
     </div>

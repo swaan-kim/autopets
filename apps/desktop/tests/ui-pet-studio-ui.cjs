@@ -22,7 +22,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const flow = page.locator('.workspace-role-detail.pet-start');
     assert.equal(await flow.getAttribute('data-agent-scope'), 'pet-selection');
     assert.equal(await flow.getByRole('button', { name: 'Codex에서 시작', exact: true }).getAttribute('data-agent-id'), 'pet-selection.composer.start');
-    assert.equal(await flow.getByRole('button', { name: '바꾸기', exact: true }).getAttribute('data-agent-id'), 'pet-selection.composer.change');
+    assert.equal(await flow.getByRole('button', { name: '시작 설정', exact: true }).getAttribute('data-agent-id'), 'pet-selection.composer.change');
     const preview = flow.locator('.result-preview');
     assert.equal(await preview.count(), 1, 'the result preview is shown once, beside the request');
     assert.equal(await preview.getAttribute('data-evidence'), 'design-example');
@@ -38,9 +38,46 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     assert.equal(await enlarge.evaluate(node => node === document.activeElement), true, 'Escape returns focus to the button that opened it');
     assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(call => /open_pet|save_pet|connect_ai/.test(call.name))), [], 'looking at an example starts nothing');
     assert.equal(await flow.locator('.pet-start-change').count(), 0, 'less common settings stay folded');
-    assert.equal(await flow.locator('.composer-identity .pet-source-line').count(), 0, 'default identity keeps only pet and name');
-    assert.equal(await flow.locator('.pet-skill-source').count(), 0, 'long provenance is disclosed on request');
-    await showMore(flow);
+    assert.equal(await flow.locator('.composer-identity .pet-source-line').count(), 1, 'the introduction names the bundled source');
+    assert.equal(await flow.locator('.pet-skill-source').isVisible(), false, 'full source information starts folded');
+    assert.equal(await flow.getByRole('region', { name: '사용 안내', exact: true }).getByText(entry.limit, { exact: true }).isVisible(), true, 'the output limitation stays visible');
+    const example = flow.locator('.pet-detail-example');
+    assert.equal(await example.getAttribute('data-evidence'), 'design-example');
+    assert.equal(await example.getByText(entry.example, { exact: true }).isVisible(), false);
+    const exampleToggle = example.locator('summary');
+    await exampleToggle.press('Enter');
+    assert.equal(await example.getByText(entry.example, { exact: true }).isVisible(), true);
+    await exampleToggle.press('Enter');
+    const gallery = preview.getByRole('group', { name: '미리보기 화면', exact: true });
+    assert.equal(await gallery.getByRole('button').count(), entry.id === 'ui-webpage' ? 3 : 2);
+    const full = gallery.getByRole('button').first();
+    const section = gallery.getByRole('button').nth(1);
+    await section.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await full.getAttribute('aria-pressed'), 'false');
+    assert.equal(await section.getAttribute('aria-pressed'), 'true');
+    const sectionArtwork = await preview.evaluate(artwork);
+    assert.notEqual(sectionArtwork, cardArtwork, 'the second view shows a different part of the example');
+    if (entry.id === 'ui-webpage') {
+      const programImage = preview.locator(':scope > .result-thumbnail img');
+      assert.match(await programImage.getAttribute('src'), /program\.webp$/);
+      await programImage.evaluate(image => image.decode());
+    }
+    if (entry.id === 'study-helper') {
+      const question = preview.getByText('책을 읽고 영화를 포기했다면?', { exact: true });
+      const answer = preview.getByText('영화에서 얻었을 즐거움이 기회비용이에요.', { exact: true });
+      assert.equal(await answer.isVisible(), false, 'the practice answer stays hidden until asked for');
+      await question.press('Enter');
+      assert.equal(await answer.isVisible(), true);
+      await question.press('Enter');
+    }
+    await enlarge.focus(); await page.keyboard.press('Enter'); await enlarged.waitFor();
+    assert.equal(await enlarged.evaluate(artwork), sectionArtwork, 'enlarging keeps the selected example section');
+    await enlarged.getByRole('group', { name: '미리보기 화면', exact: true }).getByRole('button').first().click();
+    assert.equal(await enlarged.evaluate(artwork), cardArtwork, 'the enlarged view can switch parts without closing');
+    await page.keyboard.press('Escape'); await enlarged.waitFor({ state: 'detached' });
+    assert.equal(await full.getAttribute('aria-pressed'), 'true', 'the page keeps the part chosen in the enlarged view');
+    await flow.locator('summary').getByText('스킬 출처', { exact: true }).click();
     const source = flow.getByRole('region', { name: '이 펫의 스킬 출처' });
     await source.waitFor();
     const originLink = source.getByRole('link', { name: 'GitHub 원본 보기 ↗', exact: true });
@@ -51,13 +88,16 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     if (entry.id === 'presentation') assert.ok((await source.locator(':scope > strong').innerText()).startsWith('frontend-slides'));
     const input = flow.getByLabel('펫에게 맡길 일', { exact: true });
     assert.equal(await input.inputValue(), '', 'the request starts empty');
-    assert.equal(await input.getAttribute('placeholder'), entry.example);
     assert.equal(await flow.getByRole('button', { name: 'Codex에서 시작', exact: true }).isDisabled(), true, 'an empty request cannot start');
-    await flow.getByRole('button', { name: '예시로 채우기', exact: true }).click();
+    await exampleToggle.press('Enter');
+    await example.getByRole('button', { name: '이 요청 써보기', exact: true }).click();
     assert.equal(await input.inputValue(), entry.example);
+    assert.equal(await input.evaluate(node => node === document.activeElement), true, 'the filled example is ready to edit');
+    assert.deepEqual(await page.evaluate(() => window.__uiTest.calls.filter(call => /open_pet|save_pet|connect_ai/.test(call.name))), [], 'using the example only fills the draft');
     await openCopy(flow);
     assert.equal(await flow.locator('input[aria-label="Figma 시안 활용"]').count(), entry.id === 'ui-webpage' ? 1 : 0);
     await input.fill(`${entry.example}\n한글 추가 조건`);
+    assert.equal(await example.getByRole('button', { name: '이 요청 써보기', exact: true }).count(), 0, 'the example cannot replace a draft');
     await leaveComposer(flow); await dismissRoleDetail(page);
     await chooseRole(page, entry.name);
     await openCopy(flow);
@@ -268,12 +308,12 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   });
   await chatPage.goto(origin); await chooseRole(chatPage, '웹페이지 만들기');
   const chatFlow = chatPage.locator('.pet-start');
-  await chatFlow.getByRole('heading', { name: '이 채팅에서 시작할까요?', exact: true }).waitFor();
+  await chatFlow.locator('.pet-start-chat').waitFor();
   assert.ok((await chatFlow.locator('.pet-start-summary').innerText()).includes('Codex 채팅 calling · 66666666'), 'a chat Codex has not named yet keeps folder · id');
   // Codex named (or renamed) the chat meanwhile: coming back to the app shows that name; the id stays on hover.
   await chatPage.evaluate(id => { window.__uiTest.chatTitles = { [id]: '학과 행사 페이지' }; window.dispatchEvent(new Event('focus')); }, CALLING);
   await chatPage.waitForFunction(() => document.querySelector('.pet-start-summary')?.textContent?.includes('Codex 채팅 학과 행사 페이지 ·'));
-  assert.equal(await chatFlow.locator('.pet-start-chat strong').innerText(), '학과 행사 페이지', 'the calling chat is named under the question, not only in the summary');
+  assert.equal(await chatFlow.locator('.pet-start-chat strong').innerText(), '학과 행사 페이지', 'the calling chat is named next to the request');
   assert.match(await chatFlow.locator('.pet-start-summary > span').first().getAttribute('title'), new RegExp(`calling · ${CALLING}$`), 'hover keeps the folder and full chat id');
   const startHere = chatFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true });
   assert.equal(await startHere.getAttribute('data-agent-id'), 'pet-selection.composer.start');
@@ -322,7 +362,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const fromChat = recFlow.getByRole('region', { name: 'Codex 채팅에서 온 요청', exact: true });
   await fromChat.waitFor();
   assert.ok((await fromChat.innerText()).includes('동아리 소개 페이지를 만들어줘'));
-  assert.equal(await recFlow.getByLabel('펫에게 맡길 일', { exact: true }).count(), 0, 'the chat request replaces the input; editing it is under "바꾸기"');
+  assert.equal(await recFlow.getByLabel('펫에게 맡길 일', { exact: true }).count(), 0, 'the chat request replaces the input; editing it is under "시작 설정"');
   await recFlow.getByRole('button', { name: '이 채팅에서 시작', exact: true }).click();
   await recFlow.locator('.composer-applied').waitFor();
   const recCalls = await recPage.evaluate(() => window.__uiTest.calls);

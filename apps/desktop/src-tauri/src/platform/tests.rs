@@ -22,9 +22,10 @@ fn explicit_second_pet_can_reopen_without_a_legacy_hook_assignment() {
 }
 #[test]
 fn pet_card_fits_work_area_at_common_dpi_and_negative_monitor_positions() {
-    assert_eq!(fit_pet_size(true, 1.0, 1920, 1040), (328.0, 600.0));
-    assert_eq!(fit_pet_size(true, 1.5, 1920, 1040), (328.0, 600.0));
-    assert_eq!(fit_pet_size(true, 2.0, 1920, 1040), (328.0, 520.0));
+    assert_eq!(fit_pet_size(true, 1.0, 1920, 1040), (328.0, 500.0));
+    assert_eq!(fit_pet_size(true, 1.25, 1366, 728), (328.0, 500.0));
+    assert_eq!(fit_pet_size(true, 1.5, 1366, 728), (328.0, 485.0));
+    assert_eq!(fit_pet_size(true, 2.0, 1920, 600), (328.0, 300.0));
     let position = clamp_to_work_area(
         Position { x: -2200, y: 900, edge: None },
         656,
@@ -122,6 +123,6 @@ fn the_codex_notice_bubble_is_a_small_window_between_the_pet_and_its_card() {
     assert_eq!(pet_layout(false, false), (180.0, 230.0));
     assert_eq!(pet_layout(false, true), (252.0, 404.0));
     // The open card always wins over the bubble.
-    assert_eq!(pet_layout(true, true), (328.0, 600.0));
+    assert_eq!(pet_layout(true, true), (328.0, 500.0));
     assert_eq!(fit_pet_layout(false, true, 2.0, 1920, 600), (252.0, 300.0));
 }

@@ -21,9 +21,8 @@
 .explicit-pet .explicit-heading strong { font-size: 19px; font-weight: 700; letter-spacing: -.6px; color: #363636; overflow-wrap: anywhere; line-height: 1.4; }
 .explicit-pet .explicit-heading > span { flex-shrink: 0; font-size: 12px; color: #616161; background: #f3f3f3; border-radius: 100px; padding: 4px 9px; }
 .explicit-pet .explicit-location { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.explicit-pet .explicit-location .card-path { margin: 0; color: #5f5f5f; font-size: 12px; line-height: 1.55; }
 .explicit-pet .explicit-role { color: #5f5f5f; font-size: 12px; }
-.explicit-pet .explicit-target { font-size: 12px; letter-spacing: .2px; color: #737373; }
+.explicit-pet .explicit-target { font-size: 12px; letter-spacing: .2px; color: #737373; overflow-wrap: anywhere; }
 .explicit-pet .explicit-status-panel { padding: 16px; border: 1px solid #eaeaea; border-radius: 16px; background: #f7f7f7; }
 .explicit-pet .explicit-status-panel .explicit-status { display: flex; align-items: center; gap: 8px; color: #474747; font-size: 14px; font-weight: 700; }
 .explicit-pet .explicit-status-dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }

@@ -218,8 +218,9 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 /* Anchored bottom-right like the native resize (set_pet_expanded), so the pet stays under the
    pointer while the window grows for the card or the Codex bubble. */
 .pet-overlay { position: fixed; right: 0; bottom: 0; width: 180px; height: 230px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 6px; padding: 4px; }
-.pet-overlay.expanded { width: 328px; height: 600px; max-width: 100vw; max-height: 100vh; }
+.pet-overlay.expanded { width: 328px; height: 500px; max-width: 100vw; max-height: 100vh; }
 .floating-pet { position: relative; width: 172px; min-height: 218px; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; padding-top: 10px; }
+.pet-overlay.expanded .floating-pet { padding-top: 0; }
 .pet-hit { border: 0; background: none; padding: 0; width: 160px; height: 151px; position: relative; display: grid; place-items: center; cursor: grab; touch-action: none; }
 .floating-label { max-width: 169px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 4px 10px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fafafafa; color: #555555; font-size: 10px; box-shadow: 0 1px 4px #00000011; }
 .floating-status { max-width: 169px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 4px; background: #f2f2f2f5; color: #7f7f7f; border: 1px solid #e2e2e2; border-radius: 7px; padding: 3px 7px; font-size: 9px; }
@@ -259,7 +260,12 @@ footer { border-top: 1px solid var(--line); margin-top: 28px; padding: 17px 0 0;
 .context-change-list dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .context-before { color: #8b8b8b; }
 .context-after { color: #5b5b5b; }
-.quick-card-stack { width: 320px; max-width: 100%; max-height: 100vh; flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; border-radius: 14px; }
+.quick-card-stack { width: 320px; max-width: 100%; flex: 0 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; border-radius: 14px; }
+@media (max-height: 380px) {
+  .pet-overlay.expanded .floating-pet { min-height: 0; }
+  .pet-overlay.expanded .pet-hit { height: 92px; }
+  .pet-overlay.expanded :is(.task-pet-art, .overlay-idle-pet, .pet-hit > .pet-art) { --pet-size: 88px; --frame: 88px; }
+}
 .pet-quick-card { width: 320px; max-width: 100%; padding: 12px; border: 1px solid #e0e0e0; border-radius: 14px; background: #fcfcfcfa; box-shadow: 0 4px 14px #36363620; }
 .quick-card-header { display: flex; align-items: center; gap: 5px; }
 .quick-card-header h2 { flex: 1; min-width: 0; margin: 0; color: #525252; font-size: 14px; line-height: 1.6; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
