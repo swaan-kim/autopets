@@ -14,6 +14,8 @@ import { PetSkillSource } from './PetSkillSource';
 import { PetPreferencesConnector, runClaudeAction } from '../onboarding/PetPreferencesConnector';
 import { PetRecommendationCard } from './PetRecommendation';
 import { chatDetail, chatName, useCodexChatTitles } from './useCodexChatTitles';
+import { petStartRequest } from '../../../../../packages/guidance/start-request.mjs';
+import { PresentationOptions, defaultPresentation, type PresentationPreferences } from './PresentationOptions';
 
 import { usePetFavorites } from './usePetFavorites';
 import './ui-pet-studio.css';
@@ -43,10 +45,10 @@ function setOnboardingActive(active: boolean) {
   return request;
 }
 
-type TaskContext = { audience?: string; message?: string; newTask?: boolean };
+type TaskContext = { audience?: string; message?: string; newTask?: boolean; presentation?: PresentationPreferences };
 type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
-  prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean };
+  prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean; presentation: PresentationPreferences };
 
 const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
 // "현재 채팅에서 계속하기": the chat that ran `$autopets` opens with the request typed in; the user sends it.
@@ -68,7 +70,9 @@ function writeStartPrefs(value: StartPrefs) {
   try { localStorage.setItem(START_PREFS, JSON.stringify(value)); } catch { /* A per-viewer convenience only. */ }
 }
 // An empty task is allowed only where the chat already holds the request (the chat that ran `$autopets`).
-export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: TaskContext = {}) => [
+export const uiPetStartPrompt = (pet: SavedPet, task = EXAMPLE_TASK, context: TaskContext = {}) => catalogFor(pet.template)?.id === 'presentation'
+  ? petStartRequest({ name: pet.template.name, petId: pet.id, petRevision: pet.revision, recipe: 'presentation', task, newTask: context.newTask, presentation: context.presentation ?? defaultPresentation })
+  : [
   `AutoPets 스킬로 현재 채팅에 ${pet.template.name}을 연결해줘. 저장한 펫: petId=${pet.id}, petRevision=${pet.revision}.`,
   task.trim() ? `이 펫으로 아래 작업${pet.template.planFirst ? '의 계획만 세워줘' : '을 수행하고 결과를 채팅에 보여줘'}.\n\n${task.trim()}\n`
     : `이 채팅에서 앞서 요청한 일을 이 펫으로 ${pet.template.planFirst ? '이어받아 계획만 세워줘' : '이어서 진행하고 결과를 채팅에 보여줘'}.`,
@@ -116,6 +120,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const [reuseTarget, setReuseTarget] = useState<PetLink['target'] | null>(null);
   const [newTask, setNewTask] = useState(false);
+  const [presentation, setPresentation] = useState<PresentationPreferences>(defaultPresentation);
   const [copied, setCopied] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -250,11 +255,11 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
   };
   // '확인' saves and verifies the pet as copying used to, then only shows the request below.
   // It never copies or sends. Any later edit clears it (invalidateRequest), so it must be confirmed again.
-  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask })); });
+  const confirmRequest = () => run(async () => { if (!task.trim()) throw Error('empty task'); const pet = await save(); setPrompt(uiPetStartPrompt(pet, task, { audience, message, newTask, presentation })); });
   // Copy re-checks the saved pet and copies only the request that is on screen.
   const copyRequest = () => run(async () => {
     if (!prompt || !task.trim()) throw Error('request not confirmed');
-    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    const pet = await save(); const value = uiPetStartPrompt(pet, task, { audience, message, newTask, presentation });
     if (value !== prompt) { invalidateRequest(); setError('요청 내용이 바뀌었어요. 확인을 다시 눌러 주세요.'); return; }
     await copy(value, pet);
   }, undefined, true);
@@ -281,7 +286,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     const pet = await save(); step(1);
     if (!await connectIfNeeded()) return;
     step(2);
-    if (await openInCodex(pet, uiPetStartPrompt(pet, task, { audience, message, newTask }))) step(3); else setProgress(null);
+    if (await openInCodex(pet, uiPetStartPrompt(pet, task, { audience, message, newTask, presentation }))) step(3); else setProgress(null);
   });
   // Start in the chat that ran `$autopets` ("현재 채팅에서 계속하기"): that chat opens with the
   // request typed into its composer; the user presses send. No connect step here: the chat's own
@@ -293,7 +298,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     setConfirmChat(false);
     setProgress({ steps: ['펫 저장', '채팅에 입력'], done: 0 });
     const pet = await save(); step(1);
-    const value = uiPetStartPrompt(pet, task, { audience, message, newTask });
+    const value = uiPetStartPrompt(pet, task, { audience, message, newTask, presentation });
     try { await command('open_pet_in_codex_chat', { petId: pet.id, expectedRevision: pet.revision, prompt: value, threadId: chat.threadId, cwd: chat.cwd }); }
     catch (cause) {
       if (/prompt-too-long/.test(String(cause))) { await copy(value, pet); setProgress(null); return; }
@@ -332,17 +337,18 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     const previous = drafts.current[key] ?? (sameRole ? drafts.current[draftKey.current] : undefined);
     // Selecting a current configuration refreshes settings, but never moves one role's brief into another.
     enter(key, { ...freshDraft(nextEntry, item ?? null), task: previous?.task ?? '',
-      audience: previous?.audience ?? '', message: previous?.message ?? '',
+      audience: previous?.audience ?? '', message: previous?.message ?? '', presentation: previous?.presentation ?? defaultPresentation,
       reuseTarget: sameRole ? reuseTarget : null, newTask: sameRole ? newTask : false });
   };
   function remember() {
-    drafts.current[draftKey.current] = { task, audience, message, draft: structuredClone(draft), saved, dirty, prompt, copied, manualCopy, notice, handoff, reuseTarget, newTask };
+    drafts.current[draftKey.current] = { task, audience, message, draft: structuredClone(draft), saved, dirty, prompt, copied, manualCopy, notice, handoff, reuseTarget, newTask, presentation };
   }
   const enter = (key: string, value: ComposerDraft, targetOverride?: string) => {
     setChangeOpen(false); setProgress(null); setPendingChoice(null); setConnectBlocked(false);
     draftKey.current = key;
     setDraft(structuredClone(value.draft)); setSaved(value.saved); setDirty(value.dirty); setStaleSaved(false); setError('');
     setTask(value.task); setAudience(value.audience); setMessage(value.message); setPrompt(value.prompt); setCopied(value.copied);
+    setPresentation(value.presentation);
     setManualCopy(value.manualCopy); setNotice(value.notice); setHandoff(value.handoff); setReuseTarget(value.reuseTarget); setNewTask(value.newTask);
     // The only eligible chat is preselected, except when `$autopets` was run from a chat:
     // start then goes to that calling chat, so nothing else is guessed.
@@ -360,7 +366,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     return value;
   };
   const freshDraft = (next: PetCatalogEntry, item: SavedPet | null = null): ComposerDraft => ({ task: '', audience: '', message: '',
-    draft: freshTemplate(next, item), saved: item, dirty: !item, prompt: '', copied: false, manualCopy: false, notice: '', handoff: null, reuseTarget: null, newTask: false });
+    draft: freshTemplate(next, item), saved: item, dirty: !item, prompt: '', copied: false, manualCopy: false, notice: '', handoff: null, reuseTarget: null, newTask: false, presentation: defaultPresentation });
   const selectEntry = (next: PetCatalogEntry, request?: string, targetOverride?: string) => {
     listScroll.current = window.scrollY;
     selectionChat.current = null;
@@ -535,6 +541,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
           : startMode === 'apply' ? <p className="pet-start-hint">이 채팅에 {entry.name} 펫을 적용해요. 적용한 뒤 그 채팅에서 할 일을 말하면 펫이 함께해요.</p>
           : startMode === 'claude' ? <p className="pet-start-hint">Claude에는 펫 설정이 넘어가요. 맡길 일은 Claude 새 대화에서 적어 주세요.</p>
           : <>{taskField(entry.inputLabel, entry.example)}{exampleChip}</>}
+        {entry.id === 'presentation' && (startMode === 'codex' || startMode === 'chat') && <PresentationOptions value={presentation} disabled={busy} onChange={value => { setPresentation(value); invalidateRequest(); setProgress(null); }} />}
         <div className="composer-action pet-start-action" data-agent-id="pet-selection.composer.action" data-next={startMode}>
           {startMode === 'apply' && confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
             : busy && progress ? <p className="pet-start-progress" role="status">{progressLine}</p>

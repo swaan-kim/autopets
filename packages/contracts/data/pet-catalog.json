@@ -217,10 +217,10 @@
     "inputLabel": "발표 주제와 메모",
     "optionalLabel": "청중과 장수",
     "example": "가상 학과 행사 소개. 행사 취지, 프로그램, 일정, 참여 방법을 신입생에게 5장으로 발표하고 싶어.",
-    "output": "브라우저에서 여는 슬라이드",
+    "output": "함께 정한 형식의 발표자료",
     "before": "발표 메모가 길고 순서가 없어요.",
     "after": "한 장에 한 메시지로 발표해요.",
-    "limit": "PowerPoint 파일 변환은 아직 제공하지 않아요.",
+    "limit": "Figma·PPTX는 사용할 스킬과 도구를 먼저 확인해요.",
     "symbol": "▤",
     "publisher": "Frontend Slides 기반",
     "source": "https://github.com/zarazhangrui/frontend-slides/blob/9906a34d640d2111f724544cbc50f7f130569ae1/SKILL.md",
@@ -228,7 +228,7 @@
       "id": "presentation",
       "version": 1,
       "name": "발표자료 만들기 펫",
-      "instruction": "청중과 핵심 메시지를 정리하고 기본 5장의 발표 흐름을 계획하세요. 사용자 확인 전에는 파일을 만들거나 수정하지 마세요. 확인 후에는 한 파일의 HTML 발표자료를 만드세요. PPTX라고 부르지 마세요. 기존 파일을 덮어쓰지 말고 실제 브라우저에서 글자 넘침·겹침·이동을 확인하세요.",
+      "instruction": "발표 목적·청중·핵심 메시지와 분량에 맞는 HTML·Figma·PPTX 형식, 색·글꼴·배치와 실제 사용 가능한 발표 스킬을 제안하세요. 사용자가 계획을 고치고 확정한 뒤 선택 형식으로 만드세요. 참고 사진은 선택이며 없어도 추천합니다. 현재 사용자 선택을 우선하고 기존 파일을 보존하세요. 선택 형식의 도구로 글자 넘침·겹침·내용을 검수하고 추천·실제 적용·미확인을 구분하세요.",
       "planFirst": true,
       "planning": {
         "model": "gpt-6-astra",
@@ -241,7 +241,7 @@
       "skills": [
         {
           "id": "autopets-presentation",
-          "version": "1.0.0"
+          "version": "1.1.0"
         }
       ],
       "features": {

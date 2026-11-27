@@ -60,6 +60,13 @@ export const START_RULES = Object.freeze([
   '사용자가 답했거나 "기본으로"라고 하면 그것이 확인입니다. 빠진 답은 defaults로 채우고, 계획을 다시 승인받지 말고 결과물을 끝까지 만드세요. 펫 지침이나 스킬 본문이 계획 확인을 요구해도 같습니다. 사용자가 "계획만"이라고 했을 때만 계획에서 멈춥니다.',
   'autopets_report로 알리세요. 사용자의 답을 기다리며 멈출 때마다 asking, 만들기 시작할 때 working, 끝나면 done(파일을 만들었다면 resultPath에 저장한 폴더나 파일의 절대 경로), 실패하면 failed.',
 ]);
+export const PRESENTATION_START_RULES = Object.freeze([
+  '이미 알려 준 주제·청중·형식·디자인은 다시 묻지 마세요. 빠진 핵심 정보만 한 번 모아 묻고, 참고 사진은 선택으로 두세요.',
+  '발표 형식(HTML·Figma·PPTX), 장별 메시지, 색·글꼴·배치, 사용할 수 있는 스킬과 이유를 먼저 제안하세요. 사용자가 계획을 수정·확정한 뒤 제작하며, 질문에 답한 것만으로 계획 승인을 대신하지 마세요. 현재 형식 선택은 이전 HTML 기본값보다 우선합니다.',
+  '선택 형식의 실제 스킬·도구를 읽고 사용하세요. 없는 연결·도구는 준비 방법이나 대안을 제안하고 확인 없이 형식을 바꾸지 마세요. 추천과 적용·검수 완료를 구분하세요.',
+  START_RULES[2],
+]);
+const startRules = recipe => recipe.id === 'presentation' ? PRESENTATION_START_RULES : START_RULES;
 
 /** A new folder per job, so results are easy to find and existing files are never touched. */
 export function saveFolder(recipe, { home, now = new Date() } = {}) {
@@ -77,7 +84,7 @@ export function baseRecipeStart(template, { recipes = RECIPES, catalog = CATALOG
   const recipe = entry && recipes.find(item => item.id === entry.id && item.petId === entry.id);
   if (!recipe) return null;
   return { recipe: recipe.id, format: recipe.format, output: recipe.output, askFirst: intakeMessage(recipe),
-    askFirstWithTask: intakeMessage(recipe, { askSubject: true }), rules: START_RULES,
+    askFirstWithTask: intakeMessage(recipe, { askSubject: true }), rules: startRules(recipe),
     defaults: Object.fromEntries(recipe.intake.map(item => [item.key, item.options[item.default]])) };
 }
 
@@ -94,5 +101,6 @@ export function recipeStart(id, template, { recipes = RECIPES, catalog = CATALOG
   const folder = saveFolder(recipe, { home, now });
   return { id: recipe.id, name: recipe.name, format: recipe.format, output: recipe.output, intakeMessage: intakeMessage(recipe),
     intakeMessageWithTask: intakeMessage(recipe, { askSubject: true }),
-    defaults: Object.fromEntries(recipe.intake.map(item => [item.key, item.options[item.default]])), ...(folder ? { saveFolder: folder } : {}) };
+    defaults: Object.fromEntries(recipe.intake.map(item => [item.key, item.options[item.default]])),
+    ...(recipe.id === 'presentation' ? { rules: PRESENTATION_START_RULES } : {}), ...(folder ? { saveFolder: folder } : {}) };
 }

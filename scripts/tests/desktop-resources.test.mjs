@@ -64,7 +64,8 @@ test('installer resources work detached from checkout and contain no installer o
   const pet = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/skills/autopets/scripts/pet.mjs')).href);
   assert.equal(typeof pet.runPet, 'function');
   const resolver = await import(pathToFileURL(path.join(f.report.connector, 'integrations/codex/runtime/pet-skills.mjs')).href);
-  assert.deepEqual(await resolver.validateBundledSkillPins(), { current: 9, preserved: 9 });
+  const pins = JSON.parse(await fs.readFile(path.join(f.report.connector, 'integrations/codex/skills/versions/skill-pins.json'), 'utf8'));
+  assert.deepEqual(await resolver.validateBundledSkillPins(), { current: 9, preserved: pins.skills.length });
   const bundled = await resolver.resolvePetSkills({ skills: [{ id:'frontend-design',version:'41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f' }],features:{figmaDesign:true} });
   assert.equal(bundled.length,2);
   const catalog = JSON.parse(await fs.readFile(path.join(f.report.connector, 'packages/contracts/data/pet-catalog.json'), 'utf8'));

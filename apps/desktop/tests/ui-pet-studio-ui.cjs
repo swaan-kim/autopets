@@ -68,7 +68,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
     const actual = await page.evaluate(() => ({ pet: window.__uiTest.roles.pets[0], prompt: window.__uiTest.clipboard, links: window.__uiTest.state.petLinks, calls: window.__uiTest.calls }));
     assert.deepEqual(actual.pet.template, entry.template); assert.ok(actual.prompt.includes('한글 추가 조건'));
-    assert.equal(actual.prompt.includes('계획만 세워줘'), entry.template.planFirst); assert.equal(actual.links.length, 0);
+    assert.equal(actual.prompt.includes('계획만 세워줘') || actual.prompt.includes('recipe=presentation'), entry.template.planFirst); assert.equal(actual.links.length, 0);
     assert.equal(actual.calls.filter(call => call.name === 'connect_ai').length, 0, 'prepared host skips setup');
     await page.close();
   }

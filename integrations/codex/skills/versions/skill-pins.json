@@ -88,6 +88,22 @@
         "file": "LICENSE.txt",
         "sha256": "62928eb197fe4662d1efc3af0735b3ba5df3c0308badd9a2baf2b619009f5366"
       }
+    },
+    {
+      "id": "autopets-presentation",
+      "version": "1.1.0",
+      "publisher": "AutoPets",
+      "integrity": "utf8-lf",
+      "sha256": "4e1b5cebc31ffaa12f23faee913acbcff8d9879b32d643667a295ad22e1c5556",
+      "source": "https://github.com/zarazhangrui/frontend-slides/blob/9906a34d640d2111f724544cbc50f7f130569ae1/SKILL.md",
+      "upstreamCommit": "9906a34d640d2111f724544cbc50f7f130569ae1",
+      "upstreamSha256": "832994fe1dfcce2aa7ceca9a1b7b708eca94becef242713999855f4e946cf4d5",
+      "modified": true,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSE.txt",
+        "sha256": "62928eb197fe4662d1efc3af0735b3ba5df3c0308badd9a2baf2b619009f5366"
+      }
     }
   ]
 }
