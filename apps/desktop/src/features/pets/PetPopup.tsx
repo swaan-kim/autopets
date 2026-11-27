@@ -48,11 +48,11 @@ export function PetPopup({ link, disconnected = false, onHide }: { link: PetLink
 
   // Only states where the user has something to do get a line; the rest stay quiet.
   const guide = lost
-    ? back.opened ? '채팅에 ‘펫 상태 확인’을 보내면 다시 이어져요.' : '“다시 연결”을 누르면 채팅을 열고 다시 이어요.'
+    ? back.opened ? '채팅에 ‘펫 상태 확인’을 보내 주세요.' : '채팅을 열어 펫 상태를 다시 확인해요.'
     : link.run?.trackingClosed ? ''
-    : !link.enabled ? '새 펫 작업은 꺼져 있어요. 이미 시작한 작업은 계속 확인해요.'
-    : state === 'waiting' ? 'Codex에서 계획을 확인하고 “그대로 구현해줘”라고 보내주세요.'
-    : state === 'failed' || state === 'unknown' ? 'Codex에서 “펫 상태 확인”을 보내 현재 작업을 확인해 주세요.'
+    : !link.enabled ? '새 일을 맡기려면 내 작업에서 도움을 켜 주세요.'
+    : state === 'waiting' ? '계획을 보고, 괜찮으면 ‘그대로 구현해줘’라고 보내세요.'
+    : state === 'failed' || state === 'unknown' ? '채팅에 ‘펫 상태 확인’을 보내 주세요.'
     : '';
   // The reconnect hint replaces the generic "opened" receipt; failures always show.
   const returnNotice = back.notice && !(lost && back.opened) ? back.notice : '';
