@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const template = require('../../../packages/contracts/data/ui-pet.json');
-const { openCatalog, openChange, closePetPanel } = require('./entry-navigation.cjs');
+const { openCatalog, openPromptIdeas, openChange, closePetPanel } = require('./entry-navigation.cjs');
 const { runPromptVideoChecks } = require('./prompt-video-ui.cjs');
 
 exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, screenshotDir, checks }) => {
@@ -12,7 +12,8 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await mockBridge(page, state); await page.goto(origin);
   await page.locator('.pet-home').waitFor(); // the app always opens on home, even with existing work
   await openCatalog(page);
-  const ideas = page.getByRole('region', { name: '이미지와 영상 아이디어', exact: true });
+  assert.equal(await page.locator('.prompt-ideas').count(), 0, 'browsing pets does not mount the optional gallery');
+  const ideas = await openPromptIdeas(page);
   assert.equal(await ideas.locator('.prompt-idea-card').count(), 4);
   await page.waitForFunction(() => [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].length === 2
     && [...document.querySelectorAll('.prompt-idea-card .ux-art-generated')].every(image => image.complete && image.naturalWidth === 1536 && image.naturalHeight === 1024));
@@ -78,6 +79,7 @@ exports.runPromptIdeaChecks = async ({ newPage, mockBridge, fixture, origin, scr
   await fallback.route('**/prompt-gallery-v1/product.webp', route => route.abort());
   await fallback.route('**/prompt-videos-v1/swans-poster.webp', route => route.abort());
   await fallback.goto(origin); await openCatalog(fallback);
+  await openPromptIdeas(fallback);
   await fallback.locator('[data-agent-id="pet-selection.idea.product"] [data-evidence="design-example"] svg').waitFor();
   assert.equal(await fallback.locator('[data-agent-id="pet-selection.idea.product"] .ux-art-generated').count(), 0);
   const videoFallback = fallback.locator('[data-agent-id="pet-selection.idea.coast"]');

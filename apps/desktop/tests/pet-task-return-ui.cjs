@@ -5,19 +5,32 @@ const template = require('../../../packages/contracts/data/ui-pet.json');
 const A = '11111111-2222-4333-8444-555555555555';
 const B = '11111111-2222-4333-8444-666666666666';
 const C = '77777777-2222-4333-8444-777777777777';
+const folder = 'C:/한글과 공백/autopets-petid-11111111-2222-4333-8444';
 
 exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, checks }) => {
   const value = {
     ...structuredClone(fixture), sessions: [], slots: [0, 1, 2].map(index => ({ index, sessionId: null })),
     petLinks: [A, B].map((threadId, slot) => ({
-      version: 1, target: { sourceId: 'codex-windows-local', threadId, cwd: 'C:/한글과 공백/원플로우' },
+      version: 1, target: { sourceId: 'codex-windows-local', threadId, cwd: folder },
       slot, revision: 1, enabled: slot === 0, connected: slot === 0, profile: 'light', template, run: null,
     })),
   };
   const page = await newPage({ width: 992, height: 688 });
-  await mockBridge(page, value); await page.goto(origin); await openTasks(page);
+  await mockBridge(page, value);
+  await page.addInitScript(threadId => { window.__uiTest.chatTitles = { [threadId]: '행사 페이지 준비' }; }, A);
+  await page.goto(origin); await openTasks(page);
   const a = page.locator('.pet-card-0');
   const b = page.locator('.pet-card-1');
+  const identity = a.locator('.explicit-identity');
+  await identity.getByText('행사 페이지 준비', { exact: true }).waitFor();
+  assert.doesNotMatch(await identity.innerText(), /autopets-petid-/);
+  assert.equal(await identity.locator('[title*="autopets-petid-"]').count(), 0, 'the summary tooltip also omits the folder');
+  assert.doesNotMatch(await b.locator('.explicit-identity').innerText(), new RegExp(B.slice(-8)), 'an unnamed chat does not show an ID as its name');
+  const evidence = a.locator('.explicit-evidence > summary');
+  await evidence.click();
+  await a.getByText(`작업 폴더: ${folder}`, { exact: true }).waitFor();
+  await a.getByText(`채팅 ID: ${A}`, { exact: true }).waitFor();
+  await evidence.click();
   const before = await page.evaluate(() => structuredClone(window.__uiTest.state.petLinks));
   await a.getByRole('button', { name: 'Codex 작업 열기', exact: true }).click();
   await a.getByText(/Codex에 열기를 요청했어요/).waitFor();
@@ -83,7 +96,7 @@ exports.runPetTaskReturnChecks = async ({ newPage, mockBridge, fixture, origin, 
     state.petLinks[0].target.threadId = threadId; state.petLinks[0].revision++;
     state.now = Date.now(); window.__uiTest.emitEvent('autopets://snapshot', structuredClone(state));
   }, C);
-  await a.getByText(`채팅 · ${C.slice(-8)}`, { exact: true }).waitFor();
+  await identity.getByText('행사 페이지 준비', { exact: true }).waitFor({ state: 'detached' });
   await page.evaluate(() => { window.__uiTest.holdPetReturn = false; window.__uiTest.releasePetReturn(); });
   await page.waitForFunction(() => !document.querySelector('.pet-card-0 [data-testid="pet-task-return"] button').disabled);
   assert.equal(await a.getByText(/Codex에 열기를 요청했어요/).count(), 0, 'old target receipt must not label the replacement pet');
