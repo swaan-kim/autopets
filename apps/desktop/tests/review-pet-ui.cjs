@@ -144,10 +144,10 @@ exports.runReviewPetChecks = async ({ newPage, mockBridge, fixture, origin, scre
   await detail.getByRole('heading', { name: '복습 도우미', exact: true }).waitFor();
   await list.waitFor({ state: 'detached' });
 
-  // ① The detail screen: one button under the preview, nothing else changed.
+  // ① Keep the sole batch entry beside the actions in the review pet detail.
   await entryButton.waitFor();
   assert.equal((await entryButton.innerText()).replace(/\s+/g, ' ').trim(), '문제 묶음 2 오늘 복습 1 →');
-  assert.equal(await app.locator('.workspace-detail-preview [data-agent-id="pet-selection.detail.review-batches"]').count(), 1, 'under the thumbnail');
+  assert.equal(await app.locator('.pet-detail-overview [data-agent-id="pet-selection.detail.review-batches"]').count(), 1, 'beside the start controls');
   for (const id of ['pet-selection.detail', 'pet-selection.detail.back', 'pet-selection.composer', 'pet-selection.composer.start']) assert.equal(await app.locator(`[data-agent-id="${id}"]`).count(), 1, `${id} kept`);
   if (screenshotDir) await app.screenshot({ path: path.join(screenshotDir, 'review-app-detail.png') });
 
