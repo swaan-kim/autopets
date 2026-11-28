@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "coinsPerTask": 10,
+  "starterItems": ["ribbon"],
+  "slots": [
+    { "id": "head", "name": "머리" },
+    { "id": "face", "name": "얼굴" },
+    { "id": "neck", "name": "목" },
+    { "id": "background", "name": "배경" }
+  ],
+  "items": [
+    { "id": "ribbon", "name": "리본", "slot": "head", "price": 0 },
+    { "id": "sprout", "name": "새싹", "slot": "head", "price": 30 },
+    { "id": "glasses", "name": "안경", "slot": "face", "price": 30 },
+    { "id": "yellow-ribbon", "name": "노란 리본", "slot": "head", "price": 30 },
+    { "id": "scarf", "name": "목도리", "slot": "neck", "price": 40 },
+    { "id": "hat", "name": "모자", "slot": "head", "price": 40 },
+    { "id": "night-sky", "name": "밤하늘 배경", "slot": "background", "price": 60 },
+    { "id": "crown", "name": "왕관", "slot": "head", "price": 200 }
+  ],
+  "stages": [
+    { "no": 1, "group": "growth", "name": "처음 모습", "condition": "", "completed": 0, "art": true },
+    { "no": 2, "group": "growth", "name": null, "condition": "작업 30번", "completed": 30, "art": false },
+    { "no": 3, "group": "growth", "name": null, "condition": "작업 100번", "completed": 100, "art": false },
+    { "no": 4, "group": "growth", "name": null, "condition": "작업 300번", "completed": 300, "art": false },
+    { "no": 5, "group": "branch", "name": null, "condition": "공부를 많이", "pets": ["study-helper"], "petCompleted": null, "art": false },
+    { "no": 6, "group": "branch", "name": null, "condition": "만들기를 많이", "pets": ["build-implementation", "presentation", "marketing-copy"], "petCompleted": null, "art": false },
+    { "no": 7, "group": "branch", "name": null, "condition": "정리를 많이", "pets": ["research-document", "daily-plan", "travel-plan"], "petCompleted": null, "art": false },
+    { "no": 8, "group": "branch", "name": null, "condition": "???", "pets": [], "petCompleted": null, "art": false }
+  ],
+  "challenges": ["복습 3일 연속", "웹페이지 5번", "발표자료 3번", "7일 연속", "???"]
+}

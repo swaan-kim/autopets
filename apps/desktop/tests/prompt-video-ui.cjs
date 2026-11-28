@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { openCatalog } = require('./entry-navigation.cjs');
+const { openCatalog, openPromptIdeas } = require('./entry-navigation.cjs');
 
 exports.runPromptVideoChecks = async ({ newPage, mockBridge, state, origin, checks }) => {
   const page = await newPage({ width: 992, height: 688 });
@@ -7,7 +7,7 @@ exports.runPromptVideoChecks = async ({ newPage, mockBridge, state, origin, chec
   page.on('request', request => requests.push(request.url()));
   await mockBridge(page, structuredClone(state));
   await page.goto(origin); await openCatalog(page);
-  const region = page.getByRole('region', { name: '이미지와 영상 아이디어', exact: true });
+  const region = await openPromptIdeas(page);
   assert.equal(await region.locator('video').count(), 0, 'the grid does not create hidden video players');
   await region.getByRole('button', { name: '영상 예시', exact: true }).click();
   for (const [id, duration, model] of [['coast', 6.125, 'CogVideoX'], ['orbit', 5.64, 'Hailuo AI']]) {
@@ -69,6 +69,7 @@ exports.runPromptVideoChecks = async ({ newPage, mockBridge, state, origin, chec
   await mockBridge(broken, structuredClone(state));
   await broken.route('**/prompt-videos-v1/swans.webm', route => route.abort());
   await broken.goto(origin); await openCatalog(broken);
+  await openPromptIdeas(broken);
   await broken.locator('[data-agent-id="pet-selection.idea.coast"]').click();
   await broken.locator('.prompt-idea-dialog video').evaluate(element => element.play().catch(() => {}));
   await broken.getByRole('status').filter({ hasText: '영상을 재생할 수 없어요.' }).waitFor();
