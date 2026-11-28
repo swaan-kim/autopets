@@ -24,6 +24,8 @@ const { runVisualSimplicityChecks } = require('./visual-simplicity-ui.cjs');
 const { runPromptIdeaChecks } = require('./prompt-ideas-ui.cjs');
 const { runPresentationChecks } = require('./presentation-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
+const petCustomConfig = require('../../../packages/contracts/data/pet-custom.json');
+const { runPetCustomChecks } = require('./pet-custom-ui.cjs');
 
 const origin = process.env.AUTOPETS_UI_URL || 'http://127.0.0.1:1420';
 const screenshot = path.resolve(process.env.AUTOPETS_SCREENSHOT || path.join(__dirname, '../../../work/native-ui-manager.png'));
@@ -61,7 +63,7 @@ const assistanceFixture = {
 };
 
 async function mockBridge(page, initial, initialAssistance = assistanceFixture, initialWorkflow = emptyWorkflow, initialArtifacts = emptyArtifacts) {
-  await page.addInitScript(({ initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates }) => {
+  await page.addInitScript(({ initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates, petCustomConfig }) => {
     const state = structuredClone(initial);
     const assistance = structuredClone(initialAssistance);
     const workflow = structuredClone(initialWorkflow);
@@ -94,6 +96,25 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         }
         // Read-only: Codex's own chat names for labels. Not an action, so not in `calls`.
         if (name === 'codex_chat_titles') return structuredClone(window.__uiTest.chatTitles ?? {});
+        // Pet decoration: the same rules as the app (src-tauri domain/pet_custom.rs), on fixture state.
+        if (name.startsWith('pet_custom_')) {
+          const custom = window.__uiTest.petCustom ??= { coins: 0, owned: [...petCustomConfig.starterItems], worn: {}, completed: 0, byPet: {} };
+          const view = () => ({ ...structuredClone(custom), unlocked: petCustomConfig.stages.filter(stage => stage.completed != null && custom.completed >= stage.completed).map(stage => stage.no) });
+          if (name === 'pet_custom_snapshot') return view();
+          calls.push({ name, args });
+          if (window.__uiTest.holdPetCustom) await new Promise(resolve => { window.__uiTest.releasePetCustom = resolve; });
+          const item = petCustomConfig.items.find(entry => entry.id === args.itemId);
+          if (!item) throw 'pet-custom-unknown-item';
+          if (name === 'pet_custom_buy') {
+            if (custom.owned.includes(item.id)) throw 'pet-custom-already-owned';
+            if (custom.coins < item.price) throw 'pet-custom-not-enough-coins';
+            custom.coins -= item.price; custom.owned.push(item.id); custom.worn[item.slot] = item.id;
+          } else {
+            if (!custom.owned.includes(item.id)) throw 'pet-custom-not-owned';
+            if (args.wear) custom.worn[item.slot] = item.id; else if (custom.worn[item.slot] === item.id) delete custom.worn[item.slot];
+          }
+          return view();
+        }
         calls.push({ name, args });
         if (name === 'save_pet') {
           if (window.__uiTest.savePetError) throw Error(window.__uiTest.savePetError);
@@ -296,7 +317,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
         return null;
       },
     };
-  }, { initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates });
+  }, { initial, initialAssistance, initialWorkflow, initialArtifacts, roleTemplates, petCustomConfig });
 }
 
 (async () => {
@@ -371,6 +392,12 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     }
     if (process.env.AUTOPETS_UI_DISCOVERY_ONLY === '1') {
       const screenshots = await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
+      return;
+    }
+    if (process.env.AUTOPETS_UI_PET_CUSTOM_ONLY === '1') {
+      const screenshots = await runPetCustomChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
       console.log(JSON.stringify({ fixtureOnly: true, nativeWindowsTested: false, screenshots, checks, pageErrors: errors }, null, 2));
       return;
@@ -765,6 +792,8 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     graphScreenshots.push(...await runPetDiscoveryChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPromptIdeaChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    await closeFixturePages();
+    graphScreenshots.push(...await runPetCustomChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runFirstSuccessChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();

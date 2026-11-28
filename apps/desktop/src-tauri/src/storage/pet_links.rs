@@ -73,6 +73,7 @@ impl Store {
         let expected = match &request { Request::Settings{expected_revision,..} | Request::ApplyPet{expected_revision,..} | Request::Enable{expected_revision,..} | Request::Disconnect{expected_revision,..} | Request::CloseTracking{expected_revision,..} | Request::Prepare{expected_revision,..} | Request::Report{expected_revision,..} => *expected_revision, _=>unreachable!() };
         if link.revision != expected { return Err("pet-revision-changed".into()); }
         let mut reservation: Option<String> = None;
+        let mut finished: Option<(bool, Option<String>)> = None;
         match request {
             Request::Settings{profile,..} => {
                 if link.run.as_ref().is_some_and(Run::unresolved) { return Err("pet-run-active-or-unresolved".into()); }
@@ -119,9 +120,12 @@ impl Store {
             },
             Request::Report{request_id,receipt,..} => {
                 if !link.connected { return Err("pet-disconnected".into()); }
+                let pet_id=super::pet_custom::link_pet_id(&link);
                 let run=link.run.as_mut().ok_or("pet-run-not-found")?;
                 if run.id!=request_id { return Err("pet-run-mismatch".into()); }
                 if run.tracking_closed { return Err("pet-run-closed".into()); }
+                let was_complete=run.state==RunState::Complete;
+                finished=Some((was_complete,pet_id));
                 match receipt {
                     Receipt::Spawned{agent_path} => {
                         if !agent_path.starts_with("/root/") || agent_path.len()>512 || agent_path.split('/').skip(2).any(|s| s.is_empty() || !s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b==b'_')) {
@@ -179,6 +183,10 @@ impl Store {
             self.pet_links.insert(link.target.key(),link.clone());
             return Ok(Some(link));
         }
-        self.save_link(link).map(Some)
+        // A run that just became complete is one finished task for pet coins and evolution.
+        let newly_finished = match finished { Some((false, pet)) if link.run.as_ref().is_some_and(|run| run.state==RunState::Complete) => Some(pet), _ => None };
+        let saved = self.save_link(link)?;
+        if let Some(pet) = newly_finished { self.record_pet_finished(pet); }
+        Ok(Some(saved))
     }
 }
