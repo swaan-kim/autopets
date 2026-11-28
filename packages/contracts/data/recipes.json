@@ -27,6 +27,13 @@
       ]
     },
     {
+      "id": "review-helper", "petId": "review-helper", "name": "복습 도우미", "subject": "어떤 내용을 복습할까요?", "resultKind": "review", "format": "채팅에서 푸는 객관식 문제와 한 번에 채점, 문제 묶음 저장", "output": "chat",
+      "intake": [
+        { "key": "level", "question": "지금 어느 정도 알고 계세요?", "options": ["처음 배워요", "한 번 배웠어요", "시험 직전이에요"], "default": 0 },
+        { "key": "detail", "question": "틀린 문제 풀이는 어떻게 볼까요?", "options": ["이유 한 줄", "자세히"], "default": 0 }
+      ]
+    },
+    {
       "id": "ui-webpage", "petId": "ui-webpage", "name": "웹페이지 만들기", "subject": "어떤 웹페이지를 만들까요?", "resultKind": "web", "format": "브라우저에서 여는 웹페이지 파일(HTML)", "output": "files",
       "intake": [
         { "key": "purpose", "question": "무엇을 위한 페이지인가요?", "options": ["소개·홍보", "신청·모집", "작품·포트폴리오"], "default": 0 },
@@ -45,11 +52,11 @@
       ]
     },
     {
-      "id": "presentation", "petId": "presentation", "name": "발표자료 만들기", "subject": "무엇에 대한 발표인가요?", "resultKind": "slides", "format": "브라우저에서 여는 슬라이드 파일(HTML, PowerPoint 파일 아님)", "output": "files",
+      "id": "presentation", "petId": "presentation", "name": "발표자료 만들기", "subject": "무엇에 대한 발표인가요?", "resultKind": "slides", "format": "함께 정한 HTML·Figma·PPTX 발표자료", "output": "files",
       "intake": [
         { "key": "purpose", "question": "어디에 쓰는 발표인가요?", "options": ["수업·과제 발표", "회사·팀 보고", "행사·모임 소개"], "default": 0 },
         { "key": "audience", "question": "누가 듣나요?", "options": ["내용을 처음 듣는 사람", "같은 분야 사람", "결정을 내릴 사람"], "default": 0 },
-        { "key": "tone", "question": "어떤 분위기가 좋으세요?", "options": ["차분하고 깔끔하게", "밝고 친근하게", "강렬하게"], "default": 0 },
+        { "key": "format", "question": "어떤 형식으로 쓸까요?", "options": ["추천받기", "HTML", "Figma", "PPTX"], "default": 0 },
         { "key": "length", "question": "몇 장 정도로 만들까요?", "options": ["5장", "8장", "10장 이상"], "default": 0 }
       ]
     }

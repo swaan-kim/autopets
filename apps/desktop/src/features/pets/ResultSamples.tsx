@@ -13,6 +13,10 @@ export const resultSections: Record<string, { format: string; first: string; sec
     format: '개념 노트 · 복습', first: '개념 정리', second: '복습 문제',
     takeaway: '일상에서 마주치는 선택으로 개념을 이해하고, 문제를 푼 뒤 해설을 확인해요.',
   },
+  'review-helper': {
+    format: '문제 묶음 · 복습 일정', first: '다음 복습', second: '저장한 묶음',
+    takeaway: '문제를 풀었던 채팅에서 다시 열고, 복습할 때가 된 문제부터 풀어요.',
+  },
   'ui-webpage': {
     format: '행사 웹페이지', first: '데스크톱', second: '프로그램',
     takeaway: '행사 소개, 프로그램과 방문 안내를 한 페이지에 담았어요. 모바일에서도 같은 내용을 볼 수 있어요.',
@@ -152,6 +156,13 @@ export function ResultSample({ kind, detail = false }: { kind: string; detail?: 
           </span>
         </span>
         <span className="sample-note">이 경우에 놓친 가치는 영화에서 얻었을 즐거움이에요.</span>
+      </Sample>;
+    case 'review-helper':
+      if (detail) return <Sample {...mode} title="기회비용 문제 묶음" meta="문제 10개">
+        <span className="sample-note">지난번 8개를 맞혔어요. 오늘 복습할 2문제를 원래 Codex 채팅에서 풀어요.</span>
+      </Sample>;
+      return <Sample {...mode} title="다음 복습은 3일 뒤" meta="경제 개념 · 기회비용">
+        <span className="sample-note">틀린 문제부터 다시 풀 수 있도록 문제 묶음에 담았어요.</span>
       </Sample>;
     case 'marketing-copy':
       if (detail) return <Sample {...mode} title="같은 행사, 다른 제목" meta="제목 후보 3개"><Items items={headlines} /></Sample>;

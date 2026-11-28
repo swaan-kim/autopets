@@ -29,7 +29,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await page.setViewportSize({ width: 992, height: 688 });
   await capture('home');
   await page.locator('.pet-home-find').click();
-  assert.equal(await page.locator('.workspace-role-card').count(), 6, 'one primary home action opens the six-role catalog');
+  assert.equal(await page.locator('.workspace-role-card').count(), 7, 'one primary home action opens the seven-role catalog');
   await page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
   // One click on a card opens its detail: the preview beside the request and one start button.
   const composer = page.locator('.pet-start');
@@ -52,7 +52,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   assert.equal(await page.evaluate(() => window.__uiTest.calls.some(call => /connect_ai|apply_pet|submit|send|execute/.test(call.name))), false);
   await leaveComposer(composer);
   await openCatalog(page);
-  assert.equal(await page.locator('.workspace-role-card').count(), 6);
+  assert.equal(await page.locator('.workspace-role-card').count(), 7);
   await page.getByRole('button', { name: '웹페이지 만들기 펫 선택', exact: true }).click();
   const detail = page.locator('.workspace-role-detail');
   await detail.locator('.result-preview img').first().evaluate(img => img.decode());
@@ -77,7 +77,7 @@ exports.runVisualSimplicityChecks = async ({ newPage, mockBridge, fixture, origi
   await page.locator('.app-header nav').getByRole('button', { name: '펫 고르기', exact: true }).click();
   await composer.waitFor({ state: 'detached' });
   assert.equal(await composer.count(), 0, 'the current top-level navigation also leaves the composer');
-  assert.equal(await page.locator('.workspace-role-card').count(), 6, 'same-navigation return preserves the all-role filter');
+  assert.equal(await page.locator('.workspace-role-card').count(), 7, 'same-navigation return preserves the all-role filter');
   await page.locator('.app-header').getByRole('button', { name: 'AutoPets 홈으로', exact: true }).click();
   assert.equal(await home.locator('textarea, input').count(), 0, 'returning home never asks the user to re-enter a Codex task');
   await page.locator('.pet-home-find').click();

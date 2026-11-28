@@ -117,11 +117,11 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     await flow.getByText('쓸 Codex 채팅에 붙여넣고 보내세요.', { exact: true }).waitFor();
     const actual = await page.evaluate(() => ({ pet: window.__uiTest.roles.pets[0], prompt: window.__uiTest.clipboard, links: window.__uiTest.state.petLinks, calls: window.__uiTest.calls }));
     assert.deepEqual(actual.pet.template, entry.template); assert.ok(actual.prompt.includes('한글 추가 조건'));
-    assert.equal(actual.prompt.includes('계획만 세워줘'), entry.template.planFirst); assert.equal(actual.links.length, 0);
+    assert.equal(actual.prompt.includes('계획만 세워줘') || actual.prompt.includes('recipe=presentation'), entry.template.planFirst); assert.equal(actual.links.length, 0);
     assert.equal(actual.calls.filter(call => call.name === 'connect_ai').length, 0, 'prepared host skips setup');
     await page.close();
   }
-  checks.push('six roles preserve multiline drafts and pinned methods; plan-first only for page/slides; prepared setup is skipped; copy never connects or executes');
+  checks.push('every catalog role preserves multiline drafts and pinned methods; plan-first only for page/slides; prepared setup is skipped; copy never connects or executes');
   const page = await newPage({ width: 992, height: 688 });
   const initial = structuredClone(base); initial.setup.connections[0].configured = false;
   await mockBridge(page, initial); await page.goto(origin); await openCatalog(page);
@@ -129,7 +129,7 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   const selectWeb = () => chooseRole(page, '웹페이지 만들기');
   const count = name => page.evaluate(name => window.__uiTest.calls.filter(call => call.name === name).length, name);
   const capture = async name => { const file = path.join(screenshotDir, `ux-v2-${name}.png`); await page.screenshot({ path: file, fullPage: true, animations: 'disabled' }); images.push(file); };
-  assert.equal(await page.locator('.workspace-role-card').count(), 6);
+  assert.equal(await page.locator('.workspace-role-card').count(), catalog.length);
   assert.equal(await page.getByRole('button',{name:'펫 고르기',exact:true}).getAttribute('aria-current'),'page');
   assert.deepEqual(await page.locator('.app-header > nav .nav-text').allTextContents(),['펫 고르기','내 작업']);
   assert.equal(await page.locator('.pet-journey').count(), 0);

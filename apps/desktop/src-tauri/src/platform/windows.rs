@@ -130,6 +130,10 @@ pub(crate) fn show_manager(
         let _ = window.unminimize();
         let _ = window.set_focus();
         refresh_pet_visibility(&app);
+        // 복습 도우미 "문제 묶음": the app's batch page.
+        if section.as_deref() == Some("review") {
+            let _ = window.emit("autopets://open-review-batches", serde_json::json!({}));
+        }
         if section.as_deref() == Some("assistance") {
             let _ = window.emit(
                 "autopets://open-assistance",

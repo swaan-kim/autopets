@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum RoleId { ResearchDocument, BuildImplementation, DailyPlan, TravelPlan, StudyHelper, MarketingCopy, Presentation }
+pub enum RoleId { ResearchDocument, BuildImplementation, DailyPlan, TravelPlan, StudyHelper, ReviewHelper, MarketingCopy, Presentation }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Prop { None, Notebook }
@@ -44,12 +44,14 @@ impl Template {
             RoleId::DailyPlan => "autopets-daily-plan",
             RoleId::TravelPlan => "autopets-travel-plan",
             RoleId::StudyHelper => "autopets-study-helper",
+            RoleId::ReviewHelper => "autopets-review-helper",
             RoleId::MarketingCopy => "autopets-marketing-copy",
             RoleId::Presentation => "autopets-presentation",
         };
         let ui_skill = self.id == RoleId::BuildImplementation
             && self.skills == vec![Skill { id: "frontend-design".into(), version: FRONTEND_DESIGN_VERSION.into() }];
-        if !ui_skill && self.skills != vec![Skill { id: expected.into(), version: "1.0.0".into() }] {
+        let presentation_skill = self.id == RoleId::Presentation && self.skills == vec![Skill { id: expected.into(), version: "1.1.0".into() }];
+        if !ui_skill && !presentation_skill && self.skills != vec![Skill { id: expected.into(), version: "1.0.0".into() }] {
             return Err("Unknown role skill or version".into());
         }
         if self.features.figma_design && !ui_skill { return Err("Figma requires the UI pet skill".into()); }

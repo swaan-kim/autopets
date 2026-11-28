@@ -9,6 +9,7 @@
     "feedback:mcp": "node scripts/feedback-mcp.mjs",
     "feedback:pending": "node scripts/feedback-pending.mjs",
     "ui:scope": "node scripts/check-ui-scope.mjs",
+    "ux:check": "node scripts/check-ux-copy.mjs",
     "review:check": "node scripts/check-pull-request.mjs",
     "build": "pnpm --filter @autopets/desktop build",
     "test": "node scripts/run-tests.mjs",

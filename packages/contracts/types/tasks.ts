@@ -37,10 +37,13 @@ export interface Session {
   canOpenTask?: boolean;
 }
 export interface Slot { index: number; sessionId: string | null }
+export interface ReviewSummary { due: number; total: number; batches: number; notifiedToday: boolean; dueByThread?: Record<string, number> }
 export interface Snapshot {
   petLinks?: import('./pet-link').PetLink[];
   petRecommendations?: import('./pet-link').PetRecommendation[];
   codexAttention?: import('./pet-link').CodexAttention[];
+  /** 복습 도우미: today's review count (at most 10), saved cards and batches, and whether today's notice was shown. */
+  review?: ReviewSummary;
   petJobs?: import('./pet-link').PetJob[];
   setup?: import('./setup').SetupState | null;
   sessions: Session[];

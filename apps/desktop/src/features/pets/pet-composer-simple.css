@@ -23,6 +23,14 @@
 .pet-start .composer-task textarea::placeholder { color: #9aa3aa; font-weight: 400; }
 .pet-start-example { min-height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #4f5961; font-size: 13px; cursor: pointer; }
 .pet-start-example:hover:not(:disabled) { background: #f1f3f4; }
+.presentation-options { display: grid; gap: 12px; margin-top: 16px; }
+.presentation-design { color: #606970; font-size: 13px; }
+.presentation-design summary { cursor: pointer; min-height: 36px; padding-block: 8px; }
+.presentation-design[open] { display: grid; gap: 12px; }
+.presentation-design .ui-pet-select input { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #dde1e4; border-radius: 12px; background: #fff; color: #292c31; }
+.presentation-reference { display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; }
+.presentation-reference input { flex: none; margin-top: 4px; accent-color: #292c31; }
+.presentation-design p, .presentation-plan-hint { margin: 0; color: #656b74; font-size: 13px; line-height: 1.6; }
 .pet-start .composer-recommended-request { margin: 0; padding: 14px 16px; border-radius: 12px; background: #f4f6f7; }
 .pet-start .composer-recommended-request small { color: #6f7880; font-size: 12px; }
 .pet-start .composer-recommended-request p { margin: 6px 0 0; color: #252c32; font-size: 15px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -48,11 +56,13 @@
 .pet-start-change { display: grid; gap: 18px; margin-top: 10px; padding: 18px; border: 1px solid #e6e9ec; border-radius: 16px; background: #fbfcfc; }
 .pet-start-change .composer-profile-choice { margin: 0; padding: 0; border: 0; min-width: 0; }
 .pet-start-change .composer-profile-choice legend { margin-bottom: 8px; font-size: 13px; color: #606970; }
-.pet-start-change .composer-profiles > div { display: flex; gap: 8px; }
-.pet-start-change .composer-profiles label { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
-.pet-start-change .composer-profiles label > span { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px; box-sizing: border-box; }
-.pet-start-change .composer-profiles input:checked + span { border-color: #35434d; background: #f0f4f5; }
-.pet-start-change .composer-profiles strong { font-size: 13px; }
+.pet-start .pet-start-host { margin: 14px 0 0; }
+.pet-start .pet-start-host legend { margin-bottom: 6px; font-size: 12px; color: #606970; }
+:is(.pet-start-change .composer-profiles, .pet-start-host.composer-profiles) > div { display: flex; gap: 8px; }
+:is(.pet-start-change .composer-profiles, .pet-start-host.composer-profiles) label { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
+:is(.pet-start-change .composer-profiles, .pet-start-host.composer-profiles) label > span { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px; box-sizing: border-box; }
+:is(.pet-start-change .composer-profiles, .pet-start-host.composer-profiles) input:checked + span { border-color: #35434d; background: #f0f4f5; }
+:is(.pet-start-change .composer-profiles, .pet-start-host.composer-profiles) strong { font-size: 13px; }
 .pet-start .ui-pet-select { display: grid; gap: 8px; font-size: 13px; color: #606970; }
 .pet-start .ui-pet-select select { width: 100%; min-width: 0; min-height: 44px; padding: 9px 12px; border: 1px solid #dde1e4; border-radius: 11px; background: #fff; color: #252c32; font-size: 14px; }
 .pet-start .composer-target-blocker { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: #f1f3f4; color: #515a62; font-size: 13px; line-height: 1.6; }
@@ -79,6 +89,7 @@
 .pet-start .composer-chat-status[data-state="failed"] { background: #fbefee; color: #8a3b33; }
 .pet-start .composer-chat-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff7e8; color: #6b4e16; font-size: 12px; line-height: 1.6; }
 .pet-start .composer-chat-confirm p { flex-basis: 100%; margin: 0; }
+
 /* From the calling chat the extra request is optional, so its field stays small. */
 .pet-start .pet-start-hint + .composer-task textarea { min-height: 72px; }
 .pet-detail-overview { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: #fff; min-width: 0; }
@@ -100,5 +111,6 @@
 @media (max-width: 760px) {
   .pet-start .workspace-detail-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .pet-start :is(.workspace-detail-preview, .workspace-detail-content) { grid-area: auto; }
+  .pet-start[data-role="presentation"] .workspace-detail-content { order: -1; }
   .pet-detail-example-request { max-width: 100%; }
 }

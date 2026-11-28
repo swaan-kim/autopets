@@ -259,7 +259,7 @@ pub(crate) fn open_folder(folder: &std::path::Path) -> Result<(), ()> {
 }
 
 #[cfg(windows)]
-fn shell_open(target: &str) -> Result<(), ()> {
+pub(crate) fn shell_open(target: &str) -> Result<(), ()> {
     use std::ffi::c_void;
     #[link(name = "shell32")]
     extern "system" {
@@ -274,7 +274,7 @@ fn shell_open(target: &str) -> Result<(), ()> {
 }
 
 #[cfg(not(windows))]
-fn shell_open(_target: &str) -> Result<(), ()> { Err(()) }
+pub(crate) fn shell_open(_target: &str) -> Result<(), ()> { Err(()) }
 
 // Export only the app's bundled connector. The UI supplies no bytes or path;
 // host settings and existing downloads are never changed.
