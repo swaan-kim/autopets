@@ -81,7 +81,7 @@ exports.runPetQuickUseChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await composer.getByRole('alert').filter({ hasText: 'Claude 앱을 열지 못했어요' }).waitFor();
   await page.evaluate(() => { window.__uiTest.claudeOpenError = false; });
   await useButton.click();
-  await exportStatus.filter({ hasText: '보내기만 누르세요' }).waitFor();
+  await exportStatus.filter({ hasText: '입력칸의 요청을 확인해 보내 주세요' }).waitFor();
   const opened = await page.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_claude').map(call => call.args));
   assert.equal(opened.length, 2);
   assert.deepEqual(Object.keys(opened[1]).sort(), ['expectedRevision', 'petId'], 'the UI sends only the pet identity, never a URL or prompt');

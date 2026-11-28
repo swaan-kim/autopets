@@ -17,7 +17,7 @@ export async function runClaudeAction(action: ClaudeAction, pet: SavedPet | null
     }
     if (!pet) return '';
     await command('open_pet_in_claude', { petId: pet.id, expectedRevision: pet.revision });
-    return 'Claude 새 대화에 요청을 넣었어요. 모델을 고르고 보내기만 누르세요.';
+    return 'Claude 새 채팅을 열었어요. 모델을 고르고 입력칸의 요청을 확인해 보내 주세요.';
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : '';
     throw Error(/[가-힣]/.test(message) ? message : action === 'install' ? 'Claude 설치 창을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.' : 'Claude 앱을 열지 못했어요. Claude 데스크톱 앱이 설치돼 있는지 확인해 주세요.');

@@ -51,9 +51,8 @@ type Handoff = { petId: string; petRevision: number; previousRuns: string[] };
 type ComposerDraft = { task: string; audience: string; message: string; draft: PetRoleTemplate; saved: SavedPet | null; dirty: boolean;
   prompt: string; copied: boolean; manualCopy: boolean; notice: string; handoff: Handoff | null; reuseTarget: PetLink['target'] | null; newTask: boolean; presentation: PresentationPreferences };
 
-const CODEX_OPENED = 'Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요.';
-// "현재 채팅에서 계속하기": the chat that ran `$autopets` opens with the request typed in; the user sends it.
-const CHAT_FILLED = 'Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요.';
+const CODEX_OPENED = 'Codex 새 채팅을 열었어요. 입력칸의 요청을 확인하고 보내 주세요.';
+const CHAT_OPENED = 'Codex 채팅을 열었어요. 입력칸의 요청을 확인하고 보내 주세요.';
 // Start choices the viewer made last time. UI-only: never chat contents or requests.
 type StartHost = 'codex' | 'claude';
 type StartPrefs = { version: 1; host?: StartHost; profile?: 'light' | 'standard' | 'careful'; codexConnectOk?: boolean; claudeInstallOpened?: boolean };
@@ -299,7 +298,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     if (!chat) throw Error('setup-chat-unavailable');
     if (otherChatSelected && !confirmed) { setConfirmChat(true); return; }
     setConfirmChat(false);
-    setProgress({ steps: ['펫 저장', '채팅에 입력'], done: 0 });
+    setProgress({ steps: ['펫 저장', '채팅 열기'], done: 0 });
     const pet = await save(); step(1);
     const value = uiPetStartPrompt(pet, task, { audience, message, newTask, presentation });
     try { await command('open_pet_in_codex_chat', { petId: pet.id, expectedRevision: pet.revision, prompt: value, threadId: chat.threadId, cwd: chat.cwd }); }
@@ -310,7 +309,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
     }
     setPrompt(value); setManualCopy(false); setCopied(false);
     setHandoff({ petId: pet.id, petRevision: pet.revision, previousRuns: links.filter(link => link.run).map(link => JSON.stringify([link.target, link.run!.id])) });
-    setNotice(CHAT_FILLED);
+    setNotice(CHAT_OPENED);
     step(2);
   });
   // Start in Claude: the connector's own actions. Until its install window was opened once, install first.
@@ -594,7 +593,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
           <p>Codex와 연결할게요. AutoPets 스킬과 읽기 전용 펫 설정을 Codex에 추가해요.</p>
           <div><button className="button secondary" disabled={busy} onClick={confirmConnect}>연결하고 시작</button><button className="text-button" disabled={busy} onClick={() => setPendingChoice(null)}>취소</button></div>
         </div>}
-        {connectBlocked && <div className="composer-feedback" role="alert"><p>Codex 연결이 아직 준비되지 않았어요.</p><button className="text-button" onClick={onConnection}>연결 설정 열기</button></div>}
+        {connectBlocked && <div className="composer-feedback" role="alert"><p>Codex 연결이 아직 준비되지 않았어요. 연결 설정에서 Codex를 확인해 주세요.</p><button className="text-button" onClick={onConnection}>연결 설정 열기</button></div>}
         {isDesktop && setupChat && confirmChat && target && <section className="composer-chat-continue" data-agent-id="pet-selection.composer.continue-chat.status" aria-label="현재 채팅에서 계속하기">
           <div className="composer-chat-confirm" role="alert"><p>선택한 채팅({shortChat(target.target)})이 아니라 Pet을 호출한 채팅({shortChat(setupChat)})에 넣어요. 이 채팅으로 할까요?</p>
             <button className="button secondary" disabled={busy} onClick={() => void startInChat(true)}>이 채팅에 넣기</button><button className="text-button" disabled={busy} onClick={() => setConfirmChat(false)}>취소</button></div>
