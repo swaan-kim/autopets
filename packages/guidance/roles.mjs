@@ -3,7 +3,7 @@ const efforts = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ul
 // Same role → bundled skill pairs as the app's Rust check (domain/roles.rs). A role missing here made
 // every catalog pet except the two original roles fail validation in the role editor and guidance.
 const skills = { 'research-document': 'autopets-research-document', 'build-implementation': 'autopets-build-implementation',
-  'daily-plan': 'autopets-daily-plan', 'travel-plan': 'autopets-travel-plan', 'study-helper': 'autopets-study-helper',
+  'daily-plan': 'autopets-daily-plan', 'travel-plan': 'autopets-travel-plan', 'study-helper': 'autopets-study-helper', 'review-helper': 'autopets-review-helper',
   'marketing-copy': 'autopets-marketing-copy', presentation: 'autopets-presentation' };
 const frontendVersion = '41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f';
 export function rolePrompt(template) {

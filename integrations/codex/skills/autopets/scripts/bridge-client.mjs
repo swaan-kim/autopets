@@ -36,6 +36,8 @@ export async function readConnection(connectionPath) {
   return { token: connection.token, baseUrl: url.origin };
 }
 
+const REVIEW_CODES = new Set(['invalid-review-card', 'invalid-review-batch', 'review-batch-not-found', 'review-cards-full', 'review-card-not-due', 'not-review-pet', 'pet-not-connected', 'pet-target-mismatch', 'invalid-pet-target']);
+
 export async function requestJson(connection, path, body, timeoutMs = 1400, maxResponseBytes = 4096) {
   if (!Number.isInteger(maxResponseBytes) || maxResponseBytes < 1 || maxResponseBytes > 65536) throw new BridgeError('response-limit');
   const encoded = body === undefined ? undefined : JSON.stringify(body);
@@ -58,6 +60,15 @@ export async function requestJson(connection, path, body, timeoutMs = 1400, maxR
         const error = await readResponseObject(response, 4096);
         if (error.error === 'slots-full') code = 'slots-full';
       } catch { /* Malformed, oversized or interrupted errors stay redacted. */ }
+      throw new BridgeError(code, response.status);
+    }
+    // 복습 도우미 cards: only these fixed codes are passed on.
+    if (path === '/v1/review' && [400, 404, 409].includes(response.status)) {
+      let code = 'bridge-rejected';
+      try {
+        const error = await readResponseObject(response, 4096);
+        if (REVIEW_CODES.has(error.error)) code = error.error;
+      } catch { /* Redacted as above. */ }
       throw new BridgeError(code, response.status);
     }
     await response.body?.cancel();

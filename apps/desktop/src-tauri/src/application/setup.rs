@@ -32,6 +32,27 @@ mod tests {
         assert_eq!(state["nextAction"],"send-message");assert_eq!(state["chatConnected"],false);
         let after=store.workflow.preferences().unwrap();assert_eq!(before.revision,after.revision);assert_eq!(before.enabled,after.enabled);
     }
+    #[test]
+    fn an_ai_setup_in_another_chat_preserves_the_original_pet_and_its_saved_link() {
+        use crate::domain::pet_link::{Request, Target};
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().to_string_lossy().to_string();
+        let a = Target { source_id: "codex-windows-local".into(), thread_id: "11111111-1111-4111-8111-111111111111".into(), cwd: cwd.clone() };
+        let b = Target { thread_id: "22222222-2222-4222-8222-222222222222".into(), ..a.clone() };
+        let mut store = Store::new(dir.path()).unwrap();
+        let original = store.pet_link_request(Request::Connect { target: a.clone() }).unwrap().unwrap();
+        let mut input = request(&b.thread_id, &cwd);
+        input.entry_point = Some("ai".into()); input.connection_mode = Some("explicit-pet".into());
+        store.begin_setup(input).unwrap();
+        let kept = store.pet_link_request(Request::Read { target: a.clone() }).unwrap().unwrap();
+        assert_eq!(serde_json::to_value(&kept).unwrap(), serde_json::to_value(&original).unwrap());
+        assert!(store.pet_link_request(Request::Read { target: b }).unwrap().is_none());
+        drop(store);
+        let mut reopened = Store::new(dir.path()).unwrap();
+        let kept = reopened.pet_link_request(Request::Read { target: a }).unwrap().unwrap();
+        assert_eq!(kept.template, original.template); assert_eq!(kept.revision, original.revision);
+        assert_eq!(kept.slot, original.slot);
+    }
     fn request(id: &str, cwd: &str) -> SetupRequest {
         SetupRequest {
             installed_version: env!("CARGO_PKG_VERSION").into(),

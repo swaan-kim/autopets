@@ -28,7 +28,12 @@ export const petPreferenceBundleSources = [
 
 export async function packagePetPreferences({ out = path.join(root, 'release/mcp/AutoPets-pet-preferences.mcpb') } = {}) {
   const sources = petPreferenceBundleSources;
-  const entries = await Promise.all(sources.map(async ([name, file]) => ({ name, data: await fs.readFile(path.join(root, file)) })));
+  const entries = await Promise.all(sources.map(async ([name, file]) => {
+    const data = await fs.readFile(path.join(root, file));
+    // The uncompressed ZIP must fit the app's export limit. Drop JSON indentation, retaining every guide's text and hash.
+    return { name, data: name.startsWith('packages/contracts/data/') && name.endsWith('.json')
+      ? Buffer.from(JSON.stringify(JSON.parse(data))) : data };
+  }));
   const manifest = JSON.parse(entries[0].data);
   if (manifest.server.type !== 'node' || manifest.server.entry_point !== 'server/mcp/main.mjs' || manifest.server.mcp_config.command !== 'node'
     || manifest.compatibility.platforms.join() !== 'win32' || entries.some(entry => /connection\.json|\.sqlite|host-config/u.test(entry.name))) throw Error('Unexpected pet preference package');
