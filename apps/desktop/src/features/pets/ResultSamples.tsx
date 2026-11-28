@@ -70,8 +70,10 @@ const slides = [
 
 function Sample({ kind, detail, title, meta, children }: { kind: string; detail: boolean; title: string; meta: string; children: ReactNode }) {
   const Surface = detail ? 'div' : 'span';
+  const travelCover = kind === 'travel-plan' && !detail;
   return <Surface className="result-sample-art" data-sample-kind={kind} data-sample-view={detail ? 'detail' : 'full'}>
-    <span className="sample-heading">
+    <span className={`sample-heading ${travelCover ? 'sample-travel-cover' : ''}`}>
+      {travelCover && <img className="sample-travel-photo" src="/assets/design-example-v1/gwangalli.webp" alt="해가 떠오르는 광안리 해변" title="Gregory Foster · CC BY 2.0" loading="lazy" />}
       <span className="sample-meta">{meta}</span>
       <strong className="sample-title">{title}</strong>
     </span>
@@ -103,23 +105,30 @@ export function ResultSample({ kind, detail = false }: { kind: string; detail?: 
       const [first, ...next] = day;
       return <Sample {...mode} title="3시간 하루 계획" meta="09:00–12:00">
         <span className="sample-day-plan">
-          <span className="sample-first-task"><small>먼저 할 일</small><strong>{first.task}</strong><small>{first.time} · {first.minutes}분</small></span>
+          <span className="sample-first-task">
+            <small>{first.time} 시작</small>
+            <strong>{first.task}</strong>
+            <span className="sample-focus-time">{first.minutes}<small>분 집중</small></span>
+          </span>
           <span className="sample-next-tasks" role="list">
-            {next.map(item => <span role="listitem" key={item.task}><small>{item.time}</small><strong>{item.task}</strong></span>)}
-            <span role="listitem"><small>사이사이</small><strong>여유 {bufferMinutes}분</strong></span>
+            {next.map(item => <span role="listitem" key={item.task}>
+              <time>{item.time}</time><strong>{item.task}</strong><small>{item.minutes}분</small>
+            </span>)}
+            <span className="sample-buffer" role="listitem"><strong>여유 시간</strong><small>{bufferMinutes}분</small></span>
           </span>
         </span>
       </Sample>;
     }
     case 'travel-plan':
-      return <Sample {...mode} title={detail ? '전포에서 부산역까지' : '부산에서 보내는 1박 2일'} meta={detail ? '둘째 날 · 대중교통' : '첫째 날 · 대중교통'}>
+      return <Sample {...mode} title={detail ? '전포에서 부산역까지' : '부산 1박 2일'} meta={detail ? '둘째 날 · 대중교통' : '첫째 날 · 대중교통'}>
         <span className="sample-route" role="list">
           {(detail ? trip.second : trip.first).map(stop => <span className="sample-stop" role="listitem" key={stop.time}>
-            <span className="sample-stop-time">{stop.time}</span>
+            <time className="sample-stop-time">{stop.time}</time>
             <span className="sample-stop-place"><strong>{stop.title}</strong><small>{stop.note}</small></span>
           </span>)}
         </span>
         <span className="sample-note">{detail ? '열차 시간에 맞춰 마지막 이동을 조정해요.' : '도착 뒤 바다와 전시를 순서대로 둘러봐요.'}</span>
+        {!detail && <small className="sample-photo-credit">광안리 사진 · Gregory Foster · CC BY 2.0</small>}
       </Sample>;
     case 'study-helper':
       if (detail) return <Sample {...mode} title="기회비용 복습" meta="문제 3개 · 눌러서 해설 보기">
@@ -133,16 +142,25 @@ export function ResultSample({ kind, detail = false }: { kind: string; detail?: 
       return <Sample {...mode} title="기회비용" meta="경제 개념 노트">
         <span className="sample-definition">선택 때문에 놓친 <strong>가장 좋은 대안</strong>의 가치예요.</span>
         <span className="sample-study-pair">
-          <span><small>고른 것</small><strong>한 시간 책 읽기</strong></span>
-          <span><small>놓친 것</small><strong>보고 싶던 영화</strong></span>
+          <span>
+            <span className="sample-book" aria-hidden="true" />
+            <span><small>고른 것</small><strong>책 읽기</strong></span>
+          </span>
+          <span>
+            <span className="sample-film" aria-hidden="true" />
+            <span><small>놓친 것</small><strong>영화 보기</strong></span>
+          </span>
         </span>
         <span className="sample-note">이 경우에 놓친 가치는 영화에서 얻었을 즐거움이에요.</span>
       </Sample>;
     case 'marketing-copy':
       if (detail) return <Sample {...mode} title="같은 행사, 다른 제목" meta="제목 후보 3개"><Items items={headlines} /></Sample>;
       return <Sample {...mode} title={headlines[0].title} meta="학생 팀의 학과 행사 안내">
-        <span className="sample-copy">신입생 환영회부터 전공 프로그램까지, 일정과 참가 방법을 한곳에서 무료로 확인하세요.</span>
-        <span className="sample-copy-action"><small>버튼 문구</small><strong>이번 주 행사 보기 <span aria-hidden="true">→</span></strong></span>
+        <span className="sample-copy">신입생 환영회와 전공 체험 일정, 참가 방법을 한곳에서 확인하세요.</span>
+        <span className="sample-copy-action">
+          <span><small>버튼 문구</small><strong>이번 주 행사 보기</strong></span>
+          <span className="sample-copy-arrow" aria-hidden="true">↗</span>
+        </span>
       </Sample>;
     case 'presentation':
       if (detail) return <Sample {...mode} title="신입생에게 소개하는 순서" meta="발표 흐름 · 5장"><Items items={slides} /></Sample>;
@@ -153,7 +171,7 @@ export function ResultSample({ kind, detail = false }: { kind: string; detail?: 
           <span>우리 학과에서 무엇을 배우고, 누구를 만나게 될까요?</span>
           <small className="sample-slide-page">1 / 5</small>
         </span>
-        <img className="sample-slide-photo" src="/assets/design-example-v1/campus-day.webp" alt="" loading="lazy" />
+        <span className="sample-slide-visual" aria-hidden="true" />
       </span>;
     default:
       return null;

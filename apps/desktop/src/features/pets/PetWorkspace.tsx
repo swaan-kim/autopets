@@ -9,6 +9,7 @@ import { ExplicitPet } from './ExplicitPet';
 import { PetCardThumb } from './PetCardThumb';
 import { PetHome } from './PetHome';
 import { PromptIdeaLibrary } from './PromptIdeaLibrary';
+import { PetCustomButton, PetCustomPage, usePetCustom, type PetCustomScreen } from './PetCustom';
 
 export type PetWorkspaceView = 'home' | 'pets' | 'catalog' | 'saved';
 const groupFor = (link: PetLink, disconnected: boolean) => {
@@ -20,14 +21,12 @@ const groupFor = (link: PetLink, disconnected: boolean) => {
 const groups = [['attention', '확인이 필요해요'], ['working', '함께하고 있어요'], ['complete', '최근 결과'], ['ready', '준비된 펫']] as const;
 const categoryNames = { all: '전체', daily: '일상', work: '업무' } as const;
 const upcomingFeatures = [
-  { name: '펫 추가', silhouette: 'M93 110C70 107 55 89 64 69c7-16 30-18 46-3 13-11 29-16 49-16 22 0 39 6 53 19 16-15 37-15 46 0 11 20-5 44-30 49 3 13-1 25-10 34 5 11 11 20 25 21 13 1 17-13 27-9 14 5 1 28-14 34-15 6-32 3-47-5-12 10-29 12-47 8-15 5-36 3-49-4-18 2-32-5-32-18 0-12 10-27 24-36-9-8-14-21-12-33Z' },
-  { name: '펫 꾸미기', silhouette: 'M94 104c-14 1-32-4-36-12-4-8 8-13 27-14l9-24c3-10 11-14 21-12l38 10c11 3 17 12 15 23l-2 9c11 0 21 3 30 9 15-8 31-7 42 3 15 14 12 36-5 47l19 10c6 3 8 10 3 15l-10 10 5 17c3 10-5 14-12 9l-24-16c-15 13-33 17-55 13-17 5-34 3-48-5-17 2-31-4-32-16-2-13 9-29 21-39-7-11-9-24-6-37Z' },
-  { name: '펫 진화', silhouette: 'M86 131c-10-15-13-34-10-54 2-12 5-31 12-33 7-3 16 14 23 29 9-5 19-9 31-10 0-14 5-28 12-29 8-2 14 13 17 27 13 1 26 5 36 12 9-17 22-33 30-30 8 3 10 20 10 34 1 20-5 36-14 50 0 14 8 25 19 28 14 4 25-6 28-19 10 13 8 32-2 44-12 14-33 17-50 11-13 11-29 15-51 11-18 6-38 5-54-3-18 3-35-4-40-17-5-16 2-33 14-47l-11-4Z' },
+  { name: '새로운 펫', silhouette: 'M93 110C70 107 55 89 64 69c7-16 30-18 46-3 13-11 29-16 49-16 22 0 39 6 53 19 16-15 37-15 46 0 11 20-5 44-30 49 3 13-1 25-10 34 5 11 11 20 25 21 13 1 17-13 27-9 14 5 1 28-14 34-15 6-32 3-47-5-12 10-29 12-47 8-15 5-36 3-49-4-18 2-32-5-32-18 0-12 10-27 24-36-9-8-14-21-12-33Z' },
 ];
 
 function UpcomingPetFeatures() {
   return <section className="pet-upcoming" aria-labelledby="pet-upcoming-title" data-agent-id="pet-selection.upcoming">
-    <h2 id="pet-upcoming-title">준비 중인 펫 기능</h2>
+    <h2 id="pet-upcoming-title">추가 펫 미리보기</h2>
     <ul>{upcomingFeatures.map(({ name, silhouette }) =>
       <li key={name}>
         <svg viewBox="0 0 320 236" aria-hidden="true" focusable="false">
@@ -48,7 +47,10 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
 }) {
   const [shelfTab, setShelfTab] = useState<'all' | 'skills' | 'saved'>(view === 'saved' ? 'saved' : 'all');
   const [ideasOpen, setIdeasOpen] = useState(false);
-  useEffect(() => { if (view === 'saved') setShelfTab('saved'); }, [view, navigationRevision]);
+  const [customScreen, setCustomScreen] = useState<PetCustomScreen | null>(null);
+  // A finished run or job changes coins and counts; reload the decoration state when one does.
+  const custom = usePetCustom([...links.map(link => link.run?.state ?? ''), ...jobs.map(job => job.state)].join());
+  useEffect(() => { if (view === 'saved') setShelfTab('saved'); setCustomScreen(null); }, [view, navigationRevision]);
   const favoriteEntries = favorites.map(id => ({ id, entry: allPetCatalog.find(entry => id === `template:${entry.id}`), pet: pets.find(pet => id === `saved:${pet.id}`) }));
   // The detail screen with the start button lives in UiPetStudio, so every entry point shares it.
   const choose = (entry: PetCatalogEntry) => onSelect(entry);
@@ -71,7 +73,8 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
         return items.length ? [<h2 id={`activity-${group}`} key={group}>{label}<span>{items.length}</span></h2>, ...items.map(link => liveCard(link))] : [];
       })}</section> : jobs.length > 0 ? null : <div className="workspace-empty"><p>아직 맡긴 일이 없어요.</p><button className="text-button" onClick={onBrowse}>펫 고르기 →</button></div>}{legacy}
     </>}
-    {catalogVisible && <>
+    {catalogVisible && shelfTab === 'saved' && customScreen && custom.view && <PetCustomPage screen={customScreen} custom={custom} onNavigate={setCustomScreen} />}
+    {catalogVisible && !(shelfTab === 'saved' && customScreen && custom.view) && <>
         <header className="workspace-heading">
           <h1>펫 고르기</h1>
           <div className="workspace-shelf-tabs" data-agent-id="pet-selection.shelf" role="group" aria-label="펫 보관함">
@@ -81,6 +84,7 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
           </div>
         </header>
         {shelfTab === 'skills' ? <ResearchSkills links={disconnected ? [] : links} /> : shelfTab === 'saved' ? <>
+          <PetCustomButton custom={custom} onOpen={() => setCustomScreen('hub')} />
           <section className="pet-favorites workspace-favorites" aria-label="즐겨찾는 펫"><h2>즐겨찾기</h2>{favoriteEntries.length ? shelf(favoriteEntries, 'favorites') : <div className="workspace-empty"><p>마음에 드는 펫에 ☆를 눌러보세요.</p><button className="text-button" onClick={() => setShelfTab('all')}>펫 둘러보기 →</button></div>}</section>
           <section className="workspace-saved"><h2>저장한 구성</h2>{pets.length ? shelf(pets.map(pet => ({ id: `saved:${pet.id}`, pet, entry: undefined })), 'saved') : <p className="workspace-note">저장한 펫이 여기에 보여요.</p>}</section>
         </> : <>
