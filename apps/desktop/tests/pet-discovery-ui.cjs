@@ -8,9 +8,9 @@ exports.runPetDiscoveryChecks = async ({newPage,mockBridge,fixture,origin,screen
  await mockBridge(page,{...structuredClone(fixture),sessions:[],slots:[],petLinks:[],setup:{version:1,connectionMode:'explicit-pet',connections:[{hostId:'codex-windows-local',configured:true}]}});
  await page.addInitScript(template=>{window.__uiTest.roles.pets=[{id:'favorite-standard',revision:2,template:{...template,execution:{model:'gpt-6-sol',reasoning:'low'}}}];},template);
  await page.goto(origin); await openCatalog(page);
- const upcoming = page.getByRole('region', { name: '준비 중인 펫 기능' });
- assert.deepEqual(await upcoming.locator('li strong').allTextContents(), ['펫 추가', '펫 꾸미기', '펫 진화']);
- assert.equal(await upcoming.getByText('준비 중', { exact: true }).count(), 3);
+ const upcoming = page.getByRole('region', { name: '추가 펫 미리보기' });
+ assert.deepEqual(await upcoming.locator('li strong').allTextContents(), ['새로운 펫']);
+ assert.equal(await upcoming.getByText('준비 중', { exact: true }).count(), 1);
  assert.equal(await upcoming.locator('button, a, [tabindex]').count(), 0);
  await page.getByRole('button', { name: '일상', exact: true }).click();
  assert.equal(await upcoming.count(), 0);
