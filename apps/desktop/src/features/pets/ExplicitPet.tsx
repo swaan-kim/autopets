@@ -9,7 +9,7 @@ import { TaskPetArt } from './TaskPetArt';
 import { catalogFor } from './petCatalog';
 import { companionState, companionRunKey } from './companionMotion';
 import { useTaskLabel } from './useTaskLabel';
-import { chatBadge, chatDetail, useCodexChatTitles } from './useCodexChatTitles';
+import { chatTitle, useCodexChatTitles } from './useCodexChatTitles';
 const profiles = { light: '가볍게', standard: '표준', careful: '꼼꼼하게', plan: '계획만' };
 export const unresolvedPetRun = (link: PetLink) => Boolean(link.run && !link.run.trackingClosed && ['requested', 'working', 'returned', 'unknown'].includes(link.run.state));
 export function explicitPetMotion(link: PetLink, disconnected = false): PetMotion {
@@ -51,9 +51,9 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
   const designSkill = link.template.skills.find(skill => skill.id === 'frontend-design');
   const runTemplate = link.run?.template ?? link.template;
   const runFigma = runTemplate.features?.figmaDesign === true;
-  const taskFolder = link.target.cwd.split(/[\\/]/).filter(Boolean).pop() || link.target.cwd;
   const taskLabel = useTaskLabel(link.target);
   const displayLabel = taskLabel.label.trim();
+  const chatName = chatTitle(chatTitles, link.target.threadId)?.trim();
   const nextPrompt = !link.connected || disconnected || unresolved ? '펫 상태 확인' : state === 'waiting' ? '그대로 구현해줘' : link.template.planFirst ? `${link.template.name}으로 다음 작업의 계획만 세워줘. 원하는 결과와 필요한 조건을 먼저 물어보고, 파일 변경 없이 내 구현 요청을 기다려줘.` : `${link.template.name}으로 다음 작업을 도와줘. 먼저 필요한 입력을 물어봐줘.`;
   const copyNext = async () => {
     if (copyPending.current) return;
@@ -80,7 +80,10 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
     {showPet && <div className="explicit-pet-preview"><TaskPetArt entry={catalogFor(link.template)} paused={!active} motion={explicitPetMotion(link, disconnected)} state={companionState(link, disconnected)} runKey={companionRunKey(link)} interactive={active} /></div>}
     <div className="explicit-identity" data-agent-id="task-card.identity">
       <header className="explicit-heading"><strong>{displayLabel || link.template.name}</strong><span>Codex</span></header>
-      <div className="explicit-location">{displayLabel && <p className="explicit-role">{link.template.name}</p>}<p className="card-path" title={link.target.cwd}>{taskFolder}</p><small className="explicit-target" title={chatDetail(link.target)}>{chatBadge(chatTitles, link.target.threadId)}</small></div>
+      {(displayLabel || chatName) && <div className="explicit-location">
+        {displayLabel && <p className="explicit-role">{link.template.name}</p>}
+        {chatName && <small className="explicit-target">{chatName}</small>}
+      </div>}
     </div>
     <div className="explicit-status-panel" data-agent-id="task-card.status" data-state={!active ? 'unconfirmed' : state ?? 'idle'}><p className="explicit-status" role="status"><span className="explicit-status-dot" aria-hidden="true" />{status}</p>{(!compact || !active || !link.enabled || state === 'failed' || state === 'unknown') && <p className="explicit-help">{help}</p>}</div>
     {link.run && ['complete', 'waiting', 'returned'].includes(link.run.state) && !runTemplate.skills.every(expected => link.run!.skillEvidence?.some(skill => skill.id === expected.id && skill.version === expected.version)) && <p className="explicit-help" role="status">결과 도착 · 일하는 방법 확인 필요</p>}
@@ -91,7 +94,7 @@ export function ExplicitPet({ link, disconnected = false, onHide, onNewTask, sho
       {copyNotice && <p className="explicit-copy" role="status">{copyNotice}</p>}{copyText && <label className="explicit-copy-input">Codex에 보낼 문장<textarea readOnly rows={3} value={copyText} onFocus={event => event.currentTarget.select()} /></label>}
     </div></details>}
     <details className="explicit-settings" data-agent-id="task-card.manage"><summary><span>펫 설정과 관리</span><span className="explicit-settings-value">{!link.enabled ? '도움 꺼짐' : profiles[link.profile]}</span></summary><div className="explicit-settings-body">
-      <label>이 PC에서 부를 작업 이름 <input aria-label="작업 이름" maxLength={72} value={taskLabel.label} placeholder={taskFolder} disabled={!taskLabel.ready} onChange={event => taskLabel.setLabel(event.target.value)} /></label>
+      <label>이 PC에서 부를 작업 이름 <input aria-label="작업 이름" maxLength={72} value={taskLabel.label} placeholder={chatName || link.template.name} disabled={!taskLabel.ready} onChange={event => taskLabel.setLabel(event.target.value)} /></label>
       {taskLabel.error && <p role="alert">{taskLabel.error}</p>}
       <label>다음 펫 작업 설정 <select aria-label="다음 펫 작업 설정" value={link.profile} disabled={action.busy || disconnected || unresolved}
         onChange={event => void action.run('set_pet_link_profile', { target: link.target, expectedRevision: link.revision, profile: event.target.value })}>

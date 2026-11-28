@@ -1,0 +1,84 @@
+/* Pet decoration (내 펫 › 진화 / 꾸미기). Colours from the custom5 mock; layout reuses workspace spacing. */
+.pet-custom-entry, .pet-custom-page {
+  --custom-pet-bg: #f6f3ec; --custom-accent: #2f6b4f; --custom-track: #e4e0d6;
+  --custom-locked: #eeeef0; --custom-locked-ink: #8f969c; --custom-coin: #f4b740; --custom-coin-edge: #d99a1f; --custom-short: #b0462f;
+}
+.pet-custom-muted { color: var(--custom-locked-ink); font-size: 12px; }
+.pet-coin { display: inline-block; width: .85em; height: .85em; border-radius: 50%; background: var(--custom-coin); border: 2px solid var(--custom-coin-edge); box-sizing: border-box; vertical-align: -1px; }
+.pet-coin-count { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; color: #3d4247; }
+
+/* The still pet with items. */
+.pet-dressed { position: relative; display: inline-block; flex-shrink: 0; width: var(--pet-dressed-size); height: var(--pet-dressed-size); }
+.pet-dressed-body { position: absolute; inset: 0; background-repeat: no-repeat; }
+.pet-dressed.is-silhouette .pet-dressed-body { filter: brightness(0); opacity: .14; }
+.pet-dressed-background { position: absolute; left: -8%; top: -4%; width: 116%; height: 116%; }
+/* On the pet the lenses are see-through so the eyes still show; the shop icon keeps its white lenses. */
+.pet-dressed-item[data-item=glasses] circle { fill-opacity: .2; }
+.pet-dressed-item { position: absolute; transform: translate(-50%, -50%); display: block; aspect-ratio: 1; pointer-events: none; }
+.pet-dressed-item svg { display: block; width: 100%; height: 100%; }
+
+/* Opener on 내 펫 */
+.pet-custom-open { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 6px 18px 6px 6px; border: 0; border-radius: 16px; background: #f5f5f5; color: inherit; font-size: 14px; }
+.pet-custom-open:hover { background: #efefef; }
+.pet-custom-open .pet-dressed { background: #f6f3ec; border-radius: 12px; }
+
+/* ① 펫 커스텀 */
+.pet-custom-entry { margin-block: 4px 8px; }
+.pet-custom-identity { display: flex; align-items: center; gap: 14px; }
+.pet-custom-identity .pet-dressed { background: var(--custom-pet-bg); border-radius: 18px; }
+.pet-custom-entry .pet-custom-identity h2 { margin: 0 0 2px; font-size: 17px; line-height: 1.3; }
+.pet-custom-identity p { margin: 0; color: #757575; font-size: 13px; }
+.pet-custom-identity .pet-coin-count { margin-left: auto; }
+.pet-custom-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.pet-custom-card { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; padding: 16px 20px; background: #f5f5f5; border: 0; border-radius: 18px; color: inherit; min-height: 150px; }
+.pet-custom-card:hover { background: #efefef; }
+.pet-custom-card strong { font-size: 15px; }
+.pet-custom-progress { display: grid; gap: 6px; width: 100%; font-size: 12px; color: #5f666c; }
+.pet-custom-bar { display: block; height: 8px; border-radius: 99px; background: var(--custom-track); overflow: hidden; }
+.pet-custom-bar > span { display: block; height: 100%; background: var(--custom-accent); border-radius: inherit; }
+.pet-custom-chain { display: flex; align-items: center; gap: 8px; color: var(--custom-locked-ink); }
+.pet-custom-chain .pet-dressed { background: var(--custom-pet-bg); border-radius: 10px; }
+.pet-custom-unknown { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: var(--custom-locked); color: var(--custom-locked-ink); font-weight: 700; }
+.pet-custom-item-chip { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: var(--custom-pet-bg); }
+.pet-custom-item-chip svg { width: 26px; height: 26px; }
+
+/* ②③④ Pages */
+.pet-custom-page { padding-block: 24px 8px; }
+.pet-custom-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
+.pet-custom-showcase { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 18px; background: var(--custom-pet-bg); border-radius: 20px; text-align: center; }
+.pet-custom-page .pet-custom-showcase h2 { margin: 6px 0 0; font-size: 17px; line-height: 1.3; }
+.pet-custom-showcase p { margin: 0; }
+.pet-custom-showcase .pet-custom-progress { margin-top: 10px; }
+.pet-custom-trying { font-size: 12px; font-weight: 700; color: var(--custom-accent); }
+.pet-custom-buy { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; min-height: 40px; padding-inline: 18px; }
+.pet-custom-revert { font-size: 12px; min-height: 32px; }
+.pet-custom-panel h2 { margin: 0 0 12px; font-size: 17px; }
+.pet-custom-panel h3 { margin: 18px 0 10px; font-size: 13px; color: #5f666c; }
+.pet-custom-stages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.pet-custom-stage { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 8px; border-radius: 16px; background: var(--custom-locked); text-align: center; }
+.pet-custom-stage.is-found { background: var(--custom-pet-bg); }
+.pet-custom-stage strong { font-size: 13px; }
+.pet-custom-stage:not(.is-found) strong { color: var(--custom-locked-ink); }
+.pet-custom-stage-art { position: relative; display: grid; place-items: center; }
+.pet-custom-stage-mark { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 800; color: var(--custom-locked-ink); }
+.pet-custom-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pet-custom-toolbar .workspace-shelf-tabs { width: fit-content; }
+.pet-custom-slots { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+.pet-custom-slots button { min-height: 34px; border: 1px solid #e6e9eb; border-radius: 99px; padding: 4px 14px; background: #fff; color: #68737b; font-size: 13px; }
+.pet-custom-slots button[aria-pressed=true] { background: #eef1f3; color: #333d44; border-color: #eef1f3; }
+.pet-custom-items { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.pet-custom-item { position: relative; width: 100%; min-height: 108px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 10px 6px; border: 2px solid transparent; border-radius: 16px; background: var(--custom-pet-bg); color: #3d4247; font-size: 12px; }
+.pet-custom-item svg { width: 40px; height: 40px; }
+.pet-custom-item.is-worn, .pet-custom-item.is-trying { border-color: var(--custom-accent); }
+.pet-custom-worn { font-size: 11px; font-weight: 700; color: var(--custom-accent); }
+.pet-custom-item.is-shop { background: #fff; border: 2px dashed #d9d6cd; color: #7a8086; }
+.pet-custom-item.is-locked { background: var(--custom-locked); color: var(--custom-locked-ink); }
+.pet-custom-price { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.pet-custom-price.is-short { color: var(--custom-short); }
+.pet-custom-earn { display: flex; align-items: center; gap: 6px; margin: 16px 0 0; }
+
+@media (max-width: 860px) {
+  .pet-custom-layout { grid-template-columns: 1fr; }
+  .pet-custom-items { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pet-custom-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
