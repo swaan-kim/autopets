@@ -17,6 +17,15 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
     const cardArtwork = await card.evaluate(artwork);
     assert.ok(cardArtwork, 'the card shows a result example');
     assert.equal(await card.locator('button, details').count(), 0, 'a card preview has no nested controls');
+    if (entry.id === 'travel-plan' || entry.id === 'ui-webpage') {
+      const expected = entry.id === 'travel-plan' ? ['gwangalli.webp'] : ['desktop.webp', 'mobile.webp'];
+      const assets = await card.locator('.result-thumbnail img').evaluateAll(images => Promise.all(images.map(async image => {
+        image.loading = 'eager';
+        await image.decode();
+        return new URL(image.src).pathname.split('/').pop();
+      })));
+      assert.deepEqual(assets, expected, 'the tourism photo and responsive site screens load from bundled examples');
+    }
     await card.click();
     // The card opens one detail screen: preview on the left, the request and one start button on the right.
     const flow = page.locator('.workspace-role-detail.pet-start');

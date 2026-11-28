@@ -47,17 +47,23 @@ export function TaskPetArt({ entry, motion = 'idle', paused = true, small = fals
 }
 type ResultView = 'full' | 'detail' | 'mobile';
 
-function ResultArtwork({ entry, view = 'full' }: { entry: PetCatalogEntry; view?: ResultView }) {
+function ResultArtwork({ entry, view = 'full', compact = false }: { entry: PetCatalogEntry; view?: ResultView; compact?: boolean }) {
   const [failed, setFailed] = useState(false);
+  const [phoneFailed, setPhoneFailed] = useState(false);
   useEffect(() => setFailed(false), [entry.id, view]);
 
   if (entry.id === 'ui-webpage') {
     const file = { full: 'desktop', detail: 'program', mobile: 'mobile' }[view];
     const label = { full: '데스크톱', detail: '프로그램', mobile: '모바일' }[view];
+    const showDevices = compact && !failed && !phoneFailed;
+    const screen = <img src={`/assets/design-example-v1/${file}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />;
+    if (showDevices) return <span className="result-thumbnail sample-web-showcase" role="img" aria-label="가상 학과 행사 웹페이지 · 데스크톱과 모바일 예시">
+      <span className="sample-web-desktop">{screen}</span>
+      <span className="sample-web-phone"><img src="/assets/design-example-v1/mobile.webp" alt="" loading="lazy" onError={() => setPhoneFailed(true)} /></span>
+    </span>;
     return <span className={`result-thumbnail result-thumbnail-web ${view === 'full' ? '' : view}`} role="img"
       aria-label={failed ? '웹페이지 미리보기를 불러오지 못했어요' : `가상 학과 행사 웹페이지 · ${label} 예시`}>
-      {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> :
-        <img src={`/assets/design-example-v1/${file}.webp`} alt="" loading="lazy" onError={() => setFailed(true)} />}
+      {failed ? <span className="result-thumbnail-fallback">미리보기 없음</span> : screen}
     </span>;
   }
 
@@ -85,7 +91,7 @@ export function ResultPreview({ entry, compact = false }: { entry: PetCatalogEnt
   const sections = resultSections[entry.id];
   const format = sections?.format ?? entry.output;
   if (compact) return <span className="role-result-preview visual-result-preview designed-result" data-evidence="design-example">
-    <ResultArtwork entry={entry} />
+    <ResultArtwork entry={entry} compact />
     <span className="result-card-label"><span>{format}</span><small>예시</small></span>
   </span>;
 

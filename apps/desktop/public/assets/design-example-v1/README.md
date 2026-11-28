@@ -20,3 +20,7 @@ Use case: photorealistic-natural. Asset type: local website hero photograph for 
 데스크톱·모바일의 이미지와 로컬 글꼴 로딩, 가로 넘침 없음, 방문 안내 앵커 이동을 확인했습니다. 브라우저 예시는 실제 신청이나 실행을 제공하지 않으며, 실제 AI 시험 턴을 사용하지 않았습니다.
 
 앱의 ‘크게 보기’는 실제 HTML 렌더에서 저장한 캡처를 표시합니다. 네이티브 앱은 CSP의 `frame-src 'none'`을 유지하므로 HTML iframe을 삽입하지 않았습니다. 독립 HTML 파일은 로컬 브라우저에서 열어볼 수 있고, 이 예시를 보기 위해 보안 정책을 변경하지 않습니다.
+
+## 여행 계획 예시의 사진
+
+`gwangalli.webp`는 Gregory Foster의 광안리 일출 사진을 WebP로 변환한 파일입니다. 화면 너비에 맞게 사진의 보이는 영역이 달라집니다. 사진은 [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/)으로 배포됩니다. [Wikimedia Commons 원본과 저작자 정보](https://commons.wikimedia.org/wiki/File:Sunrise_at_Gwangalli_Beach.jpg)

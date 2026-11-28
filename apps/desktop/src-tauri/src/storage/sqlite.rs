@@ -171,6 +171,8 @@ impl Store {
         store.init_task_graph()?;
         store.init_pet_links()?;
         store.init_review()?;
+        // Decoration is optional: a damaged saved value must not stop the app from starting.
+        if let Err(error) = store.init_pet_custom() { eprintln!("pet custom: {error}"); }
         Ok(store)
     }
 
