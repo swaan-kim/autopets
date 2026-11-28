@@ -331,10 +331,10 @@ exports.runUiPetStudioChecks = async ({ newPage, mockBridge, fixture, origin, sc
   await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === true);
   await chatPage.evaluate(() => { window.__uiTest.holdChat = true; });
   await startHere.evaluate(button => { button.click(); button.click(); });
-  await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 …', { exact: true }).waitFor();
+  await chatFlow.getByText('펫 저장 ✓ · 채팅 열기 …', { exact: true }).waitFor();
   await chatPage.evaluate(() => { window.__uiTest.holdChat = false; window.__uiTest.releaseChat(); });
-  await chatFlow.getByText('펫 저장 ✓ · 채팅에 입력 ✓', { exact: true }).waitFor();
-  await chatFlow.getByText('Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요.', { exact: true }).waitFor();
+  await chatFlow.getByText('펫 저장 ✓ · 채팅 열기 ✓', { exact: true }).waitFor();
+  await chatFlow.getByText('Codex 채팅을 열었어요. 입력칸의 요청을 확인하고 보내 주세요.', { exact: true }).waitFor();
   // The pet now works in Codex: minimizing Codex focuses this screen, which must not hide the working pet.
   await chatPage.waitForFunction(() => window.__uiTest.onboardingActive === false);
   const typed = await chatPage.evaluate(() => window.__uiTest.calls.filter(call => call.name === 'open_pet_in_codex_chat').map(call => call.args));
