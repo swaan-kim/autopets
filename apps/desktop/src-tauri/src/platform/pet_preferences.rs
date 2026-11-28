@@ -130,6 +130,47 @@ fn hub() -> &'static serde_json::Value {
     HUB.get_or_init(|| serde_json::from_str(include_str!("../../../../../packages/contracts/data/skill-hub.json")).unwrap_or_default())
 }
 
+const INTERVIEW_RESOURCE: &str = "packages/guidance/vendor/anthropic-product-management/skills/synthesize-research/SKILL.md";
+const INTERVIEW_SHA256: &str = "ae98c11102545c911a1ea5d8527be0e08a3db8e53327f2865f0db19bbb2d7e9c";
+
+// Read the reviewed file in place. The bridge accepts neither a skill path nor prompt text.
+#[tauri::command]
+pub(crate) fn open_interview_in_codex(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    store: tauri::State<crate::application::store::SharedStore>,
+    target: Option<crate::domain::pet_link::Target>,
+    expected_revision: Option<u64>,
+) -> Result<(), String> {
+    super::connection_setup::require_manager(window.label())?;
+    let root = app.path().resource_dir().map_err(|_| "설치 위치를 확인할 수 없어요.")?.join("connector");
+    let guide = super::connection_setup::verify_resource(&root, INTERVIEW_RESOURCE, INTERVIEW_SHA256)
+        .map_err(|_| "이 설치본에서 인터뷰 스킬 원본을 확인할 수 없어요. 스킬이 포함된 설치본이 필요해요.")?;
+    let destination = match (target, expected_revision) {
+        (None, None) => "codex://threads/new".to_string(),
+        (Some(target), Some(revision)) => {
+            let current = store.lock().map_err(|_| "연결 상태를 확인할 수 없어요.")?;
+            let uri = super::task_return::pet_task_uri(&current, &target, revision)
+                .map_err(|_| "채팅 연결이 바뀌었어요. 사용할 채팅을 다시 선택해 주세요.")?;
+            let link = current.pet_links.get(&target.key()).ok_or("연결된 채팅을 다시 선택해 주세요.")?;
+            if !link.connected || !link.enabled || link.run.as_ref().is_some_and(|run| run.unresolved()) {
+                return Err("이 채팅의 현재 작업을 확인한 뒤 다시 선택해 주세요.".into());
+            }
+            uri
+        }
+        _ => return Err("사용할 채팅을 다시 선택해 주세요.".into()),
+    };
+    let uri = interview_uri(&destination, dunce::simplified(&guide))?;
+    shell_open(&uri).map_err(|_| "Codex를 열지 못했어요. Windows Codex 설치 상태를 확인해 주세요.".into())
+}
+
+fn interview_uri(destination: &str, guide: &Path) -> Result<String, String> {
+    let prompt = format!("다음 스킬 원본을 읽어 주세요. 파일을 읽지 못하면 알려 주세요.\n{}\n이 채팅에 제공한 인터뷰만 사용해 개선 우선순위, 참여자별 근거 발언, 반대 사례를 정리해 주세요. 인터뷰 자료나 결정할 질문이 없으면 먼저 요청해 주세요.", guide.display());
+    let uri = format!("{destination}?prompt={}", percent_encode(&prompt));
+    if uri.len() > MAX_LAUNCH_URI { return Err("스킬 위치가 너무 길어 Codex 요청을 준비할 수 없어요.".into()); }
+    Ok(uri)
+}
+
 fn https_address(value: &str) -> bool {
     value.starts_with("https://") && !value.chars().any(|c| c.is_control() || c.is_whitespace())
 }
@@ -264,6 +305,19 @@ fn export(bytes: &[u8], downloads: &Path) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interview_request_points_to_the_reviewed_local_file_and_preserves_the_chat() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let guide = super::super::connection_setup::verify_resource(&root, INTERVIEW_RESOURCE, INTERVIEW_SHA256).unwrap();
+        assert!(guide.ends_with("synthesize-research/SKILL.md"));
+        let target = "codex://threads/11111111-2222-4333-8444-555555555555";
+        let uri = interview_uri(target, Path::new("C:/검수 폴더/a&b/SKILL.md")).unwrap();
+        assert!(uri.starts_with(&format!("{target}?prompt=")));
+        assert!(uri.contains("a%26b%2FSKILL.md"));
+        assert!(!uri.contains(' '));
+        assert!(interview_uri(target, Path::new(&"a".repeat(MAX_LAUNCH_URI))).is_err());
+    }
 
     #[test]
     fn export_preserves_existing_downloads_and_rejects_an_asset_fallback() {

@@ -21,6 +21,9 @@ fn verified_file(root: &Path, manifest: &serde_json::Value, relative: &str) -> R
     let expected = manifest["files"].as_array().and_then(|files|
         files.iter().find(|item| item["path"] == relative)).and_then(|item| item["sha256"].as_str())
         .ok_or("설치 파일 확인에 실패했습니다. 같은 버전의 설치기로 복구해 주세요.")?;
+    verify_resource(root, relative, expected)
+}
+pub(super) fn verify_resource(root: &Path, relative: &str, expected: &str) -> Result<PathBuf, String> {
     let file = root.join(relative);
     let metadata = std::fs::symlink_metadata(&file).map_err(|_| "연결 도구가 없습니다. 설치기로 복구해 주세요.")?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {

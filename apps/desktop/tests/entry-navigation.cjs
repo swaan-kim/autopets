@@ -19,7 +19,7 @@ const chooseRole = async (page, name) => {
   const card = page.getByRole('button', { name: `${name} 펫 선택`, exact: true });
   if (!await card.isVisible()) {
     await openCatalog(page);
-    const all = page.getByRole('button', { name: '둘러보기', exact: true });
+    const all = page.getByRole('button', { name: '펫 둘러보기', exact: true });
     await all.click();
     await page.getByRole('button', { name: '전체', exact: true }).waitFor();
     if (!await card.isVisible()) await page.getByRole('button', { name: '전체', exact: true }).click();

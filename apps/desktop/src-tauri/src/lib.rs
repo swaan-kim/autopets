@@ -64,6 +64,7 @@ pub fn run() {
             platform::review_chat::mark_review_notice,
             platform::pet_preferences::open_pet_in_claude_code,
             platform::pet_preferences::start_hub_entry,
+            platform::pet_preferences::open_interview_in_codex,
             platform::claude_code::connect_claude_code,
             platform::claude_code::disconnect_claude_code,
             platform::updater::check_app_update,
