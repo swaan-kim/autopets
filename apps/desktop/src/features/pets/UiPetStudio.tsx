@@ -561,6 +561,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
         <section className="pet-detail-limit" data-agent-id="pet-selection.detail.requirements" aria-label="사용 안내">
           <p>{entry.limit}</p>
         </section>
+        {!setupChat && !target && <fieldset className="composer-profile-choice composer-profiles pet-start-host" data-agent-id="pet-selection.composer.host" disabled={busy}><legend>시작할 곳</legend><div>{([['codex', 'Codex'], ['claude', 'Claude']] as const).map(([id, label]) => <label key={id}><input type="radio" name="pet-start-host" aria-label={label} checked={host === id} onChange={() => { updatePrefs({ host: id }); setProgress(null); setPendingChoice(null); }} /><span><strong>{label}</strong></span></label>)}</div></fieldset>}
         <div className="composer-action pet-start-action" data-agent-id="pet-selection.composer.action" data-next={startMode}>
           {startMode === 'apply' && confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
             : busy && progress ? <p className="pet-start-progress" role="status">{progressLine}</p>
@@ -568,7 +569,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
         </div>
         {!busy && progress && <p className="pet-start-progress" data-complete={progress.done === progress.steps.length}>{progressLine}</p>}
         {pendingChoice === 'host' && <div className="pet-start-choice" role="group" aria-label="어디서 시작할까요?">
-          <p><strong>어디서 시작할까요?</strong> 고르면 기억하고 다음부터는 묻지 않아요.</p>
+          <p><strong>어디서 시작할까요?</strong> 고른 곳을 기억해요. 위의 ‘시작할 곳’에서 언제든 바꿀 수 있어요.</p>
           <div><button className="button secondary" disabled={busy} onClick={() => chooseHost('codex')}>Codex</button><button className="button secondary" disabled={busy} onClick={() => chooseHost('claude')}>Claude</button></div>
           <small>Codex를 고르면 AutoPets 스킬과 읽기 전용 펫 설정을 Codex에 연결해요.</small>
         </div>}
@@ -588,7 +589,6 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
         <div className="pet-start-summary"><span title={whereChat ? chatDetail(whereChat) : undefined}>{where} · {executionProfile?.label ?? '설정 확인'}</span>
           <button className="text-button" data-agent-id="pet-selection.composer.change" aria-expanded={changeOpen} disabled={busy} onClick={() => setChangeOpen(value => !value)}>시작 설정 <span aria-hidden="true">{changeOpen ? '⌃' : '⌄'}</span></button></div>
         {changeOpen && <section className="pet-start-change composer-settings" data-agent-id="pet-selection.composer.details" aria-label="시작 설정">
-          {!setupChat && <fieldset className="composer-profile-choice composer-profiles" disabled={busy}><legend>시작할 곳</legend><div>{([['codex', 'Codex'], ['claude', 'Claude']] as const).map(([id, label]) => <label key={id}><input type="radio" name="pet-start-host" aria-label={label} checked={host === id} onChange={() => { updatePrefs({ host: id }); setProgress(null); setPendingChoice(null); }} /><span><strong>{label}</strong></span></label>)}</div></fieldset>}
           {startMode === 'claude' && <PetPreferencesConnector compact pet={savedReady ? saved : null} />}
           <fieldset className="composer-profile-choice composer-profiles" disabled={busy} data-agent-id="pet-selection.composer.profile"><legend>도움 방식</legend><div>{executionProfiles.map(profile => <label key={profile.id}><input type="radio" name="ui-pet-execution-profile" aria-label={profile.label} checked={executionProfile?.id === profile.id} onChange={() => { editDraft({ ...draft, execution: { model: profile.model, reasoning: profile.reasoning } }); updatePrefs({ profile: profile.id }); setProgress(null); }} /><span><strong>{profile.label}</strong></span></label>)}</div></fieldset>
           {links.length > 0 && startMode !== 'claude' && <section className="composer-target" data-agent-id="pet-selection.composer.target" aria-label="펫을 사용할 채팅">
