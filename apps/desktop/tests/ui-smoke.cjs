@@ -22,6 +22,7 @@ const { runCompanionChecks } = require('./companion-ui.cjs');
 const { runFirstSuccessChecks } = require('./first-success-ui.cjs');
 const { runVisualSimplicityChecks } = require('./visual-simplicity-ui.cjs');
 const { runPromptIdeaChecks } = require('./prompt-ideas-ui.cjs');
+const { runPresentationChecks } = require('./presentation-ui.cjs');
 const roleTemplates = require('../../../packages/contracts/data/roles.json');
 const petCustomConfig = require('../../../packages/contracts/data/pet-custom.json');
 const { runPetCustomChecks } = require('./pet-custom-ui.cjs');
@@ -333,6 +334,10 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     return page;
   };
   try {
+    if (process.env.AUTOPETS_UI_PRESENTATION_ONLY === '1') {
+      const screenshots = await runPresentationChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
+      assert.deepEqual(errors, []); console.log(JSON.stringify({ fixtureOnly: true, screenshots, checks, pageErrors: errors }, null, 2)); return;
+    }
     if (process.env.AUTOPETS_UI_QUICK_USE_ONLY === '1') {
       const screenshots = await runPetQuickUseChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
       assert.deepEqual(errors, []);
@@ -773,6 +778,7 @@ async function mockBridge(page, initial, initialAssistance = assistanceFixture, 
     const graphScreenshots = await runTaskGraphChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks });
     await closeFixturePages();
     graphScreenshots.push(...await runCompanionChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
+    graphScreenshots.push(...await runPresentationChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await closeFixturePages();
     graphScreenshots.push(...await runPetLinkChecks({ newPage, mockBridge, fixture, origin, screenshotDir: path.dirname(screenshot), checks }));
     await runPetAttentionChecks({ newPage, mockBridge, fixture, origin, checks });

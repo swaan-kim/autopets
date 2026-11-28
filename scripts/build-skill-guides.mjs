@@ -15,15 +15,19 @@ export const GUIDE_FILE = 'packages/contracts/data/skill-guides.json';
 
 export function buildSkillGuides() {
   const registry = JSON.parse(fs.readFileSync(path.join(skills, 'skill-sources.json'), 'utf8'));
-  const guides = registry.skills.map(entry => {
-    const raw = fs.readFileSync(path.join(skills, entry.id, 'SKILL.md'));
+  const pins = JSON.parse(fs.readFileSync(path.join(skills, 'versions/skill-pins.json'), 'utf8'));
+  const current = new Set(registry.skills.map(entry => `${entry.id}/${entry.version}`));
+  const entries = [...registry.skills, ...pins.skills.filter(entry => !current.has(`${entry.id}/${entry.version}`))];
+  const guides = entries.map(entry => {
+    const directory = current.has(`${entry.id}/${entry.version}`) ? path.join(skills, entry.id) : path.join(skills, 'versions', entry.id, entry.version);
+    const raw = fs.readFileSync(path.join(directory, 'SKILL.md'));
     const text = entry.integrity === 'utf8-lf' ? raw.toString('utf8').replaceAll('\r\n', '\n') : raw.toString('utf8');
     // The stored string must hash to the registered value by itself, without the original file.
     if (sha(Buffer.from(text, 'utf8')) !== entry.sha256) throw Error(`skill-integrity: ${entry.id}`);
     const guide = { id: entry.id, version: entry.version, publisher: entry.publisher, sha256: entry.sha256 };
     if (entry.source) guide.source = entry.source;
     if (entry.license) {
-      const license = fs.readFileSync(path.join(skills, entry.id, entry.license.file));
+      const license = fs.readFileSync(path.join(directory, entry.license.file));
       if (sha(license) !== entry.license.sha256) throw Error(`skill-license-integrity: ${entry.id}`);
       guide.license = { spdx: entry.license.spdx, text: license.toString('utf8') };
     }

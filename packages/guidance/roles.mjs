@@ -14,7 +14,8 @@ export function rolePrompt(template) {
     && Object.keys(references[0]).every(key => ['id', 'version'].includes(key));
   const uiSkill = singleSkill && template.id === 'build-implementation'
     && references[0].id === 'frontend-design' && references[0].version === frontendVersion;
-  const knownSkill = singleSkill && (uiSkill || references[0].id === skills[template.id] && references[0].version === '1.0.0');
+  const knownSkill = singleSkill && (uiSkill || references[0].id === skills[template.id]
+    && (references[0].version === '1.0.0' || template.id === 'presentation' && references[0].version === '1.1.0'));
   const features = template?.features;
   const validFeatures = features === undefined || features && typeof features === 'object' && !Array.isArray(features)
     && Object.keys(features).every(key => key === 'figmaDesign')
