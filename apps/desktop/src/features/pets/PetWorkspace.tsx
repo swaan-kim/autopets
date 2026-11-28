@@ -20,6 +20,24 @@ const groupFor = (link: PetLink, disconnected: boolean) => {
 };
 const groups = [['attention', '확인이 필요해요'], ['working', '함께하고 있어요'], ['complete', '최근 결과'], ['ready', '준비된 펫']] as const;
 const categoryNames = { all: '전체', daily: '일상', work: '업무' } as const;
+const upcomingFeatures = [
+  { name: '새로운 펫', silhouette: 'M93 110C70 107 55 89 64 69c7-16 30-18 46-3 13-11 29-16 49-16 22 0 39 6 53 19 16-15 37-15 46 0 11 20-5 44-30 49 3 13-1 25-10 34 5 11 11 20 25 21 13 1 17-13 27-9 14 5 1 28-14 34-15 6-32 3-47-5-12 10-29 12-47 8-15 5-36 3-49-4-18 2-32-5-32-18 0-12 10-27 24-36-9-8-14-21-12-33Z' },
+];
+
+function UpcomingPetFeatures() {
+  return <section className="pet-upcoming" aria-labelledby="pet-upcoming-title" data-agent-id="pet-selection.upcoming">
+    <h2 id="pet-upcoming-title">추가 펫 미리보기</h2>
+    <ul>{upcomingFeatures.map(({ name, silhouette }) =>
+      <li key={name}>
+        <svg viewBox="0 0 320 236" aria-hidden="true" focusable="false">
+          <path d={silhouette} fill="currentColor" />
+          <text x="160" y="150" textAnchor="middle">?</text>
+        </svg>
+        <div><strong>{name}</strong><small>준비 중</small></div>
+      </li>
+    )}</ul>
+  </section>;
+}
 
 export function PetWorkspace({ view, navigationRevision = 0, active, category, onCategory, links, disconnected, legacy, pets, favorites, onFavorite, onSelect, onSaved, onNewTask, onBrowse, error, jobs = [] }: {
   view: PetWorkspaceView; active: boolean; category: 'all' | 'daily' | 'work'; onCategory: (value: 'all' | 'daily' | 'work') => void;
@@ -95,6 +113,7 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
               ))}
             </div>
           </section>
+          {category === 'all' && <UpcomingPetFeatures />}
           <section className="workspace-resources" aria-label="더 둘러보기">
             <details className="pet-disclosure">
               <summary>함께 쓰는 AI 도구</summary>
