@@ -561,7 +561,7 @@ export function UiPetStudio({ links, jobs = [], recommendations = [], recommenda
         <section className="pet-detail-limit" data-agent-id="pet-selection.detail.requirements" aria-label="사용 안내">
           <p>{entry.limit}</p>
         </section>
-        {!setupChat && <fieldset className="composer-profile-choice composer-profiles pet-start-host" data-agent-id="pet-selection.composer.host" disabled={busy}><legend>시작할 곳</legend><div>{([['codex', 'Codex'], ['claude', 'Claude']] as const).map(([id, label]) => <label key={id}><input type="radio" name="pet-start-host" aria-label={label} checked={host === id} onChange={() => { updatePrefs({ host: id }); setProgress(null); setPendingChoice(null); }} /><span><strong>{label}</strong></span></label>)}</div></fieldset>}
+        {!setupChat && !target && <fieldset className="composer-profile-choice composer-profiles pet-start-host" data-agent-id="pet-selection.composer.host" disabled={busy}><legend>시작할 곳</legend><div>{([['codex', 'Codex'], ['claude', 'Claude']] as const).map(([id, label]) => <label key={id}><input type="radio" name="pet-start-host" aria-label={label} checked={host === id} onChange={() => { updatePrefs({ host: id }); setProgress(null); setPendingChoice(null); }} /><span><strong>{label}</strong></span></label>)}</div></fieldset>}
         <div className="composer-action pet-start-action" data-agent-id="pet-selection.composer.action" data-next={startMode}>
           {startMode === 'apply' && confirmedTarget ? <section className="composer-applied" data-agent-id="pet-selection.composer.applied" aria-label="펫 적용 확인"><PetTaskReturn link={confirmedTarget} disconnected={disconnected} /></section>
             : busy && progress ? <p className="pet-start-progress" role="status">{progressLine}</p>
