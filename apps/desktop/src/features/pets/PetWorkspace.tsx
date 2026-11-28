@@ -9,6 +9,7 @@ import { ExplicitPet } from './ExplicitPet';
 import { PetCardThumb } from './PetCardThumb';
 import { PetHome } from './PetHome';
 import { PromptIdeaLibrary } from './PromptIdeaLibrary';
+import { PetCustomButton, PetCustomPage, usePetCustom, type PetCustomScreen } from './PetCustom';
 
 export type PetWorkspaceView = 'home' | 'pets' | 'catalog' | 'saved';
 const groupFor = (link: PetLink, disconnected: boolean) => {
@@ -48,7 +49,10 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
 }) {
   const [shelfTab, setShelfTab] = useState<'all' | 'saved'>(view === 'saved' ? 'saved' : 'all');
   const [ideasOpen, setIdeasOpen] = useState(false);
-  useEffect(() => { if (view === 'saved') setShelfTab('saved'); }, [view, navigationRevision]);
+  const [customScreen, setCustomScreen] = useState<PetCustomScreen | null>(null);
+  // A finished run or job changes coins and counts; reload the decoration state when one does.
+  const custom = usePetCustom([...links.map(link => link.run?.state ?? ''), ...jobs.map(job => job.state)].join());
+  useEffect(() => { if (view === 'saved') setShelfTab('saved'); setCustomScreen(null); }, [view, navigationRevision]);
   const favoriteEntries = favorites.map(id => ({ id, entry: allPetCatalog.find(entry => id === `template:${entry.id}`), pet: pets.find(pet => id === `saved:${pet.id}`) }));
   // The detail screen with the start button lives in UiPetStudio, so every entry point shares it.
   const choose = (entry: PetCatalogEntry) => onSelect(entry);
@@ -71,7 +75,8 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
         return items.length ? [<h2 id={`activity-${group}`} key={group}>{label}<span>{items.length}</span></h2>, ...items.map(link => liveCard(link))] : [];
       })}</section> : jobs.length > 0 ? null : <div className="workspace-empty"><p>아직 맡긴 일이 없어요.</p><button className="text-button" onClick={onBrowse}>펫 고르기 →</button></div>}{legacy}
     </>}
-    {catalogVisible && <>
+    {catalogVisible && shelfTab === 'saved' && customScreen && custom.view && <PetCustomPage screen={customScreen} custom={custom} onNavigate={setCustomScreen} />}
+    {catalogVisible && !(shelfTab === 'saved' && customScreen && custom.view) && <>
         <header className="workspace-heading">
           <h1>펫 고르기</h1>
           <div className="workspace-shelf-tabs" data-agent-id="pet-selection.shelf" role="group" aria-label="펫 보관함">
@@ -80,6 +85,7 @@ export function PetWorkspace({ view, navigationRevision = 0, active, category, o
           </div>
         </header>
         {shelfTab === 'saved' ? <>
+          <PetCustomButton custom={custom} onOpen={() => setCustomScreen('hub')} />
           <section className="pet-favorites workspace-favorites" aria-label="즐겨찾는 펫"><h2>즐겨찾기</h2>{favoriteEntries.length ? shelf(favoriteEntries, 'favorites') : <div className="workspace-empty"><p>마음에 드는 펫에 ☆를 눌러보세요.</p><button className="text-button" onClick={() => setShelfTab('all')}>펫 둘러보기 →</button></div>}</section>
           <section className="workspace-saved"><h2>저장한 구성</h2>{pets.length ? shelf(pets.map(pet => ({ id: `saved:${pet.id}`, pet, entry: undefined })), 'saved') : <p className="workspace-note">저장한 펫이 여기에 보여요.</p>}</section>
         </> : <>
