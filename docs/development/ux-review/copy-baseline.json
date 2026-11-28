@@ -1,0 +1,334 @@
+{
+ "version": 1,
+ "about": "기존 화면 문구에서 이미 알려진 점검 결과. 새로 생긴 것만 실패로 알리기 위한 기준선이에요. 고치면 줄어들고, 줄이는 것만 갱신해요(pnpm ux:check --update-baseline).",
+ "entries": [
+  {
+   "file": "apps/desktop/src/bridge/command.ts",
+   "rule": "formal",
+   "text": "Windows 데스크톱 앱에서 사용할 수 있습니다."
+  },
+  {
+   "file": "apps/desktop/src/features/intro/IntroStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "확정한 스타일만 저장했어요. 원문과 대화 내용은 포함되지 않아요."
+  },
+  {
+   "file": "apps/desktop/src/features/intro/IntroStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "대화 전체 대신 필요한 부분만 붙여넣어주세요."
+  },
+  {
+   "file": "apps/desktop/src/features/intro/IntroStudio.tsx",
+   "rule": "long",
+   "text": "요청 문구를 복사해 위에서 선택한 채팅에 붙여넣고, 이미지 생성이 가능한 도구로 만들어주세요."
+  },
+  {
+   "file": "apps/desktop/src/features/intro/IntroStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "현재 확정 버전의 스타일만 저장해요. 문구·원문·대화는 저장 스타일에 포함되지 않아요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/ConnectionGuide.tsx",
+   "rule": "jargon",
+   "word": "지침",
+   "text": "펫을 연결한 뒤 앱에서 선택·적용해요. 역할 지침이나 설정을 붙여넣을 필요가 없어요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/ConnectionGuide.tsx",
+   "rule": "jargon",
+   "word": "훅",
+   "text": "펫 호출에는 새 훅 허용이 필요하지 않아요. 기존 훅 설정은 변경하지 않아요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/PetPreferencesConnector.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "Claude 새 대화에 요청을 넣었어요. 모델을 고르고 보내기만 누르세요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/PetPreferencesConnector.tsx",
+   "rule": "terms",
+   "word": "누르세요",
+   "text": "Claude 새 대화에 요청을 넣었어요. 모델을 고르고 보내기만 누르세요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/PetPreferencesConnector.tsx",
+   "rule": "jargon",
+   "word": "세션",
+   "text": "연결했어요. 새로 여는 Claude Code 세션부터 펫이 움직여요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/PetPreferencesConnector.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "를 누르면 그 펫을 부르는 요청이 담긴 새 대화가 열려요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/PetPreferencesConnector.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "펫 설정 읽기만 연결해요. 대화 공유·스킬 실행·모델 변경은 하지 않아요."
+  },
+  {
+   "file": "apps/desktop/src/features/onboarding/PetPreferencesConnector.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "작업 시작·도구 사용·권한 요청·완료 상태만 펫에 전해요. 대화 내용과 파일 내용은 보내지 않아요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/ExplicitPet.tsx",
+   "rule": "jargon",
+   "word": "훅",
+   "text": "채팅에서 직접 맡긴 펫 작업만 표시해요. 훅 자동화는 사용하지 않아요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PetDockHandle.tsx",
+   "rule": "terms",
+   "word": "클릭",
+   "text": ": ''} · 클릭하면 다시 나타나요"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PetOverlay.tsx",
+   "rule": "terms",
+   "word": "클릭",
+   "text": "클릭하면 작업 카드, 끌면 이동"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PetOverlay.tsx",
+   "rule": "jargon",
+   "word": "지침",
+   "text": "계획 지침 준비됨"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PetRecommendation.tsx",
+   "rule": "long",
+   "text": "앱에서 펫 설정을 이어가세요. ‘직접 요청’에서 시작 요청을 복사해 같은 Codex 채팅에 보내면 펫이 연결되고 이 요청을 진행해요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PetStartCard.tsx",
+   "rule": "terms",
+   "word": "누르세요",
+   "text": "○에 넣었어요. 보내기만 누르세요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PromptArtwork.tsx",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "이 프롬프트로 AI 제작한 정적 결과 예시"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PromptIdeaLibrary.tsx",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "이 이미지를 만든 프롬프트"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PromptIdeaLibrary.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "마음에 드는 구도를 골라 펫에 담고, 쓰던 대화에서 구체화해요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PromptIdeaLibrary.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "이 방향을 펫 설정에 담고, 쓰던 대화에서 원하는 장면을 알려주세요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PromptIdeaLibrary.tsx",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "원본 영상과 프롬프트 ↗"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/PromptIdeaLibrary.tsx",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "외부 제작자의 공개 AI 영상이에요. 위 한국어 요청은 장면을 바꾸기 위한 예시이며 원문 프롬프트와 달라요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/ResultSamples.tsx",
+   "rule": "long",
+   "text": "학생이 행사 일정과 참가 방법을 바로 찾을 수 있도록 제목, 소개글과 버튼 문구를 만들었어요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "누르세요",
+   "text": "Codex 새 대화에 요청을 넣었어요. 보내기만 누르세요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "누르세요",
+   "text": "Codex 채팅 입력창에 요청을 넣었어요. 보내기만 누르세요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "새 대화 열림"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "Claude 새 대화 열림"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "○ 설치한 뒤 다시 시작을 누르면 새 대화가 열려요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "새 대화로 시작"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "펫 설정을 연결한 뒤 Claude 새 대화에서 일을 맡겨 주세요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "이미지 프롬프트 만들기"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "영상 프롬프트 만들기"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "생성 도구에 쓸 프롬프트와 입력 조건"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "장면·구도·빛·움직임을 짧은 프롬프트로 정리해요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "이 펫은 프롬프트를 정리해요. 이미지·영상 생성 도구 연결과 실제 결과는 따로 확인해요."
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "이미지 프롬프트 펫"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "영상 프롬프트 펫"
+  },
+  {
+   "file": "apps/desktop/src/features/pets/promptIdeas.ts",
+   "rule": "jargon",
+   "word": "프롬프트",
+   "text": "사용자가 원하는 ○의 장면과 구도를 생성 도구에 쓸 프롬프트로 정리하세요. 주인공·배경·빛○을 구체적으로 쓰세요. 실제 생성하지 않았다면 생성 완료나 결과 보장을 주장하지 마세요. 도구별 입력 조건은 확인한 것만 안내하세요. 사용자의 현재 요청을 저장한 예시보다 우선하세요."
+  },
+  {
+   "file": "apps/desktop/src/features/settings/ConnectionDataPanel.tsx",
+   "rule": "terms",
+   "word": "대화",
+   "text": "작업 메모와 계획만 초기화해요. 펫 연결·실행 기록과 Codex 대화는 남아요."
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskDetails.tsx",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "마지막 관측"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskDetails.tsx",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "이번 작업 관측 시간"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskDetails.tsx",
+   "rule": "jargon",
+   "word": "토큰",
+   "text": "토큰 사용량"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskGraph.tsx",
+   "rule": "long",
+   "text": "읽어온 프로젝트·부모 관계예요. 계정과 현재 실행 환경은 미확인이며, 진행 상태는 별도로 전달된 활동이 있을 때만 표시해요."
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskGraph.tsx",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "관계 관측"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskList.tsx",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "마지막으로 관측한 활동 기준"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/TaskList.tsx",
+   "rule": "jargon",
+   "word": "훅",
+   "text": "훅을 연결한 Codex에서 활동이 전달되면 여기에 나타나요."
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/ToolActivity.tsx",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "도구 활동을 관측했어요"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/ToolActivity.tsx",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "관측된 도구 실행"
+  },
+  {
+   "file": "apps/desktop/src/features/tasks/presentation.ts",
+   "rule": "jargon",
+   "word": "관측",
+   "text": "마지막 관측 이후 상태를 확인할 수 없어요."
+  },
+  {
+   "file": "apps/desktop/src/features/workflow/ManualWorkflowGuide.tsx",
+   "rule": "long",
+   "text": "사용 중인 Codex가 제공하는 /plan · /model · /reasoning 메뉴에서 모드·모델·추론 수준을 직접 확인하세요."
+  },
+  {
+   "file": "apps/desktop/src/features/workflow/presentation.ts",
+   "rule": "formal",
+   "text": "확인한 계획의 조건과 완료 기준을 유지해서 진행해주세요. 실행 후보는 ○ · ○입니다. 모델과 추론 설정은 제가 채팅에서 직접 확인하겠습니다."
+  },
+  {
+   "file": "apps/desktop/src/study/CampaignStudy.tsx",
+   "rule": "long",
+   "text": "[사용성 시제품 — 실제 실행용 요청이 아닙니다] 새 요청: ○ 일하는 방법: frontend-design 계획 예시: Luna / low 제작 예시: Sol / low 계획을 먼저 보고 사용자의 구현 요청을 기다리는 흐름입니다. 이 텍스트는 화면 이해도 확인용입니다. 실제 채팅에 전송하지 마세요."
+  }
+ ]
+}
