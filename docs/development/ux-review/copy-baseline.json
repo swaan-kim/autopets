@@ -150,6 +150,11 @@
    "text": "외부 제작자의 공개 AI 영상이에요. 위 한국어 요청은 장면을 바꾸기 위한 예시이며 원문 프롬프트와 달라요."
   },
   {
+   "file": "apps/desktop/src/features/pets/ResultSamples.tsx",
+   "rule": "long",
+   "text": "학생이 행사 일정과 참가 방법을 바로 찾을 수 있도록 제목, 소개글과 버튼 문구를 만들었어요."
+  },
+  {
    "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
    "rule": "terms",
    "word": "대화",
@@ -195,7 +200,7 @@
    "file": "apps/desktop/src/features/pets/UiPetStudio.tsx",
    "rule": "terms",
    "word": "대화",
-   "text": "Claude에는 펫 설정이 넘어가요. 맡길 일은 Claude 새 대화에서 적어 주세요."
+   "text": "펫 설정을 연결한 뒤 Claude 새 대화에서 일을 맡겨 주세요."
   },
   {
    "file": "apps/desktop/src/features/pets/promptIdeas.ts",

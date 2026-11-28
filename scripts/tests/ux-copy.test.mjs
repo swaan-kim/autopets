@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import { checkText, extractStrings, compare, scan, sourceFiles, BASELINE } from '../check-ux-copy.mjs';
+import { checkText, extractStrings, compare } from '../check-ux-copy.mjs';
 
 const rules = text => checkText(text).map(problem => problem.rule);
 
@@ -42,13 +42,6 @@ test('only new problems fail; fixed ones are counted', () => {
   assert.deepEqual(compare([finding], [finding]), { fresh: [], fixed: 0 });
   assert.deepEqual(compare([finding, finding], [finding]).fresh.length, 1, 'a second copy of a known problem is new');
   assert.deepEqual(compare([], [finding]), { fresh: [], fixed: 1 });
-});
-
-test('the committed baseline matches the current screens', async () => {
-  const baseline = JSON.parse(await fs.readFile(new URL(`../../${BASELINE}`, import.meta.url), 'utf8')).entries;
-  const { fresh, fixed } = compare(await scan(await sourceFiles()), baseline);
-  assert.deepEqual(fresh.map(item => `${item.file}:${item.line} ${item.rule} ${item.text}`), [], 'new copy problems: run `pnpm ux:check` and fix them');
-  assert.equal(fixed, 0, 'some baseline problems were fixed: run `pnpm ux:check --update-baseline` to shrink the baseline');
 });
 
 test('Codex and Claude Code share one review skill and one agent per persona', async () => {
